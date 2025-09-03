@@ -1,97 +1,78 @@
-# Custom Forms - Markdown to Beautiful Forms
+# Custom Forms - Next.js Application
 
-Transform markdown files into beautiful, responsive forms with unique URLs for collecting responses from multiple users.
+A beautiful form builder that transforms markdown files into shareable forms with unique URLs.
 
 ## Features
 
-- **Markdown-based Form Creation**: Upload `.md` files or paste markdown content to instantly generate forms
-- **Beautiful UI**: Modern, responsive design with gradient styling and smooth animations
-- **Unique URLs**: Each form gets a custom shareable URL for response collection
-- **Real-time Analytics**: Track responses, view statistics, and export data
-- **Multi-section Forms**: Support for complex forms with progress tracking
-- **Field Types**: Text, textarea, email, number, date, select, radio, checkbox
-- **Response Management**: View, analyze, and export responses as CSV
-- **Form Dashboard**: Manage all your forms from a central location
+- **Upload Markdown Files**: Create forms from `.md` files
+- **Beautiful Aloa-Inspired Design**: Modern black and cream aesthetic
+- **Unique URLs**: Each form gets a shareable URL
+- **Response Collection**: Store and manage form submissions
+- **CSV Export**: Export responses for analysis
+- **Dashboard**: Central management for all forms
+- **Field Types**: Text, email, number, textarea, select, radio, checkbox, date, time, file, tel, url
 
 ## Tech Stack
 
-- **Frontend**: React, Vite, Tailwind CSS, React Router, React Hook Form
-- **Backend**: Node.js, Express, MongoDB, Mongoose
-- **File Upload**: Multer
-- **Styling**: Tailwind CSS with custom gradients
+- **Framework**: Next.js 14 (App Router)
+- **Styling**: Tailwind CSS with custom Aloa color scheme
+- **Database**: MongoDB with Mongoose
+- **Deployment**: Optimized for Vercel
+- **UI Components**: React Hook Form, React Dropzone
 - **Icons**: Lucide React
 
 ## Prerequisites
 
-- Node.js (v16 or higher)
-- MongoDB (running locally or MongoDB Atlas)
-- npm or yarn
+- Node.js 18+
+- MongoDB (local or cloud instance)
 
-## Installation
+## Local Development
 
-1. Clone the repository:
+### 1. Clone the Repository
+
 ```bash
 git clone <repository-url>
 cd custom-forms
 ```
 
-2. Install dependencies:
+### 2. Install Dependencies
+
 ```bash
 npm install
-cd backend && npm install
-cd ../frontend && npm install
-cd ..
 ```
 
-Or use the convenience script:
+### 3. Set Up Environment Variables
+
 ```bash
-npm run install:all
+cp .env.example .env.local
 ```
 
-3. Set up environment variables:
-
-Create/edit `backend/.env`:
+Edit `.env.local` and add your MongoDB connection string:
 ```env
-PORT=5000
 MONGODB_URI=mongodb://localhost:27017/custom-forms
-CLIENT_URL=http://localhost:5173
 ```
 
-4. Start MongoDB:
-```bash
-# If using local MongoDB
-mongod
-```
+### 4. Run Development Server
 
-5. Run the application:
 ```bash
-# Development mode (runs both frontend and backend)
 npm run dev
-
-# Or run separately:
-# Backend
-cd backend && npm run dev
-
-# Frontend (in another terminal)
-cd frontend && npm run dev
 ```
 
-The application will be available at:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:5000
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ## Markdown Format
 
-Create forms using this simple markdown syntax:
+Create forms using this markdown structure:
 
 ```markdown
 # Form Title
-Optional description text
+Description of your form
 
-## Section: Section Name
-Optional section description
-
-- type* | field_name | Label | Placeholder (optional)
+## Field Label *
+Type: text|email|number|textarea|select|radio|checkbox|date|time|tel|url|file
+Placeholder: Optional placeholder text
+Min: 10 (optional - min value or min length)
+Max: 100 (optional - max value or max length)
   - Option 1 (for select/radio/checkbox)
   - Option 2
   - Option 3
@@ -100,132 +81,163 @@ Optional section description
 ### Field Types
 
 - `text` - Single line text input
-- `textarea` - Multi-line text area
 - `email` - Email input with validation
 - `number` - Numeric input
-- `date` - Date picker
+- `tel` - Phone number input
+- `url` - URL input
+- `textarea` - Multi-line text area
 - `select` - Dropdown selection
 - `radio` - Radio buttons (single choice)
 - `checkbox` - Checkboxes (multiple choices)
+- `date` - Date picker
+- `time` - Time picker
+- `file` - File upload
 
-Add `*` after the type to make a field required.
+Add `*` after the field label to make it required.
 
 ### Example Form
 
 ```markdown
-# Customer Feedback Survey
-We value your opinion!
+# Contact Form
+Please fill out this form to get in touch.
 
-## Section: Personal Information
-- text* | name | Your Full Name
-- email* | email | Email Address
-- text | company | Company Name
+## Name *
+Type: text
+Placeholder: Your full name
 
-## Section: Service Rating
-- radio* | satisfaction | Overall Satisfaction
-  - Very Satisfied
-  - Satisfied
-  - Neutral
-  - Dissatisfied
-  - Very Dissatisfied
+## Email *
+Type: email
+Placeholder: your@email.com
 
-- textarea* | comments | Additional Comments | Share your thoughts...
+## Phone
+Type: tel
+Placeholder: (555) 123-4567
 
-## Section: Interests
-- checkbox | topics | Topics of Interest
-  - Product Updates
-  - Newsletters
-  - Special Offers
-  - Events
+## Subject *
+Type: select
+  - General Inquiry
+  - Support Request
+  - Partnership
+  - Other
+
+## Message *
+Type: textarea
+Placeholder: Your message here...
+Min: 10
+Max: 500
+
+## Preferred Contact Method *
+Type: radio
+  - Email
+  - Phone
+  - Either
+
+## Subscribe to Newsletter
+Type: checkbox
+  - Yes, I want to receive updates
 ```
 
-## Usage
+## Deployment to Vercel
 
-1. **Create a Form**:
-   - Navigate to `/create`
-   - Upload a `.md` file or paste markdown content
-   - Click "Create Form"
-   - Copy the generated URL
+### 1. Prepare for Deployment
 
-2. **Share the Form**:
-   - Share the unique URL with respondents
-   - Forms are accessible without authentication
-   - Responses are collected automatically
+```bash
+git add .
+git commit -m "Deploy to Vercel"
+git push origin main
+```
 
-3. **View Responses**:
-   - Go to Dashboard (`/dashboard`)
-   - Click on the chart icon next to your form
-   - View individual responses or analytics
-   - Export data as CSV
+### 2. Set Up MongoDB Atlas
 
-## API Endpoints
+1. Create a free cluster at [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
+2. Create a database user with password
+3. Configure network access:
+   - For development: Add your IP address
+   - For production: Add `0.0.0.0/0` to allow access from anywhere
+4. Get your connection string (should look like: `mongodb+srv://username:password@cluster.mongodb.net/database-name`)
 
-### Forms
-- `POST /api/forms/upload` - Upload markdown file to create form
-- `POST /api/forms/create` - Create form from markdown text
-- `GET /api/forms/public/:urlId` - Get public form for responses
-- `GET /api/forms` - Get all forms (admin)
-- `GET /api/forms/:id` - Get form details with stats
-- `PATCH /api/forms/:id` - Update form settings
-- `DELETE /api/forms/:id` - Delete form
+### 3. Deploy on Vercel
 
-### Responses
-- `POST /api/responses/submit/:urlId` - Submit form response
-- `GET /api/responses/form/:formId` - Get form responses
-- `GET /api/responses/stats/:formId` - Get response statistics
-- `DELETE /api/responses/:id` - Delete response
+1. Go to [vercel.com](https://vercel.com) and sign in with GitHub
+2. Click "New Project" and import your repository
+3. Configure project:
+   - Framework Preset: Next.js
+   - Root Directory: ./
+4. Add environment variables:
+   - Name: `MONGODB_URI`
+   - Value: Your MongoDB Atlas connection string
+5. Click "Deploy"
+
+### 4. Verify Deployment
+
+Once deployed, Vercel will provide you with a URL. Visit the URL to ensure:
+- The home page loads
+- You can create forms
+- Forms can be submitted
+- Responses are stored in MongoDB
 
 ## Project Structure
 
 ```
 custom-forms/
-├── backend/
-│   ├── src/
-│   │   ├── models/         # MongoDB models
-│   │   ├── routes/         # API routes
-│   │   ├── utils/          # Utility functions
-│   │   └── server.js       # Express server
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── pages/          # Page components
-│   │   ├── utils/          # API utilities
-│   │   └── App.jsx         # Main app component
-│   └── package.json
-└── package.json            # Root package.json for workspaces
+├── app/
+│   ├── api/              # API routes
+│   │   ├── forms/        # Form endpoints
+│   │   └── responses/    # Response endpoints
+│   ├── create/           # Form creation page
+│   ├── dashboard/        # Dashboard page
+│   ├── forms/            # Form display pages
+│   ├── responses/        # Response viewing pages
+│   ├── globals.css       # Global styles
+│   ├── layout.js         # Root layout
+│   └── page.js           # Home page
+├── lib/
+│   ├── models/           # MongoDB models
+│   ├── mongodb.js        # Database connection
+│   └── markdownParser.js # Markdown parsing
+├── public/               # Static assets
+├── .env.example          # Environment variables template
+├── next.config.js        # Next.js configuration
+├── package.json          # Dependencies
+├── tailwind.config.js    # Tailwind configuration
+└── vercel.json           # Vercel configuration
 ```
 
-## Development
+## API Routes
 
-### Add New Field Types
+### Forms
+- `POST /api/forms/upload` - Upload markdown file to create form
+- `GET /api/forms` - Get all forms with response counts
+- `GET /api/forms/[urlId]` - Get form by URL ID
+- `GET /api/forms/by-id/[formId]` - Get form by database ID
+- `DELETE /api/forms/[formId]` - Delete form and its responses
 
-1. Update the markdown parser in `backend/src/utils/markdownParser.js`
-2. Add the field type to the Form model schema
-3. Implement the field rendering in `frontend/src/pages/FormPage.jsx`
+### Responses
+- `POST /api/responses` - Submit form response
+- `GET /api/responses?formId=[id]` - Get responses for a form
 
-### Customize Styling
+## Environment Variables
 
-Edit the Tailwind configuration in `frontend/tailwind.config.js` or modify the component styles directly.
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `MONGODB_URI` | MongoDB connection string | `mongodb+srv://user:pass@cluster.mongodb.net/db` |
 
-## Production Deployment
+## Troubleshooting
 
-1. Build the frontend:
-```bash
-cd frontend && npm run build
-```
+### MongoDB Connection Issues
+- Ensure IP whitelist includes `0.0.0.0/0` for Vercel
+- Verify username and password are correct
+- Check that database name is included in connection string
 
-2. Set production environment variables:
-```env
-NODE_ENV=production
-MONGODB_URI=<production-mongodb-url>
-CLIENT_URL=<production-frontend-url>
-```
+### Form Not Found
+- Verify the URL ID is correct
+- Check MongoDB connection is working
+- Ensure form was created successfully
 
-3. Start the backend server:
-```bash
-cd backend && npm start
-```
+### Vercel Deployment Fails
+- Check build logs for errors
+- Verify all dependencies are in package.json
+- Ensure environment variables are set correctly
 
 ## License
 

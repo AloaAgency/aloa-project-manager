@@ -1,12 +1,5 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist",
-  "installCommand": "npm install",
-  "framework": "vite",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  "env": {
+    "MONGODB_URI": "@mongodb-uri"
+  }
 }

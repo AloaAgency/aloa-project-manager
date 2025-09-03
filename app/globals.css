@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  
+  body {
+    @apply bg-aloa-cream text-aloa-black;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-aloa-black text-aloa-cream px-8 py-4 rounded-none font-medium 
+           hover:bg-opacity-90 transition-all duration-300 uppercase tracking-wider
+           shadow-lg hover:shadow-xl transform hover:-translate-y-0.5;
+  }
+  
+  .btn-secondary {
+    @apply bg-transparent text-aloa-black px-8 py-4 rounded-none 
+           border-2 border-aloa-black font-medium hover:bg-aloa-black 
+           hover:text-aloa-cream transition-all duration-300 uppercase tracking-wider;
+  }
+  
+  .form-input {
+    @apply w-full px-6 py-4 bg-aloa-white border-2 border-aloa-black rounded-none
+           focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 
+           focus:ring-offset-aloa-cream transition-all duration-200
+           placeholder:text-aloa-gray text-aloa-black;
+  }
+  
+  .form-label {
+    @apply text-sm font-medium text-aloa-black uppercase tracking-wider mb-2 block;
+  }
+  
+  .card {
+    @apply bg-aloa-white p-8 shadow-xl border-2 border-aloa-black;
+  }
+}
