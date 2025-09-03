@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased font-body bg-aloa-cream text-aloa-black;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    letter-spacing: -0.011em;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .form-input {
+    @apply w-full px-4 py-3 bg-aloa-white border border-aloa-black/10 rounded-none focus:border-aloa-black focus:outline-none transition-all;
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium text-aloa-black mb-2 tracking-wide uppercase;
+  }
+  
+  .btn-primary {
+    @apply px-8 py-4 bg-aloa-black text-aloa-cream font-medium transition-all hover:bg-aloa-black/90 uppercase tracking-wider text-sm;
+  }
+  
+  .btn-secondary {
+    @apply px-8 py-4 bg-transparent border border-aloa-black text-aloa-black font-medium hover:bg-aloa-black hover:text-aloa-cream transition-all uppercase tracking-wider text-sm;
+  }
+  
+  .glass-effect {
+    @apply bg-aloa-white/80 backdrop-blur-lg;
+  }
+  
+  .text-gradient {
+    @apply bg-gradient-to-r from-aloa-black to-aloa-gray bg-clip-text text-transparent;
+  }
+}
