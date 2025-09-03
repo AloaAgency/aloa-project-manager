@@ -48,8 +48,8 @@ export default function FormPage() {
   return (
     <div className="min-h-screen bg-gradient-subtle py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <div className="card overflow-hidden">
-          <div className="bg-aloa-black text-aloa-cream px-4 sm:px-8 py-4 sm:py-6 -m-8 mb-8 rounded-t-xl border-0">
+        <div className="bg-aloa-white shadow-xl overflow-hidden">
+          <div className="bg-aloa-black text-aloa-cream px-4 sm:px-8 py-4 sm:py-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
               <h1 className="text-lg sm:text-2xl md:text-3xl font-display font-bold uppercase tracking-wide sm:tracking-wider break-words">Form Submission</h1>
               <button
@@ -64,7 +64,9 @@ export default function FormPage() {
               </button>
             </div>
           </div>
-          <MultiStepFormRenderer form={form} />
+          <div className="p-6 sm:p-8">
+            <MultiStepFormRenderer form={form} />
+          </div>
         </div>
       </div>
     </div>
