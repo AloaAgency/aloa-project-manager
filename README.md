@@ -16,7 +16,7 @@ A beautiful form builder that transforms markdown files into shareable forms wit
 
 - **Framework**: Next.js 14 (App Router)
 - **Styling**: Tailwind CSS with custom Aloa color scheme
-- **Database**: MongoDB with Mongoose
+- **Database**: Supabase (PostgreSQL)
 - **Deployment**: Optimized for Vercel
 - **UI Components**: React Hook Form, React Dropzone
 - **Icons**: Lucide React
@@ -24,7 +24,7 @@ A beautiful form builder that transforms markdown files into shareable forms wit
 ## Prerequisites
 
 - Node.js 18+
-- MongoDB (local or cloud instance)
+- Supabase account (free tier available)
 
 ## Local Development
 
@@ -47,9 +47,10 @@ npm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and add your MongoDB connection string:
+Edit `.env.local` and add your Supabase credentials:
 ```env
-MONGODB_URI=mongodb://localhost:27017/custom-forms
+NEXT_PUBLIC_SUPABASE_URL=your-project-url.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 ### 4. Run Development Server
@@ -147,14 +148,12 @@ git commit -m "Deploy to Vercel"
 git push origin main
 ```
 
-### 2. Set Up MongoDB Atlas
+### 2. Set Up Supabase
 
-1. Create a free cluster at [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
-2. Create a database user with password
-3. Configure network access:
-   - For development: Add your IP address
-   - For production: Add `0.0.0.0/0` to allow access from anywhere
-4. Get your connection string (should look like: `mongodb+srv://username:password@cluster.mongodb.net/database-name`)
+1. Create a free project at [supabase.com](https://supabase.com)
+2. Go to SQL Editor in your Supabase dashboard
+3. Run the SQL from `supabase-schema.sql` file to create tables
+4. Get your project URL and anon key from Settings → API
 
 ### 3. Deploy on Vercel
 
@@ -164,8 +163,8 @@ git push origin main
    - Framework Preset: Next.js
    - Root Directory: ./
 4. Add environment variables:
-   - Name: `MONGODB_URI`
-   - Value: Your MongoDB Atlas connection string
+   - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon key
 5. Click "Deploy"
 
 ### 4. Verify Deployment
@@ -192,8 +191,7 @@ custom-forms/
 │   ├── layout.js         # Root layout
 │   └── page.js           # Home page
 ├── lib/
-│   ├── models/           # MongoDB models
-│   ├── mongodb.js        # Database connection
+│   ├── supabase.js        # Supabase client
 │   └── markdownParser.js # Markdown parsing
 ├── public/               # Static assets
 ├── .env.example          # Environment variables template
@@ -220,14 +218,15 @@ custom-forms/
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `MONGODB_URI` | MongoDB connection string | `mongodb+srv://user:pass@cluster.mongodb.net/db` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | `https://abc123.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | `eyJhbGc...` |
 
 ## Troubleshooting
 
-### MongoDB Connection Issues
-- Ensure IP whitelist includes `0.0.0.0/0` for Vercel
-- Verify username and password are correct
-- Check that database name is included in connection string
+### Supabase Connection Issues
+- Ensure you've run the SQL schema in your Supabase project
+- Verify the project URL and anon key are correct
+- Check that Row Level Security policies are properly configured
 
 ### Form Not Found
 - Verify the URL ID is correct
