@@ -278,6 +278,8 @@ export default function MultiStepFormRenderer({ form }) {
         e.preventDefault();
         if (currentSection === sectionNames.length - 1) {
           handleSubmit(e);
+        } else {
+          handleNext(e);
         }
       }}>
         <AnimatePresence mode="wait">
@@ -328,8 +330,7 @@ export default function MultiStepFormRenderer({ form }) {
             </Button>
           ) : (
             <Button
-              type="button"
-              onClick={handleNext}
+              type="submit"
               className="flex items-center gap-2"
             >
               Next
