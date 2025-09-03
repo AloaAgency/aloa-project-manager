@@ -49,16 +49,16 @@ export default function FormPage() {
     <div className="min-h-screen bg-gradient-subtle py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="card">
-          <div className="bg-aloa-black text-aloa-cream px-6 sm:px-8 py-6 -m-8 mb-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <h1 className="text-2xl sm:text-3xl font-display font-bold uppercase tracking-wider">Form Submission</h1>
+          <div className="bg-aloa-black text-aloa-cream px-4 sm:px-8 py-4 sm:py-6 -m-8 mb-8 rounded-t-xl">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+              <h1 className="text-lg sm:text-2xl md:text-3xl font-display font-bold uppercase tracking-wide sm:tracking-wider break-words">Form Submission</h1>
               <button
                 onClick={() => {
                   const url = window.location.href;
                   navigator.clipboard.writeText(url);
                   toast.success('URL copied to clipboard!');
                 }}
-                className="text-aloa-cream/80 hover:text-aloa-cream transition-colors text-sm font-display uppercase tracking-wider"
+                className="text-aloa-cream/80 hover:text-aloa-cream transition-colors text-xs sm:text-sm font-display uppercase tracking-wider whitespace-nowrap"
               >
                 Copy Link
               </button>

@@ -14,7 +14,7 @@ export default function HomePage() {
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold text-aloa-black mb-6 tracking-tight leading-tight">
               ALOA CUSTOM<br className="sm:hidden" /> FORM MAKER
             </h1>
-            <p className="text-lg sm:text-xl md:text-2xl text-aloa-gray max-w-3xl mx-auto mb-8 sm:mb-12 font-body px-4">
+            <p className="text-lg sm:text-xl md:text-2xl text-aloa-black/80 max-w-3xl mx-auto mb-8 sm:mb-12 font-body px-4 font-medium">
               Transform your markdown files into beautiful, shareable forms with unique URLs
             </p>
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center px-4">
@@ -44,7 +44,7 @@ export default function HomePage() {
             <h3 className="text-xl font-display font-bold text-aloa-black mb-3 uppercase tracking-wider">
               Upload Markdown
             </h3>
-            <p className="text-aloa-gray font-body">
+            <p className="text-aloa-black/70 font-body">
               Simply upload your markdown file with form structure
             </p>
           </div>
@@ -56,7 +56,7 @@ export default function HomePage() {
             <h3 className="text-xl font-display font-bold text-aloa-black mb-3 uppercase tracking-wider">
               Auto-Generate
             </h3>
-            <p className="text-aloa-gray font-body">
+            <p className="text-aloa-black/70 font-body">
               Beautiful forms are automatically created from your markdown
             </p>
           </div>
@@ -68,7 +68,7 @@ export default function HomePage() {
             <h3 className="text-xl font-display font-bold text-aloa-black mb-3 uppercase tracking-wider">
               Share URL
             </h3>
-            <p className="text-aloa-gray font-body">
+            <p className="text-aloa-black/70 font-body">
               Get a unique URL to share your form with anyone
             </p>
           </div>
@@ -80,7 +80,7 @@ export default function HomePage() {
             <h3 className="text-xl font-display font-bold text-aloa-black mb-3 uppercase tracking-wider">
               Collect Data
             </h3>
-            <p className="text-aloa-gray font-body">
+            <p className="text-aloa-black/70 font-body">
               All responses are stored and accessible in your dashboard
             </p>
           </div>
@@ -92,7 +92,7 @@ export default function HomePage() {
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-aloa-black mb-6 sm:mb-8">
             Markdown-Powered Forms
           </h2>
-          <p className="text-base sm:text-lg text-aloa-gray mb-8 sm:mb-12 font-body max-w-2xl mx-auto px-4">
+          <p className="text-base sm:text-lg text-aloa-black/70 mb-8 sm:mb-12 font-body max-w-2xl mx-auto px-4 font-medium">
             Use our simple markdown syntax to define form fields, validation rules, and more. 
             Your markdown becomes a fully functional form in seconds.
           </p>
