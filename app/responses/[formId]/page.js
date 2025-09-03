@@ -48,20 +48,35 @@ export default function ResponsesPage() {
       return;
     }
 
-    const headers = form.fields.map(f => f.label).join(',');
+    // Create proper CSV with escaped values
+    const escapeCSV = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const headers = ['Submitted At', ...form.fields.map(f => f.label)].map(escapeCSV).join(',');
     const rows = responses.map(response => {
-      return form.fields.map(field => {
-        const value = response.data.get(field.name) || '';
+      const submittedAt = formatDate(response.submittedAt);
+      const values = [submittedAt, ...form.fields.map(field => {
+        // Handle both Map and plain object data structures
+        const value = response.data instanceof Map ? 
+          response.data.get(field.name) : 
+          response.data[field.name] || '';
         return Array.isArray(value) ? value.join('; ') : value;
-      }).join(',');
+      })];
+      return values.map(escapeCSV).join(',');
     });
 
-    const csv = [headers, ...rows].join('\\n');
+    const csv = [headers, ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${form.title.toLowerCase().replace(/\\s+/g, '-')}-responses.csv`;
+    a.download = `${form.title.toLowerCase().replace(/\s+/g, '-')}-responses.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Exported to CSV');
@@ -162,13 +177,16 @@ export default function ResponsesPage() {
                   <div className="mt-6 pt-6 border-t-2 border-aloa-sand">
                     <div className="space-y-4">
                       {form.fields.map((field) => {
-                        const value = response.data.get(field.name);
+                        // Handle both Map and plain object data structures
+                        const value = response.data instanceof Map ? 
+                          response.data.get(field.name) : 
+                          response.data[field.name];
                         if (!value || (Array.isArray(value) && value.length === 0)) {
                           return null;
                         }
                         
                         return (
-                          <div key={field._id}>
+                          <div key={field._id || field.id}>
                             <p className="text-sm font-display uppercase tracking-wider text-aloa-gray mb-1">
                               {field.label}
                             </p>
