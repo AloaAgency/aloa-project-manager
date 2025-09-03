@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
-import { Loader2 } from 'lucide-react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 export default function FormPage() {
@@ -35,11 +35,8 @@ export default function FormPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading form...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <LoadingSpinner message="Loading form..." />
       </div>
     );
   }
@@ -49,19 +46,19 @@ export default function FormPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-subtle py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <h1 className="text-white text-2xl font-bold">Form Submission</h1>
+        <div className="card">
+          <div className="bg-aloa-black text-aloa-cream px-6 sm:px-8 py-6 -m-8 mb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <h1 className="text-2xl sm:text-3xl font-display font-bold uppercase tracking-wider">Form Submission</h1>
               <button
                 onClick={() => {
                   const url = window.location.href;
                   navigator.clipboard.writeText(url);
                   toast.success('URL copied to clipboard!');
                 }}
-                className="text-white/80 hover:text-white transition-colors text-sm"
+                className="text-aloa-cream/80 hover:text-aloa-cream transition-colors text-sm font-display uppercase tracking-wider"
               >
                 Copy Link
               </button>

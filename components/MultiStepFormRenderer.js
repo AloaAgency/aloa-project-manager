@@ -124,20 +124,20 @@ export default function MultiStepFormRenderer({ form }) {
       case 'select':
         return (
           <Select.Root value={formData[field.name] || ''} onValueChange={(value) => setFormData({ ...formData, [field.name]: value })}>
-            <Select.Trigger className="flex h-11 w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-2 text-base hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            <Select.Trigger className="flex h-12 w-full items-center justify-between bg-aloa-white border-2 border-aloa-black px-4 py-3 text-base hover:shadow-md focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 focus:ring-offset-aloa-cream transition-all duration-200">
               <Select.Value placeholder={field.placeholder || 'Select an option'} />
               <Select.Icon className="ml-2">
                 <ChevronRight className="h-4 w-4 rotate-90" />
               </Select.Icon>
             </Select.Trigger>
             <Select.Portal>
-              <Select.Content className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+              <Select.Content className="overflow-hidden bg-aloa-white border-2 border-aloa-black shadow-xl">
                 <Select.Viewport className="p-1">
                   {field.options?.map((option) => (
                     <Select.Item
                       key={option}
                       value={option}
-                      className="relative flex cursor-pointer select-none items-center rounded-md px-8 py-2 text-base hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                      className="relative flex cursor-pointer select-none items-center px-8 py-2 text-base hover:bg-aloa-sand focus:bg-aloa-sand focus:outline-none transition-colors duration-200"
                     >
                       <Select.ItemText>{option}</Select.ItemText>
                     </Select.Item>
@@ -160,13 +160,13 @@ export default function MultiStepFormRenderer({ form }) {
                 <RadioGroup.Item
                   value={option}
                   id={`${field.name}-${option}`}
-                  className="h-5 w-5 rounded-full border-2 border-gray-300 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="h-5 w-5 rounded-full border-2 border-aloa-black hover:shadow-md focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 focus:ring-offset-aloa-cream transition-all duration-200"
                 >
-                  <RadioGroup.Indicator className="relative flex h-full w-full items-center justify-center after:block after:h-2.5 after:w-2.5 after:rounded-full after:bg-blue-600" />
+                  <RadioGroup.Indicator className="relative flex h-full w-full items-center justify-center after:block after:h-2.5 after:w-2.5 after:rounded-full after:bg-aloa-black" />
                 </RadioGroup.Item>
                 <label
                   htmlFor={`${field.name}-${option}`}
-                  className="text-sm font-medium text-gray-700 cursor-pointer"
+                  className="text-sm font-medium text-aloa-black cursor-pointer"
                 >
                   {option}
                 </label>
@@ -190,15 +190,15 @@ export default function MultiStepFormRenderer({ form }) {
                       : current.filter(v => v !== option);
                     setFormData({ ...formData, [field.name]: updated });
                   }}
-                  className="h-5 w-5 rounded border-2 border-gray-300 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="h-5 w-5 border-2 border-aloa-black hover:shadow-md focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 focus:ring-offset-aloa-cream transition-all duration-200"
                 >
-                  <Checkbox.Indicator className="flex items-center justify-center text-blue-600">
+                  <Checkbox.Indicator className="flex items-center justify-center text-aloa-black">
                     <CheckCircle className="h-4 w-4" />
                   </Checkbox.Indicator>
                 </Checkbox.Root>
                 <label
                   htmlFor={`${field.name}-${option}`}
-                  className="text-sm font-medium text-gray-700 cursor-pointer"
+                  className="text-sm font-medium text-aloa-black cursor-pointer"
                 >
                   {option}
                 </label>
@@ -217,11 +217,13 @@ export default function MultiStepFormRenderer({ form }) {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-col items-center justify-center min-h-[400px] text-center"
+        className="flex flex-col items-center justify-center min-h-[400px] text-center p-8"
       >
-        <CheckCircle className="h-20 w-20 text-green-500 mb-6" />
-        <h2 className="text-3xl font-bold text-gray-900 mb-3">Thank You!</h2>
-        <p className="text-lg text-gray-600">Your response has been successfully submitted.</p>
+        <div className="bg-aloa-black text-aloa-cream p-4 rounded-full mb-6">
+          <CheckCircle className="h-16 w-16" />
+        </div>
+        <h2 className="text-3xl font-display font-bold text-aloa-black mb-3 uppercase tracking-wider">Thank You!</h2>
+        <p className="text-lg text-aloa-gray font-body">Your response has been successfully submitted.</p>
       </motion.div>
     );
   }
@@ -230,17 +232,17 @@ export default function MultiStepFormRenderer({ form }) {
     <div className="max-w-3xl mx-auto p-6">
       {/* Progress Bar */}
       <div className="mb-8">
-        <div className="flex justify-between mb-2">
-          <span className="text-sm font-medium text-gray-600">
+        <div className="flex justify-between mb-3">
+          <span className="text-sm font-display uppercase tracking-wider text-aloa-gray">
             Step {currentSection + 1} of {sectionNames.length}
           </span>
-          <span className="text-sm font-medium text-gray-600">
+          <span className="text-sm font-display uppercase tracking-wider text-aloa-gray">
             {Math.round(((currentSection + 1) / sectionNames.length) * 100)}% Complete
           </span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-aloa-sand h-3 border-2 border-aloa-black">
           <motion.div
-            className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full"
+            className="bg-aloa-black h-full"
             initial={{ width: 0 }}
             animate={{ width: `${((currentSection + 1) / sectionNames.length) * 100}%` }}
             transition={{ duration: 0.5 }}
@@ -250,9 +252,9 @@ export default function MultiStepFormRenderer({ form }) {
 
       {/* Form Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{form.title}</h1>
+        <h1 className="text-3xl font-display font-bold text-aloa-black mb-2 uppercase tracking-tight">{form.title}</h1>
         {form.description && (
-          <p className="text-gray-600">{form.description}</p>
+          <p className="text-aloa-gray font-body">{form.description}</p>
         )}
       </div>
 
@@ -265,10 +267,10 @@ export default function MultiStepFormRenderer({ form }) {
         transition={{ duration: 0.3 }}
         className="mb-6"
       >
-        <h2 className="text-xl font-semibold text-gray-800 mb-1">
+        <h2 className="text-xl font-display font-bold text-aloa-black mb-2 uppercase tracking-wider">
           {sectionNames[currentSection]}
         </h2>
-        <div className="h-1 w-20 bg-blue-500 rounded"></div>
+        <div className="h-1 w-24 bg-aloa-black"></div>
       </motion.div>
 
       {/* Form Fields */}
@@ -295,7 +297,7 @@ export default function MultiStepFormRenderer({ form }) {
                 </Label>
                 {renderField(field)}
                 {errors[field.name] && (
-                  <p className="text-sm text-red-500 mt-1">{errors[field.name]}</p>
+                  <p className="text-sm text-red-600 mt-1 font-body">{errors[field.name]}</p>
                 )}
               </div>
             ))}

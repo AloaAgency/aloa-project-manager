@@ -55,19 +55,19 @@ export default function CreateFormPage() {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <button
           onClick={() => router.push('/')}
-          className="mb-8 text-aloa-black hover:text-aloa-gray transition-colors font-display uppercase tracking-wider"
+          className="mb-6 sm:mb-8 text-aloa-black hover:text-aloa-gray transition-colors font-display uppercase tracking-wider text-sm"
         >
-          ← Back
+          ← Back to Home
         </button>
 
         <div className="card">
-          <h1 className="text-4xl font-display font-bold text-aloa-black mb-4 uppercase tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-display font-bold text-aloa-black mb-4 uppercase tracking-tight">
             Create New Form
           </h1>
-          <p className="text-aloa-gray mb-8 font-body">
+          <p className="text-aloa-gray mb-6 sm:mb-8 font-body">
             Upload a markdown file to generate your form
           </p>
 
@@ -80,16 +80,16 @@ export default function CreateFormPage() {
                 : 'border-aloa-gray hover:border-aloa-black hover:bg-aloa-white'
               }
               ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
-              p-12 text-center
+              p-8 sm:p-12 text-center
             `}
           >
             <input {...getInputProps()} />
             
             {isUploading ? (
-              <div className="animate-pulse">
-                <div className="w-16 h-16 mx-auto mb-4 bg-aloa-black rounded-full animate-pulse-slow" />
-                <p className="text-lg font-display text-aloa-black uppercase tracking-wider">
-                  Processing...
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-aloa-black rounded-full animate-pulse" />
+                <p className="text-lg font-display text-aloa-black uppercase tracking-wider animate-pulse">
+                  Processing your form...
                 </p>
               </div>
             ) : uploadedFile ? (
@@ -121,17 +121,17 @@ export default function CreateFormPage() {
             )}
           </div>
 
-          <div className="mt-12 p-6 bg-aloa-sand">
-            <div className="flex items-start">
-              <AlertCircle className="w-5 h-5 text-aloa-black mr-3 mt-1 flex-shrink-0" />
-              <div>
+          <div className="mt-8 sm:mt-12 p-4 sm:p-6 bg-aloa-sand">
+            <div className="flex flex-col sm:flex-row sm:items-start">
+              <AlertCircle className="w-5 h-5 text-aloa-black mb-3 sm:mb-0 sm:mr-3 sm:mt-1 flex-shrink-0" />
+              <div className="flex-1">
                 <h3 className="font-display font-bold text-aloa-black mb-2 uppercase tracking-wider">
                   Markdown Format
                 </h3>
                 <p className="text-sm text-aloa-gray mb-4 font-body">
                   Your markdown file should follow this structure:
                 </p>
-                <pre className="bg-aloa-black text-aloa-cream p-4 text-xs overflow-x-auto font-mono">
+                <pre className="bg-aloa-black text-aloa-cream p-3 sm:p-4 text-xs overflow-x-auto font-mono">
 {`# Form Title
 Form description goes here
 
