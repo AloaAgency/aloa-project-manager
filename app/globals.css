@@ -14,29 +14,61 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-aloa-black text-aloa-cream px-8 py-4 rounded-none font-medium 
+    @apply bg-aloa-black text-aloa-cream px-6 sm:px-8 py-3 sm:py-4 font-medium 
            hover:bg-opacity-90 transition-all duration-300 uppercase tracking-wider
-           shadow-lg hover:shadow-xl transform hover:-translate-y-0.5;
+           shadow-lg hover:shadow-xl transform hover:-translate-y-0.5
+           focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 
+           focus:ring-offset-aloa-cream active:scale-95;
   }
   
   .btn-secondary {
-    @apply bg-transparent text-aloa-black px-8 py-4 rounded-none 
+    @apply bg-transparent text-aloa-black px-6 sm:px-8 py-3 sm:py-4 
            border-2 border-aloa-black font-medium hover:bg-aloa-black 
-           hover:text-aloa-cream transition-all duration-300 uppercase tracking-wider;
+           hover:text-aloa-cream transition-all duration-300 uppercase tracking-wider
+           focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 
+           focus:ring-offset-aloa-cream active:scale-95;
   }
   
   .form-input {
-    @apply w-full px-6 py-4 bg-aloa-white border-2 border-aloa-black rounded-none
+    @apply w-full px-4 sm:px-6 py-3 sm:py-4 bg-aloa-white border-2 border-aloa-black
            focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 
            focus:ring-offset-aloa-cream transition-all duration-200
-           placeholder:text-aloa-gray text-aloa-black;
+           placeholder:text-aloa-gray text-aloa-black hover:shadow-md;
   }
   
   .form-label {
-    @apply text-sm font-medium text-aloa-black uppercase tracking-wider mb-2 block;
+    @apply text-xs sm:text-sm font-medium text-aloa-black uppercase tracking-wider mb-2 block;
   }
   
   .card {
-    @apply bg-aloa-white p-8 shadow-xl border-2 border-aloa-black;
+    @apply bg-aloa-white p-6 sm:p-8 shadow-xl border-2 border-aloa-black
+           transition-all duration-300;
+  }
+  
+  /* Loading Animation */
+  .loading-spinner {
+    @apply w-16 h-16 border-4 border-aloa-sand border-t-aloa-black rounded-full animate-spin;
+  }
+  
+  /* Smooth scroll behavior */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Focus visible styles for better accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-aloa-black ring-offset-2 ring-offset-aloa-cream;
+  }
+  
+  /* Consistent error styles */
+  .error-message {
+    @apply text-sm text-red-600 mt-1 font-body animate-fade-in;
+  }
+  
+  /* Better touch targets for mobile */
+  @media (max-width: 640px) {
+    button, a, input, textarea, select {
+      min-height: 44px;
+    }
   }
 }
