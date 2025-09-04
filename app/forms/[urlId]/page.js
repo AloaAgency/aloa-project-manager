@@ -1,17 +1,56 @@
 import { notFound } from 'next/navigation';
 import FormClient from './FormClient';
+import { supabase } from '@/lib/supabase';
 
 async function getForm(urlId) {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/forms/${urlId}`, {
-      cache: 'no-store'
-    });
+    // Direct database query instead of API call
+    const { data: form, error } = await supabase
+      .from('forms')
+      .select(`
+        *,
+        form_fields (
+          id,
+          field_label,
+          field_name,
+          field_type,
+          required,
+          placeholder,
+          options,
+          validation,
+          field_order
+        )
+      `)
+      .eq('url_id', urlId)
+      .single();
     
-    if (!response.ok) {
+    if (error || !form) {
       return null;
     }
     
-    return await response.json();
+    // Sort fields by position and format response
+    const sortedFields = form.form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
+    
+    // Format response for compatibility with FormClient
+    return {
+      ...form,
+      _id: form.id,
+      urlId: form.url_id,
+      fields: sortedFields.map(field => ({
+        _id: field.id,
+        label: field.field_label,
+        name: field.field_name,
+        type: field.field_type,
+        position: field.field_order,
+        section: field.validation?.section || 'General Information',
+        required: field.required,
+        placeholder: field.placeholder,
+        options: field.options,
+        validation: field.validation
+      })),
+      createdAt: form.created_at,
+      updatedAt: form.updated_at
+    };
   } catch (error) {
     console.error('Error fetching form:', error);
     return null;
