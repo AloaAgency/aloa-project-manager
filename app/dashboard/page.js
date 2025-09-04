@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Eye, BarChart, ExternalLink, Trash2 } from 'lucide-react';
+import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2 } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -133,6 +133,13 @@ export default function DashboardPage() {
                       title="View Form"
                     >
                       <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                    </button>
+                    <button
+                      onClick={() => router.push(`/edit/${form._id}`)}
+                      className="p-2 sm:p-3 bg-aloa-sand hover:bg-aloa-black hover:text-aloa-cream transition-all duration-300 group"
+                      title="Edit Form Fields"
+                    >
+                      <Edit2 className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
                     </button>
                     <button
                       onClick={() => router.push(`/responses/${form._id}`)}
