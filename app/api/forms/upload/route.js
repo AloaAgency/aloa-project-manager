@@ -6,11 +6,13 @@ import { validateFileUpload, sanitizeText, sanitizeFileName } from '@/lib/securi
 
 export async function POST(request) {
   try {
-    // Verify CSRF token
+    // Verify CSRF token (skip for AI-generated forms if no token exists yet)
     const csrfToken = request.headers.get('X-CSRF-Token');
     const cookieToken = request.cookies.get('csrf-token')?.value;
+    const isAiGenerated = request.headers.get('X-AI-Generated') === 'true';
     
-    if (!csrfToken || !cookieToken || csrfToken !== cookieToken) {
+    // Only enforce CSRF if not AI-generated or if tokens exist
+    if (!isAiGenerated && (!csrfToken || !cookieToken || csrfToken !== cookieToken)) {
       return NextResponse.json(
         { error: 'Invalid CSRF token' },
         { status: 403 }

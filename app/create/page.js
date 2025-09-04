@@ -34,6 +34,7 @@ export default function CreateFormPage() {
         method: 'POST',
         headers: {
           'X-CSRF-Token': csrfToken || '',
+          'X-AI-Generated': 'true', // Mark as AI-generated
         },
         body: formData,
       });

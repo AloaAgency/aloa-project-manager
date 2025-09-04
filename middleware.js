@@ -108,12 +108,12 @@ export function middleware(request) {
   
   response.headers.set('Content-Security-Policy', cspDirectives.join('; '));
   
-  // Set CSRF token cookie for non-GET requests
-  if (request.method !== 'GET') {
+  // Always set CSRF token cookie if it doesn't exist
+  if (!request.cookies.get('csrf-token')) {
     response.cookies.set({
       name: 'csrf-token',
       value: csrfToken,
-      httpOnly: true,
+      httpOnly: false, // Allow JavaScript to read it for AJAX requests
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
