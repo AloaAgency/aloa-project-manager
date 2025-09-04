@@ -3,13 +3,47 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Check, AlertCircle, Bot, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import AIChatFormBuilder from '@/components/AIChatFormBuilder';
 
 export default function CreateFormPage() {
   const router = useRouter();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'upload'
+
+  const handleMarkdownGenerated = async (markdown) => {
+    setIsUploading(true);
+    
+    try {
+      // Create a Blob from the markdown string
+      const blob = new Blob([markdown], { type: 'text/markdown' });
+      const file = new File([blob], 'ai-generated-form.md', { type: 'text/markdown' });
+      
+      const formData = new FormData();
+      formData.append('markdown', file);
+
+      const response = await fetch('/api/forms/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create form');
+      }
+
+      toast.success('Form created successfully!');
+      router.push(`/forms/${data.urlId}`);
+    } catch (error) {
+      console.error('Form creation error:', error);
+      toast.error(error.message || 'Failed to create form');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const onDrop = useCallback(async (acceptedFiles) => {
     const file = acceptedFiles[0];
@@ -55,7 +89,7 @@ export default function CreateFormPage() {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <button
           onClick={() => router.push('/')}
           className="mb-6 sm:mb-8 text-aloa-black hover:text-aloa-gray transition-colors font-display uppercase tracking-wider text-sm"
@@ -68,84 +102,133 @@ export default function CreateFormPage() {
             Create New Form
           </h1>
           <p className="text-aloa-gray mb-6 sm:mb-8 font-body">
-            Upload a markdown file to generate your form
+            Chat with AI or upload a markdown file to generate your form
           </p>
 
-          <div
-            {...getRootProps()}
-            className={`
-              border-4 border-dashed transition-all duration-300 cursor-pointer
-              ${isDragActive 
-                ? 'border-aloa-black bg-aloa-sand scale-105' 
-                : 'border-aloa-gray hover:border-aloa-black hover:bg-aloa-white'
-              }
-              ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
-              p-8 sm:p-12 text-center
-            `}
-          >
-            <input {...getInputProps()} />
-            
-            {isUploading ? (
-              <div className="flex flex-col items-center">
-                <div className="w-16 h-16 mx-auto mb-4 bg-aloa-black rounded-full animate-pulse" />
-                <p className="text-lg font-display text-aloa-black uppercase tracking-wider animate-pulse">
-                  Processing your form...
-                </p>
+          {/* Tab Navigation */}
+          <div className="flex gap-2 mb-8">
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`flex-1 sm:flex-none px-6 py-3 rounded-lg font-medium transition-all ${
+                activeTab === 'chat'
+                  ? 'bg-purple-600 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Bot className="h-5 w-5" />
+                <span>AI Chat Builder</span>
               </div>
-            ) : uploadedFile ? (
-              <div>
-                <Check className="w-16 h-16 mx-auto mb-4 text-green-600" />
-                <p className="text-lg font-display text-aloa-black mb-2 uppercase tracking-wider">
-                  File Uploaded
-                </p>
-                <p className="text-sm text-aloa-gray font-body">{uploadedFile.name}</p>
+            </button>
+            <button
+              onClick={() => setActiveTab('upload')}
+              className={`flex-1 sm:flex-none px-6 py-3 rounded-lg font-medium transition-all ${
+                activeTab === 'upload'
+                  ? 'bg-purple-600 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Upload className="h-5 w-5" />
+                <span>Upload Markdown</span>
               </div>
-            ) : (
-              <div>
-                <Upload className="w-16 h-16 mx-auto mb-4 text-aloa-gray" />
-                {isDragActive ? (
-                  <p className="text-lg font-display text-aloa-black uppercase tracking-wider">
-                    Drop the file here
-                  </p>
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'chat' ? (
+            <div>
+              {isUploading && (
+                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-xl">
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-purple-600 rounded-full animate-pulse" />
+                    <p className="text-lg font-display text-purple-600 uppercase tracking-wider animate-pulse">
+                      Creating your form...
+                    </p>
+                  </div>
+                </div>
+              )}
+              <AIChatFormBuilder onMarkdownGenerated={handleMarkdownGenerated} />
+            </div>
+          ) : (
+            <div>
+              <div
+                {...getRootProps()}
+                className={`
+                  border-4 border-dashed transition-all duration-300 cursor-pointer rounded-xl
+                  ${isDragActive 
+                    ? 'border-purple-600 bg-purple-50 scale-105' 
+                    : 'border-gray-300 hover:border-purple-600 hover:bg-gray-50'
+                  }
+                  ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
+                  p-8 sm:p-12 text-center
+                `}
+              >
+                <input {...getInputProps()} />
+                
+                {isUploading ? (
+                  <div className="flex flex-col items-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-purple-600 rounded-full animate-pulse" />
+                    <p className="text-lg font-display text-purple-600 uppercase tracking-wider animate-pulse">
+                      Processing your form...
+                    </p>
+                  </div>
+                ) : uploadedFile ? (
+                  <div>
+                    <Check className="w-16 h-16 mx-auto mb-4 text-green-600" />
+                    <p className="text-lg font-display text-gray-900 mb-2">
+                      File Uploaded
+                    </p>
+                    <p className="text-sm text-gray-600">{uploadedFile.name}</p>
+                  </div>
                 ) : (
-                  <>
-                    <p className="text-lg font-display text-aloa-black mb-2 uppercase tracking-wider">
-                      Drag & drop your markdown file here
-                    </p>
-                    <p className="text-sm text-aloa-gray font-body">
-                      or click to browse
-                    </p>
-                  </>
+                  <div>
+                    <Upload className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                    {isDragActive ? (
+                      <p className="text-lg font-display text-purple-600">
+                        Drop the file here
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-lg font-display text-gray-900 mb-2">
+                          Drag & drop your markdown file here
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          or click to browse
+                        </p>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
 
-          <div className="mt-8 sm:mt-12 p-4 sm:p-6 bg-aloa-sand">
-            <div className="flex flex-col sm:flex-row sm:items-start">
-              <AlertCircle className="w-5 h-5 text-aloa-black mb-3 sm:mb-0 sm:mr-3 sm:mt-1 flex-shrink-0" />
-              <div className="flex-1">
-                <h3 className="font-display font-bold text-aloa-black mb-2 uppercase tracking-wider">
-                  Markdown Format
-                </h3>
-                <p className="text-sm text-aloa-gray mb-4 font-body">
-                  Your markdown file should follow this structure:
-                </p>
-                <pre className="bg-aloa-black text-aloa-cream p-3 sm:p-4 text-xs overflow-x-auto font-mono">
-{`# Form Title
-Form description goes here
+              <div className="mt-8 p-6 bg-gray-50 rounded-lg">
+                <div className="flex items-start">
+                  <AlertCircle className="w-5 h-5 text-purple-600 mr-3 mt-1 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 mb-2">
+                      Markdown Format Example
+                    </h3>
+                    <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs overflow-x-auto font-mono">
+{`# Contact Form
 
-## Field Label *
-Type: text|email|number|textarea|select|radio|checkbox
-Placeholder: Optional placeholder
-Min: 10 (optional)
-Max: 100 (optional)
-  - Option 1 (for select/radio/checkbox)
-  - Option 2`}
-                </pre>
+## Personal Information
+What is your name? (text) *
+What is your email? (email) *
+What is your phone? (phone)
+
+## Message
+Your message (textarea) *
+
+## Preferences
+How did you hear about us? (select: Google, Social Media, Friend, Other) *
+Subscribe to newsletter? (checkbox: Yes, subscribe me)`}
+                    </pre>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
