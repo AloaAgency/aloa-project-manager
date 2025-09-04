@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2, Brain } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -147,6 +147,13 @@ export default function DashboardPage() {
                       title="View Responses"
                     >
                       <BarChart className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                    </button>
+                    <button
+                      onClick={() => router.push(`/ai-analysis/${form._id}`)}
+                      className="p-2 sm:p-3 bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 transition-all duration-300 group"
+                      title="AI Analysis"
+                    >
+                      <Brain className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
                     </button>
                     <button
                       onClick={() => deleteForm(form._id)}
