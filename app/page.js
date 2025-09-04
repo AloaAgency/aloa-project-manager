@@ -8,35 +8,37 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-aloa-cream">
-      <div className="bg-gradient-cream-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-          <div className="text-center">
-            <div className="flex flex-col items-center mb-6">
-              <img 
-                src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg" 
-                alt="Aloa" 
-                className="h-16 sm:h-20 w-auto mb-6 invert"
-              />
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold text-aloa-black tracking-tight leading-tight text-center">
-                CUSTOM FORM MAKER
-              </h1>
-            </div>
-            <p className="text-lg sm:text-xl md:text-2xl text-aloa-black/80 max-w-3xl mx-auto mb-8 sm:mb-12 font-body px-4 font-medium">
-              Transform your markdown files into beautiful, shareable forms with unique URLs
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center px-4">
-              <button 
-                onClick={() => router.push('/create')}
-                className="btn-primary text-base sm:text-lg px-8 sm:px-10 py-4 sm:py-5 w-full sm:w-auto"
-              >
-                Create Form
-              </button>
-              <button 
-                onClick={() => router.push('/dashboard')}
-                className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-4 sm:py-5 w-full sm:w-auto"
-              >
-                Dashboard
-              </button>
+      <div className="relative bg-cover bg-center bg-no-repeat" style={{backgroundImage: 'url(https://www.aloa.agency/_next/image?url=https%3A%2F%2Fimages.ctfassets.net%2Fqkznfzcikv51%2F1fBa4ioxqgBwRlhFWzKKb4%2F35990186eb154886f87eef10e4a9f31c%2Fcta-bg.jpg%3Ffm%3Dwebp%26q%3D80&w=3840&q=75)'}}>
+        <div className="bg-aloa-black/60 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+            <div className="text-center">
+              <div className="flex flex-col items-center mb-6">
+                <img 
+                  src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg" 
+                  alt="Aloa" 
+                  className="h-16 sm:h-20 w-auto mb-6"
+                />
+                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold text-aloa-white tracking-tight leading-tight text-center">
+                  CUSTOM FORM MAKER
+                </h1>
+              </div>
+              <p className="text-lg sm:text-xl md:text-2xl text-aloa-white/90 max-w-3xl mx-auto mb-8 sm:mb-12 font-body px-4 font-medium">
+                Transform your markdown files into beautiful, shareable forms with unique URLs
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center px-4 relative z-10">
+                <button 
+                  onClick={() => router.push('/create')}
+                  className="bg-aloa-white text-aloa-black px-8 sm:px-10 py-4 sm:py-5 font-medium hover:bg-opacity-90 transition-all duration-300 uppercase tracking-wider shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-aloa-white focus:ring-offset-2 focus:ring-offset-transparent active:scale-95 text-base sm:text-lg w-full sm:w-auto cursor-pointer"
+                >
+                  Create Form
+                </button>
+                <button 
+                  onClick={() => router.push('/dashboard')}
+                  className="bg-transparent text-aloa-white px-8 sm:px-10 py-4 sm:py-5 border-2 border-aloa-white font-medium hover:bg-aloa-white hover:text-aloa-black transition-all duration-300 uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-aloa-white focus:ring-offset-2 focus:ring-offset-transparent active:scale-95 text-base sm:text-lg w-full sm:w-auto cursor-pointer"
+                >
+                  Dashboard
+                </button>
+              </div>
             </div>
           </div>
         </div>
