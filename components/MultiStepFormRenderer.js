@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ChevronLeft, ChevronRight, Send, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Send, CheckCircle, Star } from 'lucide-react';
 import * as Checkbox from '@radix-ui/react-checkbox';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import * as Select from '@radix-ui/react-select';
@@ -217,6 +217,66 @@ export default function MultiStepFormRenderer({ form }) {
             ))}
           </div>
         );
+      
+      case 'rating':
+        const maxRating = field.validation?.max || 5;
+        const currentRating = parseInt(formData[field.name]) || 0;
+        return (
+          <div className="flex gap-2">
+            {[...Array(maxRating)].map((_, index) => (
+              <button
+                key={index + 1}
+                type="button"
+                onClick={() => setFormData({ ...formData, [field.name]: String(index + 1) })}
+                className="p-1 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 focus:ring-offset-aloa-cream"
+                aria-label={`Rate ${index + 1} out of ${maxRating}`}
+              >
+                <Star
+                  className={`h-8 w-8 ${
+                    index < currentRating 
+                      ? 'fill-aloa-black text-aloa-black' 
+                      : 'text-aloa-gray hover:text-aloa-black'
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+        );
+      
+      case 'multiselect':
+        const selectedValues = formData[field.name] || [];
+        return (
+          <div className="space-y-2 max-h-48 overflow-y-auto border-2 border-aloa-black p-3">
+            {field.options?.map((option) => (
+              <div key={option} className="flex items-center space-x-2">
+                <Checkbox.Root
+                  id={`${field.name}-${option}`}
+                  checked={selectedValues.includes(option)}
+                  onCheckedChange={(checked) => {
+                    const updated = checked
+                      ? [...selectedValues, option]
+                      : selectedValues.filter(v => v !== option);
+                    setFormData({ ...formData, [field.name]: updated });
+                  }}
+                  className="h-5 w-5 border-2 border-aloa-black hover:shadow-md focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 focus:ring-offset-aloa-cream transition-all duration-200"
+                >
+                  <Checkbox.Indicator className="flex items-center justify-center text-aloa-black">
+                    <CheckCircle className="h-4 w-4" />
+                  </Checkbox.Indicator>
+                </Checkbox.Root>
+                <label
+                  htmlFor={`${field.name}-${option}`}
+                  className="text-sm font-medium text-aloa-black cursor-pointer"
+                >
+                  {option}
+                </label>
+              </div>
+            ))}
+          </div>
+        );
+      
+      case 'phone':
+        return <Input type="tel" {...commonProps} />;
       
       default:
         return <Input type="text" {...commonProps} />;
