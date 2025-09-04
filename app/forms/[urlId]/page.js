@@ -28,19 +28,19 @@ export async function generateMetadata({ params }) {
     };
   }
 
-  const title = form.title || 'Custom Form';
-  const description = form.description || `Fill out the ${title} form`;
+  const title = form.title || 'Form';
+  const description = form.description || 'Please take a moment to complete this brief survey.';
   const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://custom-forms.vercel.app';
   const formUrl = `${siteUrl}/forms/${params.urlId}`;
   
   return {
-    title: `${title} - Aloa Custom Forms`,
+    title: `${title} - Aloa® Agency`,
     description: description,
     openGraph: {
-      title: title,
+      title: `${title} - Aloa® Agency`,
       description: description,
       url: formUrl,
-      siteName: 'Aloa Custom Forms',
+      siteName: 'Aloa® Agency',
       images: [
         {
           url: 'https://images.ctfassets.net/qkznfzcikv51/1fBa4ioxqgBwRlhFWzKKb4/35990186eb154886f87eef10e4a9f31c/cta-bg.jpg',
@@ -54,7 +54,7 @@ export async function generateMetadata({ params }) {
     },
     twitter: {
       card: 'summary_large_image',
-      title: title,
+      title: `${title} - Aloa® Agency`,
       description: description,
       images: ['https://images.ctfassets.net/qkznfzcikv51/1fBa4ioxqgBwRlhFWzKKb4/35990186eb154886f87eef10e4a9f31c/cta-bg.jpg'],
     },
