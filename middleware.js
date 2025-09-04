@@ -46,15 +46,8 @@ function checkRateLimit(ip, pathname) {
   return true;
 }
 
-// Clean up old entries periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, record] of requestCounts.entries()) {
-    if (now > record.resetTime) {
-      requestCounts.delete(key);
-    }
-  }
-}, RATE_LIMIT_WINDOW);
+// Note: In production, use a proper cache like Redis for rate limiting
+// The Map will be cleared on server restart
 
 export function middleware(request) {
   const response = NextResponse.next();
@@ -115,12 +108,12 @@ export function middleware(request) {
   
   response.headers.set('Content-Security-Policy', cspDirectives.join('; '));
   
-  // Set CSRF token cookie for non-GET requests
-  if (request.method !== 'GET') {
+  // Always set CSRF token cookie if it doesn't exist
+  if (!request.cookies.get('csrf-token')) {
     response.cookies.set({
       name: 'csrf-token',
       value: csrfToken,
-      httpOnly: true,
+      httpOnly: false, // Allow JavaScript to read it for AJAX requests
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',

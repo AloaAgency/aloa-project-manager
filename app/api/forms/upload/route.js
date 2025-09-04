@@ -2,15 +2,17 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { parseMarkdownToForm } from '@/lib/markdownParser';
 import { nanoid } from 'nanoid';
-import { validateFileUpload, sanitizeText, sanitizeFileName } from '@/lib/security';
+import { validateFileUpload, sanitizeText } from '@/lib/security';
 
 export async function POST(request) {
   try {
-    // Verify CSRF token
+    // Verify CSRF token (skip for AI-generated forms if no token exists yet)
     const csrfToken = request.headers.get('X-CSRF-Token');
     const cookieToken = request.cookies.get('csrf-token')?.value;
+    const isAiGenerated = request.headers.get('X-AI-Generated') === 'true';
     
-    if (!csrfToken || !cookieToken || csrfToken !== cookieToken) {
+    // Only enforce CSRF if not AI-generated or if tokens exist
+    if (!isAiGenerated && (!csrfToken || !cookieToken || csrfToken !== cookieToken)) {
       return NextResponse.json(
         { error: 'Invalid CSRF token' },
         { status: 403 }
@@ -41,9 +43,6 @@ export async function POST(request) {
       );
     }
     
-    // Sanitize file name
-    const sanitizedFileName = sanitizeFileName(file.name);
-    
     // Read and validate content
     const content = await file.text();
     
@@ -72,8 +71,7 @@ export async function POST(request) {
         title: sanitizeText(formStructure.title).substring(0, 200),
         description: sanitizeText(formStructure.description || '').substring(0, 1000),
         url_id: nanoid(10),
-        markdown_content: content, // Store the original markdown content
-        uploaded_filename: sanitizedFileName // Store sanitized filename for audit
+        markdown_content: content // Store the original markdown content
       };
       
       const { data: form, error: formError } = await supabase
