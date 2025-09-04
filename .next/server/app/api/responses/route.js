@@ -1,126 +1,167 @@
-"use strict";
-/*
- * ATTENTION: An "eval-source-map" devtool has been used.
- * This devtool is neither made for production nor for readable output files.
- * It uses "eval()" calls to create a separate source file with attached SourceMaps in the browser devtools.
- * If you are trying to read the output file, select a different devtool (https://webpack.js.org/configuration/devtool/)
- * or disable the default devtool with "devtool: false".
- * If you are looking for production-ready output files, see mode: "production" (https://webpack.js.org/configuration/mode/).
- */
-(() => {
-var exports = {};
-exports.id = "app/api/responses/route";
-exports.ids = ["app/api/responses/route"];
-exports.modules = {
-
-/***/ "next/dist/compiled/next-server/app-route.runtime.dev.js":
-/*!**************************************************************************!*\
-  !*** external "next/dist/compiled/next-server/app-route.runtime.dev.js" ***!
-  \**************************************************************************/
-/***/ ((module) => {
-
-module.exports = require("next/dist/compiled/next-server/app-route.runtime.dev.js");
-
-/***/ }),
-
-/***/ "http":
-/*!***********************!*\
-  !*** external "http" ***!
-  \***********************/
-/***/ ((module) => {
-
-module.exports = require("http");
-
-/***/ }),
-
-/***/ "https":
-/*!************************!*\
-  !*** external "https" ***!
-  \************************/
-/***/ ((module) => {
-
-module.exports = require("https");
-
-/***/ }),
-
-/***/ "punycode":
-/*!***************************!*\
-  !*** external "punycode" ***!
-  \***************************/
-/***/ ((module) => {
-
-module.exports = require("punycode");
-
-/***/ }),
-
-/***/ "stream":
-/*!*************************!*\
-  !*** external "stream" ***!
-  \*************************/
-/***/ ((module) => {
-
-module.exports = require("stream");
-
-/***/ }),
-
-/***/ "url":
-/*!**********************!*\
-  !*** external "url" ***!
-  \**********************/
-/***/ ((module) => {
-
-module.exports = require("url");
-
-/***/ }),
-
-/***/ "zlib":
-/*!***********************!*\
-  !*** external "zlib" ***!
-  \***********************/
-/***/ ((module) => {
-
-module.exports = require("zlib");
-
-/***/ }),
-
-/***/ "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Fresponses%2Froute&page=%2Fapi%2Fresponses%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fresponses%2Froute.js&appDir=%2FUsers%2Frosspalmer%2FRoss%20GitHub%20Projects%2Fcustom-forms%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frosspalmer%2FRoss%20GitHub%20Projects%2Fcustom-forms&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!":
-/*!*************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
-  !*** ./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Fresponses%2Froute&page=%2Fapi%2Fresponses%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fresponses%2Froute.js&appDir=%2FUsers%2Frosspalmer%2FRoss%20GitHub%20Projects%2Fcustom-forms%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frosspalmer%2FRoss%20GitHub%20Projects%2Fcustom-forms&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D! ***!
-  \*************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   headerHooks: () => (/* binding */ headerHooks),\n/* harmony export */   originalPathname: () => (/* binding */ originalPathname),\n/* harmony export */   patchFetch: () => (/* binding */ patchFetch),\n/* harmony export */   requestAsyncStorage: () => (/* binding */ requestAsyncStorage),\n/* harmony export */   routeModule: () => (/* binding */ routeModule),\n/* harmony export */   serverHooks: () => (/* binding */ serverHooks),\n/* harmony export */   staticGenerationAsyncStorage: () => (/* binding */ staticGenerationAsyncStorage),\n/* harmony export */   staticGenerationBailout: () => (/* binding */ staticGenerationBailout)\n/* harmony export */ });\n/* harmony import */ var next_dist_server_future_route_modules_app_route_module_compiled__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! next/dist/server/future/route-modules/app-route/module.compiled */ \"(rsc)/./node_modules/next/dist/server/future/route-modules/app-route/module.compiled.js\");\n/* harmony import */ var next_dist_server_future_route_modules_app_route_module_compiled__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(next_dist_server_future_route_modules_app_route_module_compiled__WEBPACK_IMPORTED_MODULE_0__);\n/* harmony import */ var next_dist_server_future_route_kind__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! next/dist/server/future/route-kind */ \"(rsc)/./node_modules/next/dist/server/future/route-kind.js\");\n/* harmony import */ var next_dist_server_lib_patch_fetch__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! next/dist/server/lib/patch-fetch */ \"(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js\");\n/* harmony import */ var next_dist_server_lib_patch_fetch__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(next_dist_server_lib_patch_fetch__WEBPACK_IMPORTED_MODULE_2__);\n/* harmony import */ var _Users_rosspalmer_Ross_GitHub_Projects_custom_forms_app_api_responses_route_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./app/api/responses/route.js */ \"(rsc)/./app/api/responses/route.js\");\n\n\n\n\n// We inject the nextConfigOutput here so that we can use them in the route\n// module.\nconst nextConfigOutput = \"\"\nconst routeModule = new next_dist_server_future_route_modules_app_route_module_compiled__WEBPACK_IMPORTED_MODULE_0__.AppRouteRouteModule({\n    definition: {\n        kind: next_dist_server_future_route_kind__WEBPACK_IMPORTED_MODULE_1__.RouteKind.APP_ROUTE,\n        page: \"/api/responses/route\",\n        pathname: \"/api/responses\",\n        filename: \"route\",\n        bundlePath: \"app/api/responses/route\"\n    },\n    resolvedPagePath: \"/Users/rosspalmer/Ross GitHub Projects/custom-forms/app/api/responses/route.js\",\n    nextConfigOutput,\n    userland: _Users_rosspalmer_Ross_GitHub_Projects_custom_forms_app_api_responses_route_js__WEBPACK_IMPORTED_MODULE_3__\n});\n// Pull out the exports that we need to expose from the module. This should\n// be eliminated when we've moved the other routes to the new format. These\n// are used to hook into the route.\nconst { requestAsyncStorage, staticGenerationAsyncStorage, serverHooks, headerHooks, staticGenerationBailout } = routeModule;\nconst originalPathname = \"/api/responses/route\";\nfunction patchFetch() {\n    return (0,next_dist_server_lib_patch_fetch__WEBPACK_IMPORTED_MODULE_2__.patchFetch)({\n        serverHooks,\n        staticGenerationAsyncStorage\n    });\n}\n\n\n//# sourceMappingURL=app-route.js.map//# sourceURL=[module]\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiKHJzYykvLi9ub2RlX21vZHVsZXMvbmV4dC9kaXN0L2J1aWxkL3dlYnBhY2svbG9hZGVycy9uZXh0LWFwcC1sb2FkZXIuanM/bmFtZT1hcHAlMkZhcGklMkZyZXNwb25zZXMlMkZyb3V0ZSZwYWdlPSUyRmFwaSUyRnJlc3BvbnNlcyUyRnJvdXRlJmFwcFBhdGhzPSZwYWdlUGF0aD1wcml2YXRlLW5leHQtYXBwLWRpciUyRmFwaSUyRnJlc3BvbnNlcyUyRnJvdXRlLmpzJmFwcERpcj0lMkZVc2VycyUyRnJvc3NwYWxtZXIlMkZSb3NzJTIwR2l0SHViJTIwUHJvamVjdHMlMkZjdXN0b20tZm9ybXMlMkZhcHAmcGFnZUV4dGVuc2lvbnM9dHN4JnBhZ2VFeHRlbnNpb25zPXRzJnBhZ2VFeHRlbnNpb25zPWpzeCZwYWdlRXh0ZW5zaW9ucz1qcyZyb290RGlyPSUyRlVzZXJzJTJGcm9zc3BhbG1lciUyRlJvc3MlMjBHaXRIdWIlMjBQcm9qZWN0cyUyRmN1c3RvbS1mb3JtcyZpc0Rldj10cnVlJnRzY29uZmlnUGF0aD10c2NvbmZpZy5qc29uJmJhc2VQYXRoPSZhc3NldFByZWZpeD0mbmV4dENvbmZpZ091dHB1dD0mcHJlZmVycmVkUmVnaW9uPSZtaWRkbGV3YXJlQ29uZmlnPWUzMCUzRCEiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFBc0c7QUFDdkM7QUFDYztBQUM4QjtBQUMzRztBQUNBO0FBQ0E7QUFDQSx3QkFBd0IsZ0hBQW1CO0FBQzNDO0FBQ0EsY0FBYyx5RUFBUztBQUN2QjtBQUNBO0FBQ0E7QUFDQTtBQUNBLEtBQUs7QUFDTDtBQUNBO0FBQ0EsWUFBWTtBQUNaLENBQUM7QUFDRDtBQUNBO0FBQ0E7QUFDQSxRQUFRLHVHQUF1RztBQUMvRztBQUNBO0FBQ0EsV0FBVyw0RUFBVztBQUN0QjtBQUNBO0FBQ0EsS0FBSztBQUNMO0FBQzZKOztBQUU3SiIsInNvdXJjZXMiOlsid2VicGFjazovL2N1c3RvbS1mb3Jtcy8/MGM2MiJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBBcHBSb3V0ZVJvdXRlTW9kdWxlIH0gZnJvbSBcIm5leHQvZGlzdC9zZXJ2ZXIvZnV0dXJlL3JvdXRlLW1vZHVsZXMvYXBwLXJvdXRlL21vZHVsZS5jb21waWxlZFwiO1xuaW1wb3J0IHsgUm91dGVLaW5kIH0gZnJvbSBcIm5leHQvZGlzdC9zZXJ2ZXIvZnV0dXJlL3JvdXRlLWtpbmRcIjtcbmltcG9ydCB7IHBhdGNoRmV0Y2ggYXMgX3BhdGNoRmV0Y2ggfSBmcm9tIFwibmV4dC9kaXN0L3NlcnZlci9saWIvcGF0Y2gtZmV0Y2hcIjtcbmltcG9ydCAqIGFzIHVzZXJsYW5kIGZyb20gXCIvVXNlcnMvcm9zc3BhbG1lci9Sb3NzIEdpdEh1YiBQcm9qZWN0cy9jdXN0b20tZm9ybXMvYXBwL2FwaS9yZXNwb25zZXMvcm91dGUuanNcIjtcbi8vIFdlIGluamVjdCB0aGUgbmV4dENvbmZpZ091dHB1dCBoZXJlIHNvIHRoYXQgd2UgY2FuIHVzZSB0aGVtIGluIHRoZSByb3V0ZVxuLy8gbW9kdWxlLlxuY29uc3QgbmV4dENvbmZpZ091dHB1dCA9IFwiXCJcbmNvbnN0IHJvdXRlTW9kdWxlID0gbmV3IEFwcFJvdXRlUm91dGVNb2R1bGUoe1xuICAgIGRlZmluaXRpb246IHtcbiAgICAgICAga2luZDogUm91dGVLaW5kLkFQUF9ST1VURSxcbiAgICAgICAgcGFnZTogXCIvYXBpL3Jlc3BvbnNlcy9yb3V0ZVwiLFxuICAgICAgICBwYXRobmFtZTogXCIvYXBpL3Jlc3BvbnNlc1wiLFxuICAgICAgICBmaWxlbmFtZTogXCJyb3V0ZVwiLFxuICAgICAgICBidW5kbGVQYXRoOiBcImFwcC9hcGkvcmVzcG9uc2VzL3JvdXRlXCJcbiAgICB9LFxuICAgIHJlc29sdmVkUGFnZVBhdGg6IFwiL1VzZXJzL3Jvc3NwYWxtZXIvUm9zcyBHaXRIdWIgUHJvamVjdHMvY3VzdG9tLWZvcm1zL2FwcC9hcGkvcmVzcG9uc2VzL3JvdXRlLmpzXCIsXG4gICAgbmV4dENvbmZpZ091dHB1dCxcbiAgICB1c2VybGFuZFxufSk7XG4vLyBQdWxsIG91dCB0aGUgZXhwb3J0cyB0aGF0IHdlIG5lZWQgdG8gZXhwb3NlIGZyb20gdGhlIG1vZHVsZS4gVGhpcyBzaG91bGRcbi8vIGJlIGVsaW1pbmF0ZWQgd2hlbiB3ZSd2ZSBtb3ZlZCB0aGUgb3RoZXIgcm91dGVzIHRvIHRoZSBuZXcgZm9ybWF0LiBUaGVzZVxuLy8gYXJlIHVzZWQgdG8gaG9vayBpbnRvIHRoZSByb3V0ZS5cbmNvbnN0IHsgcmVxdWVzdEFzeW5jU3RvcmFnZSwgc3RhdGljR2VuZXJhdGlvbkFzeW5jU3RvcmFnZSwgc2VydmVySG9va3MsIGhlYWRlckhvb2tzLCBzdGF0aWNHZW5lcmF0aW9uQmFpbG91dCB9ID0gcm91dGVNb2R1bGU7XG5jb25zdCBvcmlnaW5hbFBhdGhuYW1lID0gXCIvYXBpL3Jlc3BvbnNlcy9yb3V0ZVwiO1xuZnVuY3Rpb24gcGF0Y2hGZXRjaCgpIHtcbiAgICByZXR1cm4gX3BhdGNoRmV0Y2goe1xuICAgICAgICBzZXJ2ZXJIb29rcyxcbiAgICAgICAgc3RhdGljR2VuZXJhdGlvbkFzeW5jU3RvcmFnZVxuICAgIH0pO1xufVxuZXhwb3J0IHsgcm91dGVNb2R1bGUsIHJlcXVlc3RBc3luY1N0b3JhZ2UsIHN0YXRpY0dlbmVyYXRpb25Bc3luY1N0b3JhZ2UsIHNlcnZlckhvb2tzLCBoZWFkZXJIb29rcywgc3RhdGljR2VuZXJhdGlvbkJhaWxvdXQsIG9yaWdpbmFsUGF0aG5hbWUsIHBhdGNoRmV0Y2gsICB9O1xuXG4vLyMgc291cmNlTWFwcGluZ1VSTD1hcHAtcm91dGUuanMubWFwIl0sIm5hbWVzIjpbXSwic291cmNlUm9vdCI6IiJ9\n//# sourceURL=webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Fresponses%2Froute&page=%2Fapi%2Fresponses%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fresponses%2Froute.js&appDir=%2FUsers%2Frosspalmer%2FRoss%20GitHub%20Projects%2Fcustom-forms%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frosspalmer%2FRoss%20GitHub%20Projects%2Fcustom-forms&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!\n");
-
-/***/ }),
-
-/***/ "(rsc)/./app/api/responses/route.js":
-/*!************************************!*\
-  !*** ./app/api/responses/route.js ***!
-  \************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   GET: () => (/* binding */ GET),\n/* harmony export */   POST: () => (/* binding */ POST)\n/* harmony export */ });\n/* harmony import */ var next_dist_server_web_exports_next_response__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! next/dist/server/web/exports/next-response */ \"(rsc)/./node_modules/next/dist/server/web/exports/next-response.js\");\n/* harmony import */ var _lib_supabase__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @/lib/supabase */ \"(rsc)/./lib/supabase.js\");\n\n\nasync function GET(request) {\n    try {\n        const { searchParams } = new URL(request.url);\n        const formId = searchParams.get(\"formId\");\n        if (!formId) {\n            return next_dist_server_web_exports_next_response__WEBPACK_IMPORTED_MODULE_0__[\"default\"].json({\n                error: \"Form ID is required\"\n            }, {\n                status: 400\n            });\n        }\n        // Fetch responses with their answers joined with field names\n        const { data: responses, error } = await _lib_supabase__WEBPACK_IMPORTED_MODULE_1__.supabase.from(\"form_responses\").select(`\n        *,\n        form_response_answers (\n          id,\n          value,\n          form_fields (\n            field_name,\n            field_label\n          )\n        )\n      `).eq(\"form_id\", formId).order(\"submitted_at\", {\n            ascending: false\n        });\n        if (error) throw error;\n        // Format responses for compatibility - create plain object for data\n        const formattedResponses = responses.map((response)=>{\n            const dataObject = {};\n            response.form_response_answers?.forEach((answer)=>{\n                if (answer.form_fields?.field_name) {\n                    // Parse JSON values for arrays/objects\n                    try {\n                        const parsedValue = JSON.parse(answer.value);\n                        dataObject[answer.form_fields.field_name] = parsedValue;\n                    } catch  {\n                        // If not JSON, use as-is\n                        dataObject[answer.form_fields.field_name] = answer.value;\n                    }\n                }\n            });\n            return {\n                ...response,\n                _id: response.id,\n                formId: response.form_id,\n                submittedAt: response.submitted_at,\n                data: dataObject\n            };\n        });\n        return next_dist_server_web_exports_next_response__WEBPACK_IMPORTED_MODULE_0__[\"default\"].json(formattedResponses);\n    } catch (error) {\n        console.error(\"Error fetching responses:\", error);\n        return next_dist_server_web_exports_next_response__WEBPACK_IMPORTED_MODULE_0__[\"default\"].json({\n            error: \"Failed to fetch responses\"\n        }, {\n            status: 500\n        });\n    }\n}\nasync function POST(request) {\n    try {\n        const body = await request.json();\n        // First, create the response record\n        const responseData = {\n            form_id: body.formId\n        };\n        const { data: response, error: responseError } = await _lib_supabase__WEBPACK_IMPORTED_MODULE_1__.supabase.from(\"form_responses\").insert([\n            responseData\n        ]).select().single();\n        if (responseError) throw responseError;\n        // Get the form fields to map field names to IDs\n        const { data: fields, error: fieldsError } = await _lib_supabase__WEBPACK_IMPORTED_MODULE_1__.supabase.from(\"form_fields\").select(\"id, field_name\").eq(\"form_id\", body.formId);\n        if (fieldsError) throw fieldsError;\n        // Create a map of field names to IDs\n        const fieldMap = new Map();\n        fields.forEach((field)=>{\n            fieldMap.set(field.field_name, field.id);\n        });\n        // Convert the form data to answer records\n        const dataToStore = body.data instanceof Map ? body.data : new Map(Object.entries(body.data || {}));\n        console.log(\"Form data received:\", body.data);\n        console.log(\"Field mapping:\", Array.from(fieldMap.entries()));\n        const answers = [];\n        dataToStore.forEach((value, fieldName)=>{\n            const fieldId = fieldMap.get(fieldName);\n            if (fieldId && value !== undefined && value !== null && value !== \"\") {\n                // Store arrays and objects as JSON strings\n                const storedValue = typeof value === \"object\" ? JSON.stringify(value) : String(value);\n                answers.push({\n                    response_id: response.id,\n                    field_id: fieldId,\n                    value: storedValue\n                });\n                console.log(`Storing answer for field ${fieldName} (ID: ${fieldId}):`, storedValue);\n            } else if (!fieldId) {\n                console.warn(`Field name '${fieldName}' not found in field map`);\n            }\n        });\n        // Insert all answers\n        if (answers.length > 0) {\n            console.log(`Inserting ${answers.length} answers for response ${response.id}`);\n            const { error: answersError } = await _lib_supabase__WEBPACK_IMPORTED_MODULE_1__.supabase.from(\"form_response_answers\").insert(answers);\n            if (answersError) {\n                console.error(\"Error inserting answers:\", answersError);\n                // Rollback by deleting the response\n                await _lib_supabase__WEBPACK_IMPORTED_MODULE_1__.supabase.from(\"form_responses\").delete().eq(\"id\", response.id);\n                throw answersError;\n            }\n            console.log(\"Answers inserted successfully\");\n        } else {\n            console.warn(\"No answers to insert - form data may be empty\");\n        }\n        return next_dist_server_web_exports_next_response__WEBPACK_IMPORTED_MODULE_0__[\"default\"].json({\n            ...response,\n            _id: response.id,\n            formId: response.form_id,\n            submittedAt: response.submitted_at\n        });\n    } catch (error) {\n        console.error(\"Error creating response:\", error);\n        return next_dist_server_web_exports_next_response__WEBPACK_IMPORTED_MODULE_0__[\"default\"].json({\n            error: \"Failed to save response\"\n        }, {\n            status: 500\n        });\n    }\n}\n//# sourceURL=[module]\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,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RXZCLE9BQU95RCxZQUFZLEVBQUUsR0FBRyxNQUFNbEUsbURBQVFBLENBQzNDYSxJQUFJLENBQUMseUJBQ0w0QixNQUFNLENBQUNhO1lBRVYsSUFBSVksY0FBYztnQkFDaEI5QixRQUFRM0IsS0FBSyxDQUFDLDRCQUE0QnlEO2dCQUMxQyxvQ0FBb0M7Z0JBQ3BDLE1BQU1sRSxtREFBUUEsQ0FBQ2EsSUFBSSxDQUFDLGtCQUFrQnNELE1BQU0sR0FBR3BELEVBQUUsQ0FBQyxNQUFNSyxTQUFTWSxFQUFFO2dCQUNuRSxNQUFNa0M7WUFDUjtZQUNBOUIsUUFBUWdCLEdBQUcsQ0FBQztRQUNkLE9BQU87WUFDTGhCLFFBQVE0QixJQUFJLENBQUM7UUFDZjtRQUVBLE9BQU9qRSxrRkFBWUEsQ0FBQ1MsSUFBSSxDQUFDO1lBQ3ZCLEdBQUdZLFFBQVE7WUFDWFcsS0FBS1gsU0FBU1ksRUFBRTtZQUNoQjFCLFFBQVFjLFNBQVNhLE9BQU87WUFDeEJDLGFBQWFkLFNBQVNlLFlBQVk7UUFDcEM7SUFDRixFQUFFLE9BQU8xQixPQUFPO1FBQ2QyQixRQUFRM0IsS0FBSyxDQUFDLDRCQUE0QkE7UUFDMUMsT0FBT1Ysa0ZBQVlBLENBQUNTLElBQUksQ0FDdEI7WUFBRUMsT0FBTztRQUEwQixHQUNuQztZQUFFQyxRQUFRO1FBQUk7SUFFbEI7QUFDRiIsInNvdXJjZXMiOlsid2VicGFjazovL2N1c3RvbS1mb3Jtcy8uL2FwcC9hcGkvcmVzcG9uc2VzL3JvdXRlLmpzPzFiMmIiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgTmV4dFJlc3BvbnNlIH0gZnJvbSAnbmV4dC9zZXJ2ZXInO1xuaW1wb3J0IHsgc3VwYWJhc2UgfSBmcm9tICdAL2xpYi9zdXBhYmFzZSc7XG5cbmV4cG9ydCBhc3luYyBmdW5jdGlvbiBHRVQocmVxdWVzdCkge1xuICB0cnkge1xuICAgIGNvbnN0IHsgc2VhcmNoUGFyYW1zIH0gPSBuZXcgVVJMKHJlcXVlc3QudXJsKTtcbiAgICBjb25zdCBmb3JtSWQgPSBzZWFyY2hQYXJhbXMuZ2V0KCdmb3JtSWQnKTtcbiAgICBcbiAgICBpZiAoIWZvcm1JZCkge1xuICAgICAgcmV0dXJuIE5leHRSZXNwb25zZS5qc29uKFxuICAgICAgICB7IGVycm9yOiAnRm9ybSBJRCBpcyByZXF1aXJlZCcgfSxcbiAgICAgICAgeyBzdGF0dXM6IDQwMCB9XG4gICAgICApO1xuICAgIH1cbiAgICBcbiAgICAvLyBGZXRjaCByZXNwb25zZXMgd2l0aCB0aGVpciBhbnN3ZXJzIGpvaW5lZCB3aXRoIGZpZWxkIG5hbWVzXG4gICAgY29uc3QgeyBkYXRhOiByZXNwb25zZXMsIGVycm9yIH0gPSBhd2FpdCBzdXBhYmFzZVxuICAgICAgLmZyb20oJ2Zvcm1fcmVzcG9uc2VzJylcbiAgICAgIC5zZWxlY3QoYFxuICAgICAgICAqLFxuICAgICAgICBmb3JtX3Jlc3BvbnNlX2Fuc3dlcnMgKFxuICAgICAgICAgIGlkLFxuICAgICAgICAgIHZhbHVlLFxuICAgICAgICAgIGZvcm1fZmllbGRzIChcbiAgICAgICAgICAgIGZpZWxkX25hbWUsXG4gICAgICAgICAgICBmaWVsZF9sYWJlbFxuICAgICAgICAgIClcbiAgICAgICAgKVxuICAgICAgYClcbiAgICAgIC5lcSgnZm9ybV9pZCcsIGZvcm1JZClcbiAgICAgIC5vcmRlcignc3VibWl0dGVkX2F0JywgeyBhc2NlbmRpbmc6IGZhbHNlIH0pO1xuICAgIFxuICAgIGlmIChlcnJvcikgdGhyb3cgZXJyb3I7XG4gICAgXG4gICAgLy8gRm9ybWF0IHJlc3BvbnNlcyBmb3IgY29tcGF0aWJpbGl0eSAtIGNyZWF0ZSBwbGFpbiBvYmplY3QgZm9yIGRhdGFcbiAgICBjb25zdCBmb3JtYXR0ZWRSZXNwb25zZXMgPSByZXNwb25zZXMubWFwKHJlc3BvbnNlID0+IHtcbiAgICAgIGNvbnN0IGRhdGFPYmplY3QgPSB7fTtcbiAgICAgIHJlc3BvbnNlLmZvcm1fcmVzcG9uc2VfYW5zd2Vycz8uZm9yRWFjaChhbnN3ZXIgPT4ge1xuICAgICAgICBpZiAoYW5zd2VyLmZvcm1fZmllbGRzPy5maWVsZF9uYW1lKSB7XG4gICAgICAgICAgLy8gUGFyc2UgSlNPTiB2YWx1ZXMgZm9yIGFycmF5cy9vYmplY3RzXG4gICAgICAgICAgdHJ5IHtcbiAgICAgICAgICAgIGNvbnN0IHBhcnNlZFZhbHVlID0gSlNPTi5wYXJzZShhbnN3ZXIudmFsdWUpO1xuICAgICAgICAgICAgZGF0YU9iamVjdFthbnN3ZXIuZm9ybV9maWVsZHMuZmllbGRfbmFtZV0gPSBwYXJzZWRWYWx1ZTtcbiAgICAgICAgICB9IGNhdGNoIHtcbiAgICAgICAgICAgIC8vIElmIG5vdCBKU09OLCB1c2UgYXMtaXNcbiAgICAgICAgICAgIGRhdGFPYmplY3RbYW5zd2VyLmZvcm1fZmllbGRzLmZpZWxkX25hbWVdID0gYW5zd2VyLnZhbHVlO1xuICAgICAgICAgIH1cbiAgICAgICAgfVxuICAgICAgfSk7XG4gICAgICBcbiAgICAgIHJldHVybiB7XG4gICAgICAgIC4uLnJlc3BvbnNlLFxuICAgICAgICBfaWQ6IHJlc3BvbnNlLmlkLFxuICAgICAgICBmb3JtSWQ6IHJlc3BvbnNlLmZvcm1faWQsXG4gICAgICAgIHN1Ym1pdHRlZEF0OiByZXNwb25zZS5zdWJtaXR0ZWRfYXQsXG4gICAgICAgIGRhdGE6IGRhdGFPYmplY3RcbiAgICAgIH07XG4gICAgfSk7XG4gICAgXG4gICAgcmV0dXJuIE5leHRSZXNwb25zZS5qc29uKGZvcm1hdHRlZFJlc3BvbnNlcyk7XG4gIH0gY2F0Y2ggKGVycm9yKSB7XG4gICAgY29uc29sZS5lcnJvcignRXJyb3IgZmV0Y2hpbmcgcmVzcG9uc2VzOicsIGVycm9yKTtcbiAgICByZXR1cm4gTmV4dFJlc3BvbnNlLmpzb24oXG4gICAgICB7IGVycm9yOiAnRmFpbGVkIHRvIGZldGNoIHJlc3BvbnNlcycgfSxcbiAgICAgIHsgc3RhdHVzOiA1MDAgfVxuICAgICk7XG4gIH1cbn1cblxuZXhwb3J0IGFzeW5jIGZ1bmN0aW9uIFBPU1QocmVxdWVzdCkge1xuICB0cnkge1xuICAgIGNvbnN0IGJvZHkgPSBhd2FpdCByZXF1ZXN0Lmpzb24oKTtcbiAgICBcbiAgICAvLyBGaXJzdCwgY3JlYXRlIHRoZSByZXNwb25zZSByZWNvcmRcbiAgICBjb25zdCByZXNwb25zZURhdGEgPSB7XG4gICAgICBmb3JtX2lkOiBib2R5LmZvcm1JZFxuICAgIH07XG4gICAgXG4gICAgY29uc3QgeyBkYXRhOiByZXNwb25zZSwgZXJyb3I6IHJlc3BvbnNlRXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlXG4gICAgICAuZnJvbSgnZm9ybV9yZXNwb25zZXMnKVxuICAgICAgLmluc2VydChbcmVzcG9uc2VEYXRhXSlcbiAgICAgIC5zZWxlY3QoKVxuICAgICAgLnNpbmdsZSgpO1xuICAgIFxuICAgIGlmIChyZXNwb25zZUVycm9yKSB0aHJvdyByZXNwb25zZUVycm9yO1xuICAgIFxuICAgIC8vIEdldCB0aGUgZm9ybSBmaWVsZHMgdG8gbWFwIGZpZWxkIG5hbWVzIHRvIElEc1xuICAgIGNvbnN0IHsgZGF0YTogZmllbGRzLCBlcnJvcjogZmllbGRzRXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlXG4gICAgICAuZnJvbSgnZm9ybV9maWVsZHMnKVxuICAgICAgLnNlbGVjdCgnaWQsIGZpZWxkX25hbWUnKVxuICAgICAgLmVxKCdmb3JtX2lkJywgYm9keS5mb3JtSWQpO1xuICAgIFxuICAgIGlmIChmaWVsZHNFcnJvcikgdGhyb3cgZmllbGRzRXJyb3I7XG4gICAgXG4gICAgLy8gQ3JlYXRlIGEgbWFwIG9mIGZpZWxkIG5hbWVzIHRvIElEc1xuICAgIGNvbnN0IGZpZWxkTWFwID0gbmV3IE1hcCgpO1xuICAgIGZpZWxkcy5mb3JFYWNoKGZpZWxkID0+IHtcbiAgICAgIGZpZWxkTWFwLnNldChmaWVsZC5maWVsZF9uYW1lLCBmaWVsZC5pZCk7XG4gICAgfSk7XG4gICAgXG4gICAgLy8gQ29udmVydCB0aGUgZm9ybSBkYXRhIHRvIGFuc3dlciByZWNvcmRzXG4gICAgY29uc3QgZGF0YVRvU3RvcmUgPSBib2R5LmRhdGEgaW5zdGFuY2VvZiBNYXAgXG4gICAgICA/IGJvZHkuZGF0YVxuICAgICAgOiBuZXcgTWFwKE9iamVjdC5lbnRyaWVzKGJvZHkuZGF0YSB8fCB7fSkpO1xuICAgIFxuICAgIGNvbnNvbGUubG9nKCdGb3JtIGRhdGEgcmVjZWl2ZWQ6JywgYm9keS5kYXRhKTtcbiAgICBjb25zb2xlLmxvZygnRmllbGQgbWFwcGluZzonLCBBcnJheS5mcm9tKGZpZWxkTWFwLmVudHJpZXMoKSkpO1xuICAgIFxuICAgIGNvbnN0IGFuc3dlcnMgPSBbXTtcbiAgICBkYXRhVG9TdG9yZS5mb3JFYWNoKCh2YWx1ZSwgZmllbGROYW1lKSA9PiB7XG4gICAgICBjb25zdCBmaWVsZElkID0gZmllbGRNYXAuZ2V0KGZpZWxkTmFtZSk7XG4gICAgICBpZiAoZmllbGRJZCAmJiB2YWx1ZSAhPT0gdW5kZWZpbmVkICYmIHZhbHVlICE9PSBudWxsICYmIHZhbHVlICE9PSAnJykge1xuICAgICAgICAvLyBTdG9yZSBhcnJheXMgYW5kIG9iamVjdHMgYXMgSlNPTiBzdHJpbmdzXG4gICAgICAgIGNvbnN0IHN0b3JlZFZhbHVlID0gdHlwZW9mIHZhbHVlID09PSAnb2JqZWN0JyBcbiAgICAgICAgICA/IEpTT04uc3RyaW5naWZ5KHZhbHVlKVxuICAgICAgICAgIDogU3RyaW5nKHZhbHVlKTtcbiAgICAgICAgXG4gICAgICAgIGFuc3dlcnMucHVzaCh7XG4gICAgICAgICAgcmVzcG9uc2VfaWQ6IHJlc3BvbnNlLmlkLFxuICAgICAgICAgIGZpZWxkX2lkOiBmaWVsZElkLFxuICAgICAgICAgIHZhbHVlOiBzdG9yZWRWYWx1ZVxuICAgICAgICB9KTtcbiAgICAgICAgY29uc29sZS5sb2coYFN0b3JpbmcgYW5zd2VyIGZvciBmaWVsZCAke2ZpZWxkTmFtZX0gKElEOiAke2ZpZWxkSWR9KTpgLCBzdG9yZWRWYWx1ZSk7XG4gICAgICB9IGVsc2UgaWYgKCFmaWVsZElkKSB7XG4gICAgICAgIGNvbnNvbGUud2FybihgRmllbGQgbmFtZSAnJHtmaWVsZE5hbWV9JyBub3QgZm91bmQgaW4gZmllbGQgbWFwYCk7XG4gICAgICB9XG4gICAgfSk7XG4gICAgXG4gICAgLy8gSW5zZXJ0IGFsbCBhbnN3ZXJzXG4gICAgaWYgKGFuc3dlcnMubGVuZ3RoID4gMCkge1xuICAgICAgY29uc29sZS5sb2coYEluc2VydGluZyAke2Fuc3dlcnMubGVuZ3RofSBhbnN3ZXJzIGZvciByZXNwb25zZSAke3Jlc3BvbnNlLmlkfWApO1xuICAgICAgY29uc3QgeyBlcnJvcjogYW5zd2Vyc0Vycm9yIH0gPSBhd2FpdCBzdXBhYmFzZVxuICAgICAgICAuZnJvbSgnZm9ybV9yZXNwb25zZV9hbnN3ZXJzJylcbiAgICAgICAgLmluc2VydChhbnN3ZXJzKTtcbiAgICAgIFxuICAgICAgaWYgKGFuc3dlcnNFcnJvcikge1xuICAgICAgICBjb25zb2xlLmVycm9yKCdFcnJvciBpbnNlcnRpbmcgYW5zd2VyczonLCBhbnN3ZXJzRXJyb3IpO1xuICAgICAgICAvLyBSb2xsYmFjayBieSBkZWxldGluZyB0aGUgcmVzcG9uc2VcbiAgICAgICAgYXdhaXQgc3VwYWJhc2UuZnJvbSgnZm9ybV9yZXNwb25zZXMnKS5kZWxldGUoKS5lcSgnaWQnLCByZXNwb25zZS5pZCk7XG4gICAgICAgIHRocm93IGFuc3dlcnNFcnJvcjtcbiAgICAgIH1cbiAgICAgIGNvbnNvbGUubG9nKCdBbnN3ZXJzIGluc2VydGVkIHN1Y2Nlc3NmdWxseScpO1xuICAgIH0gZWxzZSB7XG4gICAgICBjb25zb2xlLndhcm4oJ05vIGFuc3dlcnMgdG8gaW5zZXJ0IC0gZm9ybSBkYXRhIG1heSBiZSBlbXB0eScpO1xuICAgIH1cbiAgICBcbiAgICByZXR1cm4gTmV4dFJlc3BvbnNlLmpzb24oe1xuICAgICAgLi4ucmVzcG9uc2UsXG4gICAgICBfaWQ6IHJlc3BvbnNlLmlkLFxuICAgICAgZm9ybUlkOiByZXNwb25zZS5mb3JtX2lkLFxuICAgICAgc3VibWl0dGVkQXQ6IHJlc3BvbnNlLnN1Ym1pdHRlZF9hdFxuICAgIH0pO1xuICB9IGNhdGNoIChlcnJvcikge1xuICAgIGNvbnNvbGUuZXJyb3IoJ0Vycm9yIGNyZWF0aW5nIHJlc3BvbnNlOicsIGVycm9yKTtcbiAgICByZXR1cm4gTmV4dFJlc3BvbnNlLmpzb24oXG4gICAgICB7IGVycm9yOiAnRmFpbGVkIHRvIHNhdmUgcmVzcG9uc2UnIH0sXG4gICAgICB7IHN0YXR1czogNTAwIH1cbiAgICApO1xuICB9XG59Il0sIm5hbWVzIjpbIk5leHRSZXNwb25zZSIsInN1cGFiYXNlIiwiR0VUIiwicmVxdWVzdCIsInNlYXJjaFBhcmFtcyIsIlVSTCIsInVybCIsImZvcm1JZCIsImdldCIsImpzb24iLCJlcnJvciIsInN0YXR1cyIsImRhdGEiLCJyZXNwb25zZXMiLCJmcm9tIiwic2VsZWN0IiwiZXEiLCJvcmRlciIsImFzY2VuZGluZyIsImZvcm1hdHRlZFJlc3BvbnNlcyIsIm1hcCIsInJlc3BvbnNlIiwiZGF0YU9iamVjdCIsImZvcm1fcmVzcG9uc2VfYW5zd2VycyIsImZvckVhY2giLCJhbnN3ZXIiLCJmb3JtX2ZpZWxkcyIsImZpZWxkX25hbWUiLCJwYXJzZWRWYWx1ZSIsIkpTT04iLCJwYXJzZSIsInZhbHVlIiwiX2lkIiwiaWQiLCJmb3JtX2lkIiwic3VibWl0dGVkQXQiLCJzdWJtaXR0ZWRfYXQiLCJjb25zb2xlIiwiUE9TVCIsImJvZHkiLCJyZXNwb25zZURhdGEiLCJyZXNwb25zZUVycm9yIiwiaW5zZXJ0Iiwic2luZ2xlIiwiZmllbGRzIiwiZmllbGRzRXJyb3IiLCJmaWVsZE1hcCIsIk1hcCIsImZpZWxkIiwic2V0IiwiZGF0YVRvU3RvcmUiLCJPYmplY3QiLCJlbnRyaWVzIiwibG9nIiwiQXJyYXkiLCJhbnN3ZXJzIiwiZmllbGROYW1lIiwiZmllbGRJZCIsInVuZGVmaW5lZCIsInN0b3JlZFZhbHVlIiwic3RyaW5naWZ5IiwiU3RyaW5nIiwicHVzaCIsInJlc3BvbnNlX2lkIiwiZmllbGRfaWQiLCJ3YXJuIiwibGVuZ3RoIiwiYW5zd2Vyc0Vycm9yIiwiZGVsZXRlIl0sInNvdXJjZVJvb3QiOiIifQ==\n//# sourceURL=webpack-internal:///(rsc)/./app/api/responses/route.js\n");
-
-/***/ }),
-
-/***/ "(rsc)/./lib/supabase.js":
-/*!*************************!*\
-  !*** ./lib/supabase.js ***!
-  \*************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   supabase: () => (/* binding */ supabase)\n/* harmony export */ });\n/* harmony import */ var _supabase_supabase_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @supabase/supabase-js */ \"(rsc)/./node_modules/@supabase/supabase-js/dist/module/index.js\");\n\nconst supabaseUrl = \"https://eycgzjqwowrdmjlzqqyg.supabase.co\" || 0;\nconst supabasePublishableKey = \"sb_publishable_eG0lH_ACpyOjqG44mN_5PA_1-oFLr5n\" || 0;\n// Only check for environment variables in production or when actually using the client\nlet supabase = null;\nif (supabaseUrl && supabasePublishableKey) {\n    supabase = (0,_supabase_supabase_js__WEBPACK_IMPORTED_MODULE_0__.createClient)(supabaseUrl, supabasePublishableKey);\n} else if (false) {}\n\n//# sourceURL=[module]\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiKHJzYykvLi9saWIvc3VwYWJhc2UuanMiLCJtYXBwaW5ncyI6Ijs7Ozs7QUFBcUQ7QUFFckQsTUFBTUMsY0FBY0MsMENBQW9DLElBQUk7QUFDNUQsTUFBTUcseUJBQXlCSCxnREFBZ0QsSUFBSTtBQUVuRix1RkFBdUY7QUFDdkYsSUFBSUssV0FBVztBQUVmLElBQUlOLGVBQWVJLHdCQUF3QjtJQUN6Q0UsV0FBV1AsbUVBQVlBLENBQUNDLGFBQWFJO0FBQ3ZDLE9BQU8sSUFBSUgsS0FBeUIsRUFBYyxFQUVqRDtBQUVtQiIsInNvdXJjZXMiOlsid2VicGFjazovL2N1c3RvbS1mb3Jtcy8uL2xpYi9zdXBhYmFzZS5qcz8xNTk4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IGNyZWF0ZUNsaWVudCB9IGZyb20gJ0BzdXBhYmFzZS9zdXBhYmFzZS1qcyc7XG5cbmNvbnN0IHN1cGFiYXNlVXJsID0gcHJvY2Vzcy5lbnYuTkVYVF9QVUJMSUNfU1VQQUJBU0VfVVJMIHx8ICcnO1xuY29uc3Qgc3VwYWJhc2VQdWJsaXNoYWJsZUtleSA9IHByb2Nlc3MuZW52Lk5FWFRfUFVCTElDX1NVUEFCQVNFX1BVQkxJU0hBQkxFX0tFWSB8fCAnJztcblxuLy8gT25seSBjaGVjayBmb3IgZW52aXJvbm1lbnQgdmFyaWFibGVzIGluIHByb2R1Y3Rpb24gb3Igd2hlbiBhY3R1YWxseSB1c2luZyB0aGUgY2xpZW50XG5sZXQgc3VwYWJhc2UgPSBudWxsO1xuXG5pZiAoc3VwYWJhc2VVcmwgJiYgc3VwYWJhc2VQdWJsaXNoYWJsZUtleSkge1xuICBzdXBhYmFzZSA9IGNyZWF0ZUNsaWVudChzdXBhYmFzZVVybCwgc3VwYWJhc2VQdWJsaXNoYWJsZUtleSk7XG59IGVsc2UgaWYgKHByb2Nlc3MuZW52Lk5PREVfRU5WID09PSAncHJvZHVjdGlvbicpIHtcbiAgY29uc29sZS5lcnJvcignV2FybmluZzogU3VwYWJhc2UgZW52aXJvbm1lbnQgdmFyaWFibGVzIGFyZSBtaXNzaW5nJyk7XG59XG5cbmV4cG9ydCB7IHN1cGFiYXNlIH07Il0sIm5hbWVzIjpbImNyZWF0ZUNsaWVudCIsInN1cGFiYXNlVXJsIiwicHJvY2VzcyIsImVudiIsIk5FWFRfUFVCTElDX1NVUEFCQVNFX1VSTCIsInN1cGFiYXNlUHVibGlzaGFibGVLZXkiLCJORVhUX1BVQkxJQ19TVVBBQkFTRV9QVUJMSVNIQUJMRV9LRVkiLCJzdXBhYmFzZSIsImNvbnNvbGUiLCJlcnJvciJdLCJzb3VyY2VSb290IjoiIn0=\n//# sourceURL=webpack-internal:///(rsc)/./lib/supabase.js\n");
-
-/***/ })
-
-};
-;
-
-// load runtime
-var __webpack_require__ = require("../../../webpack-runtime.js");
-__webpack_require__.C(exports);
-var __webpack_exec__ = (moduleId) => (__webpack_require__(__webpack_require__.s = moduleId))
-var __webpack_exports__ = __webpack_require__.X(0, ["vendor-chunks/next","vendor-chunks/@supabase"], () => (__webpack_exec__("(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader.js?name=app%2Fapi%2Fresponses%2Froute&page=%2Fapi%2Fresponses%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fresponses%2Froute.js&appDir=%2FUsers%2Frosspalmer%2FRoss%20GitHub%20Projects%2Fcustom-forms%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frosspalmer%2FRoss%20GitHub%20Projects%2Fcustom-forms&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D!")));
-module.exports = __webpack_exports__;
-
-})();
+"use strict";(()=>{var e={};e.id=526,e.ids=[526],e.modules={517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},3685:e=>{e.exports=require("http")},5687:e=>{e.exports=require("https")},5477:e=>{e.exports=require("punycode")},2781:e=>{e.exports=require("stream")},7310:e=>{e.exports=require("url")},9796:e=>{e.exports=require("zlib")},9069:(e,t,r)=>{r.r(t),r.d(t,{headerHooks:()=>z,originalPathname:()=>U,patchFetch:()=>D,requestAsyncStorage:()=>N,routeModule:()=>P,serverHooks:()=>F,staticGenerationAsyncStorage:()=>T,staticGenerationBailout:()=>M});var n={};r.r(n),r.d(n,{GET:()=>S,POST:()=>I});var s=r(5419),i=r(9108),o=r(9678),a=r(8070),l=r(4102),d=Object.defineProperty,c=Object.defineProperties,u=Object.getOwnPropertyDescriptors,h=Object.getOwnPropertySymbols,f=Object.prototype.hasOwnProperty,p=Object.prototype.propertyIsEnumerable,m=(e,t,r)=>t in e?d(e,t,{enumerable:!0,configurable:!0,writable:!0,value:r}):e[t]=r,y=(e,t)=>{for(var r in t||(t={}))f.call(t,r)&&m(e,r,t[r]);if(h)for(var r of h(t))p.call(t,r)&&m(e,r,t[r]);return e},g=(e,t)=>c(e,u(t)),b=(e,t,r)=>new Promise((n,s)=>{var i=e=>{try{a(r.next(e))}catch(e){s(e)}},o=e=>{try{a(r.throw(e))}catch(e){s(e)}},a=e=>e.done?n(e.value):Promise.resolve(e.value).then(i,o);a((r=r.apply(e,t)).next())}),_=class{constructor(e){this.resend=e}create(e){return b(this,arguments,function*(e,t={}){return yield this.resend.post("/api-keys",e,t)})}list(){return b(this,null,function*(){return yield this.resend.get("/api-keys")})}remove(e){return b(this,null,function*(){return yield this.resend.delete(`/api-keys/${e}`)})}},v=class{constructor(e){this.resend=e}create(e){return b(this,arguments,function*(e,t={}){return yield this.resend.post("/audiences",e,t)})}list(){return b(this,null,function*(){return yield this.resend.get("/audiences")})}get(e){return b(this,null,function*(){return yield this.resend.get(`/audiences/${e}`)})}remove(e){return b(this,null,function*(){return yield this.resend.delete(`/audiences/${e}`)})}};function w(e){var t;return{attachments:null==(t=e.attachments)?void 0:t.map(e=>({content:e.content,filename:e.filename,path:e.path,content_type:e.contentType,content_id:e.contentId})),bcc:e.bcc,cc:e.cc,from:e.from,headers:e.headers,html:e.html,reply_to:e.replyTo,scheduled_at:e.scheduledAt,subject:e.subject,tags:e.tags,text:e.text,to:e.to}}var x=class{constructor(e){this.resend=e}send(e){return b(this,arguments,function*(e,t={}){return this.create(e,t)})}create(e){return b(this,arguments,function*(e,t={}){let n=[];for(let t of e){if(t.react){if(!this.renderAsync)try{let{renderAsync:e}=yield r.e(486).then(r.t.bind(r,5486,19));this.renderAsync=e}catch(e){throw Error("Failed to render React component. Make sure to install `@react-email/render`")}t.html=yield this.renderAsync(t.react),t.react=void 0}n.push(w(t))}return yield this.resend.post("/emails/batch",n,t)})}},E=class{constructor(e){this.resend=e}create(e){return b(this,arguments,function*(e,t={}){if(e.react){if(!this.renderAsync)try{let{renderAsync:e}=yield r.e(486).then(r.t.bind(r,5486,19));this.renderAsync=e}catch(e){throw Error("Failed to render React component. Make sure to install `@react-email/render`")}e.html=yield this.renderAsync(e.react)}return yield this.resend.post("/broadcasts",{name:e.name,audience_id:e.audienceId,preview_text:e.previewText,from:e.from,html:e.html,reply_to:e.replyTo,subject:e.subject,text:e.text},t)})}send(e,t){return b(this,null,function*(){return yield this.resend.post(`/broadcasts/${e}/send`,{scheduled_at:null==t?void 0:t.scheduledAt})})}list(){return b(this,null,function*(){return yield this.resend.get("/broadcasts")})}get(e){return b(this,null,function*(){return yield this.resend.get(`/broadcasts/${e}`)})}remove(e){return b(this,null,function*(){return yield this.resend.delete(`/broadcasts/${e}`)})}update(e,t){return b(this,null,function*(){return yield this.resend.patch(`/broadcasts/${e}`,{name:t.name,audience_id:t.audienceId,from:t.from,html:t.html,text:t.text,subject:t.subject,reply_to:t.replyTo,preview_text:t.previewText})})}},$=class{constructor(e){this.resend=e}create(e){return b(this,arguments,function*(e,t={}){return yield this.resend.post(`/audiences/${e.audienceId}/contacts`,{unsubscribed:e.unsubscribed,email:e.email,first_name:e.firstName,last_name:e.lastName},t)})}list(e){return b(this,null,function*(){return yield this.resend.get(`/audiences/${e.audienceId}/contacts`)})}get(e){return b(this,null,function*(){return e.id||e.email?yield this.resend.get(`/audiences/${e.audienceId}/contacts/${(null==e?void 0:e.email)?null==e?void 0:e.email:null==e?void 0:e.id}`):{data:null,error:{message:"Missing `id` or `email` field.",name:"missing_required_field"}}})}update(e){return b(this,null,function*(){return e.id||e.email?yield this.resend.patch(`/audiences/${e.audienceId}/contacts/${(null==e?void 0:e.email)?null==e?void 0:e.email:null==e?void 0:e.id}`,{unsubscribed:e.unsubscribed,first_name:e.firstName,last_name:e.lastName}):{data:null,error:{message:"Missing `id` or `email` field.",name:"missing_required_field"}}})}remove(e){return b(this,null,function*(){return e.id||e.email?yield this.resend.delete(`/audiences/${e.audienceId}/contacts/${(null==e?void 0:e.email)?null==e?void 0:e.email:null==e?void 0:e.id}`):{data:null,error:{message:"Missing `id` or `email` field.",name:"missing_required_field"}}})}},A=class{constructor(e){this.resend=e}create(e){return b(this,arguments,function*(e,t={}){return yield this.resend.post("/domains",{name:e.name,region:e.region,custom_return_path:e.customReturnPath},t)})}list(){return b(this,null,function*(){return yield this.resend.get("/domains")})}get(e){return b(this,null,function*(){return yield this.resend.get(`/domains/${e}`)})}update(e){return b(this,null,function*(){return yield this.resend.patch(`/domains/${e.id}`,{click_tracking:e.clickTracking,open_tracking:e.openTracking,tls:e.tls})})}remove(e){return b(this,null,function*(){return yield this.resend.delete(`/domains/${e}`)})}verify(e){return b(this,null,function*(){return yield this.resend.post(`/domains/${e}/verify`)})}},j=class{constructor(e){this.resend=e}send(e){return b(this,arguments,function*(e,t={}){return this.create(e,t)})}create(e){return b(this,arguments,function*(e,t={}){if(e.react){if(!this.renderAsync)try{let{renderAsync:e}=yield r.e(486).then(r.t.bind(r,5486,19));this.renderAsync=e}catch(e){throw Error("Failed to render React component. Make sure to install `@react-email/render`")}e.html=yield this.renderAsync(e.react)}return yield this.resend.post("/emails",w(e),t)})}get(e){return b(this,null,function*(){return yield this.resend.get(`/emails/${e}`)})}update(e){return b(this,null,function*(){return yield this.resend.patch(`/emails/${e.id}`,{scheduled_at:e.scheduledAt})})}cancel(e){return b(this,null,function*(){return yield this.resend.post(`/emails/${e}/cancel`)})}},k="undefined"!=typeof process&&process.env&&process.env.RESEND_BASE_URL||"https://api.resend.com",O="undefined"!=typeof process&&process.env&&process.env.RESEND_USER_AGENT||"resend-node:6.0.2";let q=new class{constructor(e){if(this.key=e,this.apiKeys=new _(this),this.audiences=new v(this),this.batch=new x(this),this.broadcasts=new E(this),this.contacts=new $(this),this.domains=new A(this),this.emails=new j(this),!e&&("undefined"!=typeof process&&process.env&&(this.key=process.env.RESEND_API_KEY),!this.key))throw Error('Missing API key. Pass it to the constructor `new Resend("re_123")`');this.headers=new Headers({Authorization:`Bearer ${this.key}`,"User-Agent":O,"Content-Type":"application/json"})}fetchRequest(e){return b(this,arguments,function*(e,t={}){try{let r=yield fetch(`${k}${e}`,t);if(!r.ok)try{let e=yield r.text();return{data:null,error:JSON.parse(e)}}catch(t){if(t instanceof SyntaxError)return{data:null,error:{name:"application_error",message:"Internal server error. We are unable to process your request right now, please try again later."}};let e={message:r.statusText,name:"application_error"};if(t instanceof Error)return{data:null,error:g(y({},e),{message:t.message})};return{data:null,error:e}}return{data:yield r.json(),error:null}}catch(e){return{data:null,error:{name:"application_error",message:"Unable to fetch data. The request could not be resolved."}}}})}post(e,t){return b(this,arguments,function*(e,t,r={}){let n=new Headers(this.headers);r.idempotencyKey&&n.set("Idempotency-Key",r.idempotencyKey);let s=y({method:"POST",headers:n,body:JSON.stringify(t)},r);return this.fetchRequest(e,s)})}get(e){return b(this,arguments,function*(e,t={}){let r=y({method:"GET",headers:this.headers},t);return this.fetchRequest(e,r)})}put(e,t){return b(this,arguments,function*(e,t,r={}){let n=y({method:"PUT",headers:this.headers,body:JSON.stringify(t)},r);return this.fetchRequest(e,n)})}patch(e,t){return b(this,arguments,function*(e,t,r={}){let n=y({method:"PATCH",headers:this.headers,body:JSON.stringify(t)},r);return this.fetchRequest(e,n)})}delete(e,t){return b(this,null,function*(){let r={method:"DELETE",headers:this.headers,body:JSON.stringify(t)};return this.fetchRequest(e,r)})}}(process.env.RESEND_API_KEY);async function R({form:e,responses:t,recipientEmail:r}){try{let n=function(e,t){let r=new Date().toLocaleString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric",hour:"2-digit",minute:"2-digit",timeZoneName:"short"});return`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Form Response</title>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #f5f5f5;
+        }
+        .email-container {
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          overflow: hidden;
+        }
+        .header {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 30px;
+          text-align: center;
+        }
+        .header h1 {
+          margin: 0;
+          font-size: 24px;
+          font-weight: 600;
+        }
+        .header p {
+          margin: 10px 0 0 0;
+          opacity: 0.9;
+          font-size: 14px;
+        }
+        .content {
+          padding: 30px;
+        }
+        .response-section {
+          margin-bottom: 25px;
+          padding-bottom: 25px;
+          border-bottom: 1px solid #e5e5e5;
+        }
+        .response-section:last-child {
+          border-bottom: none;
+          padding-bottom: 0;
+        }
+        .section-title {
+          color: #667eea;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 15px;
+        }
+        .field {
+          margin-bottom: 20px;
+        }
+        .field-label {
+          font-weight: 600;
+          color: #555;
+          margin-bottom: 5px;
+          font-size: 14px;
+        }
+        .field-value {
+          color: #333;
+          font-size: 15px;
+          padding: 10px;
+          background: #f8f9fa;
+          border-radius: 6px;
+          border-left: 3px solid #667eea;
+        }
+        .field-value.empty {
+          color: #999;
+          font-style: italic;
+          border-left-color: #ddd;
+        }
+        .footer {
+          background: #f8f9fa;
+          padding: 20px 30px;
+          text-align: center;
+          font-size: 12px;
+          color: #666;
+        }
+        .footer a {
+          color: #667eea;
+          text-decoration: none;
+        }
+        .timestamp {
+          background: #f0f0f0;
+          padding: 10px 30px;
+          font-size: 13px;
+          color: #666;
+          border-top: 1px solid #e5e5e5;
+        }
+        .logo {
+          width: 120px;
+          height: auto;
+          margin-bottom: 15px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-container">
+        <div class="header">
+          <img src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg" alt="Aloa" class="logo">
+          <h1>New Form Response</h1>
+          <p>${e.title}</p>
+        </div>
+        
+        <div class="timestamp">
+          <strong>Submitted:</strong> ${r}
+        </div>
+        
+        <div class="content">
+          ${function(e,t){let r={};e.forEach(e=>{let t=e.validation?.section||"General Information";r[t]||(r[t]=[]),r[t].push(e)});let n="";return Object.entries(r).forEach(([e,r])=>{n+=`
+      <div class="response-section">
+        <div class="section-title">${e}</div>
+    `,r.forEach(e=>{var r;let s=(r=t[e.field_name]||t[e.name])?Array.isArray(r)?0===r.length?"":r.map(e=>`• ${e}`).join("<br>"):"rating"===e.field_type||"rating"===e.type?`${r} / 5 ⭐`:"string"==typeof r&&r.includes("\n")?r.replace(/\n/g,"<br>"):r:"";n+=`
+        <div class="field">
+          <div class="field-label">${e.field_label||e.label}</div>
+          <div class="field-value ${s?"":"empty"}">
+            ${s||"No response provided"}
+          </div>
+        </div>
+      `}),n+="</div>"}),n}(e.fields,t)}
+        </div>
+        
+        <div class="footer">
+          <p>
+            This response was submitted via your custom form.<br>
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL||"https://custom-forms-xi.vercel.app"}/responses/${e.id}">
+              View all responses →
+            </a>
+          </p>
+          <p style="margin-top: 15px; color: #999;">
+            Powered by <strong>Aloa\xae Agency</strong>
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `}(e,t),s=await q.emails.send({from:"Aloa Forms <forms@aloa.agency>",to:r||"ross@aloa.agency",subject:`New Response: ${e.title}`,html:n});return{success:!0,data:s}}catch(e){return console.error("Error sending email:",e),{success:!1,error:e}}}async function S(e){try{let{searchParams:t}=new URL(e.url),r=t.get("formId");if(!r)return a.Z.json({error:"Form ID is required"},{status:400});let{data:n,error:s}=await l.O.from("form_responses").select(`
+        *,
+        form_response_answers (
+          id,
+          value,
+          form_fields (
+            field_name,
+            field_label
+          )
+        )
+      `).eq("form_id",r).order("submitted_at",{ascending:!1});if(s)throw s;let i=n.map(e=>{let t={};return e.form_response_answers?.forEach(e=>{if(e.form_fields?.field_name)try{let r=JSON.parse(e.value);t[e.form_fields.field_name]=r}catch{t[e.form_fields.field_name]=e.value}}),{...e,_id:e.id,formId:e.form_id,submittedAt:e.submitted_at,data:t}});return a.Z.json(i)}catch(e){return console.error("Error fetching responses:",e),a.Z.json({error:"Failed to fetch responses"},{status:500})}}async function I(e){try{let t=await e.json(),r={form_id:t.formId},{data:n,error:s}=await l.O.from("form_responses").insert([r]).select().single();if(s)throw s;let{data:i,error:o}=await l.O.from("form_fields").select("id, field_name").eq("form_id",t.formId);if(o)throw o;let d=new Map;i.forEach(e=>{d.set(e.field_name,e.id)});let c=t.data instanceof Map?t.data:new Map(Object.entries(t.data||{}));console.log("Form data received:",t.data),console.log("Field mapping:",Array.from(d.entries()));let u=[];if(c.forEach((e,t)=>{let r=d.get(t);if(r&&null!=e&&""!==e){let s="object"==typeof e?JSON.stringify(e):String(e);u.push({response_id:n.id,field_id:r,value:s}),console.log(`Storing answer for field ${t} (ID: ${r}):`,s)}else r||console.warn(`Field name '${t}' not found in field map`)}),u.length>0){console.log(`Inserting ${u.length} answers for response ${n.id}`);let{error:e}=await l.O.from("form_response_answers").insert(u);if(e)throw console.error("Error inserting answers:",e),await l.O.from("form_responses").delete().eq("id",n.id),e;console.log("Answers inserted successfully")}else console.warn("No answers to insert - form data may be empty");let{data:h,error:f}=await l.O.from("forms").select(`
+        *,
+        form_fields (
+          id,
+          field_name,
+          field_label,
+          field_type,
+          field_order,
+          validation
+        )
+      `).eq("id",t.formId).single();if(!f&&h)try{let e=await R({form:{id:h.id,title:h.title,fields:h.form_fields.sort((e,t)=>(e.field_order||0)-(t.field_order||0))},responses:t.data,recipientEmail:h.notification_email||"ross@aloa.agency"});e.success?console.log("Email notification sent successfully"):console.error("Failed to send email notification:",e.error)}catch(e){console.error("Error sending email notification:",e)}return a.Z.json({...n,_id:n.id,formId:n.form_id,submittedAt:n.submitted_at})}catch(e){return console.error("Error creating response:",e),a.Z.json({error:"Failed to save response"},{status:500})}}let P=new s.AppRouteRouteModule({definition:{kind:i.x.APP_ROUTE,page:"/api/responses/route",pathname:"/api/responses",filename:"route",bundlePath:"app/api/responses/route"},resolvedPagePath:"/Users/rosspalmer/Ross GitHub Projects/custom-forms/app/api/responses/route.js",nextConfigOutput:"",userland:n}),{requestAsyncStorage:N,staticGenerationAsyncStorage:T,serverHooks:F,headerHooks:z,staticGenerationBailout:M}=P,U="/api/responses/route";function D(){return(0,o.patchFetch)({serverHooks:F,staticGenerationAsyncStorage:T})}},4102:(e,t,r)=>{r.d(t,{O:()=>o});var n=r(2409);let s="https://eycgzjqwowrdmjlzqqyg.supabase.co",i="sb_publishable_eG0lH_ACpyOjqG44mN_5PA_1-oFLr5n",o=null;s&&i?o=(0,n.eI)(s,i):console.error("Warning: Supabase environment variables are missing")}};var t=require("../../../webpack-runtime.js");t.C(e);var r=e=>t(t.s=e),n=t.X(0,[638,409,206],()=>r(9069));module.exports=n})();
