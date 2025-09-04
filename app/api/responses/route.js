@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { sendFormResponseEmail } from '@/lib/email';
 
 export async function GET(request) {
   try {
@@ -142,6 +143,47 @@ export async function POST(request) {
       console.log('Answers inserted successfully');
     } else {
       console.warn('No answers to insert - form data may be empty');
+    }
+    
+    // Fetch the form details for the email
+    const { data: form, error: formError } = await supabase
+      .from('forms')
+      .select(`
+        *,
+        form_fields (
+          id,
+          field_name,
+          field_label,
+          field_type,
+          field_order,
+          validation
+        )
+      `)
+      .eq('id', body.formId)
+      .single();
+    
+    if (!formError && form) {
+      // Send email notification
+      try {
+        const emailResult = await sendFormResponseEmail({
+          form: {
+            id: form.id,
+            title: form.title,
+            fields: form.form_fields.sort((a, b) => (a.field_order || 0) - (b.field_order || 0))
+          },
+          responses: body.data,
+          recipientEmail: form.notification_email || 'ross@aloa.agency'
+        });
+        
+        if (emailResult.success) {
+          console.log('Email notification sent successfully');
+        } else {
+          console.error('Failed to send email notification:', emailResult.error);
+        }
+      } catch (emailError) {
+        console.error('Error sending email notification:', emailError);
+        // Don't fail the response submission if email fails
+      }
     }
     
     return NextResponse.json({
