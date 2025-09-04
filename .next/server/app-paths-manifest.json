@@ -1,7 +1,19 @@
 {
-  "/forms/[urlId]/page": "app/forms/[urlId]/page.js",
+  "/_not-found": "app/_not-found.js",
   "/ai-analysis/[formId]/page": "app/ai-analysis/[formId]/page.js",
-  "/page": "app/page.js",
+  "/api/ai-analysis/[formId]/route": "app/api/ai-analysis/[formId]/route.js",
+  "/api/forms/debug/route": "app/api/forms/debug/route.js",
+  "/api/forms/by-id/[formId]/route": "app/api/forms/by-id/[formId]/route.js",
+  "/api/forms/upload/route": "app/api/forms/upload/route.js",
+  "/api/forms/route": "app/api/forms/route.js",
+  "/api/responses/[responseId]/route": "app/api/responses/[responseId]/route.js",
+  "/api/responses/route": "app/api/responses/route.js",
+  "/api/forms/edit-fields/[formId]/route": "app/api/forms/edit-fields/[formId]/route.js",
+  "/api/forms/[urlId]/route": "app/api/forms/[urlId]/route.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/responses/[formId]/page": "app/responses/[formId]/page.js"
+  "/forms/[urlId]/page": "app/forms/[urlId]/page.js",
+  "/responses/[formId]/page": "app/responses/[formId]/page.js",
+  "/edit/[formId]/page": "app/edit/[formId]/page.js",
+  "/page": "app/page.js",
+  "/create/page": "app/create/page.js"
 }
