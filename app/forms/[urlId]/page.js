@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import AloaLogo from '@/components/AloaLogo';
 import toast from 'react-hot-toast';
 
 export default function FormPage() {
@@ -52,10 +51,11 @@ export default function FormPage() {
         <div className="bg-aloa-white shadow-xl overflow-hidden">
           <div className="bg-aloa-black text-aloa-cream px-4 sm:px-8 py-4 sm:py-6">
             <div className="flex items-center justify-between gap-2 sm:gap-4">
-              <div className="flex items-center gap-3">
-                <AloaLogo className="h-10 w-10 sm:h-12 sm:w-12" />
-                <span className="text-lg sm:text-xl font-display font-bold uppercase tracking-wider hidden sm:block">Aloa Forms</span>
-              </div>
+              <img 
+                src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg" 
+                alt="Aloa" 
+                className="h-8 sm:h-10 w-auto"
+              />
               <button
                 onClick={() => {
                   const url = window.location.href;
