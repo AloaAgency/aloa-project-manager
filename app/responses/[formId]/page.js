@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Download, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { Download, Eye, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -41,6 +41,29 @@ export default function ResponsesPage() {
       router.push('/dashboard');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deleteResponse = async (responseId) => {
+    if (!confirm('Are you sure you want to delete this response? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/responses/${responseId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete response');
+      }
+
+      toast.success('Response deleted successfully');
+      // Remove the deleted response from the list
+      setResponses(responses.filter(r => r._id !== responseId));
+    } catch (error) {
+      console.error('Error deleting response:', error);
+      toast.error('Failed to delete response');
     }
   };
 
@@ -159,22 +182,34 @@ export default function ResponsesPage() {
           <div className="space-y-3 sm:space-y-4">
             {responses.map((response) => (
               <div key={response._id} className="card hover:shadow-xl transition-all duration-300">
-                <div 
-                  className="flex items-center justify-between cursor-pointer group"
-                  onClick={() => toggleExpanded(response._id)}
-                >
-                  <div>
+                <div className="flex items-center justify-between">
+                  <div 
+                    className="flex-1 cursor-pointer"
+                    onClick={() => toggleExpanded(response._id)}
+                  >
                     <p className="text-sm font-display uppercase tracking-wider text-aloa-black">
                       Submitted {formatDate(response.submittedAt)}
                     </p>
                   </div>
-                  <button className="p-2 hover:bg-aloa-sand transition-all duration-200 group-hover:bg-aloa-sand">
-                    {expandedResponse === response._id ? (
-                      <ChevronUp className="w-5 h-5 transition-transform" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 transition-transform" />
-                    )}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => deleteResponse(response._id)}
+                      className="p-2 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200"
+                      title="Delete Response"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => toggleExpanded(response._id)}
+                      className="p-2 hover:bg-aloa-sand transition-all duration-200"
+                    >
+                      {expandedResponse === response._id ? (
+                        <ChevronUp className="w-5 h-5 transition-transform" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 transition-transform" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {expandedResponse === response._id && (
