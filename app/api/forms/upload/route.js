@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { parseMarkdownToForm } from '@/lib/markdownParser';
 import { nanoid } from 'nanoid';
-import { validateFileUpload, sanitizeText, sanitizeFileName } from '@/lib/security';
+import { validateFileUpload, sanitizeText } from '@/lib/security';
 
 export async function POST(request) {
   try {
@@ -43,9 +43,6 @@ export async function POST(request) {
       );
     }
     
-    // Sanitize file name
-    const sanitizedFileName = sanitizeFileName(file.name);
-    
     // Read and validate content
     const content = await file.text();
     
@@ -74,8 +71,7 @@ export async function POST(request) {
         title: sanitizeText(formStructure.title).substring(0, 200),
         description: sanitizeText(formStructure.description || '').substring(0, 1000),
         url_id: nanoid(10),
-        markdown_content: content, // Store the original markdown content
-        uploaded_filename: sanitizedFileName // Store sanitized filename for audit
+        markdown_content: content // Store the original markdown content
       };
       
       const { data: form, error: formError } = await supabase
