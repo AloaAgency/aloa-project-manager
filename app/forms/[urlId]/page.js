@@ -1,78 +1,80 @@
-'use client';
+import { notFound } from 'next/navigation';
+import FormClient from './FormClient';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import toast from 'react-hot-toast';
-
-export default function FormPage() {
-  const params = useParams();
-  const router = useRouter();
-  const [form, setForm] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchForm();
-  }, [params.urlId]);
-
-  const fetchForm = async () => {
-    try {
-      const response = await fetch(`/api/forms/${params.urlId}`);
-      if (!response.ok) {
-        throw new Error('Form not found');
-      }
-      const data = await response.json();
-      setForm(data);
-    } catch (error) {
-      console.error('Error fetching form:', error);
-      toast.error('Form not found');
-      router.push('/');
-    } finally {
-      setLoading(false);
+async function getForm(urlId) {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/forms/${urlId}`, {
+      cache: 'no-store'
+    });
+    
+    if (!response.ok) {
+      return null;
     }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
-        <LoadingSpinner message="Loading form..." />
-      </div>
-    );
-  }
-
-  if (!form) {
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching form:', error);
     return null;
   }
+}
 
-  return (
-    <div className="min-h-screen bg-gradient-subtle py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-aloa-white shadow-xl overflow-hidden">
-          <div className="bg-aloa-black text-aloa-cream px-4 sm:px-8 py-4 sm:py-6">
-            <div className="flex items-center justify-between gap-2 sm:gap-4">
-              <img 
-                src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg" 
-                alt="Aloa" 
-                className="h-8 sm:h-10 w-auto"
-              />
-              <button
-                onClick={() => {
-                  const url = window.location.href;
-                  navigator.clipboard.writeText(url);
-                  toast.success('URL copied to clipboard!');
-                }}
-                className="text-aloa-cream/80 hover:text-aloa-cream transition-colors text-xs sm:text-sm font-display uppercase tracking-wider whitespace-nowrap"
-              >
-                Copy Link
-              </button>
-            </div>
-          </div>
-          <div className="p-6 sm:p-8">
-            <MultiStepFormRenderer form={form} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+export async function generateMetadata({ params }) {
+  const form = await getForm(params.urlId);
+  
+  if (!form) {
+    return {
+      title: 'Form Not Found - Aloa Custom Forms',
+      description: 'The requested form could not be found.'
+    };
+  }
+
+  const title = form.title || 'Custom Form';
+  const description = form.description || `Fill out the ${title} form`;
+  const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://custom-forms.vercel.app';
+  const formUrl = `${siteUrl}/forms/${params.urlId}`;
+  
+  return {
+    title: `${title} - Aloa Custom Forms`,
+    description: description,
+    openGraph: {
+      title: title,
+      description: description,
+      url: formUrl,
+      siteName: 'Aloa Custom Forms',
+      images: [
+        {
+          url: 'https://images.ctfassets.net/qkznfzcikv51/1fBa4ioxqgBwRlhFWzKKb4/35990186eb154886f87eef10e4a9f31c/cta-bg.jpg',
+          width: 1200,
+          height: 630,
+          alt: title
+        }
+      ],
+      locale: 'en_US',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: title,
+      description: description,
+      images: ['https://images.ctfassets.net/qkznfzcikv51/1fBa4ioxqgBwRlhFWzKKb4/35990186eb154886f87eef10e4a9f31c/cta-bg.jpg'],
+    },
+    metadataBase: new URL(siteUrl),
+    alternates: {
+      canonical: formUrl,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    }
+  };
+}
+
+export default async function FormPage({ params }) {
+  const form = await getForm(params.urlId);
+  
+  if (!form) {
+    notFound();
+  }
+  
+  return <FormClient initialForm={form} />;
 }
