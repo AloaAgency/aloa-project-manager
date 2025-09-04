@@ -1,15 +1,26 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+import { supabase } from '@/lib/supabase';
 
 export async function PATCH(request, { params }) {
   try {
-    const { fields } = await request.json();
+    const { fields, title } = await request.json();
     const { formId } = params;
+
+    // Update form title if provided
+    if (title !== undefined) {
+      const { error: titleError } = await supabase
+        .from('forms')
+        .update({ title })
+        .eq('id', formId);
+      
+      if (titleError) {
+        console.error('Error updating form title:', titleError);
+        return NextResponse.json(
+          { error: 'Failed to update form title' },
+          { status: 500 }
+        );
+      }
+    }
 
     // Update each field while preserving the ID and structure
     const updatePromises = fields.map(field => {
