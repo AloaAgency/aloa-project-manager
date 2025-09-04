@@ -1615,6 +1615,10 @@ html {
     height: 1.25rem;
   }
 
+  .sm\:h-16 {
+    height: 4rem;
+  }
+
   .sm\:w-5 {
     width: 1.25rem;
   }
@@ -1710,6 +1714,11 @@ html {
   .sm\:py-6 {
     padding-top: 1.5rem;
     padding-bottom: 1.5rem;
+  }
+
+  .sm\:py-8 {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
   }
 
   .sm\:text-2xl {
