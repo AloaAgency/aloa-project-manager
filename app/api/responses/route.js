@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { sendFormResponseEmail } from '@/lib/email';
+import { sanitizeText, sanitizeEmail, sanitizeURL, sanitizeNumber, sanitizeArray } from '@/lib/security';
 
 export async function GET(request) {
   try {
@@ -10,6 +11,15 @@ export async function GET(request) {
     if (!formId) {
       return NextResponse.json(
         { error: 'Form ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate UUID format to prevent SQL injection
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(formId)) {
+      return NextResponse.json(
+        { error: 'Invalid form ID format' },
         { status: 400 }
       );
     }
@@ -72,6 +82,34 @@ export async function POST(request) {
   try {
     const body = await request.json();
     
+    // Validate form ID
+    if (!body.formId) {
+      return NextResponse.json(
+        { error: 'Form ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate UUID format to prevent SQL injection
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(body.formId)) {
+      return NextResponse.json(
+        { error: 'Invalid form ID format' },
+        { status: 400 }
+      );
+    }
+    
+    // Verify CSRF token for state-changing operations
+    const csrfToken = request.headers.get('X-CSRF-Token');
+    const cookieToken = request.cookies.get('csrf-token')?.value;
+    
+    if (!csrfToken || !cookieToken || csrfToken !== cookieToken) {
+      return NextResponse.json(
+        { error: 'Invalid CSRF token' },
+        { status: 403 }
+      );
+    }
+    
     // First, create the response record
     const responseData = {
       form_id: body.formId
@@ -99,7 +137,21 @@ export async function POST(request) {
       fieldMap.set(field.field_name, field.id);
     });
     
-    // Convert the form data to answer records
+    // Get field details for validation
+    const { data: fieldDetails, error: fieldDetailsError } = await supabase
+      .from('form_fields')
+      .select('id, field_name, field_type, required, validation')
+      .eq('form_id', body.formId);
+    
+    if (fieldDetailsError) throw fieldDetailsError;
+    
+    // Create field detail map
+    const fieldDetailMap = new Map();
+    fieldDetails.forEach(field => {
+      fieldDetailMap.set(field.field_name, field);
+    });
+    
+    // Convert and sanitize the form data
     const dataToStore = body.data instanceof Map 
       ? body.data
       : new Map(Object.entries(body.data || {}));
@@ -108,24 +160,79 @@ export async function POST(request) {
     console.log('Field mapping:', Array.from(fieldMap.entries()));
     
     const answers = [];
+    const errors = [];
+    
     dataToStore.forEach((value, fieldName) => {
       const fieldId = fieldMap.get(fieldName);
+      const fieldDetail = fieldDetailMap.get(fieldName);
+      
       if (fieldId && value !== undefined && value !== null && value !== '') {
-        // Store arrays and objects as JSON strings
-        const storedValue = typeof value === 'object' 
-          ? JSON.stringify(value)
-          : String(value);
+        let sanitizedValue;
         
-        answers.push({
-          response_id: response.id,
-          field_id: fieldId,
-          value: storedValue
-        });
-        console.log(`Storing answer for field ${fieldName} (ID: ${fieldId}):`, storedValue);
+        try {
+          // Sanitize based on field type
+          switch (fieldDetail?.field_type) {
+            case 'email':
+              sanitizedValue = sanitizeEmail(value);
+              break;
+            case 'url':
+              sanitizedValue = sanitizeURL(value);
+              break;
+            case 'number':
+            case 'rating':
+              const num = sanitizeNumber(value, 
+                fieldDetail?.validation?.min || 0,
+                fieldDetail?.validation?.max || Number.MAX_SAFE_INTEGER
+              );
+              sanitizedValue = String(num);
+              break;
+            case 'checkbox':
+            case 'multiselect':
+              const arrayValue = Array.isArray(value) ? value : [value];
+              const sanitizedArray = sanitizeArray(arrayValue, fieldDetail?.validation?.options);
+              sanitizedValue = JSON.stringify(sanitizedArray);
+              break;
+            case 'text':
+            case 'textarea':
+            case 'tel':
+            case 'select':
+            case 'radio':
+            case 'date':
+            default:
+              sanitizedValue = sanitizeText(String(value));
+              // Limit text length
+              const maxLength = fieldDetail?.validation?.maxLength || 10000;
+              if (sanitizedValue.length > maxLength) {
+                sanitizedValue = sanitizedValue.substring(0, maxLength);
+              }
+              break;
+          }
+          
+          answers.push({
+            response_id: response.id,
+            field_id: fieldId,
+            value: sanitizedValue
+          });
+          console.log(`Storing sanitized answer for field ${fieldName} (ID: ${fieldId})`);
+        } catch (error) {
+          errors.push(`Invalid value for field ${fieldName}: ${error.message}`);
+        }
       } else if (!fieldId) {
         console.warn(`Field name '${fieldName}' not found in field map`);
+      } else if (fieldDetail?.required && !value) {
+        errors.push(`Required field ${fieldName} is missing`);
       }
     });
+    
+    // Check for validation errors
+    if (errors.length > 0) {
+      // Rollback by deleting the response
+      await supabase.from('form_responses').delete().eq('id', response.id);
+      return NextResponse.json(
+        { error: 'Validation failed', details: errors },
+        { status: 400 }
+      );
+    }
     
     // Insert all answers
     if (answers.length > 0) {
