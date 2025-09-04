@@ -1,30 +1,18 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { nanoid } from 'nanoid';
 
 export async function PATCH(request, { params }) {
   try {
     const { fields, title } = await request.json();
     const { formId } = params;
 
-    // Update form title and regenerate slug if provided
+    // Update form title if provided
     if (title !== undefined) {
-      // Generate a URL-friendly slug from the title
-      const slug = title
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
-        .replace(/\s+/g, '-')          // Replace spaces with hyphens
-        .replace(/-+/g, '-')           // Replace multiple hyphens with single hyphen
-        .trim();
-      
-      // Create a unique URL ID that combines the slug with a short random ID
-      const url_id = `${slug}-${nanoid(6)}`;
-      
       const { error: titleError } = await supabase
         .from('forms')
         .update({ 
           title,
-          url_id, // Update the URL ID with the new slug
+          // DO NOT update url_id - keep the existing URL stable
           updated_at: new Date().toISOString()
         })
         .eq('id', formId);
