@@ -18,7 +18,7 @@ export default function FormClient({ initialForm }) {
     <div className="min-h-screen bg-gradient-subtle py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="bg-aloa-white shadow-xl overflow-hidden">
-          <div className="bg-aloa-black text-aloa-cream px-4 sm:px-8 py-6 sm:py-8">
+          <div className="bg-aloa-black text-aloa-cream px-4 sm:px-8 py-3 sm:py-4">
             <div className="flex items-center justify-between gap-2 sm:gap-4">
               <img 
                 src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg" 
