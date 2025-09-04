@@ -24,8 +24,17 @@ export default function CreateFormPage() {
       const formData = new FormData();
       formData.append('markdown', file);
 
+      // Get CSRF token from cookies
+      const csrfToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrf-token='))
+        ?.split('=')[1];
+      
       const response = await fetch('/api/forms/upload', {
         method: 'POST',
+        headers: {
+          'X-CSRF-Token': csrfToken || '',
+        },
         body: formData,
       });
 
@@ -56,8 +65,17 @@ export default function CreateFormPage() {
     formData.append('markdown', file);
 
     try {
+      // Get CSRF token from cookies
+      const csrfToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrf-token='))
+        ?.split('=')[1];
+      
       const response = await fetch('/api/forms/upload', {
         method: 'POST',
+        headers: {
+          'X-CSRF-Token': csrfToken || '',
+        },
         body: formData,
       });
 

@@ -9,16 +9,32 @@ const SYSTEM_PROMPT = `You are an AI assistant specialized in creating form spec
 
 IMPORTANT RULES:
 1. Always maintain context of the current form being built
-2. Generate valid markdown that follows this exact format:
+2. When providing a form, ALWAYS wrap it in a markdown code block with triple backticks
+3. Keep conversational text SEPARATE from the form markdown
+4. Generate valid markdown that follows this exact format:
    - # Form Title
    - ## Section Name
    - Field descriptions with proper types in parentheses
-3. Support these field types: (text), (email), (phone), (number), (textarea), (select), (checkbox), (radio), (date), (rating)
-4. Be conversational and helpful
-5. Ask clarifying questions when needed
-6. Suggest improvements based on best practices
+5. Support these field types: (text), (email), (phone), (number), (textarea), (select), (checkbox), (radio), (date), (rating)
+6. Be conversational and helpful in your text response
+7. Ask clarifying questions when needed
+8. Suggest improvements based on best practices
+
+RESPONSE FORMAT:
+When providing a form, structure your response like this:
+1. First, provide conversational text explaining what you've done
+2. Then include the form in a markdown code block like this:
+
+\`\`\`markdown
+# Form Title
+
+## Section Name
+Question here? (type) *
+Another question? (type)
+\`\`\`
 
 MARKDOWN FORMAT EXAMPLE:
+\`\`\`markdown
 # Contact Form
 
 ## Personal Information
@@ -33,6 +49,7 @@ Any additional comments? (textarea)
 ## Preferences
 How did you hear about us? (select: Google, Social Media, Friend, Other) *
 Would you like to receive updates? (checkbox: Yes, I want updates)
+\`\`\`
 
 When generating or modifying forms:
 - Keep the markdown clean and properly formatted
@@ -41,7 +58,7 @@ When generating or modifying forms:
 - Group related fields into sections
 - Suggest logical field types based on the data being collected
 
-Remember: You're having a conversation to help build the perfect form. Be friendly, ask for clarification when needed, and make helpful suggestions.`;
+Remember: ALWAYS separate your conversational response from the form markdown by using code blocks. The preview panel will only show the markdown inside the code block.`;
 
 export async function POST(request) {
   try {
@@ -73,13 +90,21 @@ export async function POST(request) {
     
     // Extract markdown if present in the response
     let extractedMarkdown = '';
+    let cleanMessage = responseText;
     
-    // Check if response contains markdown code block
-    const markdownMatch = responseText.match(/```(?:markdown)?\n([\s\S]*?)```/);
+    // Check if response contains markdown code block - more flexible regex
+    const markdownMatch = responseText.match(/```(?:markdown)?\s*\n?([\s\S]*?)```/);
     if (markdownMatch) {
       extractedMarkdown = markdownMatch[1].trim();
+      // Remove the markdown code block from the message shown to user
+      cleanMessage = responseText.replace(/```(?:markdown)?\s*\n?[\s\S]*?```/g, '').trim();
+      
+      // If there's no other text, add a helpful message
+      if (!cleanMessage || cleanMessage.length < 5) {
+        cleanMessage = '✅ I\'ve generated your form! You can see it in the preview panel on the right. Feel free to ask for any modifications.';
+      }
     } else {
-      // Check if the entire response looks like form markdown
+      // Fallback: Check if the entire response looks like form markdown
       if (responseText.includes('#') && (
         responseText.includes('(text)') || 
         responseText.includes('(email)') || 
@@ -95,44 +120,40 @@ export async function POST(request) {
         // Extract just the form part
         const lines = responseText.split('\n');
         const formLines = [];
+        const messageLines = [];
         let inForm = false;
+        let formEnded = false;
         
-        for (const line of lines) {
-          if (line.startsWith('#')) {
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
+          // Start capturing form when we see a heading
+          if (line.startsWith('#') && !formEnded) {
             inForm = true;
-          }
-          if (inForm) {
             formLines.push(line);
-          }
-          // Stop if we hit explanatory text after the form
-          if (inForm && line.trim() === '' && formLines.length > 3) {
-            const nextLine = lines[lines.indexOf(line) + 1];
-            if (nextLine && !nextLine.startsWith('#') && !nextLine.includes('(') && !nextLine.includes('*')) {
-              break;
+          } else if (inForm && !formEnded) {
+            // Check if this line is part of the form
+            if (line.includes('(') || line.includes('*') || line.startsWith('#') || line.trim() === '') {
+              formLines.push(line);
+            } else {
+              // This looks like explanatory text, form has ended
+              formEnded = true;
+              messageLines.push(line);
             }
+          } else if (!inForm || formEnded) {
+            messageLines.push(line);
           }
         }
         
         if (formLines.length > 0) {
           extractedMarkdown = formLines.join('\n').trim();
+          cleanMessage = messageLines.join('\n').trim() || '✅ I\'ve created your form! Check the preview panel.';
         }
       }
     }
 
     // If we have markdown, update it; otherwise keep the current one
     const finalMarkdown = extractedMarkdown || currentMarkdown;
-
-    // Clean the response text to not show raw markdown to user
-    let cleanMessage = responseText;
-    if (markdownMatch) {
-      cleanMessage = responseText.replace(/```(?:markdown)?\n[\s\S]*?```/g, '✅ I\'ve generated/updated your form. You can see it in the preview panel!').trim();
-    } else if (extractedMarkdown) {
-      // Remove the form markdown from the message
-      cleanMessage = responseText.replace(extractedMarkdown, '').trim();
-      if (!cleanMessage || cleanMessage.length < 10) {
-        cleanMessage = '✅ I\'ve updated your form based on your request. Check the preview panel!';
-      }
-    }
 
     return NextResponse.json({
       message: cleanMessage,
