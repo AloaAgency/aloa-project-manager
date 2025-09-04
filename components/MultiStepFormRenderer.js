@@ -13,11 +13,64 @@ import * as RadioGroup from '@radix-ui/react-radio-group';
 import * as Select from '@radix-ui/react-select';
 
 export default function MultiStepFormRenderer({ form }) {
-  const [currentSection, setCurrentSection] = useState(0);
-  const [formData, setFormData] = useState({});
+  // Generate a unique storage key for this form
+  const storageKey = `formProgress_${form._id || form.urlId}`;
+  
+  // Initialize state from localStorage if available
+  const [currentSection, setCurrentSection] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`${storageKey}_section`);
+      return saved ? parseInt(saved) : 0;
+    }
+    return 0;
+  });
+  
+  const [formData, setFormData] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`${storageKey}_data`);
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+  
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+  const [hasRestoredData, setHasRestoredData] = useState(false);
+  
+  // Check if we restored saved data
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedData = localStorage.getItem(`${storageKey}_data`);
+      if (savedData && Object.keys(JSON.parse(savedData)).length > 0) {
+        setHasRestoredData(true);
+        // Hide the message after 5 seconds
+        setTimeout(() => setHasRestoredData(false), 5000);
+      }
+    }
+  }, [storageKey]);
+  
+  // Auto-save form data to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !submitted) {
+      localStorage.setItem(`${storageKey}_data`, JSON.stringify(formData));
+    }
+  }, [formData, storageKey, submitted]);
+  
+  // Auto-save current section to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !submitted) {
+      localStorage.setItem(`${storageKey}_section`, currentSection.toString());
+    }
+  }, [currentSection, storageKey, submitted]);
+  
+  // Clear saved data after successful submission
+  useEffect(() => {
+    if (submitted && typeof window !== 'undefined') {
+      localStorage.removeItem(`${storageKey}_data`);
+      localStorage.removeItem(`${storageKey}_section`);
+    }
+  }, [submitted, storageKey]);
 
   // Group fields by section
   const sections = form.fields.reduce((acc, field) => {
@@ -301,6 +354,20 @@ export default function MultiStepFormRenderer({ form }) {
 
   return (
     <div className="max-w-3xl mx-auto p-6">
+      {/* Restored data notification */}
+      {hasRestoredData && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="mb-6 p-4 bg-aloa-sand border-2 border-aloa-black"
+        >
+          <p className="text-aloa-black font-body">
+            ✨ Your previous progress has been restored. You can continue where you left off.
+          </p>
+        </motion.div>
+      )}
+      
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex justify-between mb-3">
