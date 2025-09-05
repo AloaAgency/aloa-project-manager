@@ -2,8 +2,16 @@ import './globals.css';
 import { Toaster } from 'react-hot-toast';
 
 export const metadata = {
-  title: 'Aloa Custom Form Maker - Beautiful Forms from Markdown',
-  description: 'Create beautiful forms from markdown files with unique URLs',
+  title: 'Aloa® Agency Custom Forms',
+  description: 'Create and manage custom forms for internal use.',
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
 };
 
 export default function RootLayout({ children }) {
