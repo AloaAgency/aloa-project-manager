@@ -5,12 +5,19 @@ A beautiful form builder that transforms markdown files into shareable forms wit
 ## Features
 
 - **Upload Markdown Files**: Create forms from `.md` files
+- **AI-Powered Form Builder**: Create forms through natural language chat with AI
 - **Beautiful Aloa-Inspired Design**: Modern black and cream aesthetic
 - **Unique URLs**: Each form gets a shareable URL
 - **Response Collection**: Store and manage form submissions
+- **AI Response Analysis**: Analyze form responses with AI insights
+- **PDF Export for Analysis**: Download AI analysis as professional PDF reports
+- **Email Analysis Reports**: Send beautifully formatted analysis reports via email
+- **Email Notifications**: Automatic email alerts for new submissions
+- **Form Progress Persistence**: Auto-saves form progress locally
+- **Multi-Step Forms**: Support for sectioned forms with step navigation
 - **CSV Export**: Export responses for analysis
 - **Dashboard**: Central management for all forms
-- **Field Types**: Text, email, number, textarea, select, radio, checkbox, date, time, file, tel, url
+- **Field Types**: Text, email, number, textarea, select, radio, checkbox, multiselect, rating, date, time, file, tel, url
 
 ## Tech Stack
 
@@ -18,8 +25,11 @@ A beautiful form builder that transforms markdown files into shareable forms wit
 - **Styling**: Tailwind CSS with custom Aloa color scheme
 - **Database**: Supabase (PostgreSQL)
 - **Deployment**: Optimized for Vercel
-- **UI Components**: React Hook Form, React Dropzone
+- **UI Components**: React Hook Form, React Dropzone, Framer Motion
 - **Icons**: Lucide React
+- **AI**: Anthropic Claude API
+- **Email Service**: Resend
+- **PDF Generation**: jsPDF
 
 ## Prerequisites
 
@@ -90,6 +100,8 @@ Max: 100 (optional - max value or max length)
 - `select` - Dropdown selection
 - `radio` - Radio buttons (single choice)
 - `checkbox` - Checkboxes (multiple choices)
+- `multiselect` - Multiple selection dropdown
+- `rating` - Star rating (1-5 stars by default)
 - `date` - Date picker
 - `time` - Time picker
 - `file` - File upload
@@ -136,6 +148,43 @@ Type: radio
 ## Subscribe to Newsletter
 Type: checkbox
   - Yes, I want to receive updates
+
+## How satisfied are you? *
+Type: rating
+Max: 5
+
+## Select your interests
+Type: multiselect
+  - Technology
+  - Design
+  - Marketing
+  - Business
+  - Other
+```
+
+### Multi-Step Forms
+
+Create multi-step forms by adding section headers:
+
+```markdown
+# Registration Form
+Complete all steps to register
+
+## Section: Personal Information
+
+## First Name *
+Type: text
+
+## Last Name *
+Type: text
+
+## Section: Contact Details
+
+## Email *
+Type: email
+
+## Phone
+Type: tel
 ```
 
 ## Deployment to Vercel
@@ -210,9 +259,38 @@ custom-forms/
 - `GET /api/forms/by-id/[formId]` - Get form by database ID
 - `DELETE /api/forms/[formId]` - Delete form and its responses
 
+### AI Analysis
+- `GET /api/ai-analysis/[formId]` - Get cached AI analysis
+- `POST /api/ai-analysis/[formId]` - Generate new AI analysis
+- `POST /api/ai-analysis/[formId]/pdf` - Validate PDF generation data
+- `POST /api/ai-analysis/[formId]/email` - Send analysis report via email
+
 ### Responses
 - `POST /api/responses` - Submit form response
 - `GET /api/responses?formId=[id]` - Get responses for a form
+
+### AI Features
+
+The application includes AI-powered features:
+
+1. **AI Form Builder**: Access via `/create` page, chat with AI to generate forms
+2. **AI Response Analysis**: View insights on `/ai-analysis/[formId]` page with:
+   - Executive summary and key metrics
+   - Consensus and divergence areas identification
+   - Actionable recommendations with priority levels
+   - Stakeholder messaging
+3. **AI Analysis Export Options**:
+   - **PDF Download**: Generate client-facing PDF reports with professional formatting
+   - **Email Reports**: Send analysis via email with customizable recipients and subject
+4. **Email Notifications**: Automatic emails sent for new form submissions
+
+### Form Progress Persistence
+
+Forms automatically save progress to browser localStorage:
+- Progress saved on every field change
+- Restored when user returns to form
+- Cleared on successful submission
+- Works across browser sessions
 
 ## Environment Variables
 
@@ -220,6 +298,10 @@ custom-forms/
 |----------|-------------|---------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | `https://abc123.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | `eyJhbGc...` |
+| `ANTHROPIC_API_KEY` | Claude AI API key (optional) | `sk-ant-...` |
+| `RESEND_API_KEY` | Resend email API key (optional) | `re_...` |
+| `EMAIL_FROM` | From address for emails | `forms@example.com` |
+| `EMAIL_TO` | Notification recipient | `admin@example.com` |
 
 ## Troubleshooting
 

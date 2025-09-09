@@ -1,1 +1,9 @@
-{}
+{
+  "/api/forms/by-id/[formId]/route": "app/api/forms/by-id/[formId]/route.js",
+  "/ai-analysis/[formId]/page": "app/ai-analysis/[formId]/page.js",
+  "/api/ai-analysis/[formId]/route": "app/api/ai-analysis/[formId]/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/api/forms/route": "app/api/forms/route.js",
+  "/responses/[formId]/page": "app/responses/[formId]/page.js",
+  "/api/responses/route": "app/api/responses/route.js"
+}
