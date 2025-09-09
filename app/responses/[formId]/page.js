@@ -190,6 +190,38 @@ export default function ResponsesPage() {
                     <p className="text-sm font-display uppercase tracking-wider text-aloa-black">
                       Submitted {formatDate(response.submittedAt)}
                     </p>
+                    {(() => {
+                      // Try to find a name field in the response
+                      const nameField = form.fields.find(f => 
+                        f.name?.toLowerCase().includes('name') || 
+                        f.label?.toLowerCase().includes('name')
+                      );
+                      const emailField = form.fields.find(f => 
+                        f.name?.toLowerCase().includes('email') || 
+                        f.label?.toLowerCase().includes('email')
+                      );
+                      
+                      const nameValue = nameField ? 
+                        (response.data instanceof Map ? 
+                          response.data.get(nameField.name) : 
+                          response.data[nameField.name]) : null;
+                      
+                      const emailValue = emailField ? 
+                        (response.data instanceof Map ? 
+                          response.data.get(emailField.name) : 
+                          response.data[emailField.name]) : null;
+                      
+                      const displayValue = nameValue || emailValue;
+                      
+                      if (displayValue) {
+                        return (
+                          <p className="text-xs font-body text-aloa-gray mt-1">
+                            {displayValue}
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   <div className="flex items-center gap-2">
                     <button 

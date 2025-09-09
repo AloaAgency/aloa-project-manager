@@ -43,8 +43,19 @@ export async function POST(request, { params }) {
       );
     }
 
+    // Parse the analysis data if it's a JSON string
+    let parsedAnalysis;
+    try {
+      parsedAnalysis = typeof analysisText === 'string' && analysisText.startsWith('{') 
+        ? JSON.parse(analysisText)
+        : analysisText;
+    } catch (e) {
+      // If it's not JSON, treat it as plain text
+      parsedAnalysis = analysisText;
+    }
+    
     // Generate the email HTML
-    const emailHTML = generateAnalysisEmailHTML(formTitle, analysisText, recipientName, isClientFacing);
+    const emailHTML = generateAnalysisEmailHTML(formTitle, parsedAnalysis, recipientName, isClientFacing);
     
     // Prepare email options
     const emailOptions = {
