@@ -2,8 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { Upload, FileText, Share2, Database } from 'lucide-react';
+import PasswordProtect from '@/components/PasswordProtect';
 
-export default function HomePage() {
+function HomePage() {
   const router = useRouter();
 
   return (
@@ -126,5 +127,13 @@ Max: 500`}</pre>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <PasswordProtect>
+      <HomePage />
+    </PasswordProtect>
   );
 }

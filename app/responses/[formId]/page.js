@@ -5,9 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { Download, Eye, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import PasswordProtect from '@/components/PasswordProtect';
 import toast from 'react-hot-toast';
 
-export default function ResponsesPage() {
+function ResponsesPage() {
   const params = useParams();
   const router = useRouter();
   const [form, setForm] = useState(null);
@@ -282,5 +283,13 @@ export default function ResponsesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ResponsesPageWrapper() {
+  return (
+    <PasswordProtect>
+      <ResponsesPage />
+    </PasswordProtect>
   );
 }

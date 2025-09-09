@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2, Brain } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import PasswordProtect from '@/components/PasswordProtect';
 import toast from 'react-hot-toast';
 
-export default function DashboardPage() {
+function Dashboard() {
   const router = useRouter();
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -170,5 +171,13 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <PasswordProtect>
+      <Dashboard />
+    </PasswordProtect>
   );
 }
