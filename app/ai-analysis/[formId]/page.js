@@ -5,9 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { Brain, Users, TrendingUp, AlertTriangle, CheckCircle, ArrowRight, Sparkles, RefreshCw, Download, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import PasswordProtect from '@/components/PasswordProtect';
 import toast from 'react-hot-toast';
 
-export default function AIAnalysisPage() {
+function AIAnalysisPage() {
   const params = useParams();
   const router = useRouter();
   const [form, setForm] = useState(null);
@@ -58,26 +59,19 @@ export default function AIAnalysisPage() {
   const downloadPDF = async () => {
     if (!analysis || !form) return;
     
-    try {
-      // Dynamically import the PDF generator to avoid SSR issues
-      const { generateAnalysisPDF, parseAnalysisText } = await import('@/lib/pdfGenerator');
-      
-      // Convert analysis to string format for parsing
-      const analysisText = formatAnalysisAsText(analysis);
-      const parsedData = parseAnalysisText(analysisText);
-      
-      // Generate the PDF
-      const doc = generateAnalysisPDF(parsedData, form.title);
-      
-      // Download the PDF
-      const fileName = `AI_Analysis_${form.title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
-      
-      toast.success('PDF downloaded successfully!');
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Failed to generate PDF');
-    }
+    // Use browser's print dialog for exact page replica
+    // Add a class to hide elements we don't want in the PDF
+    document.body.classList.add('printing-pdf');
+    
+    // Trigger print dialog
+    window.print();
+    
+    // Remove the class after a short delay
+    setTimeout(() => {
+      document.body.classList.remove('printing-pdf');
+    }, 100);
+    
+    toast.success('Opening print dialog - save as PDF for best results');
   };
 
   const generatePreview = async () => {
@@ -921,5 +915,13 @@ export default function AIAnalysisPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AIAnalysisPageWrapper() {
+  return (
+    <PasswordProtect>
+      <AIAnalysisPage />
+    </PasswordProtect>
   );
 }
