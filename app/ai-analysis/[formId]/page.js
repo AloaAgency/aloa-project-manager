@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Brain, Users, TrendingUp, AlertTriangle, CheckCircle, ArrowRight, Sparkles, RefreshCw } from 'lucide-react';
+import { Brain, Users, TrendingUp, AlertTriangle, CheckCircle, ArrowRight, Sparkles, RefreshCw, Download, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -14,6 +14,14 @@ export default function AIAnalysisPage() {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailForm, setEmailForm] = useState({
+    recipientEmail: '',
+    recipientName: '',
+    ccEmails: '',
+    customSubject: ''
+  });
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     fetchFormData();
@@ -42,6 +50,121 @@ export default function AIAnalysisPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const downloadPDF = async () => {
+    if (!analysis || !form) return;
+    
+    try {
+      // Dynamically import the PDF generator to avoid SSR issues
+      const { generateAnalysisPDF, parseAnalysisText } = await import('@/lib/pdfGenerator');
+      
+      // Convert analysis to string format for parsing
+      const analysisText = formatAnalysisAsText(analysis);
+      const parsedData = parseAnalysisText(analysisText);
+      
+      // Generate the PDF
+      const doc = generateAnalysisPDF(parsedData, form.title);
+      
+      // Download the PDF
+      const fileName = `AI_Analysis_${form.title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      toast.success('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF');
+    }
+  };
+
+  const sendAnalysisEmail = async () => {
+    if (!emailForm.recipientEmail) {
+      toast.error('Please enter a recipient email');
+      return;
+    }
+    
+    setSendingEmail(true);
+    try {
+      const analysisText = formatAnalysisAsText(analysis);
+      
+      const response = await fetch(`/api/ai-analysis/${params.formId}/email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipientEmail: emailForm.recipientEmail,
+          recipientName: emailForm.recipientName,
+          analysisText,
+          formTitle: form.title,
+          ccEmails: emailForm.ccEmails ? emailForm.ccEmails.split(',').map(e => e.trim()).filter(Boolean) : [],
+          customSubject: emailForm.customSubject
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send email');
+      }
+      
+      toast.success('Analysis email sent successfully!');
+      setShowEmailModal(false);
+      setEmailForm({
+        recipientEmail: '',
+        recipientName: '',
+        ccEmails: '',
+        customSubject: ''
+      });
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast.error(error.message || 'Failed to send email');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const formatAnalysisAsText = (analysisData) => {
+    let text = '';
+    
+    if (analysisData.executiveSummary) {
+      text += `## Executive Summary\n${analysisData.executiveSummary}\n\n`;
+    }
+    
+    if (analysisData.consensusAreas && analysisData.consensusAreas.length > 0) {
+      text += `## Key Insights\n`;
+      analysisData.consensusAreas.forEach(area => {
+        text += `- ${area.topic}: ${area.description} (${area.agreementPercentage}% agreement)\n`;
+      });
+      text += '\n';
+    }
+    
+    if (analysisData.conflictAreas && analysisData.conflictAreas.length > 0) {
+      text += `## Areas of Divergence\n`;
+      analysisData.conflictAreas.forEach(area => {
+        text += `- ${area.topic}:\n`;
+        area.viewpoints.forEach(vp => {
+          text += `  - ${vp.percentage}%: ${vp.description}\n`;
+        });
+      });
+      text += '\n';
+    }
+    
+    if (analysisData.recommendations && analysisData.recommendations.length > 0) {
+      text += `## Recommendations\n`;
+      analysisData.recommendations.forEach((rec, index) => {
+        text += `${index + 1}. ${rec.title}: ${rec.description}`;
+        if (rec.priority) text += ` (${rec.priority} priority)`;
+        text += '\n';
+      });
+      text += '\n';
+    }
+    
+    text += `## Response Statistics\n`;
+    text += `Total Responses: ${analysisData.totalResponses}\n`;
+    text += `Consensus Level: ${analysisData.consensusScore}%\n`;
+    text += `Confidence Score: ${analysisData.confidence}%\n`;
+    
+    return text;
   };
 
   const runAnalysis = async () => {
@@ -97,23 +220,43 @@ export default function AIAnalysisPage() {
               </div>
               <p className="text-aloa-gray font-body">{form.title}</p>
             </div>
-            <button
-              onClick={runAnalysis}
-              disabled={analyzing}
-              className="btn-primary flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-            >
-              {analyzing ? (
+            <div className="flex flex-wrap gap-2">
+              {analysis && (
                 <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5" />
-                  {analysis ? 'Re-analyze' : 'Start Analysis'}
+                  <button
+                    onClick={downloadPDF}
+                    className="btn-secondary flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-5 h-5" />
+                    Download PDF
+                  </button>
+                  <button
+                    onClick={() => setShowEmailModal(true)}
+                    className="btn-secondary flex items-center justify-center gap-2"
+                  >
+                    <Mail className="w-5 h-5" />
+                    Send Email
+                  </button>
                 </>
               )}
-            </button>
+              <button
+                onClick={runAnalysis}
+                disabled={analyzing}
+                className="btn-primary flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                {analyzing ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    {analysis ? 'Re-analyze' : 'Start Analysis'}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -348,6 +491,111 @@ export default function AIAnalysisPage() {
               </div>
             )}
           </motion.div>
+        )}
+        
+        {/* Email Modal */}
+        {showEmailModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-display font-bold text-aloa-black uppercase">
+                  Send Analysis Report
+                </h3>
+                <button
+                  onClick={() => setShowEmailModal(false)}
+                  className="text-aloa-gray hover:text-aloa-black transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-display uppercase tracking-wider text-aloa-gray mb-1">
+                    Recipient Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={emailForm.recipientEmail}
+                    onChange={(e) => setEmailForm({...emailForm, recipientEmail: e.target.value})}
+                    className="w-full px-3 py-2 border-2 border-aloa-black rounded-lg focus:outline-none focus:ring-2 focus:ring-aloa-black"
+                    placeholder="recipient@example.com"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-display uppercase tracking-wider text-aloa-gray mb-1">
+                    Recipient Name
+                  </label>
+                  <input
+                    type="text"
+                    value={emailForm.recipientName}
+                    onChange={(e) => setEmailForm({...emailForm, recipientName: e.target.value})}
+                    className="w-full px-3 py-2 border-2 border-aloa-black rounded-lg focus:outline-none focus:ring-2 focus:ring-aloa-black"
+                    placeholder="John Doe"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-display uppercase tracking-wider text-aloa-gray mb-1">
+                    CC Emails (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={emailForm.ccEmails}
+                    onChange={(e) => setEmailForm({...emailForm, ccEmails: e.target.value})}
+                    className="w-full px-3 py-2 border-2 border-aloa-black rounded-lg focus:outline-none focus:ring-2 focus:ring-aloa-black"
+                    placeholder="cc1@example.com, cc2@example.com"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-display uppercase tracking-wider text-aloa-gray mb-1">
+                    Custom Subject (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={emailForm.customSubject}
+                    onChange={(e) => setEmailForm({...emailForm, customSubject: e.target.value})}
+                    className="w-full px-3 py-2 border-2 border-aloa-black rounded-lg focus:outline-none focus:ring-2 focus:ring-aloa-black"
+                    placeholder={`AI Analysis Report: ${form?.title || 'Form'}`}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowEmailModal(false)}
+                  className="flex-1 btn-secondary"
+                  disabled={sendingEmail}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={sendAnalysisEmail}
+                  className="flex-1 btn-primary flex items-center justify-center gap-2"
+                  disabled={sendingEmail}
+                >
+                  {sendingEmail ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Send Email
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </div>
     </div>
