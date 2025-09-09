@@ -19,9 +19,12 @@ export default function AIAnalysisPage() {
     recipientEmail: '',
     recipientName: '',
     ccEmails: '',
-    customSubject: ''
+    customSubject: '',
+    isClientFacing: true
   });
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailPreview, setEmailPreview] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     fetchFormData();
@@ -77,6 +80,24 @@ export default function AIAnalysisPage() {
     }
   };
 
+  const generatePreview = async () => {
+    try {
+      const { generateEmailPreview } = await import('@/lib/emailTemplates');
+      const analysisText = formatAnalysisAsText(analysis, emailForm.isClientFacing);
+      const preview = generateEmailPreview(
+        form.title,
+        analysisText,
+        emailForm.recipientName,
+        emailForm.isClientFacing
+      );
+      setEmailPreview(preview);
+      setShowPreview(true);
+    } catch (error) {
+      console.error('Error generating preview:', error);
+      toast.error('Failed to generate preview');
+    }
+  };
+
   const sendAnalysisEmail = async () => {
     if (!emailForm.recipientEmail) {
       toast.error('Please enter a recipient email');
@@ -85,7 +106,7 @@ export default function AIAnalysisPage() {
     
     setSendingEmail(true);
     try {
-      const analysisText = formatAnalysisAsText(analysis);
+      const analysisText = formatAnalysisAsText(analysis, emailForm.isClientFacing);
       
       const response = await fetch(`/api/ai-analysis/${params.formId}/email`, {
         method: 'POST',
@@ -98,7 +119,8 @@ export default function AIAnalysisPage() {
           analysisText,
           formTitle: form.title,
           ccEmails: emailForm.ccEmails ? emailForm.ccEmails.split(',').map(e => e.trim()).filter(Boolean) : [],
-          customSubject: emailForm.customSubject
+          customSubject: emailForm.customSubject || (emailForm.isClientFacing ? `Your Input Summary: ${form.title}` : `AI Analysis Report: ${form.title}`),
+          isClientFacing: emailForm.isClientFacing
         })
       });
       
@@ -113,7 +135,8 @@ export default function AIAnalysisPage() {
         recipientEmail: '',
         recipientName: '',
         ccEmails: '',
-        customSubject: ''
+        customSubject: '',
+        isClientFacing: true
       });
     } catch (error) {
       console.error('Error sending email:', error);
@@ -123,7 +146,7 @@ export default function AIAnalysisPage() {
     }
   };
 
-  const formatAnalysisAsText = (analysisData) => {
+  const formatAnalysisAsText = (analysisData, isClientFacing = false) => {
     let text = '';
     
     if (analysisData.executiveSummary) {
@@ -149,7 +172,19 @@ export default function AIAnalysisPage() {
       text += '\n';
     }
     
-    if (analysisData.recommendations && analysisData.recommendations.length > 0) {
+    // Add synthesis for client-facing emails or recommendations for internal
+    if (isClientFacing) {
+      // Generate synthesis from the analysis data
+      text += `## Synthesis & Path Forward\n`;
+      text += `Based on all responses, there is strong alignment on key priorities. `;
+      if (analysisData.consensusAreas && analysisData.consensusAreas.length > 0) {
+        text += `The group agrees on ${analysisData.consensusAreas.length} main areas. `;
+      }
+      if (analysisData.conflictAreas && analysisData.conflictAreas.length > 0) {
+        text += `While there are ${analysisData.conflictAreas.length} areas with varying perspectives, these differences can inform a more comprehensive approach. `;
+      }
+      text += `Moving forward, consider focusing on areas of consensus while addressing the diverse viewpoints to create an inclusive solution.\n\n`;
+    } else if (analysisData.recommendations && analysisData.recommendations.length > 0) {
       text += `## Recommendations\n`;
       analysisData.recommendations.forEach((rec, index) => {
         text += `${index + 1}. ${rec.title}: ${rec.description}`;
@@ -514,6 +549,37 @@ export default function AIAnalysisPage() {
               </div>
               
               <div className="space-y-4">
+                {/* Email Type Toggle */}
+                <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+                  <label className="text-sm font-display uppercase tracking-wider text-aloa-gray">
+                    Email Type
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEmailForm({...emailForm, isClientFacing: true})}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        emailForm.isClientFacing
+                          ? 'bg-aloa-black text-white'
+                          : 'bg-white text-aloa-gray border border-gray-300'
+                      }`}
+                    >
+                      Client-Facing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmailForm({...emailForm, isClientFacing: false})}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        !emailForm.isClientFacing
+                          ? 'bg-aloa-black text-white'
+                          : 'bg-white text-aloa-gray border border-gray-300'
+                      }`}
+                    >
+                      Internal
+                    </button>
+                  </div>
+                </div>
+                
                 <div>
                   <label className="block text-sm font-display uppercase tracking-wider text-aloa-gray mb-1">
                     Recipient Email *
@@ -563,23 +629,74 @@ export default function AIAnalysisPage() {
                     value={emailForm.customSubject}
                     onChange={(e) => setEmailForm({...emailForm, customSubject: e.target.value})}
                     className="w-full px-3 py-2 border-2 border-aloa-black rounded-lg focus:outline-none focus:ring-2 focus:ring-aloa-black"
-                    placeholder={`AI Analysis Report: ${form?.title || 'Form'}`}
+                    placeholder={emailForm.isClientFacing ? `Your Input Summary: ${form?.title || 'Form'}` : `AI Analysis Report: ${form?.title || 'Form'}`}
                   />
                 </div>
               </div>
               
+              {/* Preview Section */}
+              {showPreview && emailPreview && (
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-display uppercase tracking-wider text-aloa-gray mb-2">
+                    Email Preview
+                  </h4>
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <p><strong>Subject:</strong> {emailPreview.preview.subject}</p>
+                    <p><strong>Type:</strong> {emailPreview.preview.isClientFacing ? 'Client-Facing' : 'Internal'}</p>
+                    <p><strong>Sections:</strong> {emailPreview.preview.sections.join(', ')}</p>
+                  </div>
+                  <div className="mt-3 max-h-48 overflow-y-auto bg-white p-3 rounded border border-gray-300">
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: emailPreview.html }} 
+                      className="email-preview-content"
+                      style={{
+                        transform: 'scale(0.5)',
+                        transformOrigin: 'top left',
+                        width: '200%',
+                        height: '200%',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => setShowEmailModal(false)}
+                  onClick={() => {
+                    setShowEmailModal(false);
+                    setShowPreview(false);
+                    setEmailPreview(null);
+                  }}
                   className="flex-1 btn-secondary"
                   disabled={sendingEmail}
                 >
                   Cancel
                 </button>
+                {!showPreview ? (
+                  <button
+                    onClick={generatePreview}
+                    className="flex-1 btn-secondary flex items-center justify-center gap-2"
+                    disabled={!emailForm.recipientEmail}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Preview
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setShowPreview(false);
+                      setEmailPreview(null);
+                    }}
+                    className="flex-1 btn-secondary"
+                  >
+                    Edit
+                  </button>
+                )}
                 <button
                   onClick={sendAnalysisEmail}
                   className="flex-1 btn-primary flex items-center justify-center gap-2"
-                  disabled={sendingEmail}
+                  disabled={sendingEmail || !emailForm.recipientEmail}
                 >
                   {sendingEmail ? (
                     <>

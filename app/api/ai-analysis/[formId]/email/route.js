@@ -3,10 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { generateAnalysisEmailHTML } from '@/lib/emailTemplates';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Initialize Supabase only if credentials are available
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  : null;
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -19,7 +22,8 @@ export async function POST(request, { params }) {
       analysisText, 
       formTitle,
       ccEmails = [],
-      customSubject 
+      customSubject,
+      isClientFacing = true 
     } = await request.json();
 
     // Validate required fields
@@ -40,13 +44,13 @@ export async function POST(request, { params }) {
     }
 
     // Generate the email HTML
-    const emailHTML = generateAnalysisEmailHTML(formTitle, analysisText, recipientName);
+    const emailHTML = generateAnalysisEmailHTML(formTitle, analysisText, recipientName, isClientFacing);
     
     // Prepare email options
     const emailOptions = {
       from: process.env.EMAIL_FROM || 'Aloa® Forms <forms@resend.dev>',
       to: recipientEmail,
-      subject: customSubject || `AI Analysis Report: ${formTitle}`,
+      subject: customSubject || (isClientFacing ? `Your Input Summary: ${formTitle}` : `AI Analysis Report: ${formTitle}`),
       html: emailHTML,
       text: generatePlainTextVersion(analysisText, formTitle), // Fallback plain text
     };
@@ -78,7 +82,7 @@ export async function POST(request, { params }) {
           .insert({
             form_id: formId,
             recipient: recipientEmail,
-            email_type: 'ai_analysis',
+            email_type: isClientFacing ? 'client_analysis' : 'ai_analysis',
             sent_at: new Date().toISOString(),
             status: 'sent'
           });
