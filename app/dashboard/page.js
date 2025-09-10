@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2, Brain, Folder, FolderOpen } from 'lucide-react';
+import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2, Brain, Folder, FolderOpen, MoveRight } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PasswordProtect from '@/components/PasswordProtect';
 import toast from 'react-hot-toast';
@@ -14,6 +14,10 @@ function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(searchParams.get('project') || 'all');
   const [loading, setLoading] = useState(true);
+  const [selectedForms, setSelectedForms] = useState([]);
+  const [showBulkAssign, setShowBulkAssign] = useState(false);
+  const [bulkProjectId, setBulkProjectId] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -48,6 +52,46 @@ function Dashboard() {
     } catch (error) {
       console.error('Error fetching projects:', error);
     }
+  };
+
+  const handleBulkAssign = async () => {
+    if (selectedForms.length === 0) {
+      toast.error('Please select at least one form');
+      return;
+    }
+
+    setIsAssigning(true);
+    try {
+      const response = await fetch('/api/forms/bulk-assign-project', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formIds: selectedForms,
+          projectId: bulkProjectId || null
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to assign forms');
+
+      toast.success(`Successfully assigned ${selectedForms.length} form(s) to project`);
+      setSelectedForms([]);
+      setShowBulkAssign(false);
+      setBulkProjectId('');
+      fetchForms();
+    } catch (error) {
+      console.error('Error assigning forms:', error);
+      toast.error('Failed to assign forms to project');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const toggleFormSelection = (formId) => {
+    setSelectedForms(prev => 
+      prev.includes(formId) 
+        ? prev.filter(id => id !== formId)
+        : [...prev, formId]
+    );
   };
 
   const deleteForm = async (formId) => {
@@ -121,6 +165,30 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* Bulk Actions Bar */}
+        {selectedForms.length > 0 && (
+          <div className="mb-4 p-4 bg-aloa-sand rounded-lg flex items-center justify-between">
+            <span className="text-sm font-medium">
+              {selectedForms.length} form(s) selected
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowBulkAssign(true)}
+                className="px-3 py-1 bg-aloa-black text-aloa-white rounded hover:bg-aloa-gray transition-colors flex items-center gap-2"
+              >
+                <MoveRight className="w-4 h-4" />
+                Assign to Project
+              </button>
+              <button
+                onClick={() => setSelectedForms([])}
+                className="px-3 py-1 border border-aloa-gray text-aloa-gray rounded hover:bg-aloa-gray hover:text-aloa-white transition-colors"
+              >
+                Clear Selection
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Project Filter */}
         {projects.length > 0 && (
           <div className="mb-6 flex gap-2 flex-wrap">
@@ -178,7 +246,16 @@ function Dashboard() {
             {forms.map((form) => (
               <div key={form._id} className="card hover:shadow-2xl transition-all duration-300 hover:transform hover:-translate-y-0.5">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
+                  {/* Checkbox for selection */}
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedForms.includes(form._id)}
+                      onChange={() => toggleFormSelection(form._id)}
+                      className="mt-1 w-4 h-4 rounded border-aloa-sand text-aloa-black focus:ring-aloa-black"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div className="flex-1 min-w-0">
                     <h3 className="text-xl sm:text-2xl font-display font-bold text-aloa-black mb-2 uppercase tracking-wider break-words">
                       {form.title}
                     </h3>
@@ -201,6 +278,7 @@ function Dashboard() {
                       <span className="bg-aloa-sand px-3 py-1 text-aloa-black">
                         {formatDate(form.createdAt)}
                       </span>
+                    </div>
                     </div>
                   </div>
                   <div className="flex gap-2 sm:ml-4">
@@ -246,6 +324,59 @@ function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Bulk Assign Modal */}
+      {showBulkAssign && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-aloa-white rounded-lg max-w-md w-full p-6">
+            <h2 className="text-2xl font-display font-bold text-aloa-black mb-4 uppercase tracking-wider">
+              Assign Forms to Project
+            </h2>
+            
+            <p className="text-sm text-aloa-gray mb-4">
+              Move {selectedForms.length} selected form(s) to a project
+            </p>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-aloa-gray mb-2">
+                Select Project
+              </label>
+              <select
+                value={bulkProjectId}
+                onChange={(e) => setBulkProjectId(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors"
+              >
+                <option value="">No Project (Uncategorized)</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowBulkAssign(false);
+                  setBulkProjectId('');
+                }}
+                className="flex-1 px-4 py-2 border-2 border-aloa-sand text-aloa-black rounded-lg hover:bg-aloa-sand transition-colors"
+                disabled={isAssigning}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkAssign}
+                className="flex-1 btn-primary"
+                disabled={isAssigning}
+              >
+                {isAssigning ? 'Assigning...' : 'Assign to Project'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
