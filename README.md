@@ -1,4 +1,4 @@
-# Aloa Project Manager
+# Aloa Project Manager 🚀
 
 A gamified project management system specifically designed for Aloa web design projects. Built with Next.js 14, it guides clients through a structured workflow using forms, milestones, and projectlets with progress tracking and gamification elements.
 
