@@ -12,6 +12,7 @@ export default function EditFormPage() {
   const [form, setForm] = useState(null);
   const [fields, setFields] = useState([]);
   const [formTitle, setFormTitle] = useState('');
+  const [formDescription, setFormDescription] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -29,6 +30,7 @@ export default function EditFormPage() {
       setForm(data);
       setFields(data.form_fields || []);
       setFormTitle(data.title || '');
+      setFormDescription(data.description || '');
     } catch (error) {
       console.error('Error fetching form:', error);
       toast.error('Failed to load form');
@@ -101,6 +103,11 @@ export default function EditFormPage() {
     setHasChanges(true);
   };
 
+  const handleDescriptionChange = (value) => {
+    setFormDescription(value);
+    setHasChanges(true);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -109,7 +116,7 @@ export default function EditFormPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fields, title: formTitle }),
+        body: JSON.stringify({ fields, title: formTitle, description: formDescription }),
       });
 
       if (!response.ok) throw new Error('Failed to update form');
@@ -182,22 +189,42 @@ export default function EditFormPage() {
         </div>
       </div>
 
-      {/* Form Title */}
+      {/* Form Title and Description */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-aloa-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-start gap-3">
-            <Edit2 className="w-5 h-5 text-aloa-black mt-2" />
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-aloa-gray mb-2">
-                Form Title
-              </label>
-              <input
-                type="text"
-                value={formTitle}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors text-lg font-medium"
-                placeholder="Enter form title..."
-              />
+          <div className="space-y-6">
+            {/* Title */}
+            <div className="flex items-start gap-3">
+              <Edit2 className="w-5 h-5 text-aloa-black mt-2" />
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-aloa-gray mb-2">
+                  Form Title
+                </label>
+                <input
+                  type="text"
+                  value={formTitle}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  className="w-full px-4 py-2 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors text-lg font-medium"
+                  placeholder="Enter form title..."
+                />
+              </div>
+            </div>
+            
+            {/* Description */}
+            <div className="flex items-start gap-3">
+              <Edit2 className="w-5 h-5 text-aloa-black mt-2" />
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-aloa-gray mb-2">
+                  Form Description
+                </label>
+                <textarea
+                  value={formDescription}
+                  onChange={(e) => handleDescriptionChange(e.target.value)}
+                  className="w-full px-4 py-2 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors resize-none"
+                  rows={3}
+                  placeholder="Enter the description that appears below the form title..."
+                />
+              </div>
             </div>
           </div>
         </div>

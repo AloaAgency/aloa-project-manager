@@ -3,24 +3,28 @@ import { supabase } from '@/lib/supabase';
 
 export async function PATCH(request, { params }) {
   try {
-    const { fields, title } = await request.json();
+    const { fields, title, description } = await request.json();
     const { formId } = params;
 
-    // Update form title if provided
-    if (title !== undefined) {
-      const { error: titleError } = await supabase
+    // Update form title and description if provided
+    if (title !== undefined || description !== undefined) {
+      const updateData = {
+        // DO NOT update url_id - keep the existing URL stable
+        updated_at: new Date().toISOString()
+      };
+      
+      if (title !== undefined) updateData.title = title;
+      if (description !== undefined) updateData.description = description;
+      
+      const { error: formUpdateError } = await supabase
         .from('forms')
-        .update({ 
-          title,
-          // DO NOT update url_id - keep the existing URL stable
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', formId);
       
-      if (titleError) {
-        console.error('Error updating form title:', titleError);
+      if (formUpdateError) {
+        console.error('Error updating form:', formUpdateError);
         return NextResponse.json(
-          { error: 'Failed to update form title' },
+          { error: 'Failed to update form' },
           { status: 500 }
         );
       }
