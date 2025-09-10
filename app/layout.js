@@ -2,8 +2,8 @@ import './globals.css';
 import { Toaster } from 'react-hot-toast';
 
 export const metadata = {
-  title: 'Aloa® Agency Custom Forms',
-  description: 'Create and manage custom forms for internal use.',
+  title: 'Aloa® Project Manager',
+  description: 'Gamified project management system for Aloa web design projects.',
   robots: {
     index: false,
     follow: false,

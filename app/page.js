@@ -1,139 +1,191 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Upload, FileText, Share2, Database } from 'lucide-react';
-import PasswordProtect from '@/components/PasswordProtect';
+import { Rocket, Users, Trophy, Zap, Target, Calendar, ChevronRight, Sparkles } from 'lucide-react';
 
-function HomePage() {
+export default function HomePage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-aloa-cream">
-      <div className="relative bg-cover bg-center bg-no-repeat" style={{backgroundImage: 'url(https://www.aloa.agency/_next/image?url=https%3A%2F%2Fimages.ctfassets.net%2Fqkznfzcikv51%2F1fBa4ioxqgBwRlhFWzKKb4%2F35990186eb154886f87eef10e4a9f31c%2Fcta-bg.jpg%3Ffm%3Dwebp%26q%3D80&w=3840&q=75)'}}>
-        <div className="bg-aloa-black/60 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-            <div className="text-center">
-              <div className="flex flex-col items-center mb-6">
-                <img 
-                  src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg" 
-                  alt="Aloa" 
-                  className="h-16 sm:h-20 w-auto mb-6"
-                />
-                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold text-aloa-white tracking-tight leading-tight text-center">
-                  CUSTOM FORM MAKER
-                </h1>
+    <div className="min-h-screen bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8]">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-black opacity-5"></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32">
+          <div className="text-center">
+            <div className="flex justify-center mb-8">
+              <div className="inline-flex items-center justify-center w-24 h-24 bg-black rounded-full">
+                <Rocket className="w-12 h-12 text-[#faf8f3]" />
               </div>
-              <p className="text-lg sm:text-xl md:text-2xl text-aloa-white/90 max-w-3xl mx-auto mb-8 sm:mb-12 font-body px-4 font-medium">
-                Transform your markdown files into beautiful, shareable forms with unique URLs
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center px-4 relative z-10">
-                <button 
-                  onClick={() => router.push('/create')}
-                  className="bg-aloa-white text-aloa-black px-8 sm:px-10 py-4 sm:py-5 font-medium hover:bg-opacity-90 transition-all duration-300 uppercase tracking-wider shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-aloa-white focus:ring-offset-2 focus:ring-offset-transparent active:scale-95 text-base sm:text-lg w-full sm:w-auto cursor-pointer"
-                >
-                  Create Form
-                </button>
-                <button 
-                  onClick={() => router.push('/dashboard')}
-                  className="bg-transparent text-aloa-white px-8 sm:px-10 py-4 sm:py-5 border-2 border-aloa-white font-medium hover:bg-aloa-white hover:text-aloa-black transition-all duration-300 uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-aloa-white focus:ring-offset-2 focus:ring-offset-transparent active:scale-95 text-base sm:text-lg w-full sm:w-auto cursor-pointer"
-                >
-                  Dashboard
-                </button>
-              </div>
+            </div>
+            
+            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-black tracking-tight leading-tight mb-6">
+              Aloa Project Manager
+            </h1>
+            
+            <p className="text-xl sm:text-2xl text-gray-700 max-w-3xl mx-auto mb-12">
+              Gamified project management for web design excellence. 
+              Guide clients through every step with clarity and excitement.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center">
+              <button 
+                onClick={() => router.push('/project-setup')}
+                className="inline-flex items-center justify-center bg-black text-white px-8 py-4 font-semibold hover:bg-gray-800 transition-all duration-300 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
+                <Rocket className="w-5 h-5 mr-2" />
+                Start New Project
+              </button>
+              
+              <button 
+                onClick={() => router.push('/projects')}
+                className="inline-flex items-center justify-center bg-white text-black px-8 py-4 border-2 border-black font-semibold hover:bg-black hover:text-white transition-all duration-300 rounded-lg"
+              >
+                <Users className="w-5 h-5 mr-2" />
+                View All Projects
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-          <div className="card group hover:scale-105 transition-transform duration-300">
-            <div className="mb-6">
-              <Upload className="w-12 h-12 text-aloa-black group-hover:animate-float" />
+      {/* Features Grid */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <h2 className="text-3xl font-bold text-center mb-12">The Aloa Way</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Structured Workflow */}
+          <div className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-center w-16 h-16 bg-[#faf8f3] rounded-full mb-6">
+              <Target className="w-8 h-8 text-black" />
             </div>
-            <h3 className="text-xl font-display font-bold text-aloa-black mb-3 uppercase tracking-wider">
-              Upload Markdown
-            </h3>
-            <p className="text-aloa-black/70 font-body">
-              Simply upload your markdown file with form structure
+            <h3 className="text-xl font-bold mb-3">Structured Workflow</h3>
+            <p className="text-gray-600">
+              Every project follows a proven path from contract to launch, ensuring nothing gets missed.
             </p>
           </div>
 
-          <div className="card group hover:scale-105 transition-transform duration-300">
-            <div className="mb-6">
-              <FileText className="w-12 h-12 text-aloa-black group-hover:animate-float" />
+          {/* Gamified Progress */}
+          <div className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-center w-16 h-16 bg-[#faf8f3] rounded-full mb-6">
+              <Trophy className="w-8 h-8 text-black" />
             </div>
-            <h3 className="text-xl font-display font-bold text-aloa-black mb-3 uppercase tracking-wider">
-              Auto-Generate
-            </h3>
-            <p className="text-aloa-black/70 font-body">
-              Beautiful forms are automatically created from your markdown
+            <h3 className="text-xl font-bold mb-3">Gamified Progress</h3>
+            <p className="text-gray-600">
+              Unlock achievements, track milestones, and celebrate wins throughout the project journey.
             </p>
           </div>
 
-          <div className="card group hover:scale-105 transition-transform duration-300">
-            <div className="mb-6">
-              <Share2 className="w-12 h-12 text-aloa-black group-hover:animate-float" />
+          {/* Client Collaboration */}
+          <div className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-center w-16 h-16 bg-[#faf8f3] rounded-full mb-6">
+              <Users className="w-8 h-8 text-black" />
             </div>
-            <h3 className="text-xl font-display font-bold text-aloa-black mb-3 uppercase tracking-wider">
-              Share URL
-            </h3>
-            <p className="text-aloa-black/70 font-body">
-              Get a unique URL to share your form with anyone
+            <h3 className="text-xl font-bold mb-3">Client Collaboration</h3>
+            <p className="text-gray-600">
+              Clients actively participate through forms and approvals, keeping everyone aligned.
             </p>
           </div>
 
-          <div className="card group hover:scale-105 transition-transform duration-300">
-            <div className="mb-6">
-              <Database className="w-12 h-12 text-aloa-black group-hover:animate-float" />
+          {/* Smart Forms */}
+          <div className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-center w-16 h-16 bg-[#faf8f3] rounded-full mb-6">
+              <Sparkles className="w-8 h-8 text-black" />
             </div>
-            <h3 className="text-xl font-display font-bold text-aloa-black mb-3 uppercase tracking-wider">
-              Collect Data
-            </h3>
-            <p className="text-aloa-black/70 font-body">
-              All responses are stored and accessible in your dashboard
+            <h3 className="text-xl font-bold mb-3">Smart Forms</h3>
+            <p className="text-gray-600">
+              Collect design preferences, content, and feedback through intelligent, sequential forms.
+            </p>
+          </div>
+
+          {/* Timeline Management */}
+          <div className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-center w-16 h-16 bg-[#faf8f3] rounded-full mb-6">
+              <Calendar className="w-8 h-8 text-black" />
+            </div>
+            <h3 className="text-xl font-bold mb-3">Timeline Management</h3>
+            <p className="text-gray-600">
+              Automatic deadline tracking and reminders keep projects on schedule.
+            </p>
+          </div>
+
+          {/* Real-time Updates */}
+          <div className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-center w-16 h-16 bg-[#faf8f3] rounded-full mb-6">
+              <Zap className="w-8 h-8 text-black" />
+            </div>
+            <h3 className="text-xl font-bold mb-3">Real-time Updates</h3>
+            <p className="text-gray-600">
+              Everyone stays informed with automatic notifications and progress updates.
             </p>
           </div>
         </div>
       </div>
 
-      <div className="bg-gradient-subtle py-16 sm:py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-aloa-black mb-6 sm:mb-8">
-            Markdown-Powered Forms
-          </h2>
-          <p className="text-base sm:text-lg text-aloa-black/70 mb-8 sm:mb-12 font-body max-w-2xl mx-auto px-4 font-medium">
-            Use our simple markdown syntax to define form fields, validation rules, and more. 
-            Your markdown becomes a fully functional form in seconds.
+      {/* Workflow Preview */}
+      <div className="bg-black text-white py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-center mb-12">Project Workflow</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { step: "1", title: "Initialize", desc: "Contract, timeline, team setup" },
+              { step: "2", title: "Discover", desc: "Design inspiration, mood boards, fonts" },
+              { step: "3", title: "Create", desc: "Content, copy, page designs" },
+              { step: "4", title: "Deliver", desc: "Development, revisions, launch" }
+            ].map((phase, index) => (
+              <div key={index} className="relative">
+                <div className="bg-white/10 backdrop-blur rounded-lg p-6 hover:bg-white/20 transition-colors">
+                  <div className="text-4xl font-bold text-[#faf8f3] mb-3">{phase.step}</div>
+                  <h3 className="text-xl font-bold mb-2">{phase.title}</h3>
+                  <p className="text-white/80 text-sm">{phase.desc}</p>
+                </div>
+                {index < 3 && (
+                  <ChevronRight className="hidden lg:block absolute -right-3 top-1/2 -translate-y-1/2 text-white/40 w-6 h-6" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* CTA Section */}
+      <div className="py-20">
+        <div className="max-w-4xl mx-auto text-center px-4">
+          <h2 className="text-3xl font-bold mb-6">Ready to Transform Your Project Management?</h2>
+          <p className="text-xl text-gray-600 mb-8">
+            Start your first Aloa project and experience the difference of gamified, structured workflows.
           </p>
-          <div className="bg-aloa-black text-aloa-cream p-4 sm:p-8 font-mono text-left overflow-x-auto text-xs sm:text-sm">
-            <pre>{`# Contact Form
-Please fill out this form to get in touch.
+          <button 
+            onClick={() => router.push('/project-setup')}
+            className="inline-flex items-center justify-center bg-black text-white px-10 py-5 font-semibold hover:bg-gray-800 transition-all duration-300 rounded-lg shadow-xl hover:shadow-2xl transform hover:-translate-y-1 text-lg"
+          >
+            <Rocket className="w-6 h-6 mr-3" />
+            Initialize Your First Project
+          </button>
+        </div>
+      </div>
 
-## Name *
-Type: text
-Placeholder: Your full name
-
-## Email *
-Type: email
-Placeholder: your@email.com
-
-## Message *
-Type: textarea
-Placeholder: Your message here...
-Min: 10
-Max: 500`}</pre>
+      {/* Quick Links for existing forms (temporarily kept for backward compatibility) */}
+      <div className="border-t border-gray-200 py-8">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p className="text-sm text-gray-500 mb-4">Legacy Form Builder</p>
+          <div className="flex justify-center gap-4">
+            <button 
+              onClick={() => router.push('/create')}
+              className="text-sm text-gray-600 hover:text-black underline"
+            >
+              Create Form
+            </button>
+            <button 
+              onClick={() => router.push('/dashboard')}
+              className="text-sm text-gray-600 hover:text-black underline"
+            >
+              Forms Dashboard
+            </button>
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function Page() {
-  return (
-    <PasswordProtect>
-      <HomePage />
-    </PasswordProtect>
   );
 }

@@ -1,329 +1,215 @@
-# Custom Forms - Next.js Application
+# Aloa Project Manager
 
-A beautiful form builder that transforms markdown files into shareable forms with unique URLs.
+A gamified project management system specifically designed for Aloa web design projects. Built with Next.js 14, it guides clients through a structured workflow using forms, milestones, and projectlets with progress tracking and gamification elements.
 
 ## Features
 
-- **Upload Markdown Files**: Create forms from `.md` files
-- **AI-Powered Form Builder**: Create forms through natural language chat with AI
-- **Beautiful Aloa-Inspired Design**: Modern black and cream aesthetic
-- **Unique URLs**: Each form gets a shareable URL
-- **Response Collection**: Store and manage form submissions
-- **AI Response Analysis**: Analyze form responses with AI insights
-- **PDF Export for Analysis**: Download AI analysis as professional PDF reports
-- **Email Analysis Reports**: Send beautifully formatted analysis reports via email
-- **Email Notifications**: Automatic email alerts for new submissions
-- **Form Progress Persistence**: Auto-saves form progress locally
-- **Multi-Step Forms**: Support for sectioned forms with step navigation
-- **CSV Export**: Export responses for analysis
-- **Dashboard**: Central management for all forms
-- **Field Types**: Text, email, number, textarea, select, radio, checkbox, multiselect, rating, date, time, file, tel, url
+### Core Project Management
+- **Structured Workflow**: Proven path from contract to launch
+- **Projectlet System**: Sequential mini-projects that unlock as you progress
+- **Gamified Progress**: Achievements, progress bars, and milestone celebrations
+- **Client Dashboard**: Real-time project status and progress tracking
+- **Team Management**: Role-based access for clients, designers, developers
+
+### Smart Forms & Content Collection
+- **Design Inspiration Forms**: Mood boards, fonts, color palettes
+- **Content Forms**: Homepage briefs, page content collection
+- **Site Structure Builder**: Interactive sitemap creation
+- **Approval Workflows**: Client review and approval tracking
+
+### Project Tracking
+- **Timeline Management**: Automatic deadline tracking and reminders
+- **Progress Visualization**: Percentage complete, stats, achievements
+- **Email Notifications**: Automated updates for deadlines and milestones
+- **Activity Timeline**: Complete history of project events
 
 ## Tech Stack
 
 - **Framework**: Next.js 14 (App Router)
-- **Styling**: Tailwind CSS with custom Aloa color scheme
 - **Database**: Supabase (PostgreSQL)
-- **Deployment**: Optimized for Vercel
-- **UI Components**: React Hook Form, React Dropzone, Framer Motion
-- **Icons**: Lucide React
-- **AI**: Anthropic Claude API
-- **Email Service**: Resend
-- **PDF Generation**: jsPDF
+- **Styling**: Tailwind CSS
+- **UI Components**: Lucide React icons, Framer Motion
+- **Email**: Resend (optional)
+- **AI**: Anthropic Claude API (optional)
 
-## Prerequisites
+## Installation
 
+### Prerequisites
 - Node.js 18+
-- Supabase account (free tier available)
+- Supabase account
 
-## Local Development
+### Setup
 
-### 1. Clone the Repository
-
+1. **Clone the repository**
 ```bash
 git clone <repository-url>
-cd custom-forms
+cd aloa-web-design-project-manager
 ```
 
-### 2. Install Dependencies
-
+2. **Install dependencies**
 ```bash
 npm install
 ```
 
-### 3. Set Up Environment Variables
-
+3. **Configure environment variables**
 ```bash
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and add your Supabase credentials:
+Edit `.env.local` with your credentials:
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your-project-url.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+# Required
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+SUPABASE_SECRET_KEY=your-secret-key
+
+# Optional
+ANTHROPIC_API_KEY=your-anthropic-key
+RESEND_API_KEY=your-resend-key
 ```
 
-### 4. Run Development Server
+4. **Set up database**
 
+Run these SQL files in your Supabase SQL editor in order:
+```sql
+-- 1. Base schema (if you need the legacy forms system)
+migrations/supabase-schema.sql
+
+-- 2. Aloa project management tables (required)
+migrations/aloa_project_management_schema.sql
+
+-- 3. Optional: Add form status fields for closing/reopening
+migrations/add_form_status_fields.sql
+```
+
+5. **Start development server**
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+Visit http://localhost:3000
 
-## Markdown Format
+## Project Workflow
 
-Create forms using this markdown structure:
+The system guides projects through these phases:
 
-```markdown
-# Form Title
-Description of your form
+### 1. Initialize
+- Contract signing
+- Project setup
+- Timeline definition
+- Team assignment
 
-## Field Label *
-Type: text|email|number|textarea|select|radio|checkbox|date|time|tel|url|file
-Placeholder: Optional placeholder text
-Min: 10 (optional - min value or min length)
-Max: 100 (optional - max value or max length)
-  - Option 1 (for select/radio/checkbox)
-  - Option 2
-  - Option 3
-```
+### 2. Discover
+- Design inspiration survey
+- Mood board selection
+- Font selection
+- Color palette choice
 
-### Field Types
+### 3. Create
+- Homepage content brief
+- Copy creation
+- Design mockups
+- Site structure planning
+- Individual page content
 
-- `text` - Single line text input
-- `email` - Email input with validation
-- `number` - Numeric input
-- `tel` - Phone number input
-- `url` - URL input
-- `textarea` - Multi-line text area
-- `select` - Dropdown selection
-- `radio` - Radio buttons (single choice)
-- `checkbox` - Checkboxes (multiple choices)
-- `multiselect` - Multiple selection dropdown
-- `rating` - Star rating (1-5 stars by default)
-- `date` - Date picker
-- `time` - Time picker
-- `file` - File upload
+### 4. Deliver
+- Design review & approval
+- Development phase
+- Revisions
+- Final launch
 
-Add `*` after the field label to make it required.
+## Usage
 
-### Example Form
+### Creating a New Project
+1. Navigate to `/project-setup`
+2. Fill in project details (client, timeline, scope)
+3. Submit to initialize the project
+4. Client receives access to their dashboard
 
-```markdown
-# Contact Form
-Please fill out this form to get in touch.
+### Client Dashboard
+- View overall progress
+- Access available projectlets
+- Submit forms
+- Track achievements
+- Review timeline
 
-## Name *
-Type: text
-Placeholder: Your full name
+### Admin Features
+- Manage multiple projects
+- Update projectlet status
+- Upload deliverables
+- Track team progress
 
-## Email *
-Type: email
-Placeholder: your@email.com
+## Database Structure
 
-## Phone
-Type: tel
-Placeholder: (555) 123-4567
+All tables use `aloa_` prefix to avoid conflicts:
+- `aloa_projects` - Main project container
+- `aloa_projectlets` - Mini-projects/tasks
+- `aloa_project_forms` - Form definitions
+- `aloa_project_responses` - Form submissions
+- `aloa_project_timeline` - Event tracking
+- `aloa_project_team` - Team members
+- `aloa_project_files` - Deliverables
+- `aloa_notification_queue` - Email reminders
+- `aloa_project_achievements` - Gamification
 
-## Subject *
-Type: select
-  - General Inquiry
-  - Support Request
-  - Partnership
-  - Other
+## API Routes
 
-## Message *
-Type: textarea
-Placeholder: Your message here...
-Min: 10
-Max: 500
+### Project Management
+- `POST /api/aloa-projects/initialize` - Create new project
+- `GET /api/aloa-projects/[projectId]` - Get project details
+- `GET /api/aloa-projects/[projectId]/projectlets` - Get projectlets
+- `PATCH /api/aloa-projects/[projectId]/projectlets` - Update status
 
-## Preferred Contact Method *
-Type: radio
-  - Email
-  - Phone
-  - Either
+### Legacy Form System (maintained for compatibility)
+- `/api/forms/*` - Original form CRUD operations
+- `/api/responses/*` - Form response management
 
-## Subscribe to Newsletter
-Type: checkbox
-  - Yes, I want to receive updates
-
-## How satisfied are you? *
-Type: rating
-Max: 5
-
-## Select your interests
-Type: multiselect
-  - Technology
-  - Design
-  - Marketing
-  - Business
-  - Other
-```
-
-### Multi-Step Forms
-
-Create multi-step forms by adding section headers:
-
-```markdown
-# Registration Form
-Complete all steps to register
-
-## Section: Personal Information
-
-## First Name *
-Type: text
-
-## Last Name *
-Type: text
-
-## Section: Contact Details
-
-## Email *
-Type: email
-
-## Phone
-Type: tel
-```
-
-## Deployment to Vercel
-
-### 1. Prepare for Deployment
+## Development
 
 ```bash
-git add .
-git commit -m "Deploy to Vercel"
-git push origin main
+npm run dev    # Start development server
+npm run build  # Build for production
+npm run start  # Start production server
+npm run lint   # Run linting
 ```
 
-### 2. Set Up Supabase
+## Deployment
 
-1. Create a free project at [supabase.com](https://supabase.com)
-2. Go to SQL Editor in your Supabase dashboard
-3. Run the SQL from `supabase-schema.sql` file to create tables
-4. Get your project URL and anon key from Settings → API
-
-### 3. Deploy on Vercel
-
-1. Go to [vercel.com](https://vercel.com) and sign in with GitHub
-2. Click "New Project" and import your repository
-3. Configure project:
-   - Framework Preset: Next.js
-   - Root Directory: ./
-4. Add environment variables:
-   - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon key
-5. Click "Deploy"
-
-### 4. Verify Deployment
-
-Once deployed, Vercel will provide you with a URL. Visit the URL to ensure:
-- The home page loads
-- You can create forms
-- Forms can be submitted
-- Responses are stored in MongoDB
+Optimized for Vercel:
+1. Push to GitHub
+2. Connect to Vercel
+3. Add environment variables
+4. Deploy
 
 ## Project Structure
 
 ```
-custom-forms/
+aloa-project-manager/
 ├── app/
-│   ├── api/              # API routes
-│   │   ├── forms/        # Form endpoints
-│   │   └── responses/    # Response endpoints
-│   ├── create/           # Form creation page
-│   ├── dashboard/        # Dashboard page
-│   ├── forms/            # Form display pages
-│   ├── responses/        # Response viewing pages
-│   ├── globals.css       # Global styles
-│   ├── layout.js         # Root layout
-│   └── page.js           # Home page
+│   ├── api/
+│   │   └── aloa-projects/    # Project management APIs
+│   ├── project/
+│   │   └── [projectId]/
+│   │       └── dashboard/     # Client dashboard
+│   ├── project-setup/         # Project initialization
+│   └── page.js                # Home page
 ├── lib/
-│   ├── supabase.js        # Supabase client
-│   └── markdownParser.js # Markdown parsing
-├── public/               # Static assets
-├── .env.example          # Environment variables template
-├── next.config.js        # Next.js configuration
-├── package.json          # Dependencies
-├── tailwind.config.js    # Tailwind configuration
-└── vercel.json           # Vercel configuration
+│   └── supabase.js           # Database client
+├── migrations/                # SQL schemas
+└── components/               # Reusable components
 ```
-
-## API Routes
-
-### Forms
-- `POST /api/forms/upload` - Upload markdown file to create form
-- `GET /api/forms` - Get all forms with response counts
-- `GET /api/forms/[urlId]` - Get form by URL ID
-- `GET /api/forms/by-id/[formId]` - Get form by database ID
-- `DELETE /api/forms/[formId]` - Delete form and its responses
-
-### AI Analysis
-- `GET /api/ai-analysis/[formId]` - Get cached AI analysis
-- `POST /api/ai-analysis/[formId]` - Generate new AI analysis
-- `POST /api/ai-analysis/[formId]/pdf` - Validate PDF generation data
-- `POST /api/ai-analysis/[formId]/email` - Send analysis report via email
-
-### Responses
-- `POST /api/responses` - Submit form response
-- `GET /api/responses?formId=[id]` - Get responses for a form
-
-### AI Features
-
-The application includes AI-powered features:
-
-1. **AI Form Builder**: Access via `/create` page, chat with AI to generate forms
-2. **AI Response Analysis**: View insights on `/ai-analysis/[formId]` page with:
-   - Executive summary and key metrics
-   - Consensus and divergence areas identification
-   - Actionable recommendations with priority levels
-   - Stakeholder messaging
-3. **AI Analysis Export Options**:
-   - **PDF Download**: Generate client-facing PDF reports with professional formatting
-   - **Email Reports**: Send analysis via email with customizable recipients and subject
-4. **Email Notifications**: Automatic emails sent for new form submissions
-
-### Form Progress Persistence
-
-Forms automatically save progress to browser localStorage:
-- Progress saved on every field change
-- Restored when user returns to form
-- Cleared on successful submission
-- Works across browser sessions
-
-## Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | `https://abc123.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | `eyJhbGc...` |
-| `ANTHROPIC_API_KEY` | Claude AI API key (optional) | `sk-ant-...` |
-| `RESEND_API_KEY` | Resend email API key (optional) | `re_...` |
-| `EMAIL_FROM` | From address for emails | `forms@example.com` |
-| `EMAIL_TO` | Notification recipient | `admin@example.com` |
-
-## Troubleshooting
-
-### Supabase Connection Issues
-- Ensure you've run the SQL schema in your Supabase project
-- Verify the project URL and anon key are correct
-- Check that Row Level Security policies are properly configured
-
-### Form Not Found
-- Verify the URL ID is correct
-- Check MongoDB connection is working
-- Ensure form was created successfully
-
-### Vercel Deployment Fails
-- Check build logs for errors
-- Verify all dependencies are in package.json
-- Ensure environment variables are set correctly
-
-## License
-
-MIT
 
 ## Contributing
 
-Pull requests are welcome! Please follow the existing code style and add tests for new features.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+Private - Aloa Agency
+
+## Support
+
+For questions or issues, contact the Aloa development team.
