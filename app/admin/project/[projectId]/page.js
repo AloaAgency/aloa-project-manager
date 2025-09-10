@@ -32,8 +32,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// Dynamically import the steps manager to avoid SSR issues
-const ProjectletStepsManager = dynamic(() => import('@/components/ProjectletStepsManager'), {
+// Dynamically import the applets manager to avoid SSR issues
+const ProjectletAppletsManager = dynamic(() => import('@/components/ProjectletAppletsManager'), {
   ssr: false
 });
 
@@ -822,9 +822,9 @@ function AdminProjectPageContent() {
                 />
               </div>
 
-              {/* Steps Section */}
+              {/* Applets Section */}
               <div className="border-t pt-6">
-                <ProjectletStepsManager
+                <ProjectletAppletsManager
                   projectId={params.projectId}
                   projectletId={selectedProjectlet.id}
                   projectletName={selectedProjectlet.name}

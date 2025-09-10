@@ -1,0 +1,180 @@
+import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+
+// GET all applets for a projectlet
+export async function GET(request, { params }) {
+  try {
+    const { projectletId } = params;
+
+    const { data: applets, error } = await supabase
+      .from('aloa_applets')
+      .select(`
+        *,
+        form:forms(id, title, status),
+        interactions:aloa_applet_interactions(count)
+      `)
+      .eq('projectlet_id', projectletId)
+      .order('order_index', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching applets:', error);
+      return NextResponse.json({ error: 'Failed to fetch applets' }, { status: 500 });
+    }
+
+    return NextResponse.json({ applets: applets || [] });
+  } catch (error) {
+    console.error('Error in applets route:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// POST create new applet
+export async function POST(request, { params }) {
+  try {
+    const { projectletId } = params;
+    const body = await request.json();
+
+    // Get the current max order_index
+    const { data: maxOrder } = await supabase
+      .from('aloa_applets')
+      .select('order_index')
+      .eq('projectlet_id', projectletId)
+      .order('order_index', { ascending: false })
+      .limit(1)
+      .single();
+
+    const newOrderIndex = maxOrder ? maxOrder.order_index + 1 : 0;
+
+    // Create the applet
+    const { data: applet, error } = await supabase
+      .from('aloa_applets')
+      .insert([{
+        projectlet_id: projectletId,
+        name: body.name,
+        description: body.description,
+        type: body.type,
+        order_index: newOrderIndex,
+        config: body.config || {},
+        form_id: body.form_id,
+        requires_approval: body.requires_approval || false,
+        client_instructions: body.client_instructions,
+        internal_notes: body.internal_notes,
+        client_can_skip: body.client_can_skip || false,
+        library_applet_id: body.library_applet_id
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating applet:', error);
+      return NextResponse.json({ error: 'Failed to create applet' }, { status: 500 });
+    }
+
+    return NextResponse.json({ applet });
+  } catch (error) {
+    console.error('Error in applet creation:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// PUT update applet
+export async function PUT(request, { params }) {
+  try {
+    const body = await request.json();
+    const { appletId, ...updateData } = body;
+
+    const { data: applet, error } = await supabase
+      .from('aloa_applets')
+      .update(updateData)
+      .eq('id', appletId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating applet:', error);
+      return NextResponse.json({ error: 'Failed to update applet' }, { status: 500 });
+    }
+
+    return NextResponse.json({ applet });
+  } catch (error) {
+    console.error('Error in applet update:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// PATCH update applet status
+export async function PATCH(request, { params }) {
+  try {
+    const body = await request.json();
+    const { appletId, status, completion_percentage } = body;
+
+    const updateData = { status };
+    
+    if (completion_percentage !== undefined) {
+      updateData.completion_percentage = completion_percentage;
+    }
+
+    // Update timestamps based on status
+    if (status === 'active' || status === 'in_progress') {
+      updateData.started_at = new Date().toISOString();
+    } else if (status === 'completed' || status === 'approved') {
+      updateData.completed_at = new Date().toISOString();
+      updateData.completion_percentage = 100;
+    }
+
+    const { data: applet, error } = await supabase
+      .from('aloa_applets')
+      .update(updateData)
+      .eq('id', appletId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating applet status:', error);
+      return NextResponse.json({ error: 'Failed to update applet status' }, { status: 500 });
+    }
+
+    // Record the interaction
+    await supabase
+      .from('aloa_applet_interactions')
+      .insert([{
+        applet_id: appletId,
+        project_id: params.projectId,
+        interaction_type: status === 'approved' ? 'approval' : 'submission',
+        user_role: 'admin',
+        data: { status_change: status }
+      }]);
+
+    return NextResponse.json({ applet });
+  } catch (error) {
+    console.error('Error in applet status update:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// DELETE applet
+export async function DELETE(request, { params }) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const appletId = searchParams.get('appletId');
+
+    if (!appletId) {
+      return NextResponse.json({ error: 'Applet ID required' }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from('aloa_applets')
+      .delete()
+      .eq('id', appletId);
+
+    if (error) {
+      console.error('Error deleting applet:', error);
+      return NextResponse.json({ error: 'Failed to delete applet' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error in applet deletion:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
