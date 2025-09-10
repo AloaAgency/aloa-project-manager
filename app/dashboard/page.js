@@ -103,7 +103,7 @@ function Dashboard() {
     }
 
     try {
-      const response = await fetch(`/api/forms/${formId}/toggle-status`, {
+      const response = await fetch(`/api/forms/by-id/${formId}/toggle-status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

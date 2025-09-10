@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{\"app/ai-analysis/[formId]/page.js -> @/lib/emailTemplates\":{\"id\":\"app/ai-analysis/[formId]/page.js -> @/lib/emailTemplates\",\"files\":[]}}"
+self.__REACT_LOADABLE_MANIFEST="{}"
