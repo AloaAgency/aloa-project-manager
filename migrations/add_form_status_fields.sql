@@ -7,7 +7,7 @@ ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
 
 -- Add closed_message field to store custom message when form is closed
 ALTER TABLE forms 
-ADD COLUMN IF NOT EXISTS closed_message TEXT;
+ADD COLUMN IF NOT EXISTS closed_message TEXT DEFAULT 'This survey is no longer accepting responses. Thank you!';
 
 -- Update all existing forms to be active (if you haven't already)
 UPDATE forms 

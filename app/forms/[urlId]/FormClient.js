@@ -39,18 +39,12 @@ export default function FormClient({ initialForm }) {
               </h1>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-6">
                 <p className="text-lg text-amber-900 font-medium mb-2">
-                  This Survey is Now Closed
+                  Survey Closed
                 </p>
                 <p className="text-amber-800">
-                  {form.closed_message || 'Thank you for your interest! This survey has been closed and is no longer accepting responses.'}
+                  {form.closed_message || 'This survey is no longer accepting responses. Thank you!'}
                 </p>
               </div>
-              <button
-                onClick={() => router.push('/')}
-                className="btn-primary"
-              >
-                Return to Home
-              </button>
             </div>
           </div>
         </div>
