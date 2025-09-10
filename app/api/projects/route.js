@@ -5,7 +5,13 @@ import { nanoid } from 'nanoid';
 export async function GET() {
   try {
     // First, ensure the projects table exists
-    await ensureProjectsTable();
+    const tableExists = await ensureProjectsTable();
+    
+    // If table doesn't exist, return empty array
+    if (!tableExists) {
+      console.log('Projects table does not exist yet. Please create it in Supabase.');
+      return NextResponse.json([]);
+    }
     
     // Fetch all projects with their forms count
     const { data: projects, error } = await supabase
@@ -16,10 +22,14 @@ export async function GET() {
       `)
       .order('created_at', { ascending: false });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching projects:', error);
+      // Return empty array instead of error to prevent client-side crashes
+      return NextResponse.json([]);
+    }
     
     // Format the response to include formCount
-    const projectsWithCount = projects.map(project => ({
+    const projectsWithCount = (projects || []).map(project => ({
       ...project,
       formCount: project.forms?.[0]?.count || 0
     }));
@@ -27,10 +37,8 @@ export async function GET() {
     return NextResponse.json(projectsWithCount);
   } catch (error) {
     console.error('Error fetching projects:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch projects' },
-      { status: 500 }
-    );
+    // Return empty array instead of error to prevent client-side crashes
+    return NextResponse.json([]);
   }
 }
 
@@ -47,7 +55,14 @@ export async function POST(request) {
     }
 
     // First, ensure the projects table exists
-    await ensureProjectsTable();
+    const tableExists = await ensureProjectsTable();
+    
+    if (!tableExists) {
+      return NextResponse.json(
+        { error: 'Projects table does not exist. Please create it in Supabase first.' },
+        { status: 503 }
+      );
+    }
 
     // Create new project
     const newProject = {
@@ -101,8 +116,12 @@ async function ensureProjectsTable() {
         
         ALTER TABLE forms ADD COLUMN IF NOT EXISTS project_id TEXT REFERENCES projects(id);
       `);
+      return false; // Table doesn't exist
     }
+    
+    return true; // Table exists
   } catch (error) {
     console.error('Error checking projects table:', error);
+    return false; // Assume table doesn't exist on error
   }
 }
