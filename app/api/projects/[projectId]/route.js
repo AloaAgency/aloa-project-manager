@@ -3,6 +3,14 @@ import { supabase } from '@/lib/supabase';
 
 export async function DELETE(request, { params }) {
   try {
+    // Check if Supabase is configured
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database is not configured' },
+        { status: 503 }
+      );
+    }
+    
     const { projectId } = params;
 
     // First, unassign all forms from this project (set them to uncategorized)
@@ -45,6 +53,14 @@ export async function DELETE(request, { params }) {
 
 export async function PATCH(request, { params }) {
   try {
+    // Check if Supabase is configured
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database is not configured' },
+        { status: 503 }
+      );
+    }
+    
     const { projectId } = params;
     const body = await request.json();
     const { name, description } = body;

@@ -4,6 +4,12 @@ import { nanoid } from 'nanoid';
 
 export async function GET() {
   try {
+    // Check if Supabase is configured
+    if (!supabase) {
+      console.log('Supabase is not configured. Returning empty projects array.');
+      return NextResponse.json([]);
+    }
+    
     // First, ensure the projects table exists
     const tableExists = await ensureProjectsTable();
     
@@ -44,6 +50,14 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    // Check if Supabase is configured
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database is not configured' },
+        { status: 503 }
+      );
+    }
+    
     const body = await request.json();
     const { name, description } = body;
 
@@ -94,6 +108,11 @@ export async function POST(request) {
 // Helper function to ensure projects table exists
 async function ensureProjectsTable() {
   try {
+    // Check if Supabase is configured
+    if (!supabase) {
+      return false;
+    }
+    
     // Check if projects table exists by trying to select from it
     const { error } = await supabase
       .from('projects')

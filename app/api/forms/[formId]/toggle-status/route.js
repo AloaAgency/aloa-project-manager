@@ -3,6 +3,14 @@ import { supabase } from '@/lib/supabase';
 
 export async function PATCH(request, { params }) {
   try {
+    // Check if Supabase is configured
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database is not configured' },
+        { status: 503 }
+      );
+    }
+    
     const { formId } = params;
     const { is_active, closed_message } = await request.json();
 
