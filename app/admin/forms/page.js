@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import PasswordProtect from '@/components/PasswordProtect';
 import { 
   FileText, 
   Plus, 
@@ -22,7 +23,7 @@ import {
   BarChart
 } from 'lucide-react';
 
-export default function AdminFormsPage() {
+function AdminFormsPageContent() {
   const router = useRouter();
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -432,5 +433,13 @@ export default function AdminFormsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminFormsPage() {
+  return (
+    <PasswordProtect>
+      <AdminFormsPageContent />
+    </PasswordProtect>
   );
 }

@@ -5,8 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Save, AlertCircle, Edit2, Trash2, GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import PasswordProtect from '@/components/PasswordProtect';
 
-export default function EditFormPage() {
+function EditFormPageContent() {
   const params = useParams();
   const router = useRouter();
   const [form, setForm] = useState(null);
@@ -360,5 +361,13 @@ export default function EditFormPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function EditFormPage() {
+  return (
+    <PasswordProtect>
+      <EditFormPageContent />
+    </PasswordProtect>
   );
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import PasswordProtect from '@/components/PasswordProtect';
 import { 
   ArrowLeft,
   Edit,
@@ -36,7 +37,7 @@ const ProjectletStepsManager = dynamic(() => import('@/components/ProjectletStep
   ssr: false
 });
 
-export default function AdminProjectPage() {
+function AdminProjectPageContent() {
   const params = useParams();
   const router = useRouter();
   const [project, setProject] = useState(null);
@@ -898,5 +899,13 @@ export default function AdminProjectPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminProjectPage() {
+  return (
+    <PasswordProtect>
+      <AdminProjectPageContent />
+    </PasswordProtect>
   );
 }

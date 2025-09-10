@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import PasswordProtect from '@/components/PasswordProtect';
 import { 
   Briefcase, 
   Plus, 
@@ -19,7 +20,7 @@ import {
   Upload
 } from 'lucide-react';
 
-export default function AdminProjectsPage() {
+function AdminProjectsPageContent() {
   const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -324,5 +325,13 @@ export default function AdminProjectsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminProjectsPage() {
+  return (
+    <PasswordProtect>
+      <AdminProjectsPageContent />
+    </PasswordProtect>
   );
 }

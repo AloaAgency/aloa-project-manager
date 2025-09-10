@@ -6,8 +6,9 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, Check, AlertCircle, Bot, Wand2, Folder, Brain } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AIChatFormBuilder from '@/components/AIChatFormBuilder';
+import PasswordProtect from '@/components/PasswordProtect';
 
-export default function CreateFormPage() {
+function CreateFormPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isUploading, setIsUploading] = useState(false);
@@ -354,5 +355,13 @@ Subscribe to newsletter? (checkbox: Yes, subscribe me)`}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CreateFormPage() {
+  return (
+    <PasswordProtect>
+      <CreateFormPageContent />
+    </PasswordProtect>
   );
 }
