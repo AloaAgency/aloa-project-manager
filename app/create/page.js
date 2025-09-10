@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, Check, AlertCircle, Bot, Wand2 } from 'lucide-react';
+import { Upload, FileText, Check, AlertCircle, Bot, Wand2, Folder } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AIChatFormBuilder from '@/components/AIChatFormBuilder';
 
@@ -12,6 +12,22 @@ export default function CreateFormPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'upload'
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const response = await fetch('/api/projects');
+      const data = await response.json();
+      setProjects(data);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
 
   const handleMarkdownGenerated = async (markdown) => {
     setIsUploading(true);
@@ -23,6 +39,9 @@ export default function CreateFormPage() {
       
       const formData = new FormData();
       formData.append('markdown', file);
+      if (selectedProject) {
+        formData.append('projectId', selectedProject);
+      }
 
       // Get CSRF token from cookies
       const csrfToken = document.cookie
@@ -64,6 +83,9 @@ export default function CreateFormPage() {
 
     const formData = new FormData();
     formData.append('markdown', file);
+    if (selectedProject) {
+      formData.append('projectId', selectedProject);
+    }
 
     try {
       // Get CSRF token from cookies
@@ -120,9 +142,36 @@ export default function CreateFormPage() {
           <h1 className="text-3xl sm:text-4xl font-display font-bold text-aloa-black mb-4 uppercase tracking-tight">
             Create New Form
           </h1>
-          <p className="text-aloa-gray mb-6 sm:mb-8 font-body">
+          <p className="text-aloa-gray mb-6 font-body">
             Chat with AI or upload a markdown file to generate your form
           </p>
+
+          {/* Project Selector */}
+          {projects.length > 0 && (
+            <div className="mb-6 sm:mb-8">
+              <label className="block text-sm font-medium text-aloa-gray mb-2">
+                Select Project (Optional)
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedProject}
+                  onChange={(e) => setSelectedProject(e.target.value)}
+                  className="w-full md:w-1/2 px-4 py-2 pr-10 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors appearance-none bg-white"
+                >
+                  <option value="">No Project (Uncategorized)</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+                <Folder className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-aloa-gray pointer-events-none" />
+              </div>
+              <p className="mt-2 text-sm text-aloa-gray">
+                Organize your form into a project for better management
+              </p>
+            </div>
+          )}
 
           {/* Tab Navigation */}
           <div className="flex gap-2 mb-8">

@@ -1,24 +1,35 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2, Brain } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2, Brain, Folder, FolderOpen } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PasswordProtect from '@/components/PasswordProtect';
 import toast from 'react-hot-toast';
 
 function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [forms, setForms] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState(searchParams.get('project') || 'all');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    fetchProjects();
     fetchForms();
   }, []);
 
+  useEffect(() => {
+    fetchForms();
+  }, [selectedProject]);
+
   const fetchForms = async () => {
     try {
-      const response = await fetch('/api/forms');
+      const url = selectedProject && selectedProject !== 'all' 
+        ? `/api/forms?project=${selectedProject}`
+        : '/api/forms';
+      const response = await fetch(url);
       const data = await response.json();
       setForms(data);
     } catch (error) {
@@ -26,6 +37,16 @@ function Dashboard() {
       toast.error('Failed to load forms');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const response = await fetch('/api/projects');
+      const data = await response.json();
+      setProjects(data);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
     }
   };
 
@@ -81,15 +102,64 @@ function Dashboard() {
             <h1 className="text-3xl sm:text-4xl font-display font-bold text-aloa-black uppercase tracking-tight">
               Dashboard
             </h1>
-            <button
-              onClick={() => router.push('/create')}
-              className="btn-primary flex items-center justify-center"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              New Form
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push('/projects')}
+                className="px-4 py-2 border-2 border-aloa-sand text-aloa-black hover:bg-aloa-sand transition-colors flex items-center"
+              >
+                <Folder className="w-5 h-5 mr-2" />
+                Manage Projects
+              </button>
+              <button
+                onClick={() => router.push('/create')}
+                className="btn-primary flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                New Form
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Project Filter */}
+        {projects.length > 0 && (
+          <div className="mb-6 flex gap-2 flex-wrap">
+            <button
+              onClick={() => setSelectedProject('all')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                selectedProject === 'all'
+                  ? 'bg-aloa-black text-aloa-white'
+                  : 'bg-aloa-sand hover:bg-aloa-gray hover:text-aloa-white'
+              }`}
+            >
+              All Forms
+            </button>
+            <button
+              onClick={() => setSelectedProject('uncategorized')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                selectedProject === 'uncategorized'
+                  ? 'bg-aloa-black text-aloa-white'
+                  : 'bg-aloa-sand hover:bg-aloa-gray hover:text-aloa-white'
+              }`}
+            >
+              Uncategorized
+            </button>
+            {projects.map((project) => (
+              <button
+                key={project.id}
+                onClick={() => setSelectedProject(project.id)}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                  selectedProject === project.id
+                    ? 'bg-aloa-black text-aloa-white'
+                    : 'bg-aloa-sand hover:bg-aloa-gray hover:text-aloa-white'
+                }`}
+              >
+                {selectedProject === project.id ? <FolderOpen className="w-4 h-4" /> : <Folder className="w-4 h-4" />}
+                {project.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {forms.length === 0 ? (
           <div className="card text-center py-16">
@@ -116,6 +186,12 @@ function Dashboard() {
                       <p className="text-aloa-gray mb-4 font-body line-clamp-2">{form.description}</p>
                     )}
                     <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm font-display uppercase tracking-wider">
+                      {form.projectName && (
+                        <span className="bg-gradient-to-r from-purple-100 to-pink-100 px-3 py-1 text-purple-900 flex items-center gap-1">
+                          <Folder className="w-3 h-3" />
+                          {form.projectName}
+                        </span>
+                      )}
                       <span className="bg-aloa-sand px-3 py-1 text-aloa-black">
                         {form.fields.length} fields
                       </span>

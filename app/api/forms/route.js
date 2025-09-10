@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { nanoid } from 'nanoid';
 
-export async function GET() {
+export async function GET(request) {
   try {
-    // Fetch all forms with their fields and response count
-    const { data: forms, error } = await supabase
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('project');
+    
+    // Build query
+    let query = supabase
       .from('forms')
       .select(`
         *,
@@ -20,9 +23,20 @@ export async function GET() {
           validation,
           field_order
         ),
-        form_responses(count)
-      `)
-      .order('created_at', { ascending: false });
+        form_responses(count),
+        projects (
+          id,
+          name
+        )
+      `);
+    
+    // Filter by project if specified
+    if (projectId) {
+      query = query.eq('project_id', projectId);
+    }
+    
+    // Execute query
+    const { data: forms, error } = await query.order('created_at', { ascending: false });
     
     if (error) throw error;
     
@@ -32,6 +46,8 @@ export async function GET() {
       _id: form.id, // Keep _id for compatibility
       urlId: form.url_id, // Add urlId for form viewing
       createdAt: form.created_at, // Add createdAt for display
+      projectId: form.project_id, // Add projectId
+      projectName: form.projects?.name, // Add project name if joined
       fields: form.form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)).map(field => ({
         _id: field.id,
         label: field.field_label, // Map field_label back to label for frontend
@@ -66,7 +82,8 @@ export async function POST(request) {
       title: body.title,
       description: body.description,
       url_id: body.urlId || nanoid(10),
-      markdown_content: body.markdownContent || '' // Add markdown_content with default empty string
+      markdown_content: body.markdownContent || '', // Add markdown_content with default empty string
+      project_id: body.projectId || null // Add project_id support
     };
     
     const { data: form, error: formError } = await supabase

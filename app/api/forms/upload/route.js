@@ -21,6 +21,7 @@ export async function POST(request) {
     
     const formData = await request.formData();
     const file = formData.get('markdown');
+    const projectId = formData.get('projectId');
     
     if (!file) {
       return NextResponse.json(
@@ -71,7 +72,8 @@ export async function POST(request) {
         title: sanitizeText(formStructure.title).substring(0, 200),
         description: sanitizeText(formStructure.description || '').substring(0, 1000),
         url_id: nanoid(10),
-        markdown_content: content // Store the original markdown content
+        markdown_content: content, // Store the original markdown content
+        project_id: projectId || null // Add project_id if provided
       };
       
       const { data: form, error: formError } = await supabase
