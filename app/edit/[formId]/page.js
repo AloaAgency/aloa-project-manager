@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, AlertCircle, Edit2 } from 'lucide-react';
+import { ArrowLeft, Save, AlertCircle, Edit2, Trash2, GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
@@ -12,9 +12,11 @@ export default function EditFormPage() {
   const [form, setForm] = useState(null);
   const [fields, setFields] = useState([]);
   const [formTitle, setFormTitle] = useState('');
+  const [formDescription, setFormDescription] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [draggedItem, setDraggedItem] = useState(null);
 
   useEffect(() => {
     fetchFormData();
@@ -28,6 +30,7 @@ export default function EditFormPage() {
       setForm(data);
       setFields(data.form_fields || []);
       setFormTitle(data.title || '');
+      setFormDescription(data.description || '');
     } catch (error) {
       console.error('Error fetching form:', error);
       toast.error('Failed to load form');
@@ -46,8 +49,62 @@ export default function EditFormPage() {
     setHasChanges(true);
   };
 
+  const handleDeleteField = (fieldId) => {
+    if (!confirm('Are you sure you want to delete this field? This cannot be undone.')) {
+      return;
+    }
+    setFields(fields.filter(field => field.id !== fieldId));
+    setHasChanges(true);
+    toast.success('Field deleted');
+  };
+
+  const handleDragStart = (e, index) => {
+    setDraggedItem(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedItem === null) return;
+
+    const draggedField = fields[draggedItem];
+    const newFields = [...fields];
+    
+    // Remove dragged item
+    newFields.splice(draggedItem, 1);
+    
+    // Insert at new position
+    const adjustedIndex = draggedItem < dropIndex ? dropIndex - 1 : dropIndex;
+    newFields.splice(adjustedIndex, 0, draggedField);
+    
+    // Update field_order for all fields
+    const reorderedFields = newFields.map((field, index) => ({
+      ...field,
+      field_order: index
+    }));
+    
+    setFields(reorderedFields);
+    setDraggedItem(null);
+    setHasChanges(true);
+    toast.success('Field order updated');
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+  };
+
   const handleTitleChange = (value) => {
     setFormTitle(value);
+    setHasChanges(true);
+  };
+
+  const handleDescriptionChange = (value) => {
+    setFormDescription(value);
     setHasChanges(true);
   };
 
@@ -59,7 +116,7 @@ export default function EditFormPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fields, title: formTitle }),
+        body: JSON.stringify({ fields, title: formTitle, description: formDescription }),
       });
 
       if (!response.ok) throw new Error('Failed to update form');
@@ -125,28 +182,49 @@ export default function EditFormPage() {
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-amber-800">
-            <p className="font-semibold mb-1">Important: Only edit text content</p>
-            <p>Changing field types or structure may break existing responses. Only edit labels, placeholders, and help text.</p>
+            <p className="font-semibold mb-1">Important: Be careful when deleting fields</p>
+            <p>Deleting fields will permanently remove them from the form. Field types cannot be changed as it may break existing responses.</p>
+            <p className="mt-1">You can drag and drop fields to reorder them.</p>
           </div>
         </div>
       </div>
 
-      {/* Form Title */}
+      {/* Form Title and Description */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-aloa-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-start gap-3">
-            <Edit2 className="w-5 h-5 text-aloa-black mt-2" />
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-aloa-gray mb-2">
-                Form Title
-              </label>
-              <input
-                type="text"
-                value={formTitle}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors text-lg font-medium"
-                placeholder="Enter form title..."
-              />
+          <div className="space-y-6">
+            {/* Title */}
+            <div className="flex items-start gap-3">
+              <Edit2 className="w-5 h-5 text-aloa-black mt-2" />
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-aloa-gray mb-2">
+                  Form Title
+                </label>
+                <input
+                  type="text"
+                  value={formTitle}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  className="w-full px-4 py-2 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors text-lg font-medium"
+                  placeholder="Enter form title..."
+                />
+              </div>
+            </div>
+            
+            {/* Description */}
+            <div className="flex items-start gap-3">
+              <Edit2 className="w-5 h-5 text-aloa-black mt-2" />
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-aloa-gray mb-2">
+                  Form Description
+                </label>
+                <textarea
+                  value={formDescription}
+                  onChange={(e) => handleDescriptionChange(e.target.value)}
+                  className="w-full px-4 py-2 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors resize-none"
+                  rows={3}
+                  placeholder="Enter the description that appears below the form title..."
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -157,9 +235,20 @@ export default function EditFormPage() {
         <h2 className="text-lg font-semibold text-aloa-black mb-4">Form Fields</h2>
         <div className="space-y-4">
           {fields.map((field, index) => (
-            <div key={field.id} className="bg-aloa-white rounded-lg shadow-md p-6">
+            <div 
+              key={field.id} 
+              className={`bg-aloa-white rounded-lg shadow-md p-6 transition-all cursor-move ${
+                draggedItem === index ? 'opacity-50' : ''
+              }`}
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+            >
               <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 flex items-center gap-2">
+                  <GripVertical className="w-5 h-5 text-aloa-gray hover:text-aloa-black cursor-grab" />
                   <div className="w-10 h-10 bg-aloa-black text-aloa-white rounded-full flex items-center justify-center font-bold">
                     {index + 1}
                   </div>
@@ -253,6 +342,17 @@ export default function EditFormPage() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Delete Button */}
+                <div className="flex-shrink-0">
+                  <button
+                    onClick={() => handleDeleteField(field.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete field"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             </div>
