@@ -1,23 +1,38 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, Check, AlertCircle, Bot, Wand2, Folder } from 'lucide-react';
+import { Upload, FileText, Check, AlertCircle, Bot, Wand2, Folder, Brain } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AIChatFormBuilder from '@/components/AIChatFormBuilder';
 
 export default function CreateFormPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'upload'
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState('');
+  const [projectName, setProjectName] = useState('');
+  const [projectKnowledge, setProjectKnowledge] = useState(null);
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+    
+    // Check if project is passed in URL
+    const projectId = searchParams.get('project');
+    const projectNameParam = searchParams.get('projectName');
+    
+    if (projectId) {
+      setSelectedProject(projectId);
+      if (projectNameParam) {
+        setProjectName(projectNameParam);
+      }
+      fetchProjectKnowledge(projectId);
+    }
+  }, [searchParams]);
 
   const fetchProjects = async () => {
     try {
@@ -26,6 +41,16 @@ export default function CreateFormPage() {
       setProjects(data);
     } catch (error) {
       console.error('Error fetching projects:', error);
+    }
+  };
+
+  const fetchProjectKnowledge = async (projectId) => {
+    try {
+      const response = await fetch(`/api/aloa-projects/${projectId}/knowledge`);
+      const data = await response.json();
+      setProjectKnowledge(data);
+    } catch (error) {
+      console.error('Error fetching project knowledge:', error);
     }
   };
 
@@ -155,7 +180,14 @@ export default function CreateFormPage() {
               <div className="relative">
                 <select
                   value={selectedProject}
-                  onChange={(e) => setSelectedProject(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedProject(e.target.value);
+                    if (e.target.value) {
+                      fetchProjectKnowledge(e.target.value);
+                    } else {
+                      setProjectKnowledge(null);
+                    }
+                  }}
                   className="w-full md:w-1/2 px-4 py-2 pr-10 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors appearance-none bg-white"
                 >
                   <option value="">No Project (Uncategorized)</option>
@@ -170,6 +202,24 @@ export default function CreateFormPage() {
               <p className="mt-2 text-sm text-aloa-gray">
                 Organize your form into a project for better management
               </p>
+              
+              {projectKnowledge && projectKnowledge.stats && projectKnowledge.stats.totalDocuments > 0 && (
+                <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div className="flex items-start">
+                    <Brain className="w-5 h-5 text-purple-600 mr-2 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-purple-900">
+                        AI Knowledge Available
+                      </p>
+                      <p className="text-xs text-purple-700 mt-1">
+                        This project has {projectKnowledge.stats.totalDocuments} knowledge documents 
+                        and {projectKnowledge.stats.totalInsights} insights that will be used to 
+                        generate better, more contextual forms.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -216,7 +266,11 @@ export default function CreateFormPage() {
                   </div>
                 </div>
               )}
-              <AIChatFormBuilder onMarkdownGenerated={handleMarkdownGenerated} />
+              <AIChatFormBuilder 
+                onMarkdownGenerated={handleMarkdownGenerated}
+                projectContext={projectKnowledge?.project?.ai_context}
+                projectName={projectName}
+              />
             </div>
           ) : (
             <div>

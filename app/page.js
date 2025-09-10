@@ -30,11 +30,11 @@ export default function HomePage() {
             
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center">
               <button 
-                onClick={() => router.push('/project-setup')}
+                onClick={() => router.push('/admin/projects')}
                 className="inline-flex items-center justify-center bg-black text-white px-8 py-4 font-semibold hover:bg-gray-800 transition-all duration-300 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
                 <Rocket className="w-5 h-5 mr-2" />
-                Start New Project
+                Admin Dashboard
               </button>
               
               <button 
@@ -42,7 +42,15 @@ export default function HomePage() {
                 className="inline-flex items-center justify-center bg-white text-black px-8 py-4 border-2 border-black font-semibold hover:bg-black hover:text-white transition-all duration-300 rounded-lg"
               >
                 <Users className="w-5 h-5 mr-2" />
-                View All Projects
+                Project Hub
+              </button>
+              
+              <button 
+                onClick={() => router.push('/dashboard')}
+                className="inline-flex items-center justify-center bg-white text-black px-8 py-4 border-2 border-black font-semibold hover:bg-black hover:text-white transition-all duration-300 rounded-lg"
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                Forms Dashboard
               </button>
             </div>
           </div>
@@ -149,28 +157,80 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="py-20">
-        <div className="max-w-4xl mx-auto text-center px-4">
-          <h2 className="text-3xl font-bold mb-6">Ready to Transform Your Project Management?</h2>
-          <p className="text-xl text-gray-600 mb-8">
-            Start your first Aloa project and experience the difference of gamified, structured workflows.
-          </p>
-          <button 
-            onClick={() => router.push('/project-setup')}
-            className="inline-flex items-center justify-center bg-black text-white px-10 py-5 font-semibold hover:bg-gray-800 transition-all duration-300 rounded-lg shadow-xl hover:shadow-2xl transform hover:-translate-y-1 text-lg"
-          >
-            <Rocket className="w-6 h-6 mr-3" />
-            Initialize Your First Project
-          </button>
+      {/* Quick Access Section */}
+      <div className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">Quick Access</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Admin Section */}
+            <div className="bg-black text-white rounded-xl p-8">
+              <h3 className="text-2xl font-bold mb-4">Aloa Team</h3>
+              <p className="text-gray-300 mb-6">
+                Manage projects, track progress, and coordinate with clients.
+              </p>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => router.push('/admin/projects')}
+                  className="w-full bg-white text-black px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors text-left flex items-center justify-between"
+                >
+                  <span>Admin Dashboard</span>
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={() => router.push('/project-setup')}
+                  className="w-full bg-white/10 text-white px-4 py-3 rounded-lg hover:bg-white/20 transition-colors text-left flex items-center justify-between"
+                >
+                  <span>Initialize New Project</span>
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            {/* Client Section */}
+            <div className="bg-gradient-to-br from-[#faf8f3] to-[#f5f1e8] rounded-xl p-8 border-2 border-black">
+              <h3 className="text-2xl font-bold mb-4">Clients & Forms</h3>
+              <p className="text-gray-700 mb-6">
+                Access your project dashboard or create standalone forms.
+              </p>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => router.push('/projects')}
+                  className="w-full bg-black text-white px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors text-left flex items-center justify-between"
+                >
+                  <span>View All Projects</span>
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={() => router.push('/dashboard')}
+                  className="w-full bg-white text-black px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors text-left flex items-center justify-between border border-gray-200"
+                >
+                  <span>Forms Dashboard</span>
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Quick Links for existing forms (temporarily kept for backward compatibility) */}
+      {/* Footer Quick Links */}
       <div className="border-t border-gray-200 py-8">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-sm text-gray-500 mb-4">Legacy Form Builder</p>
-          <div className="flex justify-center gap-4">
+          <p className="text-sm text-gray-500 mb-4">Quick Links</p>
+          <div className="flex justify-center gap-6">
+            <button 
+              onClick={() => router.push('/admin/projects')}
+              className="text-sm text-gray-600 hover:text-black underline"
+            >
+              Admin
+            </button>
+            <button 
+              onClick={() => router.push('/projects')}
+              className="text-sm text-gray-600 hover:text-black underline"
+            >
+              Projects
+            </button>
             <button 
               onClick={() => router.push('/create')}
               className="text-sm text-gray-600 hover:text-black underline"
@@ -181,7 +241,7 @@ export default function HomePage() {
               onClick={() => router.push('/dashboard')}
               className="text-sm text-gray-600 hover:text-black underline"
             >
-              Forms Dashboard
+              Forms
             </button>
           </div>
         </div>

@@ -143,3 +143,119 @@ export async function PATCH(request, { params }) {
     );
   }
 }
+
+// Update projectlet details (including form attachment)
+export async function PUT(request, { params }) {
+  try {
+    const { projectId } = params;
+    const { 
+      projectletId, 
+      name, 
+      description, 
+      type,
+      formId,
+      deadline,
+      metadata 
+    } = await request.json();
+
+    // Build update object
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (type !== undefined) updateData.type = type;
+    if (deadline !== undefined) updateData.deadline = deadline;
+    if (metadata !== undefined) updateData.metadata = metadata;
+
+    // Update the projectlet
+    const { data: updatedProjectlet, error: updateError } = await supabase
+      .from('aloa_projectlets')
+      .update(updateData)
+      .eq('id', projectletId)
+      .eq('project_id', projectId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating projectlet details:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to update projectlet details' },
+        { status: 500 }
+      );
+    }
+
+    // Handle form attachment/detachment
+    if (formId !== undefined) {
+      if (formId) {
+        // Check if a form is already attached
+        const { data: existingForm } = await supabase
+          .from('aloa_project_forms')
+          .select('id')
+          .eq('projectlet_id', projectletId)
+          .single();
+
+        if (existingForm) {
+          // Update existing form attachment
+          await supabase
+            .from('aloa_project_forms')
+            .update({ form_id: formId })
+            .eq('projectlet_id', projectletId);
+        } else {
+          // Create new form attachment
+          await supabase
+            .from('aloa_project_forms')
+            .insert([{
+              project_id: projectId,
+              projectlet_id: projectletId,
+              form_id: formId,
+              title: updatedProjectlet.name + ' Form',
+              form_type: 'projectlet',
+              is_active: true
+            }]);
+        }
+
+        // Also update the form's project_id in the forms table
+        await supabase
+          .from('forms')
+          .update({ project_id: projectId })
+          .eq('id', formId);
+      } else {
+        // Remove form attachment if formId is null
+        await supabase
+          .from('aloa_project_forms')
+          .delete()
+          .eq('projectlet_id', projectletId);
+      }
+    }
+
+    // Get updated projectlet with form info
+    const { data: projectletWithForm } = await supabase
+      .from('aloa_projectlets')
+      .select(`
+        *,
+        aloa_project_forms (
+          id,
+          form_id,
+          title,
+          description,
+          form_type,
+          is_active,
+          responses_required,
+          responses_received
+        )
+      `)
+      .eq('id', projectletId)
+      .single();
+
+    return NextResponse.json({
+      success: true,
+      projectlet: projectletWithForm
+    });
+
+  } catch (error) {
+    console.error('Error updating projectlet details:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

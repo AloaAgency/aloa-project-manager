@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST="{\"app/admin/project/[projectId]/page.js -> @/components/ProjectletStepsManager\":{\"id\":\"app/admin/project/[projectId]/page.js -> @/components/ProjectletStepsManager\",\"files\":[\"static/chunks/_app-pages-browser_components_ProjectletStepsManager_js.js\"]}}"

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { 
   CheckCircle, 
   Circle, 
@@ -20,6 +21,11 @@ import {
   Target,
   Award
 } from 'lucide-react';
+
+// Dynamically import the steps component
+const ProjectletStepsClient = dynamic(() => import('@/components/ProjectletStepsClient'), {
+  ssr: false
+});
 
 const PROJECTLET_ICONS = {
   milestone: Trophy,
@@ -112,16 +118,27 @@ export default function ProjectDashboard() {
   };
 
   const handleProjectletClick = (projectlet) => {
-    if (projectlet.status === 'locked') {
-      return; // Can't click locked projectlets
+    if (projectlet.status === 'locked' || projectlet.status === 'completed') {
+      return; // Can't click locked or completed projectlets
     }
     
-    if (projectlet.type === 'form' && projectlet.aloa_project_forms?.[0]) {
-      // Navigate to form
+    if (projectlet.type === 'form' && projectlet.aloa_project_forms?.[0]?.form_id) {
+      // Navigate to the actual form using form_id
+      window.open(`/forms/${projectlet.aloa_project_forms[0].form_id}`, '_blank');
+    } else if (projectlet.type === 'form' && projectlet.aloa_project_forms?.[0]) {
+      // Navigate to project form (legacy)
       router.push(`/project/${params.projectId}/form/${projectlet.aloa_project_forms[0].id}`);
     } else {
       // Navigate to projectlet detail
       router.push(`/project/${params.projectId}/projectlet/${projectlet.id}`);
+    }
+  };
+
+  const handleStepClick = (projectletId, step) => {
+    if (step.type === 'form' && step.form_id) {
+      window.open(`/forms/${step.form_id}`, '_blank');
+    } else if (step.type === 'link' && step.link_url) {
+      window.open(step.link_url, '_blank');
     }
   };
 
@@ -243,7 +260,8 @@ export default function ProjectDashboard() {
           <div className="space-y-4">
             {projectlets.map((projectlet, index) => {
               const Icon = PROJECTLET_ICONS[projectlet.type] || FileText;
-              const isClickable = projectlet.status !== 'locked';
+              const isClickable = projectlet.status !== 'locked' && projectlet.status !== 'completed';
+              const isCompleted = projectlet.status === 'completed';
               
               return (
                 <div
@@ -252,7 +270,9 @@ export default function ProjectDashboard() {
                   className={`
                     border-2 rounded-xl p-6 transition-all
                     ${STATUS_COLORS[projectlet.status]}
-                    ${isClickable ? 'cursor-pointer transform hover:scale-[1.02]' : 'cursor-not-allowed opacity-60'}
+                    ${isClickable ? 'cursor-pointer transform hover:scale-[1.02]' : ''}
+                    ${projectlet.status === 'locked' ? 'cursor-not-allowed opacity-60' : ''}
+                    ${isCompleted ? 'bg-green-50 border-green-300' : ''}
                   `}
                 >
                   <div className="flex items-center justify-between">
@@ -293,26 +313,26 @@ export default function ProjectDashboard() {
                     </div>
                   </div>
                   
-                  {/* Progress indicator for forms */}
-                  {projectlet.aloa_project_forms?.[0] && (
-                    <div className="mt-4 ml-16">
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                        <span>Responses</span>
-                        <span>
-                          {projectlet.aloa_project_forms[0].responses_received || 0} / {projectlet.aloa_project_forms[0].responses_required || 1}
-                        </span>
+                  {/* Projectlet Steps */}
+                  {(projectlet.status === 'available' || projectlet.status === 'in_progress' || projectlet.status === 'completed') && (
+                    <ProjectletStepsClient
+                      projectId={params.projectId}
+                      projectletId={projectlet.id}
+                      projectletStatus={projectlet.status}
+                      onStepClick={(step) => handleStepClick(projectlet.id, step)}
+                    />
+                  )}
+                  
+                  {/* Completed Badge */}
+                  {projectlet.status === 'completed' && (
+                    <div className="mt-4 ml-16 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center text-green-700">
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        <span className="font-semibold">This projectlet is complete!</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="h-full bg-black rounded-full"
-                          style={{ 
-                            width: `${Math.min(100, 
-                              ((projectlet.aloa_project_forms[0].responses_received || 0) / 
-                               (projectlet.aloa_project_forms[0].responses_required || 1)) * 100
-                            )}%` 
-                          }}
-                        />
-                      </div>
+                      <p className="text-sm text-green-600 mt-1">
+                        All required steps have been finished. Moving forward to the next phase.
+                      </p>
                     </div>
                   )}
                 </div>
