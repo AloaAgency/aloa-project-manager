@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2, Brain, Folder, FolderOpen, MoveRight } from 'lucide-react';
+import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2, Brain, Folder, FolderOpen, MoveRight, Lock, Unlock } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PasswordProtect from '@/components/PasswordProtect';
 import toast from 'react-hot-toast';
@@ -92,6 +92,36 @@ function Dashboard() {
         ? prev.filter(id => id !== formId)
         : [...prev, formId]
     );
+  };
+
+  const toggleFormStatus = async (formId, currentStatus) => {
+    const isClosing = currentStatus !== false;
+    const action = isClosing ? 'close' : 'reopen';
+    
+    if (!confirm(`Are you sure you want to ${action} this form?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/forms/${formId}/toggle-status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          is_active: !isClosing,
+          closed_message: isClosing ? 'This survey is now closed. Thank you for your interest!' : null
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update form status');
+      }
+
+      toast.success(isClosing ? 'Form closed successfully' : 'Form reopened successfully');
+      fetchForms();
+    } catch (error) {
+      console.error('Error toggling form status:', error);
+      toast.error('Failed to update form status');
+    }
   };
 
   const deleteForm = async (formId) => {
@@ -256,9 +286,17 @@ function Dashboard() {
                       onClick={(e) => e.stopPropagation()}
                     />
                     <div className="flex-1 min-w-0">
-                    <h3 className="text-xl sm:text-2xl font-display font-bold text-aloa-black mb-2 uppercase tracking-wider break-words">
-                      {form.title}
-                    </h3>
+                    <div className="flex items-start gap-2">
+                      <h3 className="text-xl sm:text-2xl font-display font-bold text-aloa-black mb-2 uppercase tracking-wider break-words">
+                        {form.title}
+                      </h3>
+                      {form.is_active === false && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+                          <Lock className="w-3 h-3" />
+                          CLOSED
+                        </span>
+                      )}
+                    </div>
                     {form.description && (
                       <p className="text-aloa-gray mb-4 font-body line-clamp-2">{form.description}</p>
                     )}
@@ -282,6 +320,21 @@ function Dashboard() {
                     </div>
                   </div>
                   <div className="flex gap-2 sm:ml-4">
+                    <button
+                      onClick={() => toggleFormStatus(form._id, form.is_active)}
+                      className={`p-2 sm:p-3 transition-all duration-300 group ${
+                        form.is_active === false 
+                          ? 'bg-green-100 hover:bg-green-600 hover:text-white' 
+                          : 'bg-orange-100 hover:bg-orange-600 hover:text-white'
+                      }`}
+                      title={form.is_active === false ? 'Reopen Form' : 'Close Form'}
+                    >
+                      {form.is_active === false ? (
+                        <Unlock className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                      ) : (
+                        <Lock className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+                      )}
+                    </button>
                     <button
                       onClick={() => window.open(`/forms/${form.urlId}`, '_blank')}
                       className="p-2 sm:p-3 bg-aloa-sand hover:bg-aloa-black hover:text-aloa-cream transition-all duration-300 group"
