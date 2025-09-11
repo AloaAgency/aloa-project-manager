@@ -41,7 +41,8 @@ import {
   Bell,
   ExternalLink,
   BarChart,
-  Edit2
+  Edit2,
+  Star
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
