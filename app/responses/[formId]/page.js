@@ -23,7 +23,7 @@ function ResponsesPage() {
   const fetchFormAndResponses = async () => {
     try {
       const [formRes, responsesRes] = await Promise.all([
-        fetch(`/api/aloa-forms/${params.formId}`),
+        fetch(`/api/forms/by-id/${params.formId}`),
         fetch(`/api/aloa-responses?formId=${params.formId}`)
       ]);
 
@@ -34,9 +34,9 @@ function ResponsesPage() {
       const formData = await formRes.json();
       const responsesData = await responsesRes.json();
 
-      // Use the aloa_ structure directly
+      // Set form and responses data
       setForm(formData);
-      setResponses(responsesData);
+      setResponses(responsesData.responses || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load responses');
@@ -52,7 +52,7 @@ function ResponsesPage() {
     }
 
     try {
-      const response = await fetch(`/api/aloa-responses/${responseId}`, {
+      const response = await fetch(`/api/responses/${responseId}`, {
         method: 'DELETE',
       });
 
@@ -62,7 +62,7 @@ function ResponsesPage() {
 
       toast.success('Response deleted successfully');
       // Remove the deleted response from the list
-      setResponses(responses.filter(r => r._id !== responseId));
+      setResponses(responses.filter(r => r.id !== responseId));
     } catch (error) {
       console.error('Error deleting response:', error);
       toast.error('Failed to delete response');
@@ -85,14 +85,14 @@ function ResponsesPage() {
       return str;
     };
 
-    const headers = ['Submitted At', ...form.aloa_form_fields.map(f => f.field_label)].map(escapeCSV).join(',');
+    const headers = ['Submitted At', ...form.fields.map(f => f.label)].map(escapeCSV).join(',');
     const rows = responses.map(response => {
       const submittedAt = formatDate(response.submittedAt);
-      const values = [submittedAt, ...form.aloa_form_fields.map(field => {
+      const values = [submittedAt, ...form.fields.map(field => {
         // Handle both Map and plain object data structures
-        const value = response.data instanceof Map ? 
-          response.data.get(field.field_name) : 
-          response.data[field.field_name] || '';
+        const value = response.response_data instanceof Map ? 
+          response.response_data.get(field.name) : 
+          (response.response_data ? response.response_data[field.name] : response.data[field.name]) || '';
         return Array.isArray(value) ? value.join('; ') : value;
       })];
       return values.map(escapeCSV).join(',');
@@ -131,7 +131,7 @@ function ResponsesPage() {
     );
   }
 
-  if (!form || !form.aloa_form_fields) {
+  if (!form || !form.fields) {
     return null;
   }
 
@@ -183,35 +183,35 @@ function ResponsesPage() {
         ) : (
           <div className="space-y-3 sm:space-y-4">
             {responses.map((response) => (
-              <div key={response._id} className="card hover:shadow-xl transition-all duration-300">
+              <div key={response.id} className="card hover:shadow-xl transition-all duration-300">
                 <div className="flex items-center justify-between">
                   <div 
                     className="flex-1 cursor-pointer"
-                    onClick={() => toggleExpanded(response._id)}
+                    onClick={() => toggleExpanded(response.id)}
                   >
                     <p className="text-sm font-display uppercase tracking-wider text-aloa-black">
                       Submitted {formatDate(response.submittedAt)}
                     </p>
                     {(() => {
                       // Try to find a name field in the response
-                      const nameField = form.aloa_form_fields.find(f => 
-                        f.field_name?.toLowerCase().includes('name') || 
-                        f.field_label?.toLowerCase().includes('name')
+                      const nameField = form.fields.find(f => 
+                        f.name?.toLowerCase().includes('name') || 
+                        f.label?.toLowerCase().includes('name')
                       );
-                      const emailField = form.aloa_form_fields.find(f => 
-                        f.field_name?.toLowerCase().includes('email') || 
-                        f.field_label?.toLowerCase().includes('email')
+                      const emailField = form.fields.find(f => 
+                        f.name?.toLowerCase().includes('email') || 
+                        f.label?.toLowerCase().includes('email')
                       );
                       
                       const nameValue = nameField ? 
-                        (response.data instanceof Map ? 
-                          response.data.get(nameField.field_name) : 
-                          response.data[nameField.field_name]) : null;
+                        (response.response_data instanceof Map ? 
+                          response.response_data.get(nameField.name) : 
+                          (response.response_data ? response.response_data[nameField.name] : response.data[nameField.name])) : null;
                       
                       const emailValue = emailField ? 
-                        (response.data instanceof Map ? 
-                          response.data.get(emailField.field_name) : 
-                          response.data[emailField.field_name]) : null;
+                        (response.response_data instanceof Map ? 
+                          response.response_data.get(emailField.name) : 
+                          (response.response_data ? response.response_data[emailField.name] : response.data[emailField.name])) : null;
                       
                       const displayValue = nameValue || emailValue;
                       
@@ -227,17 +227,17 @@ function ResponsesPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => deleteResponse(response._id)}
+                      onClick={() => deleteResponse(response.id)}
                       className="p-2 hover:bg-red-100 text-red-600 hover:text-red-700 transition-all duration-200"
                       title="Delete Response"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                     <button 
-                      onClick={() => toggleExpanded(response._id)}
+                      onClick={() => toggleExpanded(response.id)}
                       className="p-2 hover:bg-aloa-sand transition-all duration-200"
                     >
-                      {expandedResponse === response._id ? (
+                      {expandedResponse === response.id ? (
                         <ChevronUp className="w-5 h-5 transition-transform" />
                       ) : (
                         <ChevronDown className="w-5 h-5 transition-transform" />
@@ -246,7 +246,7 @@ function ResponsesPage() {
                   </div>
                 </div>
 
-                {expandedResponse === response._id && (
+                {expandedResponse === response.id && (
                   <motion.div 
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -255,19 +255,19 @@ function ResponsesPage() {
                     className="mt-6 pt-6 border-t-2 border-aloa-sand"
                   >
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {form.aloa_form_fields.map((field) => {
+                      {form.fields.map((field) => {
                         // Handle both Map and plain object data structures
-                        const value = response.data instanceof Map ? 
-                          response.data.get(field.field_name) : 
-                          response.data[field.field_name];
+                        const value = response.response_data instanceof Map ? 
+                          response.response_data.get(field.name) : 
+                          (response.response_data ? response.response_data[field.name] : response.data[field.name]);
                         if (!value || (Array.isArray(value) && value.length === 0)) {
                           return null;
                         }
                         
                         return (
-                          <div key={field._id || field.id} className="bg-aloa-sand p-3">
+                          <div key={field.id} className="bg-aloa-sand p-3">
                             <p className="text-xs font-display uppercase tracking-wider text-aloa-gray mb-1">
-                              {field.field_label}
+                              {field.label}
                             </p>
                             <p className="text-aloa-black font-body break-words">
                               {Array.isArray(value) ? value.join(', ') : value}

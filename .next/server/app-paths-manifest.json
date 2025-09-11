@@ -1,13 +1,10 @@
 {
-  "/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route": "app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route.js",
-  "/api/aloa-projects/[projectId]/route": "app/api/aloa-projects/[projectId]/route.js",
-  "/api/aloa-projects/[projectId]/stakeholders/route": "app/api/aloa-projects/[projectId]/stakeholders/route.js",
-  "/api/aloa-projects/[projectId]/team/route": "app/api/aloa-projects/[projectId]/team/route.js",
-  "/api/aloa-forms/route": "app/api/aloa-forms/route.js",
+  "/responses/[formId]/page": "app/responses/[formId]/page.js",
   "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js",
+  "/forms/[urlId]/page": "app/forms/[urlId]/page.js",
   "/api/aloa-projects/[projectId]/notifications/route": "app/api/aloa-projects/[projectId]/notifications/route.js",
-  "/admin/projects/page": "app/admin/projects/page.js",
-  "/api/aloa-projects/[projectId]/knowledge/route": "app/api/aloa-projects/[projectId]/knowledge/route.js",
-  "/api/aloa-projects/[projectId]/projectlets/route": "app/api/aloa-projects/[projectId]/projectlets/route.js",
-  "/api/aloa-projects/route": "app/api/aloa-projects/route.js"
+  "/edit/[formId]/page": "app/edit/[formId]/page.js",
+  "/api/aloa-applets/library/route": "app/api/aloa-applets/library/route.js",
+  "/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route": "app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route.js",
+  "/project/[projectId]/dashboard/page": "app/project/[projectId]/dashboard/page.js"
 }
