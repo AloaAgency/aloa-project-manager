@@ -13,9 +13,9 @@ export async function GET(request, { params }) {
     
     // Check if we have a cached analysis
     const { data: cachedAnalysis, error } = await supabase
-      .from('ai_analyses')
+      .from('aloa_ai_analyses')
       .select('*')
-      .eq('form_id', formId)
+      .eq('aloa_form_id', formId)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -38,10 +38,10 @@ export async function POST(request, { params }) {
     
     // Fetch form and responses
     const { data: form, error: formError } = await supabase
-      .from('forms')
+      .from('aloa_forms')
       .select(`
         *,
-        form_fields (*)
+        aloa_form_fields (*)
       `)
       .eq('id', formId)
       .single();
@@ -54,9 +54,9 @@ export async function POST(request, { params }) {
     }
     
     const { data: responses, error: responsesError } = await supabase
-      .from('form_responses')
+      .from('aloa_form_responses')
       .select('*')
-      .eq('form_id', formId);
+      .eq('aloa_form_id', formId);
     
     if (responsesError || !responses || responses.length === 0) {
       return NextResponse.json(
@@ -69,7 +69,7 @@ export async function POST(request, { params }) {
     const formStructure = {
       title: form.title,
       description: form.description,
-      fields: form.form_fields.map(field => ({
+      fields: form.aloa_form_fields.map(field => ({
         label: field.field_label,
         type: field.field_type,
         name: field.field_name,
@@ -77,7 +77,7 @@ export async function POST(request, { params }) {
       }))
     };
     
-    const responseData = responses.map(r => r.response_data);
+    const responseData = responses.map(r => r.responses);
     
     // Create the prompt for Claude
     const prompt = `You are an expert analyst tasked with analyzing survey/form responses to identify patterns, consensus, conflicts, and actionable insights.
@@ -177,9 +177,9 @@ Important guidelines:
     
     // Store the analysis in the database
     const { error: insertError } = await supabase
-      .from('ai_analyses')
+      .from('aloa_ai_analyses')
       .insert({
-        form_id: formId,
+        aloa_form_id: formId,
         analysis: analysis,
         created_at: new Date().toISOString()
       });

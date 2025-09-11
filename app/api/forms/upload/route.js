@@ -77,7 +77,7 @@ export async function POST(request) {
       };
       
       const { data: form, error: formError } = await supabase
-        .from('forms')
+        .from('aloa_forms')
         .insert([formToInsert])
         .select()
         .single();
@@ -114,12 +114,12 @@ export async function POST(request) {
         });
         
         const { error: fieldsError } = await supabase
-          .from('form_fields')
+          .from('aloa_form_fields')
           .insert(fieldsToInsert);
         
         if (fieldsError) {
           // Rollback by deleting the form
-          await supabase.from('forms').delete().eq('id', form.id);
+          await supabase.from('aloa_forms').delete().eq('id', form.id);
           throw fieldsError;
         }
       }

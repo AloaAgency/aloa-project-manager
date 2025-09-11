@@ -21,10 +21,10 @@ export async function GET() {
     
     // Fetch all projects with their forms count
     const { data: projects, error } = await supabase
-      .from('projects')
+      .from('aloa_projects')
       .select(`
         *,
-        forms(count)
+        aloa_forms(count)
       `)
       .order('created_at', { ascending: false });
     
@@ -37,7 +37,7 @@ export async function GET() {
     // Format the response to include formCount
     const projectsWithCount = (projects || []).map(project => ({
       ...project,
-      formCount: project.forms?.[0]?.count || 0
+      formCount: project.aloa_forms?.[0]?.count || 0
     }));
     
     return NextResponse.json(projectsWithCount);
@@ -88,7 +88,7 @@ export async function POST(request) {
     };
 
     const { data, error } = await supabase
-      .from('projects')
+      .from('aloa_projects')
       .insert([newProject])
       .select()
       .single();
@@ -115,7 +115,7 @@ async function ensureProjectsTable() {
     
     // Check if projects table exists by trying to select from it
     const { error } = await supabase
-      .from('projects')
+      .from('aloa_projects')
       .select('id')
       .limit(1);
     
@@ -125,7 +125,7 @@ async function ensureProjectsTable() {
     if (error && error.code === '42P01') {
       console.log('Projects table needs to be created in Supabase');
       console.log(`
-        CREATE TABLE projects (
+        CREATE TABLE aloa_projects (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           description TEXT,
@@ -133,7 +133,7 @@ async function ensureProjectsTable() {
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
         
-        ALTER TABLE forms ADD COLUMN IF NOT EXISTS project_id TEXT REFERENCES projects(id);
+        ALTER TABLE aloa_forms ADD COLUMN IF NOT EXISTS project_id TEXT REFERENCES aloa_projects(id);
       `);
       return false; // Table doesn't exist
     }

@@ -9,10 +9,10 @@ export async function GET(request) {
     
     // Build query
     let query = supabase
-      .from('forms')
+      .from('aloa_forms')
       .select(`
         *,
-        form_fields (
+        aloa_form_fields (
           id,
           field_label,
           field_name,
@@ -23,8 +23,8 @@ export async function GET(request) {
           validation,
           field_order
         ),
-        form_responses(count),
-        projects (
+        aloa_form_responses(count),
+        aloa_projects (
           id,
           name
         )
@@ -47,8 +47,8 @@ export async function GET(request) {
       urlId: form.url_id, // Add urlId for form viewing
       createdAt: form.created_at, // Add createdAt for display
       projectId: form.project_id, // Add projectId
-      projectName: form.projects?.name, // Add project name if joined
-      fields: form.form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)).map(field => ({
+      projectName: form.aloa_projects?.name, // Add project name if joined
+      fields: form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)).map(field => ({
         _id: field.id,
         label: field.field_label, // Map field_label back to label for frontend
         name: field.field_name, // Map field_name back to name for frontend
@@ -60,7 +60,7 @@ export async function GET(request) {
         options: field.options,
         validation: field.validation
       })) || [],
-      responseCount: form.form_responses?.[0]?.count || 0
+      responseCount: form.aloa_form_responses?.[0]?.count || 0
     }));
     
     return NextResponse.json(formsWithCount);
@@ -87,7 +87,7 @@ export async function POST(request) {
     };
     
     const { data: form, error: formError } = await supabase
-      .from('forms')
+      .from('aloa_forms')
       .insert([formData])
       .select()
       .single();
@@ -109,12 +109,12 @@ export async function POST(request) {
       }));
       
       const { error: fieldsError } = await supabase
-        .from('form_fields')
+        .from('aloa_form_fields')
         .insert(fieldsToInsert);
       
       if (fieldsError) {
         // Rollback by deleting the form
-        await supabase.from('forms').delete().eq('id', form.id);
+        await supabase.from('aloa_forms').delete().eq('id', form.id);
         throw fieldsError;
       }
     }

@@ -278,10 +278,10 @@ export async function PUT(request, { params }) {
             }]);
         }
 
-        // Also update the form's project_id in the forms table
+        // Also update the form's project_id in the aloa_forms table
         await supabase
-          .from('forms')
-          .update({ project_id: projectId })
+          .from('aloa_forms')
+          .update({ aloa_project_id: projectId })
           .eq('id', formId);
       } else {
         // Remove form attachment if formId is null

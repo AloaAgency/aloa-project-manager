@@ -3,11 +3,27 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Wand2, RefreshCw, Copy, CheckCircle } from 'lucide-react';
 
-export default function AIChatFormBuilder({ onMarkdownGenerated }) {
+export default function AIChatFormBuilder({ onMarkdownGenerated, projectContext, projectName }) {
+  const getInitialMessage = () => {
+    let baseMessage = "Hi! I'm your AI form builder assistant.";
+    
+    if (projectName) {
+      baseMessage += ` I'm here to help you create a form for "${projectName}".`;
+    }
+    
+    if (projectContext) {
+      baseMessage += ` I have access to the project's context and knowledge base, so I can create forms that are specifically tailored to your project needs.`;
+    }
+    
+    baseMessage += "\n\nDescribe the form you'd like to create, and I'll generate it for you. You can ask me to:\n\n• Create forms for specific purposes (e.g., 'Create a job application form')\n• Add or modify fields (e.g., 'Add a rating field for customer satisfaction')\n• Organize sections (e.g., 'Group contact info in one section')\n• Refine the form until it's perfect!\n\nWhat kind of form would you like to create?";
+    
+    return baseMessage;
+  };
+
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "Hi! I'm your AI form builder assistant. Describe the form you'd like to create, and I'll generate it for you. You can ask me to:\n\n• Create forms for specific purposes (e.g., 'Create a job application form')\n• Add or modify fields (e.g., 'Add a rating field for customer satisfaction')\n• Organize sections (e.g., 'Group contact info in one section')\n• Refine the form until it's perfect!\n\nWhat kind of form would you like to create?",
+      content: getInitialMessage(),
       timestamp: new Date(),
     }
   ]);
@@ -47,6 +63,8 @@ export default function AIChatFormBuilder({ onMarkdownGenerated }) {
         body: JSON.stringify({
           messages: [...messages, userMessage],
           currentMarkdown: generatedMarkdown,
+          projectContext: projectContext,
+          projectName: projectName,
         }),
       });
 

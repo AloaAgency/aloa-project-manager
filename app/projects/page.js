@@ -37,7 +37,7 @@ function Projects() {
     try {
       // Fetch both types of projects
       const [formResponse, aloaResponse] = await Promise.all([
-        fetch('/api/projects'),
+        fetch('/api/aloa-projects'),
         fetch('/api/aloa-projects')
       ]);
       
@@ -62,7 +62,7 @@ function Projects() {
 
     setCreating(true);
     try {
-      const response = await fetch('/api/projects', {
+      const response = await fetch('/api/aloa-projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProject),
@@ -88,7 +88,7 @@ function Projects() {
     }
 
     try {
-      const response = await fetch(`/api/projects/${projectId}`, {
+      const response = await fetch(`/api/aloa-projects/${projectId}`, {
         method: 'DELETE',
       });
 

@@ -23,8 +23,8 @@ function ResponsesPage() {
   const fetchFormAndResponses = async () => {
     try {
       const [formRes, responsesRes] = await Promise.all([
-        fetch(`/api/forms/by-id/${params.formId}`),
-        fetch(`/api/responses?formId=${params.formId}`)
+        fetch(`/api/aloa-forms/${params.formId}`),
+        fetch(`/api/aloa-responses?formId=${params.formId}`)
       ]);
 
       if (!formRes.ok || !responsesRes.ok) {
@@ -51,7 +51,7 @@ function ResponsesPage() {
     }
 
     try {
-      const response = await fetch(`/api/responses/${responseId}`, {
+      const response = await fetch(`/api/aloa-responses/${responseId}`, {
         method: 'DELETE',
       });
 

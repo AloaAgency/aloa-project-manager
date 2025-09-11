@@ -37,12 +37,33 @@ import {
   Pencil,
   GripVertical,
   Settings,
-  Copy
+  Copy,
+  Bell
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // Dynamically import the applets manager to avoid SSR issues
 const ProjectletAppletsManager = dynamic(() => import('@/components/ProjectletAppletsManager'), {
+  ssr: false
+});
+
+// Dynamically import AI form builder
+const AIChatFormBuilder = dynamic(() => import('@/components/AIChatFormBuilder'), {
+  ssr: false
+});
+
+// Dynamically import Admin Notifications
+const AdminNotifications = dynamic(() => import('@/components/AdminNotifications'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center p-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+    </div>
+  )
+});
+
+// Dynamically import Form Builder Modal
+const FormBuilderModal = dynamic(() => import('@/components/FormBuilderModal'), {
   ssr: false
 });
 
@@ -70,6 +91,9 @@ function AdminProjectPageContent() {
   const [showActionMenu, setShowActionMenu] = useState(null);
   const [showAppletManager, setShowAppletManager] = useState(false);
   const [selectedProjectletForApplet, setSelectedProjectletForApplet] = useState(null);
+  const [showAIFormBuilder, setShowAIFormBuilder] = useState(false);
+  const [showFormBuilderModal, setShowFormBuilderModal] = useState(false);
+  const [formBuilderContext, setFormBuilderContext] = useState(null);
 
   useEffect(() => {
     fetchProjectData();
@@ -124,7 +148,7 @@ function AdminProjectPageContent() {
     formData.append('projectId', params.projectId);
     
     try {
-      const uploadResponse = await fetch('/api/forms/upload', {
+      const uploadResponse = await fetch('/api/aloa-forms/upload', {
         method: 'POST',
         body: formData
       });
@@ -207,7 +231,7 @@ function AdminProjectPageContent() {
       // Fetch applets for each projectlet
       if (projectletsData.projectlets) {
         projectletsData.projectlets.forEach(projectlet => {
-          fetchAppletsForProjectlet(projectlet.id);
+          fetchProjectletApplets(projectlet.id);
         });
       }
 
@@ -218,16 +242,11 @@ function AdminProjectPageContent() {
         setTeamMembers(teamData.team);
       }
 
-      // Fetch ALL forms for dropdown
-      const formsRes = await fetch('/api/forms');
+      // Fetch aloa_forms for this project
+      const formsRes = await fetch(`/api/aloa-forms?projectId=${params.projectId}`);
       const formsData = await formsRes.json();
-      setAvailableForms(formsData.forms || []);
-      
-      // Filter forms that belong to this project
-      const projectSpecificForms = (formsData.forms || []).filter(
-        form => form.project_id === params.projectId
-      );
-      setProjectForms(projectSpecificForms);
+      setAvailableForms(formsData || []);
+      setProjectForms(formsData || []);
     } catch (error) {
       console.error('Error fetching project data:', error);
     } finally {
@@ -271,9 +290,70 @@ function AdminProjectPageContent() {
     setShowProjectletEditor(true);
   };
 
+  const fetchProjectletApplets = async (projectletId) => {
+    try {
+      setLoadingApplets(prev => ({ ...prev, [projectletId]: true }));
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets/${projectletId}/applets`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`Fetched ${data.applets?.length || 0} applets for projectlet ${projectletId}:`, data.applets);
+        setProjectletApplets(prev => ({
+          ...prev,
+          [projectletId]: data.applets || []
+        }));
+      } else {
+        console.error('Failed to fetch applets:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching applets:', error);
+    } finally {
+      setLoadingApplets(prev => ({ ...prev, [projectletId]: false }));
+    }
+  };
+
   const openAppletManager = (projectlet) => {
     setSelectedProjectletForApplet(projectlet);
     setShowAppletManager(true);
+  };
+
+  // Directly add a form applet without opening the modal
+  const addDirectFormApplet = async (projectlet) => {
+    try {
+      // Create a form applet directly
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'form',
+          name: 'Form',
+          description: 'Collect information from clients',
+          configuration: {
+            form_id: null, // Will be configured inline
+            required: true
+          }
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to add applet');
+      
+      // Refresh the applets for this projectlet
+      fetchProjectletApplets(projectlet.id);
+      
+      // Show success feedback
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      toast.textContent = 'Form applet added! Configure it below.';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+      
+    } catch (error) {
+      console.error('Error adding applet:', error);
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      toast.textContent = 'Failed to add applet';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
   };
 
   const updateProjectletStatus = async (projectletId, newStatus) => {
@@ -485,7 +565,8 @@ function AdminProjectPageContent() {
                 <p className="text-gray-300">Admin Management View</p>
               </div>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex items-center space-x-3">
+              <AdminNotifications projectId={params.projectId} />
               <button
                 onClick={() => router.push(`/project/${params.projectId}/dashboard`)}
                 className="bg-white/10 text-white px-4 py-2 rounded-lg hover:bg-white/20 transition-colors"
@@ -819,25 +900,163 @@ function AdminProjectPageContent() {
                             {applets.map((applet, appletIndex) => {
                               const Icon = APPLET_ICONS[applet.type] || FileText;
                               return (
-                                <div key={applet.id} className="flex items-center justify-between p-2 bg-white/50 rounded">
-                                  <div className="flex items-center space-x-2">
-                                    <Icon className="w-4 h-4 text-gray-600" />
-                                    <span className="text-sm font-medium">{applet.name}</span>
-                                    {applet.status && (
-                                      <span className={`text-xs px-2 py-0.5 rounded ${getStatusColor(applet.status)}`}>
-                                        {applet.status}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {applet.completion_percentage > 0 && (
-                                    <div className="flex items-center">
-                                      <div className="w-16 bg-gray-200 rounded-full h-1.5">
-                                        <div
-                                          className="bg-green-600 h-1.5 rounded-full"
-                                          style={{ width: `${applet.completion_percentage}%` }}
-                                        />
+                                <div 
+                                  key={applet.id} 
+                                  className="p-2 bg-white/50 rounded cursor-move hover:bg-white/70 transition-colors group"
+                                  draggable
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.effectAllowed = 'move';
+                                    e.dataTransfer.setData('appletId', applet.id);
+                                    e.dataTransfer.setData('appletIndex', appletIndex);
+                                    e.dataTransfer.setData('projectletId', projectlet.id);
+                                  }}
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.add('bg-blue-50');
+                                  }}
+                                  onDragLeave={(e) => {
+                                    e.currentTarget.classList.remove('bg-blue-50');
+                                  }}
+                                  onDrop={async (e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.remove('bg-blue-50');
+                                    
+                                    const draggedAppletId = e.dataTransfer.getData('appletId');
+                                    const draggedIndex = parseInt(e.dataTransfer.getData('appletIndex'));
+                                    const sourceProjectletId = e.dataTransfer.getData('projectletId');
+                                    
+                                    // Only reorder if within same projectlet
+                                    if (sourceProjectletId === projectlet.id && draggedIndex !== appletIndex) {
+                                      const reorderedApplets = [...applets];
+                                      const [movedApplet] = reorderedApplets.splice(draggedIndex, 1);
+                                      reorderedApplets.splice(appletIndex, 0, movedApplet);
+                                      
+                                      // Update order in database
+                                      try {
+                                        await fetch(`/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/reorder`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            appletIds: reorderedApplets.map(a => a.id)
+                                          })
+                                        });
+                                        fetchProjectletApplets(projectlet.id);
+                                      } catch (error) {
+                                        console.error('Error reordering applets:', error);
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                      <GripVertical className="w-4 h-4 text-gray-400" />
+                                      <Icon className="w-4 h-4 text-gray-600" />
+                                      <span className="text-sm font-medium">{applet.name}</span>
+                                      {applet.status && (
+                                        <span className={`text-xs px-2 py-0.5 rounded ${getStatusColor(applet.status)}`}>
+                                          {applet.status}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      {applet.completion_percentage > 0 && (
+                                        <div className="flex items-center">
+                                          <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                                            <div
+                                              className="bg-green-600 h-1.5 rounded-full"
+                                              style={{ width: `${applet.completion_percentage}%` }}
+                                            />
+                                          </div>
+                                          <span className="text-xs ml-2 text-gray-500">{applet.completion_percentage}%</span>
+                                        </div>
+                                      )}
+                                      {/* Edit and Delete buttons */}
+                                      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Open applet editor
+                                            console.log('Edit applet:', applet.id);
+                                          }}
+                                          className="p-1 hover:bg-gray-200 rounded"
+                                          title="Edit applet"
+                                        >
+                                          <Pencil className="w-3 h-3 text-gray-600" />
+                                        </button>
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (confirm(`Delete applet "${applet.name}"?`)) {
+                                              try {
+                                                const response = await fetch(
+                                                  `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                  { method: 'DELETE' }
+                                                );
+                                                if (response.ok) {
+                                                  fetchProjectletApplets(projectlet.id);
+                                                }
+                                              } catch (error) {
+                                                console.error('Error deleting applet:', error);
+                                              }
+                                            }
+                                          }}
+                                          className="p-1 hover:bg-red-100 rounded"
+                                          title="Delete applet"
+                                        >
+                                          <Trash2 className="w-3 h-3 text-red-600" />
+                                        </button>
                                       </div>
-                                      <span className="text-xs ml-2 text-gray-500">{applet.completion_percentage}%</span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Inline form selector for form applets */}
+                                  {applet.type === 'form' && (
+                                    <div className="mt-2">
+                                      <select
+                                        value={applet.form_id || applet.config?.form_id || ''}
+                                        onChange={async (e) => {
+                                          if (e.target.value === 'create_new') {
+                                            // Open form builder modal
+                                            setShowFormBuilderModal(true);
+                                            setFormBuilderContext({
+                                              projectletId: projectlet.id,
+                                              projectletName: projectlet.name
+                                            });
+                                          } else {
+                                            // Update applet with selected form
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    form_id: e.target.value,
+                                                    config: {
+                                                      ...applet.config,
+                                                      form_id: e.target.value
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating applet:', error);
+                                            }
+                                          }
+                                        }}
+                                        className="w-full text-sm px-2 py-1 border rounded bg-white"
+                                      >
+                                        <option value="">Select a form...</option>
+                                        <option value="create_new">✨ Create New Form with AI</option>
+                                        {availableForms.map(form => (
+                                          <option key={form.id} value={form.id}>
+                                            {form.title}
+                                          </option>
+                                        ))}
+                                      </select>
                                     </div>
                                   )}
                                 </div>
@@ -957,18 +1176,51 @@ function AdminProjectPageContent() {
                       </div>
                       <div className="flex space-x-1">
                         <button
-                          onClick={() => window.open(`/forms/${form.id}`, '_blank')}
+                          onClick={() => window.open(`/forms/${form.urlId || form.url_id}`, '_blank')}
                           className="p-1 hover:bg-gray-200 rounded"
                           title="View Form"
                         >
                           <Eye className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={() => router.push(`/edit/${form.id}`)}
+                          onClick={() => window.open(`/edit/${form.id}`, '_blank')}
                           className="p-1 hover:bg-gray-200 rounded"
                           title="Edit Form"
                         >
                           <Edit className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Are you sure you want to delete "${form.title}"?`)) {
+                              try {
+                                const response = await fetch(`/api/aloa-forms/${form.id}`, {
+                                  method: 'DELETE'
+                                });
+                                
+                                if (response.ok) {
+                                  const data = await response.json();
+                                  toast.success('Form deleted successfully');
+                                  // Refresh the forms list
+                                  fetchProjectForms();
+                                } else {
+                                  // Only parse JSON if response is not ok
+                                  try {
+                                    const errorData = await response.json();
+                                    toast.error(errorData.error || 'Failed to delete form');
+                                  } catch {
+                                    toast.error('Failed to delete form');
+                                  }
+                                }
+                              } catch (error) {
+                                console.error('Error deleting form:', error);
+                                toast.error('Failed to delete form');
+                              }
+                            }
+                          }}
+                          className="p-1 hover:bg-red-100 rounded"
+                          title="Delete Form"
+                        >
+                          <Trash2 className="w-3 h-3 text-red-600" />
                         </button>
                       </div>
                     </div>
@@ -979,9 +1231,11 @@ function AdminProjectPageContent() {
               <div className="space-y-2 border-t pt-4">
                 <button
                   onClick={() => {
-                    // Create form with project context
-                    const url = `/create?project=${params.projectId}&projectName=${encodeURIComponent(project?.project_name || '')}`;
-                    router.push(url);
+                    setShowFormBuilderModal(true);
+                    setFormBuilderContext({
+                      projectletId: null,
+                      projectletName: null
+                    });
                   }}
                   className="w-full bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center justify-center"
                 >
@@ -1246,7 +1500,7 @@ function AdminProjectPageContent() {
             <div className="p-6 border-b">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold">
-                  Add Applets to {selectedProjectletForApplet.name}
+                  Choose Applet for {selectedProjectletForApplet.name}
                 </h2>
                 <button
                   onClick={() => {
@@ -1268,10 +1522,83 @@ function AdminProjectPageContent() {
                 projectletId={selectedProjectletForApplet.id}
                 projectletName={selectedProjectletForApplet.name}
                 availableForms={availableForms}
-                onAppletsUpdated={() => {
+                startWithLibraryOpen={true}
+                onAppletsUpdated={async () => {
+                  // Close the modal first
+                  setShowAppletManager(false);
+                  // Wait a moment for the backend to fully process
+                  await new Promise(resolve => setTimeout(resolve, 500));
                   // Refresh applets for this projectlet
-                  fetchProjectletApplets(selectedProjectletForApplet.id);
+                  await fetchProjectletApplets(selectedProjectletForApplet.id);
+                  setSelectedProjectletForApplet(null);
                 }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form Builder Modal */}
+      {showFormBuilderModal && (
+        <FormBuilderModal
+          isOpen={showFormBuilderModal}
+          onClose={() => {
+            setShowFormBuilderModal(false);
+            setFormBuilderContext(null);
+          }}
+          projectId={params.projectId}
+          projectName={project?.project_name}
+          projectKnowledge={knowledgeBase}
+          projectletId={formBuilderContext?.projectletId}
+          projectletName={formBuilderContext?.projectletName}
+          onFormCreated={(form) => {
+            // Refresh forms list
+            fetchProjectData();
+            // If created for a projectlet, refresh its applets
+            if (formBuilderContext?.projectletId) {
+              fetchProjectletApplets(formBuilderContext.projectletId);
+            }
+          }}
+        />
+      )}
+
+      {/* AI Form Builder Modal (deprecated - kept for backward compatibility) */}
+      {showAIFormBuilder && selectedProjectletForApplet && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold">Create Form with AI</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  For projectlet: {selectedProjectletForApplet.name}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAIFormBuilder(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <AIChatFormBuilder
+                onMarkdownGenerated={async (markdown) => {
+                  // Create the form and attach it to the projectlet
+                  try {
+                    // Navigate to create page with the markdown
+                    const formData = new URLSearchParams({
+                      markdown: markdown,
+                      projectlet_id: selectedProjectletForApplet.id,
+                      project_id: params.projectId
+                    });
+                    window.location.href = `/create?${formData.toString()}`;
+                  } catch (error) {
+                    console.error('Error creating form:', error);
+                  }
+                }}
+                projectContext={knowledgeBase}
+                projectName={project?.name}
               />
             </div>
           </div>

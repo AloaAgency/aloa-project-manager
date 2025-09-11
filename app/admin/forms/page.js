@@ -43,7 +43,7 @@ function AdminFormsPageContent() {
 
   const fetchForms = async () => {
     try {
-      const response = await fetch('/api/forms');
+      const response = await fetch('/api/aloa-forms');
       const data = await response.json();
       
       if (data.forms) {
@@ -74,7 +74,7 @@ function AdminFormsPageContent() {
     }
 
     try {
-      const response = await fetch(`/api/forms/by-id/${formId}`, {
+      const response = await fetch(`/api/aloa-forms/by-id/${formId}`, {
         method: 'DELETE'
       });
 
@@ -88,7 +88,7 @@ function AdminFormsPageContent() {
 
   const duplicateForm = async (formId) => {
     try {
-      const response = await fetch(`/api/forms/by-id/${formId}/duplicate`, {
+      const response = await fetch(`/api/aloa-forms/by-id/${formId}/duplicate`, {
         method: 'POST'
       });
 

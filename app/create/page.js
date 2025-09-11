@@ -48,7 +48,7 @@ function CreateFormPageContent() {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('/api/projects');
+      const response = await fetch('/api/aloa-projects');
       const data = await response.json();
       setProjects(data);
     } catch (error) {
@@ -86,7 +86,7 @@ function CreateFormPageContent() {
         .find(row => row.startsWith('csrf-token='))
         ?.split('=')[1];
       
-      const response = await fetch('/api/forms/upload', {
+      const response = await fetch('/api/aloa-forms/upload', {
         method: 'POST',
         headers: {
           'X-CSRF-Token': csrfToken || '',
@@ -168,7 +168,7 @@ function CreateFormPageContent() {
         .find(row => row.startsWith('csrf-token='))
         ?.split('=')[1];
       
-      const response = await fetch('/api/forms/upload', {
+      const response = await fetch('/api/aloa-forms/upload', {
         method: 'POST',
         headers: {
           'X-CSRF-Token': csrfToken || '',

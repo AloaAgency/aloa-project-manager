@@ -1,6 +1,29 @@
 'use client';
 
+/**
+ * ProjectletAppletsManager - Admin Interface for Applet Configuration
+ * 
+ * This component handles the ADMIN SIDE of applets - how administrators
+ * set up and configure applets within projectlets.
+ * 
+ * Each applet has two sides:
+ * 1. Admin Side (this component): Configuration, setup, management
+ * 2. Client Side (separate component): Interactive experience for clients
+ * 
+ * Applet Types and Their Dual Nature:
+ * - Form: Admin creates/selects form → Client fills out form
+ * - Upload: Admin configures requirements → Client uploads files
+ * - Review: Admin sets review criteria → Client reviews and approves
+ * - Signoff: Admin defines approval needs → Client provides signature
+ * - Moodboard: Admin sets parameters → Client selects preferences
+ * - Content Gather: Admin defines fields → Client provides content
+ * 
+ * The configuration done here directly determines what clients see
+ * and need to complete in their project journey.
+ */
+
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { 
   Plus, 
   Trash2, 
@@ -17,9 +40,20 @@ import {
   ChevronDown,
   ChevronUp,
   Edit,
-  X
+  X,
+  Bot
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+// Dynamic import for AI form builder to avoid SSR issues
+const AIChatFormBuilder = dynamic(() => import('@/components/AIChatFormBuilder'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center p-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+    </div>
+  )
+});
 
 const APPLET_ICONS = {
   form: FileText,
@@ -47,12 +81,14 @@ export default function ProjectletAppletsManager({
   projectId, 
   projectletId, 
   projectletName,
-  availableForms = []
+  availableForms = [],
+  startWithLibraryOpen = false,
+  onAppletsUpdated
 }) {
   const [applets, setApplets] = useState([]);
   const [libraryApplets, setLibraryApplets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddApplet, setShowAddApplet] = useState(false);
+  const [showAddApplet, setShowAddApplet] = useState(startWithLibraryOpen);
   const [selectedLibraryApplet, setSelectedLibraryApplet] = useState(null);
   const [expandedApplet, setExpandedApplet] = useState(null);
   const [editingApplet, setEditingApplet] = useState(null);
@@ -60,6 +96,8 @@ export default function ProjectletAppletsManager({
   const [formConfigMode, setFormConfigMode] = useState('select'); // 'select' or 'create'
   const [selectedFormId, setSelectedFormId] = useState(null);
   const [creatingForm, setCreatingForm] = useState(false);
+  const [showAIFormBuilder, setShowAIFormBuilder] = useState(false);
+  const [projectKnowledge, setProjectKnowledge] = useState(null);
 
   useEffect(() => {
     fetchApplets();
@@ -91,30 +129,33 @@ export default function ProjectletAppletsManager({
   };
 
   const addAppletFromLibrary = async (libraryApplet) => {
-    // If it's a form applet, show the form configuration modal
-    if (libraryApplet.type === 'form') {
-      setSelectedLibraryApplet(libraryApplet);
-      setShowFormConfig(true);
-      setShowAddApplet(false);
-      return;
-    }
-
-    // For other applet types, add directly
+    // Add all applets directly, including form applets with null form_id for inline configuration
     try {
+      const appletData = {
+        library_applet_id: libraryApplet.id,
+        name: libraryApplet.name,
+        description: libraryApplet.description,
+        type: libraryApplet.type,
+        config: libraryApplet.default_config,
+        requires_approval: libraryApplet.requires_approval,
+        client_instructions: libraryApplet.client_instructions
+      };
+
+      // For form applets, ensure form_id is null so it can be configured inline
+      if (libraryApplet.type === 'form') {
+        appletData.config = {
+          form_id: null,
+          required: true
+        };
+        appletData.form_id = null; // Also set the direct form_id field
+      }
+
       const response = await fetch(
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            library_applet_id: libraryApplet.id,
-            name: libraryApplet.name,
-            description: libraryApplet.description,
-            type: libraryApplet.type,
-            config: libraryApplet.default_config,
-            requires_approval: libraryApplet.requires_approval,
-            client_instructions: libraryApplet.client_instructions
-          })
+          body: JSON.stringify(appletData)
         }
       );
 
@@ -123,6 +164,10 @@ export default function ProjectletAppletsManager({
         fetchApplets();
         setShowAddApplet(false);
         setSelectedLibraryApplet(null);
+        // Call the callback if provided (for parent component to refresh)
+        if (onAppletsUpdated) {
+          onAppletsUpdated();
+        }
       }
     } catch (error) {
       console.error('Error adding applet:', error);
@@ -136,18 +181,76 @@ export default function ProjectletAppletsManager({
       // Get project knowledge context
       const knowledgeResponse = await fetch(`/api/aloa-projects/${projectId}/knowledge`);
       const knowledgeData = await knowledgeResponse.json();
+      setProjectKnowledge(knowledgeData);
       
-      // Navigate to form creator with project context
-      const formCreatorUrl = `/create?project=${projectId}&projectlet=${projectletId}&projectletName=${encodeURIComponent(projectletName)}`;
-      window.open(formCreatorUrl, '_blank');
-      
+      // Show AI form builder modal instead of opening new window
       setShowFormConfig(false);
-      toast.success('Opening AI Form Builder with project context...');
+      setShowAIFormBuilder(true);
     } catch (error) {
-      console.error('Error creating form:', error);
-      toast.error('Failed to open form builder');
+      console.error('Error loading project knowledge:', error);
+      // Show modal anyway, just without project context
+      setShowFormConfig(false);
+      setShowAIFormBuilder(true);
     } finally {
       setCreatingForm(false);
+    }
+  };
+
+  const handleAIFormGenerated = async (markdown) => {
+    try {
+      // Create form from AI-generated markdown
+      const blob = new Blob([markdown], { type: 'text/markdown' });
+      const file = new File([blob], 'ai-generated-form.md', { type: 'text/markdown' });
+      
+      const formData = new FormData();
+      formData.append('markdown', file);
+      formData.append('projectId', projectId);
+
+      const response = await fetch('/api/aloa-forms/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create form');
+      }
+
+      // Attach the form to the projectlet as an applet
+      if (data.id && selectedLibraryApplet) {
+        const appletResponse = await fetch(
+          `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              library_applet_id: selectedLibraryApplet.id,
+              name: data.title || 'AI Generated Form',
+              description: selectedLibraryApplet.description,
+              type: 'form',
+              form_id: data.id,
+              config: {
+                formTitle: data.title,
+                formId: data.id
+              },
+              requires_approval: selectedLibraryApplet.requires_approval,
+              client_instructions: selectedLibraryApplet.client_instructions
+            })
+          }
+        );
+
+        if (appletResponse.ok) {
+          toast.success('Form created and attached to projectlet!');
+          fetchApplets();
+        }
+      }
+
+      setShowAIFormBuilder(false);
+      setSelectedLibraryApplet(null);
+    } catch (error) {
+      console.error('Form creation error:', error);
+      toast.error(error.message || 'Failed to create form');
     }
   };
 
@@ -278,6 +381,39 @@ export default function ProjectletAppletsManager({
     );
   }
 
+  // If we started with library open, show only the library selector
+  if (startWithLibraryOpen && showAddApplet) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold mb-4">Choose an Applet to Add</h3>
+        <div className="grid grid-cols-2 gap-4">
+          {libraryApplets.map((applet) => {
+            const Icon = APPLET_ICONS[applet.type] || FileText;
+            const colorClass = APPLET_COLORS[applet.type];
+
+            return (
+              <button
+                key={applet.id}
+                onClick={() => addAppletFromLibrary(applet)}
+                className={`p-4 rounded-lg border-2 ${colorClass} hover:opacity-80 transition-opacity text-left`}
+              >
+                <div className="flex items-start space-x-3">
+                  <Icon className="w-6 h-6 flex-shrink-0 mt-1" />
+                  <div>
+                    <h4 className="font-bold">{applet.name}</h4>
+                    {applet.description && (
+                      <p className="text-sm opacity-75 mt-1">{applet.description}</p>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
@@ -377,20 +513,40 @@ export default function ProjectletAppletsManager({
                       </div>
 
                       {/* Type-specific content */}
-                      {applet.type === 'form' && applet.form_id && (
+                      {applet.type === 'form' && (
                         <div className="mt-2 text-sm">
-                          <span className="font-medium">Linked Form:</span>
+                          <span className="font-medium">Form:</span>
                           <select
                             value={applet.form_id || ''}
-                            onChange={(e) => updateApplet(applet.id, { form_id: e.target.value })}
-                            className="ml-2 px-2 py-1 bg-white rounded text-sm"
+                            onChange={(e) => {
+                              if (e.target.value === 'create_new') {
+                                // Set this applet as selected and show AI form builder
+                                setSelectedLibraryApplet(applet);
+                                setShowAIFormBuilder(true);
+                              } else if (e.target.value) {
+                                console.log('Updating applet form_id:', applet.id, 'to:', e.target.value);
+                                updateApplet(applet.id, { 
+                                  form_id: e.target.value,
+                                  config: { 
+                                    ...applet.config,
+                                    form_id: e.target.value 
+                                  }
+                                });
+                              }
+                            }}
+                            className="ml-2 px-2 py-1 bg-white border rounded text-sm"
                           >
                             <option value="">Select a form...</option>
-                            {availableForms.map(form => (
-                              <option key={form.id} value={form.id}>
-                                {form.title}
-                              </option>
-                            ))}
+                            <option value="create_new" className="font-semibold text-purple-600">
+                              ✨ Create New Form with AI
+                            </option>
+                            <optgroup label="Existing Forms">
+                              {availableForms.map(form => (
+                                <option key={form.id} value={form.id}>
+                                  {form.title}
+                                </option>
+                              ))}
+                            </optgroup>
                           </select>
                         </div>
                       )}
@@ -482,7 +638,7 @@ export default function ProjectletAppletsManager({
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="p-6 border-b">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold">Add Applet from Library</h3>
+                <h3 className="text-xl font-bold">Choose an Applet</h3>
                 <button
                   onClick={() => {
                     setShowAddApplet(false);
@@ -505,12 +661,11 @@ export default function ProjectletAppletsManager({
                   return (
                     <button
                       key={applet.id}
-                      onClick={() => setSelectedLibraryApplet(applet)}
-                      className={`p-4 border-2 rounded-lg text-left transition-all ${
-                        isSelected 
-                          ? 'border-black shadow-lg' 
-                          : 'border-gray-200 hover:border-gray-400'
-                      }`}
+                      onClick={() => {
+                        // Directly add the applet when clicked
+                        addAppletFromLibrary(applet);
+                      }}
+                      className={`p-4 border-2 rounded-lg text-left transition-all hover:border-black hover:shadow-lg border-gray-200`}
                     >
                       <div className={`inline-flex p-2 rounded-lg mb-2 ${colorClass}`}>
                         <Icon className="w-5 h-5" />
@@ -528,61 +683,10 @@ export default function ProjectletAppletsManager({
                   );
                 })}
               </div>
-
-              {selectedLibraryApplet && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-bold mb-2">Configure Applet</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Name</label>
-                      <input
-                        type="text"
-                        value={selectedLibraryApplet.name}
-                        onChange={(e) => setSelectedLibraryApplet({
-                          ...selectedLibraryApplet,
-                          name: e.target.value
-                        })}
-                        className="w-full px-3 py-2 border rounded-lg"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Client Instructions</label>
-                      <textarea
-                        placeholder="Instructions shown to the client..."
-                        onChange={(e) => setSelectedLibraryApplet({
-                          ...selectedLibraryApplet,
-                          client_instructions: e.target.value
-                        })}
-                        className="w-full px-3 py-2 border rounded-lg"
-                        rows={2}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowAddApplet(false);
-                    setSelectedLibraryApplet(null);
-                  }}
-                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => selectedLibraryApplet && addAppletFromLibrary(selectedLibraryApplet)}
-                  disabled={!selectedLibraryApplet}
-                  className={`px-6 py-2 rounded-lg ${
-                    selectedLibraryApplet
-                      ? 'bg-black text-white hover:bg-gray-800'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  Add Applet
-                </button>
-              </div>
+              
+              <p className="text-sm text-gray-500 text-center mt-4">
+                Click any applet to add it to your projectlet
+              </p>
             </div>
           </div>
         </div>
@@ -695,21 +799,78 @@ export default function ProjectletAppletsManager({
                         </p>
                       ) : (
                         availableForms.map((form) => (
-                          <button
+                          <div
                             key={form.id}
-                            onClick={() => setSelectedFormId(form.id)}
-                            className={`w-full text-left p-3 rounded-lg border transition-all ${
+                            className={`w-full p-3 rounded-lg border transition-all ${
                               selectedFormId === form.id
                                 ? 'border-black bg-gray-50'
                                 : 'border-gray-200 hover:border-gray-400'
                             }`}
                           >
-                            <div className="font-medium">{form.title}</div>
-                            <div className="text-sm text-gray-600 mt-1">
-                              {form.response_count || 0} responses • 
-                              Status: {form.status || 'active'}
+                            <div className="flex items-center justify-between">
+                              <button
+                                onClick={() => setSelectedFormId(form.id)}
+                                className="flex-1 text-left"
+                              >
+                                <div className="font-medium">{form.title}</div>
+                                <div className="text-sm text-gray-600 mt-1">
+                                  {form.response_count || 0} responses • 
+                                  Status: {form.status || 'active'}
+                                </div>
+                              </button>
+                              <div className="flex items-center gap-2 ml-2">
+                                <button
+                                  onClick={() => window.open(`/forms/${form.url_id}`, '_blank')}
+                                  className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                                  title="View Form"
+                                >
+                                  <Eye className="w-4 h-4 text-gray-600" />
+                                </button>
+                                <button
+                                  onClick={() => window.open(`/edit/${form.id}`, '_blank')}
+                                  className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                                  title="Edit Form"
+                                >
+                                  <Edit className="w-4 h-4 text-gray-600" />
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm(`Are you sure you want to delete "${form.title}"?`)) {
+                                      try {
+                                        const response = await fetch(`/api/aloa-forms/${form.id}`, {
+                                          method: 'DELETE'
+                                        });
+                                        
+                                        if (response.ok) {
+                                          const data = await response.json();
+                                          toast.success('Form deleted successfully');
+                                          // Refresh the forms list after a short delay to allow toast to show
+                                          setTimeout(() => {
+                                            window.location.reload();
+                                          }, 500);
+                                        } else {
+                                          // Only parse JSON if response is not ok
+                                          try {
+                                            const errorData = await response.json();
+                                            toast.error(errorData.error || 'Failed to delete form');
+                                          } catch {
+                                            toast.error('Failed to delete form');
+                                          }
+                                        }
+                                      } catch (error) {
+                                        console.error('Error deleting form:', error);
+                                        toast.error('Failed to delete form');
+                                      }
+                                    }
+                                  }}
+                                  className="p-1.5 hover:bg-red-100 rounded transition-colors"
+                                  title="Delete Form"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </button>
+                              </div>
                             </div>
-                          </button>
+                          </div>
                         ))
                       )}
                     </div>
@@ -729,6 +890,61 @@ export default function ProjectletAppletsManager({
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Form Builder Modal */}
+      {showAIFormBuilder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-display font-bold text-aloa-black uppercase tracking-tight flex items-center gap-2">
+                    <Bot className="w-6 h-6 text-purple-600" />
+                    AI Form Builder
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Creating form for: {projectletName}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAIFormBuilder(false);
+                    setSelectedLibraryApplet(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {projectKnowledge && projectKnowledge.stats && projectKnowledge.stats.totalDocuments > 0 && (
+                <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div className="flex items-start">
+                    <Bot className="w-5 h-5 text-purple-600 mr-2 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-purple-900">
+                        AI Context Loaded
+                      </p>
+                      <p className="text-xs text-purple-700 mt-1">
+                        Using {projectKnowledge.stats.totalDocuments} knowledge documents 
+                        and {projectKnowledge.stats.totalInsights} insights from this project
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <AIChatFormBuilder 
+                onMarkdownGenerated={handleAIFormGenerated}
+                projectContext={projectKnowledge?.project?.ai_context}
+                projectName={projectletName}
+              />
             </div>
           </div>
         </div>

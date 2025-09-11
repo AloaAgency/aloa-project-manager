@@ -5,14 +5,12 @@ import { supabase } from '@/lib/supabase';
 export async function GET(request, { params }) {
   try {
     const { projectletId } = params;
+    
+    console.log(`Fetching applets for projectlet: ${projectletId}`);
 
     const { data: applets, error } = await supabase
       .from('aloa_applets')
-      .select(`
-        *,
-        form:forms(id, title, status),
-        interactions:aloa_applet_interactions(count)
-      `)
+      .select('*')
       .eq('projectlet_id', projectletId)
       .order('order_index', { ascending: true });
 
@@ -21,6 +19,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Failed to fetch applets' }, { status: 500 });
     }
 
+    console.log(`Found ${applets?.length || 0} applets for projectlet ${projectletId}:`, applets);
     return NextResponse.json({ applets: applets || [] });
   } catch (error) {
     console.error('Error in applets route:', error);
@@ -45,23 +44,27 @@ export async function POST(request, { params }) {
 
     const newOrderIndex = maxOrder ? maxOrder.order_index + 1 : 0;
 
+    const appletData = {
+      projectlet_id: projectletId,
+      name: body.name,
+      description: body.description,
+      type: body.type,
+      order_index: newOrderIndex,
+      config: body.config || {},
+      form_id: body.form_id,
+      requires_approval: body.requires_approval || false,
+      client_instructions: body.client_instructions,
+      internal_notes: body.internal_notes,
+      client_can_skip: body.client_can_skip || false,
+      library_applet_id: body.library_applet_id
+    };
+    
+    console.log('Creating applet with data:', appletData);
+
     // Create the applet
     const { data: applet, error } = await supabase
       .from('aloa_applets')
-      .insert([{
-        projectlet_id: projectletId,
-        name: body.name,
-        description: body.description,
-        type: body.type,
-        order_index: newOrderIndex,
-        config: body.config || {},
-        form_id: body.form_id,
-        requires_approval: body.requires_approval || false,
-        client_instructions: body.client_instructions,
-        internal_notes: body.internal_notes,
-        client_can_skip: body.client_can_skip || false,
-        library_applet_id: body.library_applet_id
-      }])
+      .insert([appletData])
       .select()
       .single();
 
@@ -70,6 +73,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Failed to create applet' }, { status: 500 });
     }
 
+    console.log('Successfully created applet:', applet);
     return NextResponse.json({ applet });
   } catch (error) {
     console.error('Error in applet creation:', error);
@@ -83,6 +87,8 @@ export async function PUT(request, { params }) {
     const body = await request.json();
     const { appletId, ...updateData } = body;
 
+    console.log('Updating applet:', appletId, 'with data:', updateData);
+
     const { data: applet, error } = await supabase
       .from('aloa_applets')
       .update(updateData)
@@ -95,6 +101,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Failed to update applet' }, { status: 500 });
     }
 
+    console.log('Successfully updated applet:', applet);
     return NextResponse.json({ applet });
   } catch (error) {
     console.error('Error in applet update:', error);

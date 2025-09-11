@@ -15,7 +15,7 @@ export async function DELETE(request, { params }) {
 
     // First, unassign all forms from this project (set them to uncategorized)
     const { error: updateError } = await supabase
-      .from('forms')
+      .from('aloa_forms')
       .update({ project_id: null })
       .eq('project_id', projectId);
 
@@ -29,7 +29,7 @@ export async function DELETE(request, { params }) {
 
     // Then delete the project
     const { error: deleteError } = await supabase
-      .from('projects')
+      .from('aloa_projects')
       .delete()
       .eq('id', projectId);
 
@@ -73,7 +73,7 @@ export async function PATCH(request, { params }) {
     if (description !== undefined) updateData.description = description;
 
     const { data, error } = await supabase
-      .from('projects')
+      .from('aloa_projects')
       .update(updateData)
       .eq('id', projectId)
       .select()

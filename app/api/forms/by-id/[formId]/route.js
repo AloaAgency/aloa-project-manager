@@ -5,10 +5,10 @@ export async function GET(request, { params }) {
   try {
     // Fetch form with its fields
     const { data: form, error } = await supabase
-      .from('forms')
+      .from('aloa_forms')
       .select(`
         *,
-        form_fields (
+        aloa_form_fields (
           id,
           field_label,
           field_name,
@@ -31,7 +31,7 @@ export async function GET(request, { params }) {
     }
     
     // Sort fields by position and format response
-    const sortedFields = form.form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
+    const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
     
     // Format response for compatibility
     return NextResponse.json({
@@ -62,33 +62,33 @@ export async function DELETE(request, { params }) {
   try {
     // First delete all response answers for this form
     const { data: responses } = await supabase
-      .from('form_responses')
+      .from('aloa_form_responses')
       .select('id')
       .eq('form_id', params.formId);
     
     if (responses && responses.length > 0) {
       const responseIds = responses.map(r => r.id);
       await supabase
-        .from('form_response_answers')
+        .from('aloa_form_response_answers')
         .delete()
         .in('response_id', responseIds);
     }
     
     // Delete all responses for this form
     await supabase
-      .from('form_responses')
+      .from('aloa_form_responses')
       .delete()
       .eq('form_id', params.formId);
     
     // Delete all fields for this form
     await supabase
-      .from('form_fields')
+      .from('aloa_form_fields')
       .delete()
       .eq('form_id', params.formId);
     
     // Finally delete the form itself
     const { error } = await supabase
-      .from('forms')
+      .from('aloa_forms')
       .delete()
       .eq('id', params.formId);
     

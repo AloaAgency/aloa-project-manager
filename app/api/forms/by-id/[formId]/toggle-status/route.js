@@ -26,7 +26,7 @@ export async function PATCH(request, { params }) {
     }
 
     const { data, error } = await supabase
-      .from('forms')
+      .from('aloa_forms')
       .update(updateData)
       .eq('id', formId)
       .select()

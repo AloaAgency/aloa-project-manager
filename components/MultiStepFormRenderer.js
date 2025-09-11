@@ -12,13 +12,23 @@ import * as Checkbox from '@radix-ui/react-checkbox';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import * as Select from '@radix-ui/react-select';
 
-export default function MultiStepFormRenderer({ form }) {
-  // Generate a unique storage key for this form
+export default function MultiStepFormRenderer({ 
+  form, 
+  isModal = false, 
+  onComplete,
+  initialData,
+  initialSection,
+  onProgressChange 
+}) {
+  // Generate a unique storage key for this form (don't use localStorage in modal mode)
   const storageKey = `formProgress_${form._id || form.urlId}`;
   
-  // Initialize state from localStorage if available
+  // Initialize state from localStorage or props if available
   const [currentSection, setCurrentSection] = useState(() => {
-    if (typeof window !== 'undefined') {
+    if (isModal && initialSection !== undefined) {
+      return initialSection;
+    }
+    if (!isModal && typeof window !== 'undefined') {
       const saved = localStorage.getItem(`${storageKey}_section`);
       return saved ? parseInt(saved) : 0;
     }
@@ -26,7 +36,10 @@ export default function MultiStepFormRenderer({ form }) {
   });
   
   const [formData, setFormData] = useState(() => {
-    if (typeof window !== 'undefined') {
+    if (isModal && initialData) {
+      return initialData;
+    }
+    if (!isModal && typeof window !== 'undefined') {
       const saved = localStorage.getItem(`${storageKey}_data`);
       return saved ? JSON.parse(saved) : {};
     }
@@ -52,17 +65,24 @@ export default function MultiStepFormRenderer({ form }) {
   
   // Auto-save form data to localStorage whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && !submitted) {
+    if (!isModal && typeof window !== 'undefined' && !submitted) {
       localStorage.setItem(`${storageKey}_data`, JSON.stringify(formData));
     }
-  }, [formData, storageKey, submitted]);
+  }, [formData, storageKey, submitted, isModal]);
   
   // Auto-save current section to localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined' && !submitted) {
+    if (!isModal && typeof window !== 'undefined' && !submitted) {
       localStorage.setItem(`${storageKey}_section`, currentSection.toString());
     }
-  }, [currentSection, storageKey, submitted]);
+  }, [currentSection, storageKey, submitted, isModal]);
+  
+  // Call progress change callback for modal mode
+  useEffect(() => {
+    if (isModal && onProgressChange && !submitted) {
+      onProgressChange(formData, currentSection);
+    }
+  }, [formData, currentSection, isModal, onProgressChange, submitted]);
   
   // Clear saved data after successful submission
   useEffect(() => {
@@ -73,6 +93,12 @@ export default function MultiStepFormRenderer({ form }) {
   }, [submitted, storageKey]);
 
   // Group fields by section
+  // Ensure form.fields exists and is an array
+  if (!form || !form.fields || !Array.isArray(form.fields)) {
+    console.error('Form fields are missing or invalid:', form);
+    return <div>Error: Form fields not properly loaded</div>;
+  }
+  
   const sections = form.fields.reduce((acc, field) => {
     const sectionName = field.section || 'General Information';
     if (!acc[sectionName]) {
@@ -103,11 +129,19 @@ export default function MultiStepFormRenderer({ form }) {
 
   const handleNext = (e) => {
     e?.preventDefault();
-    if (!validateSection()) return;
+    console.log('handleNext called - currentSection:', currentSection, 'sectionNames:', sectionNames);
+    
+    if (!validateSection()) {
+      console.log('Validation failed');
+      return;
+    }
     
     if (currentSection < sectionNames.length - 1) {
+      console.log('Moving to next section:', currentSection + 1);
       setCurrentSection(currentSection + 1);
       setErrors({});
+    } else {
+      console.log('Already at last section');
     }
   };
 
@@ -127,6 +161,20 @@ export default function MultiStepFormRenderer({ form }) {
     console.log('Submitting form data:', formData);
     console.log('Form ID:', form._id);
     
+    // If in modal mode with onComplete callback, use that instead
+    if (isModal && onComplete) {
+      try {
+        await onComplete(formData);
+        setSubmitted(true);
+      } catch (error) {
+        console.error('Submit error:', error);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+    
+    // Otherwise, use the normal submission flow
     try {
       // Get CSRF token from cookie
       const csrfToken = document.cookie
@@ -134,7 +182,7 @@ export default function MultiStepFormRenderer({ form }) {
         .find(row => row.startsWith('csrf-token='))
         ?.split('=')[1];
       
-      const response = await fetch('/api/responses', {
+      const response = await fetch('/api/aloa-responses', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -195,7 +243,12 @@ export default function MultiStepFormRenderer({ form }) {
               </Select.Icon>
             </Select.Trigger>
             <Select.Portal>
-              <Select.Content className="overflow-hidden bg-aloa-white border-2 border-aloa-black shadow-xl">
+              <Select.Content 
+                className="overflow-hidden bg-aloa-white border-2 border-aloa-black shadow-xl" 
+                style={{ zIndex: 10000 }}
+                position="popper"
+                sideOffset={5}
+              >
                 <Select.Viewport className="p-1">
                   {field.options?.map((option) => (
                     <Select.Item
@@ -240,34 +293,57 @@ export default function MultiStepFormRenderer({ form }) {
         );
       
       case 'checkbox':
+      case 'multiselect':
+        // If no options, show a message
+        if (!field.options || field.options.length === 0) {
+          return (
+            <div className="text-gray-500 italic">
+              No options available for {field.label || field.name}
+            </div>
+          );
+        }
+        
         return (
           <div className="space-y-2">
-            {field.options?.map((option) => (
-              <div key={option} className="flex items-center space-x-2">
-                <Checkbox.Root
-                  id={`${field.name}-${option}`}
-                  checked={formData[field.name]?.includes(option) || false}
-                  onCheckedChange={(checked) => {
-                    const current = formData[field.name] || [];
-                    const updated = checked
-                      ? [...current, option]
-                      : current.filter(v => v !== option);
-                    setFormData({ ...formData, [field.name]: updated });
-                  }}
-                  className="h-5 w-5 border-2 border-aloa-black hover:shadow-md focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 focus:ring-offset-aloa-cream transition-all duration-200"
-                >
-                  <Checkbox.Indicator className="flex items-center justify-center text-aloa-black">
-                    <CheckCircle className="h-4 w-4" />
-                  </Checkbox.Indicator>
-                </Checkbox.Root>
-                <label
-                  htmlFor={`${field.name}-${option}`}
-                  className="text-sm font-medium text-aloa-black cursor-pointer"
-                >
-                  {option}
-                </label>
-              </div>
-            ))}
+            {field.options.map((option) => {
+              // Ensure formData[field.name] is an array
+              const currentValues = Array.isArray(formData[field.name]) ? formData[field.name] : [];
+              const isChecked = currentValues.includes(option);
+              
+              return (
+                <div key={option} className="flex items-center space-x-2">
+                  <Checkbox.Root
+                    id={`${field.name}-${option}`}
+                    checked={isChecked}
+                    onCheckedChange={(checked) => {
+                      const updated = checked
+                        ? [...currentValues, option]
+                        : currentValues.filter(v => v !== option);
+                      setFormData({ ...formData, [field.name]: updated });
+                    }}
+                    className="h-5 w-5 border-2 border-aloa-black bg-aloa-white data-[state=checked]:bg-aloa-black hover:shadow-md focus:outline-none focus:ring-2 focus:ring-aloa-black focus:ring-offset-2 focus:ring-offset-aloa-cream transition-all duration-200"
+                  >
+                    <Checkbox.Indicator className="flex items-center justify-center text-aloa-cream">
+                      <CheckCircle className="h-4 w-4" />
+                    </Checkbox.Indicator>
+                  </Checkbox.Root>
+                  <label
+                    htmlFor={`${field.name}-${option}`}
+                    className="text-sm font-medium text-aloa-black cursor-pointer select-none"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const checkbox = document.getElementById(`${field.name}-${option}`);
+                      if (checkbox) {
+                        const event = new MouseEvent('click', { bubbles: true });
+                        checkbox.dispatchEvent(event);
+                      }
+                    }}
+                  >
+                    {option}
+                  </label>
+                </div>
+              );
+            })}
           </div>
         );
       
@@ -375,14 +451,14 @@ export default function MultiStepFormRenderer({ form }) {
             Step {currentSection + 1} of {sectionNames.length}
           </span>
           <span className="text-sm font-display uppercase tracking-wider text-aloa-gray">
-            {Math.round(((currentSection + 1) / sectionNames.length) * 100)}% Complete
+            {sectionNames.length > 0 ? Math.round(((currentSection + 1) / sectionNames.length) * 100) : 0}% Complete
           </span>
         </div>
         <div className="w-full bg-aloa-sand h-3 border-2 border-aloa-black">
           <motion.div
             className="bg-aloa-black h-full"
             initial={{ width: 0 }}
-            animate={{ width: `${((currentSection + 1) / sectionNames.length) * 100}%` }}
+            animate={{ width: sectionNames.length > 0 ? `${((currentSection + 1) / sectionNames.length) * 100}%` : '0%' }}
             transition={{ duration: 0.5 }}
           />
         </div>

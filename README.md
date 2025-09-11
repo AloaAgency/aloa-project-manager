@@ -199,9 +199,25 @@ Optimized for Vercel:
 3. Add environment variables
 4. Deploy
 
-## Recent Updates (December 2024)
+## Recent Updates (January 2025)
 
 ### 🎉 New Features
+- **Client Form Modal**: Integrated multi-step form rendering in client dashboard
+- **Form Progress Saving**: Automatic saving of partial form completions
+- **Enhanced Form Parsing**: Improved markdown parsing for pipe-delimited format
+- **Multiselect Field Support**: Added support for multiselect form fields
+
+### 🐛 Bug Fixes
+- Fixed form modal display in client dashboard
+- Fixed dropdown z-index issues in modal overlays
+- Fixed multiselect/checkbox field rendering and state management
+- Fixed form parsing to properly separate labels from placeholders
+- Fixed options parsing for select, radio, checkbox, and multiselect fields
+- Resolved runtime errors with form creation
+
+## Previous Updates (December 2024)
+
+### 🎉 Features Added
 - **Form Applets**: Create forms with AI directly from projectlets
 - **Inline Projectlet Management**: Edit names and descriptions without navigation
 - **Drag & Drop Reordering**: Reorganize projectlets with visual feedback
@@ -209,7 +225,7 @@ Optimized for Vercel:
 - **Applet Library**: Pre-built templates for common project tasks
 - **Quick Actions**: Add projectlets and applets without leaving the view
 
-### 🐛 Bug Fixes
+### 🐛 Fixes Applied
 - Fixed syntax errors in project admin page
 - Made "+ Add Projectlet" button functional
 - Improved applet modal workflow

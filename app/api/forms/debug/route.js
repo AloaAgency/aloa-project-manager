@@ -5,7 +5,7 @@ export async function GET() {
   try {
     // Fetch all forms to see their current URLs
     const { data: forms, error } = await supabase
-      .from('forms')
+      .from('aloa_forms')
       .select('id, title, url_id, created_at, updated_at')
       .order('created_at', { ascending: false });
     

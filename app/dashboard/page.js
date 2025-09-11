@@ -31,8 +31,8 @@ function Dashboard() {
   const fetchForms = async () => {
     try {
       const url = selectedProject && selectedProject !== 'all' 
-        ? `/api/forms?project=${selectedProject}`
-        : '/api/forms';
+        ? `/api/aloa-forms?project=${selectedProject}`
+        : '/api/aloa-forms';
       const response = await fetch(url);
       const data = await response.json();
       setForms(data);
@@ -62,7 +62,7 @@ function Dashboard() {
 
     setIsAssigning(true);
     try {
-      const response = await fetch('/api/forms/bulk-assign-project', {
+      const response = await fetch('/api/aloa-forms/bulk-assign-project', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -103,7 +103,7 @@ function Dashboard() {
     }
 
     try {
-      const response = await fetch(`/api/forms/by-id/${formId}/toggle-status`, {
+      const response = await fetch(`/api/aloa-forms/${formId}/toggle-status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -130,7 +130,7 @@ function Dashboard() {
     }
 
     try {
-      const response = await fetch(`/api/forms/by-id/${formId}`, {
+      const response = await fetch(`/api/aloa-forms/${formId}`, {
         method: 'DELETE',
       });
 

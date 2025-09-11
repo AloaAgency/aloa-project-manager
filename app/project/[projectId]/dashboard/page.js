@@ -2,56 +2,41 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import { 
-  CheckCircle, 
-  Circle, 
-  Lock, 
-  PlayCircle, 
-  Clock, 
-  Trophy, 
-  Zap,
-  ChevronRight,
-  Calendar,
-  User,
+  ArrowLeft,
+  CheckCircle,
+  Clock,
+  Lock,
   FileText,
+  Upload,
+  Eye,
+  MessageSquare,
   Palette,
-  Code,
   Star,
+  Trophy,
   Target,
-  Award
+  Zap,
+  X
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
 
-// Dynamically import the steps component
-const ProjectletStepsClient = dynamic(() => import('@/components/ProjectletStepsClient'), {
-  ssr: false
-});
+// Dynamic imports for heavy components
+const Confetti = dynamic(() => import('react-confetti'), { ssr: false });
 
-const PROJECTLET_ICONS = {
-  milestone: Trophy,
-  form: FileText,
-  design: Palette,
-  content: FileText,
-  review: CheckCircle,
-  development: Code
-};
-
-const STATUS_COLORS = {
-  locked: 'bg-gray-100 text-gray-400 border-gray-200',
-  available: 'bg-[#faf8f3] text-black border-black hover:bg-[#f5f1e8]',
-  in_progress: 'bg-yellow-50 text-yellow-700 border-yellow-300',
-  client_review: 'bg-blue-50 text-blue-700 border-blue-300',
-  completed: 'bg-green-50 text-green-700 border-green-300'
-};
-
-export default function ProjectDashboard() {
+export default function ClientDashboard() {
   const params = useParams();
   const router = useRouter();
   const [project, setProject] = useState(null);
   const [projectlets, setProjectlets] = useState([]);
-  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [achievements, setAchievements] = useState([]);
+  const [selectedApplet, setSelectedApplet] = useState(null);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [formData, setFormData] = useState(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [completedApplets, setCompletedApplets] = useState(new Set());
+  const [stats, setStats] = useState({ totalApplets: 0, completedApplets: 0, progressPercentage: 0 });
+  const [formProgress, setFormProgress] = useState({}); // Store progress for each form
 
   useEffect(() => {
     fetchProjectData();
@@ -59,293 +44,470 @@ export default function ProjectDashboard() {
 
   const fetchProjectData = async () => {
     try {
-      // Fetch project details
-      const projectRes = await fetch(`/api/aloa-projects/${params.projectId}`);
-      const projectData = await projectRes.json();
-      setProject(projectData);
-
-      // Fetch projectlets
-      const projectletsRes = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`);
-      const projectletsData = await projectletsRes.json();
-      setProjectlets(projectletsData.projectlets);
-      setStats(projectletsData.stats);
-
-      // Check for achievements
-      checkAchievements(projectletsData.stats);
+      // Fetch project data and projectlets from client-view endpoint
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/client-view`);
+      const data = await response.json();
+      
+      setProject(data.project);
+      setProjectlets(data.projectlets || []);
+      setStats(data.stats || { totalApplets: 0, completedApplets: 0, progressPercentage: 0 });
+      
+      // Build completed set from database status
+      const completed = new Set();
+      data.projectlets?.forEach(projectlet => {
+        projectlet.applets?.forEach(applet => {
+          if (applet.status === 'completed' || applet.status === 'approved') {
+            completed.add(applet.id);
+          }
+        });
+      });
+      setCompletedApplets(completed);
     } catch (error) {
-      console.error('Error fetching project data:', error);
+      console.error('Error fetching project:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const checkAchievements = (stats) => {
-    const newAchievements = [];
-    
-    if (stats.completed >= 1 && stats.completed < 5) {
-      newAchievements.push({
-        icon: Star,
-        title: 'First Steps',
-        description: 'Completed your first projectlet!'
-      });
+  const handleAppletClick = async (applet, projectlet) => {
+    if (completedApplets.has(applet.id)) {
+      return; // Already completed
     }
-    
-    if (stats.completed >= 5) {
-      newAchievements.push({
-        icon: Zap,
-        title: 'On Fire',
-        description: '5 projectlets completed!'
-      });
+
+    // Mark applet as in progress
+    await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appletId: applet.id,
+        status: 'in_progress',
+        interactionType: 'start'
+      })
+    });
+
+    if (applet.type === 'form') {
+      // Check for form_id in multiple places
+      const formId = applet.form_id || applet.config?.form_id;
+      
+      if (!formId) {
+        console.error('No form_id found for applet:', applet);
+        alert('This form is not properly configured. Please contact support.');
+        return;
+      }
+      
+      // Use form data from applet if available, otherwise fetch
+      if (applet.form) {
+        // Transform the preloaded form data to match MultiStepFormRenderer's expected structure
+        const form = applet.form;
+        const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
+        
+        const transformedForm = {
+          ...form,
+          _id: form.id,
+          urlId: form.url_id,
+          fields: sortedFields.map(field => ({
+            _id: field.id,
+            label: field.field_label,
+            name: field.field_name,
+            type: field.field_type,
+            position: field.field_order,
+            section: field.validation?.section || 'General Information',
+            required: field.required,
+            placeholder: field.placeholder,
+            options: Array.isArray(field.options) ? field.options : (typeof field.options === 'string' ? JSON.parse(field.options) : field.options),
+            validation: field.validation
+          }))
+        };
+        
+        console.log('Transformed preloaded form:', transformedForm);
+        console.log('Form fields count:', transformedForm.fields?.length);
+        console.log('Form fields:', transformedForm.fields);
+        setFormData(transformedForm);
+        setSelectedApplet({ ...applet, projectlet, form_id: applet.form_id || applet.config?.form_id });
+        setShowFormModal(true);
+      } else {
+        try {
+          const formRes = await fetch(`/api/aloa-forms/${formId}`);
+          if (!formRes.ok) {
+            throw new Error(`Failed to fetch form: ${formRes.status}`);
+          }
+          const form = await formRes.json();
+          console.log('Fetched form:', form);
+          
+          // Transform the form data to match MultiStepFormRenderer's expected structure
+          const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
+          
+          const transformedForm = {
+            ...form,
+            _id: form.id,
+            urlId: form.url_id,
+            fields: sortedFields.map(field => ({
+              _id: field.id,
+              label: field.field_label,
+              name: field.field_name,
+              type: field.field_type,
+              position: field.field_order,
+              section: field.validation?.section || 'General Information',
+              required: field.required,
+              placeholder: field.placeholder,
+              options: Array.isArray(field.options) ? field.options : (typeof field.options === 'string' ? JSON.parse(field.options) : field.options),
+              validation: field.validation
+            }))
+          };
+          
+          console.log('Transformed form:', transformedForm);
+          setFormData(transformedForm);
+          setSelectedApplet({ ...applet, projectlet, form_id: formId });
+          setShowFormModal(true);
+        } catch (error) {
+          console.error('Error fetching form:', error);
+          alert('Unable to load the form. Please try again later.');
+        }
+      }
     }
-    
-    if (stats.completionPercentage >= 50) {
-      newAchievements.push({
-        icon: Target,
-        title: 'Halfway There',
-        description: '50% of the project complete!'
-      });
-    }
-    
-    if (stats.completionPercentage === 100) {
-      newAchievements.push({
-        icon: Trophy,
-        title: 'Project Champion',
-        description: 'All projectlets completed!'
-      });
-    }
-    
-    setAchievements(newAchievements);
   };
 
-  const handleProjectletClick = (projectlet) => {
-    if (projectlet.status === 'locked' || projectlet.status === 'completed') {
-      return; // Can't click locked or completed projectlets
-    }
-    
-    if (projectlet.type === 'form' && projectlet.aloa_project_forms?.[0]?.form_id) {
-      // Navigate to the actual form using form_id
-      window.open(`/forms/${projectlet.aloa_project_forms[0].form_id}`, '_blank');
-    } else if (projectlet.type === 'form' && projectlet.aloa_project_forms?.[0]) {
-      // Navigate to project form (legacy)
-      router.push(`/project/${params.projectId}/form/${projectlet.aloa_project_forms[0].id}`);
-    } else {
-      // Navigate to projectlet detail
-      router.push(`/project/${params.projectId}/projectlet/${projectlet.id}`);
+  const handleFormSubmit = async (responses) => {
+    try {
+      // Submit form response
+      await fetch('/api/aloa-responses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          form_id: selectedApplet.form_id,
+          responses,
+          applet_id: selectedApplet.id,
+          projectlet_id: selectedApplet.projectlet_id,
+          project_id: params.projectId
+        })
+      });
+
+      // Mark applet as completed in database
+      await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appletId: selectedApplet.id,
+          status: 'completed',
+          interactionType: 'submission',
+          data: { form_responses: responses }
+        })
+      });
+
+      // Update local state
+      const newCompleted = new Set(completedApplets);
+      newCompleted.add(selectedApplet.id);
+      setCompletedApplets(newCompleted);
+      
+      // Clear saved progress for this form since it's completed
+      if (selectedApplet.form_id) {
+        setFormProgress(prev => {
+          const newProgress = { ...prev };
+          delete newProgress[selectedApplet.form_id];
+          return newProgress;
+        });
+      }
+
+      // Close modal and show celebration
+      setShowFormModal(false);
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 5000);
+
+      // Refresh data
+      fetchProjectData();
+    } catch (error) {
+      console.error('Error submitting form:', error);
     }
   };
 
-  const handleStepClick = (projectletId, step) => {
-    if (step.type === 'form' && step.form_id) {
-      window.open(`/forms/${step.form_id}`, '_blank');
-    } else if (step.type === 'link' && step.link_url) {
-      window.open(step.link_url, '_blank');
-    }
+  const getAppletIcon = (type) => {
+    const icons = {
+      form: FileText,
+      upload: Upload,
+      review: Eye,
+      moodboard: Palette,
+      content_gather: MessageSquare
+    };
+    return icons[type] || FileText;
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="w-5 h-5" />;
-      case 'in_progress':
-        return <PlayCircle className="w-5 h-5" />;
-      case 'available':
-        return <Circle className="w-5 h-5" />;
-      case 'locked':
-        return <Lock className="w-5 h-5" />;
-      default:
-        return <Circle className="w-5 h-5" />;
-    }
-  };
-
-  const formatStatus = (status) => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const calculateProgress = () => {
+    return stats.progressPercentage || 0;
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
       </div>
     );
   }
 
+  const progress = calculateProgress();
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8]">
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-5xl font-bold text-black mb-4">
-            {project?.project_name}
-          </h1>
-          <div className="flex items-center gap-6 text-gray-700">
-            <span className="flex items-center">
-              <User className="w-4 h-4 mr-2" />
-              {project?.client_name}
-            </span>
-            <span className="flex items-center">
-              <Calendar className="w-4 h-4 mr-2" />
-              Due: {project?.estimated_completion_date ? 
-                new Date(project.estimated_completion_date).toLocaleDateString() : 
-                'TBD'}
-            </span>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">Overall Progress</h2>
-            <span className="text-3xl font-bold">{stats?.completionPercentage || 0}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-black to-gray-700 rounded-full transition-all duration-500 flex items-center justify-end pr-4"
-              style={{ width: `${stats?.completionPercentage || 0}%` }}
-            >
-              {stats?.completionPercentage >= 10 && (
-                <span className="text-white text-sm font-semibold">
-                  {stats?.completed || 0} / {stats?.total || 0}
-                </span>
-              )}
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+      {showConfetti && <Confetti />}
+      
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => router.push('/')}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{project?.name}</h1>
+                <p className="text-sm text-gray-600">Your Project Dashboard</p>
+              </div>
             </div>
-          </div>
-          
-          {/* Stats */}
-          <div className="grid grid-cols-4 gap-4 mt-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{stats?.completed || 0}</div>
-              <div className="text-sm text-gray-600">Completed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600">{stats?.inProgress || 0}</div>
-              <div className="text-sm text-gray-600">In Progress</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats?.available || 0}</div>
-              <div className="text-sm text-gray-600">Available</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-400">{stats?.locked || 0}</div>
-              <div className="text-sm text-gray-600">Locked</div>
+            
+            {/* Progress Ring */}
+            <div className="relative">
+              <svg className="w-20 h-20 transform -rotate-90">
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="36"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="none"
+                  className="text-gray-200"
+                />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="36"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="none"
+                  strokeDasharray={`${progress * 2.26} 226`}
+                  className="text-purple-600 transition-all duration-500"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-xl font-bold">{progress}%</span>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Achievements */}
-        {achievements.length > 0 && (
-          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl shadow-lg p-8 mb-8 border-2 border-yellow-200">
-            <h2 className="text-2xl font-bold mb-6 flex items-center">
-              <Award className="w-8 h-8 mr-2 text-yellow-600" />
-              Achievements Unlocked!
-            </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {achievements.map((achievement, index) => {
-                const Icon = achievement.icon;
-                return (
-                  <div key={index} className="bg-white rounded-lg p-4 text-center">
-                    <Icon className="w-12 h-12 mx-auto mb-2 text-yellow-600" />
-                    <h3 className="font-bold text-sm">{achievement.title}</h3>
-                    <p className="text-xs text-gray-600 mt-1">{achievement.description}</p>
-                  </div>
-                );
-              })}
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-xl p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Tasks Complete</p>
+                <p className="text-2xl font-bold">{completedApplets.size}</p>
+              </div>
+              <CheckCircle className="w-8 h-8 text-green-500" />
             </div>
           </div>
-        )}
-
-        {/* Projectlets Grid */}
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-bold mb-6">Project Roadmap</h2>
           
-          <div className="space-y-4">
-            {projectlets.map((projectlet, index) => {
-              const Icon = PROJECTLET_ICONS[projectlet.type] || FileText;
-              const isClickable = projectlet.status !== 'locked' && projectlet.status !== 'completed';
-              const isCompleted = projectlet.status === 'completed';
-              
-              return (
-                <div
-                  key={projectlet.id}
-                  onClick={() => handleProjectletClick(projectlet)}
-                  className={`
-                    border-2 rounded-xl p-6 transition-all
-                    ${STATUS_COLORS[projectlet.status]}
-                    ${isClickable ? 'cursor-pointer transform hover:scale-[1.02]' : ''}
-                    ${projectlet.status === 'locked' ? 'cursor-not-allowed opacity-60' : ''}
-                    ${isCompleted ? 'bg-green-50 border-green-300' : ''}
-                  `}
-                >
+          <div className="bg-white rounded-xl p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">In Progress</p>
+                <p className="text-2xl font-bold">
+                  {projectlets.filter(p => p.status === 'in_progress').length}
+                </p>
+              </div>
+              <Clock className="w-8 h-8 text-yellow-500" />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Locked</p>
+                <p className="text-2xl font-bold">
+                  {projectlets.filter(p => p.status === 'locked').length}
+                </p>
+              </div>
+              <Lock className="w-8 h-8 text-gray-500" />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Achievement</p>
+                <p className="text-2xl font-bold">🏆</p>
+              </div>
+              <Trophy className="w-8 h-8 text-purple-500" />
+            </div>
+          </div>
+        </div>
+
+        {/* Projectlets Timeline */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-bold text-gray-900">Your Project Journey</h2>
+          
+          {projectlets.map((projectlet, index) => {
+            const isLocked = projectlet.status === 'locked';
+            const isCompleted = projectlet.status === 'completed';
+            const applets = projectlet.applets || [];
+            
+            return (
+              <div
+                key={projectlet.id}
+                className={`bg-white rounded-xl shadow-sm overflow-hidden ${
+                  isLocked ? 'opacity-60' : ''
+                }`}
+              >
+                {/* Projectlet Header */}
+                <div className={`p-6 border-b ${
+                  isCompleted ? 'bg-green-50' : isLocked ? 'bg-gray-50' : 'bg-white'
+                }`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-black/5">
-                        <Icon className="w-6 h-6" />
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        isCompleted ? 'bg-green-100 text-green-600' :
+                        isLocked ? 'bg-gray-100 text-gray-400' :
+                        'bg-purple-100 text-purple-600'
+                      }`}>
+                        {isCompleted ? <CheckCircle /> : 
+                         isLocked ? <Lock /> : 
+                         <span className="font-bold">{index + 1}</span>}
                       </div>
                       <div>
-                        <h3 className="text-lg font-bold flex items-center">
-                          {projectlet.name}
-                          {projectlet.deadline && (
-                            <span className="ml-3 text-sm font-normal flex items-center text-gray-600">
-                              <Clock className="w-4 h-4 mr-1" />
-                              Due: {new Date(projectlet.deadline).toLocaleDateString()}
-                            </span>
-                          )}
-                        </h3>
-                        <div className="flex items-center space-x-3 mt-1">
-                          <span className="text-sm text-gray-600">
-                            Step {index + 1} of {projectlets.length}
-                          </span>
-                          <span className={`
-                            px-2 py-1 rounded-full text-xs font-semibold
-                            ${projectlet.status === 'completed' ? 'bg-green-100 text-green-700' :
-                              projectlet.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
-                              projectlet.status === 'available' ? 'bg-blue-100 text-blue-700' :
-                              'bg-gray-100 text-gray-500'}
-                          `}>
-                            {formatStatus(projectlet.status)}
-                          </span>
-                        </div>
+                        <h3 className="font-bold text-lg">{projectlet.name}</h3>
+                        {projectlet.description && (
+                          <p className="text-sm text-gray-600">{projectlet.description}</p>
+                        )}
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
-                      {getStatusIcon(projectlet.status)}
-                      {isClickable && <ChevronRight className="w-5 h-5" />}
+                    {projectlet.deadline && (
+                      <div className="text-sm text-gray-500">
+                        Due: {new Date(projectlet.deadline).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Applets (Tasks) */}
+                {!isLocked && applets.length > 0 && (
+                  <div className="p-6">
+                    <div className="space-y-3">
+                      {applets.map(applet => {
+                        const Icon = getAppletIcon(applet.type);
+                        const isAppletCompleted = completedApplets.has(applet.id);
+                        
+                        return (
+                          <button
+                            key={applet.id}
+                            onClick={() => handleAppletClick(applet, projectlet)}
+                            disabled={isAppletCompleted}
+                            className={`w-full p-4 rounded-lg border-2 transition-all ${
+                              isAppletCompleted 
+                                ? 'bg-green-50 border-green-300 cursor-default'
+                                : 'bg-white border-gray-200 hover:border-purple-300 hover:shadow-md cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className={`p-2 rounded-lg ${
+                                  isAppletCompleted ? 'bg-green-100' : 'bg-purple-100'
+                                }`}>
+                                  <Icon className={`w-5 h-5 ${
+                                    isAppletCompleted ? 'text-green-600' : 'text-purple-600'
+                                  }`} />
+                                </div>
+                                <div className="text-left">
+                                  <p className="font-medium">
+                                    {applet.type === 'form' && applet.form?.title 
+                                      ? applet.form.title 
+                                      : applet.name}
+                                  </p>
+                                  {applet.client_instructions && (
+                                    <p className="text-sm text-gray-600">{applet.client_instructions}</p>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {isAppletCompleted ? (
+                                <CheckCircle className="w-6 h-6 text-green-600" />
+                              ) : (
+                                <div className="text-purple-600">
+                                  Start →
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                  
-                  {/* Projectlet Steps */}
-                  {(projectlet.status === 'available' || projectlet.status === 'in_progress' || projectlet.status === 'completed') && (
-                    <ProjectletStepsClient
-                      projectId={params.projectId}
-                      projectletId={projectlet.id}
-                      projectletStatus={projectlet.status}
-                      onStepClick={(step) => handleStepClick(projectlet.id, step)}
-                    />
-                  )}
-                  
-                  {/* Completed Badge */}
-                  {projectlet.status === 'completed' && (
-                    <div className="mt-4 ml-16 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center text-green-700">
-                        <CheckCircle className="w-5 h-5 mr-2" />
-                        <span className="font-semibold">This projectlet is complete!</span>
-                      </div>
-                      <p className="text-sm text-green-600 mt-1">
-                        All required steps have been finished. Moving forward to the next phase.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                )}
+              </div>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Timeline Preview */}
-        <div className="mt-8 bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-bold mb-6">Recent Activity</h2>
-          <div className="text-center text-gray-500 py-8">
-            Timeline events will appear here
+      {/* Form Modal */}
+      {showFormModal && formData && (
+        <FormModal
+          form={formData}
+          onSubmit={handleFormSubmit}
+          onClose={() => {
+            // Save progress when closing
+            if (selectedApplet?.form_id) {
+              // Progress is automatically saved via onProgressUpdate
+            }
+            setShowFormModal(false);
+          }}
+          savedProgress={formProgress[selectedApplet?.form_id]}
+          onProgressUpdate={null}
+        />
+      )}
+    </div>
+  );
+}
+
+// Form Modal Component - Using MultiStepFormRenderer
+function FormModal({ form, onSubmit, onClose, savedProgress, onProgressUpdate }) {
+  // Create a custom onSubmit handler that works with MultiStepFormRenderer
+  const handleFormComplete = async (responses) => {
+    // Transform responses to match expected format
+    const transformedResponses = {};
+    Object.keys(responses).forEach(key => {
+      transformedResponses[key] = responses[key];
+    });
+    
+    // Call the parent onSubmit handler
+    await onSubmit(transformedResponses);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="relative">
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 p-2 hover:bg-gray-100 rounded-lg z-10"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          
+          <div className="p-6">
+            <MultiStepFormRenderer 
+              form={form} 
+              isModal={true}
+              onComplete={handleFormComplete}
+              initialData={savedProgress?.data}
+              initialSection={savedProgress?.section}
+              onProgressChange={onProgressUpdate}
+            />
           </div>
         </div>
       </div>

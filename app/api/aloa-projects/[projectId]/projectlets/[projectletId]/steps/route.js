@@ -8,14 +8,7 @@ export async function GET(request, { params }) {
 
     const { data: steps, error } = await supabase
       .from('aloa_projectlet_steps')
-      .select(`
-        *,
-        forms (
-          id,
-          title,
-          status
-        )
-      `)
+      .select('*')
       .eq('projectlet_id', projectletId)
       .eq('project_id', projectId)
       .order('sequence_order', { ascending: true });

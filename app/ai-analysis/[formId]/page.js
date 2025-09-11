@@ -33,7 +33,7 @@ function AIAnalysisPage() {
 
   const fetchFormData = async () => {
     try {
-      const response = await fetch(`/api/forms/by-id/${params.formId}`);
+      const response = await fetch(`/api/aloa-forms/${params.formId}`);
       if (!response.ok) throw new Error('Failed to fetch form');
       
       const formData = await response.json();

@@ -89,9 +89,9 @@ export async function POST(request, { params }) {
     if (supabase) {
       try {
         await supabase
-          .from('email_logs')
+          .from('aloa_email_logs')
           .insert({
-            form_id: formId,
+            aloa_form_id: formId,
             recipient: recipientEmail,
             email_type: isClientFacing ? 'client_analysis' : 'ai_analysis',
             sent_at: new Date().toISOString(),

@@ -4,12 +4,12 @@ import { supabase } from '@/lib/supabase';
 
 async function getForm(urlId) {
   try {
-    // Direct database query instead of API call
+    // ONLY use aloa_forms - no legacy fallback
     const { data: form, error } = await supabase
-      .from('forms')
+      .from('aloa_forms')
       .select(`
         *,
-        form_fields (
+        aloa_form_fields (
           id,
           field_label,
           field_name,
@@ -28,10 +28,9 @@ async function getForm(urlId) {
       return null;
     }
     
-    // Sort fields by position and format response
-    const sortedFields = form.form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
+    // Format aloa_form response
+    const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
     
-    // Format response for compatibility with FormClient
     return {
       ...form,
       _id: form.id,
@@ -48,8 +47,7 @@ async function getForm(urlId) {
         options: field.options,
         validation: field.validation
       })),
-      createdAt: form.created_at,
-      updatedAt: form.updated_at
+      responseCount: 0
     };
   } catch (error) {
     console.error('Error fetching form:', error);

@@ -23,7 +23,7 @@ export async function PATCH(request) {
     // Update all specified forms with the new project_id
     // This does NOT change the url_id, so public URLs remain the same
     const { data, error } = await supabase
-      .from('forms')
+      .from('aloa_forms')
       .update({ 
         project_id: projectId || null,
         updated_at: new Date().toISOString()

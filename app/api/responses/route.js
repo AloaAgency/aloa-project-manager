@@ -26,13 +26,13 @@ export async function GET(request) {
     
     // Fetch responses with their answers joined with field names
     const { data: responses, error } = await supabase
-      .from('form_responses')
+      .from('aloa_form_responses')
       .select(`
         *,
-        form_response_answers (
+        aloa_form_response_answers (
           id,
           value,
-          form_fields (
+          aloa_form_fields (
             field_name,
             field_label
           )
@@ -46,15 +46,15 @@ export async function GET(request) {
     // Format responses for compatibility - create plain object for data
     const formattedResponses = responses.map(response => {
       const dataObject = {};
-      response.form_response_answers?.forEach(answer => {
-        if (answer.form_fields?.field_name) {
+      response.aloa_form_response_answers?.forEach(answer => {
+        if (answer.aloa_form_fields?.field_name) {
           // Parse JSON values for arrays/objects
           try {
             const parsedValue = JSON.parse(answer.value);
-            dataObject[answer.form_fields.field_name] = parsedValue;
+            dataObject[answer.aloa_form_fields.field_name] = parsedValue;
           } catch {
             // If not JSON, use as-is
-            dataObject[answer.form_fields.field_name] = answer.value;
+            dataObject[answer.aloa_form_fields.field_name] = answer.value;
           }
         }
       });
@@ -116,7 +116,7 @@ export async function POST(request) {
     };
     
     const { data: response, error: responseError } = await supabase
-      .from('form_responses')
+      .from('aloa_form_responses')
       .insert([responseData])
       .select()
       .single();
@@ -125,7 +125,7 @@ export async function POST(request) {
     
     // Get the form fields to map field names to IDs
     const { data: fields, error: fieldsError } = await supabase
-      .from('form_fields')
+      .from('aloa_form_fields')
       .select('id, field_name')
       .eq('form_id', body.formId);
     
@@ -139,7 +139,7 @@ export async function POST(request) {
     
     // Get field details for validation
     const { data: fieldDetails, error: fieldDetailsError } = await supabase
-      .from('form_fields')
+      .from('aloa_form_fields')
       .select('id, field_name, field_type, required, validation')
       .eq('form_id', body.formId);
     
@@ -227,7 +227,7 @@ export async function POST(request) {
     // Check for validation errors
     if (errors.length > 0) {
       // Rollback by deleting the response
-      await supabase.from('form_responses').delete().eq('id', response.id);
+      await supabase.from('aloa_form_responses').delete().eq('id', response.id);
       return NextResponse.json(
         { error: 'Validation failed', details: errors },
         { status: 400 }
@@ -238,13 +238,13 @@ export async function POST(request) {
     if (answers.length > 0) {
       console.log(`Inserting ${answers.length} answers for response ${response.id}`);
       const { error: answersError } = await supabase
-        .from('form_response_answers')
+        .from('aloa_form_response_answers')
         .insert(answers);
       
       if (answersError) {
         console.error('Error inserting answers:', answersError);
         // Rollback by deleting the response
-        await supabase.from('form_responses').delete().eq('id', response.id);
+        await supabase.from('aloa_form_responses').delete().eq('id', response.id);
         throw answersError;
       }
       console.log('Answers inserted successfully');
@@ -254,10 +254,10 @@ export async function POST(request) {
     
     // Fetch the form details for the email
     const { data: form, error: formError } = await supabase
-      .from('forms')
+      .from('aloa_forms')
       .select(`
         *,
-        form_fields (
+        aloa_form_fields (
           id,
           field_name,
           field_label,
@@ -276,7 +276,7 @@ export async function POST(request) {
           form: {
             id: form.id,
             title: form.title,
-            fields: form.form_fields.sort((a, b) => (a.field_order || 0) - (b.field_order || 0))
+            fields: form.aloa_form_fields.sort((a, b) => (a.field_order || 0) - (b.field_order || 0))
           },
           responses: body.data,
           recipientEmail: form.notification_email || 'ross@aloa.agency'

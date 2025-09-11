@@ -17,7 +17,7 @@ export async function PATCH(request, { params }) {
       if (description !== undefined) updateData.description = description;
       
       const { error: formUpdateError } = await supabase
-        .from('forms')
+        .from('aloa_forms')
         .update(updateData)
         .eq('id', formId);
       
@@ -32,7 +32,7 @@ export async function PATCH(request, { params }) {
 
     // Get existing fields to determine which ones to delete
     const { data: existingFields, error: fetchError } = await supabase
-      .from('form_fields')
+      .from('aloa_form_fields')
       .select('id')
       .eq('form_id', formId);
 
@@ -51,7 +51,7 @@ export async function PATCH(request, { params }) {
     // Delete removed fields
     if (fieldsToDelete.length > 0) {
       const { error: deleteError } = await supabase
-        .from('form_fields')
+        .from('aloa_form_fields')
         .delete()
         .in('id', fieldsToDelete.map(f => f.id));
 
@@ -85,7 +85,7 @@ export async function PATCH(request, { params }) {
       };
 
       return supabase
-        .from('form_fields')
+        .from('aloa_form_fields')
         .update(safeUpdates)
         .eq('id', field.id)
         .eq('form_id', formId); // Extra safety check

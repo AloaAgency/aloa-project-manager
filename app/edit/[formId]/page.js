@@ -25,11 +25,14 @@ function EditFormPageContent() {
 
   const fetchFormData = async () => {
     try {
-      const response = await fetch(`/api/forms/by-id/${params.formId}`);
+      // ONLY use aloa_forms
+      const response = await fetch(`/api/aloa-forms/${params.formId}`);
+      
       if (!response.ok) throw new Error('Failed to fetch form');
+      
       const data = await response.json();
       setForm(data);
-      setFields(data.form_fields || []);
+      setFields(data.aloa_form_fields || []);
       setFormTitle(data.title || '');
       setFormDescription(data.description || '');
     } catch (error) {
@@ -112,7 +115,8 @@ function EditFormPageContent() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const response = await fetch(`/api/forms/edit-fields/${params.formId}`, {
+      // ONLY use aloa-forms API
+      const response = await fetch(`/api/aloa-forms/${params.formId}/edit-fields`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

@@ -7,7 +7,7 @@ export async function DELETE(request, { params }) {
     
     // Delete the response
     const { error } = await supabase
-      .from('form_responses')
+      .from('aloa_form_responses')
       .delete()
       .eq('id', responseId);
     
