@@ -23,6 +23,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { 
   Plus, 
@@ -41,7 +42,10 @@ import {
   ChevronUp,
   Edit,
   X,
-  Bot
+  Bot,
+  ExternalLink,
+  BarChart,
+  Edit2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -85,6 +89,7 @@ export default function ProjectletAppletsManager({
   startWithLibraryOpen = false,
   onAppletsUpdated
 }) {
+  const router = useRouter();
   const [applets, setApplets] = useState([]);
   const [libraryApplets, setLibraryApplets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -510,44 +515,113 @@ export default function ProjectletAppletsManager({
                             <span className="text-xs ml-2">{applet.completion_percentage}%</span>
                           </div>
                         )}
+
+                        {/* User Progress Summary */}
+                        {applet.user_progress_summary && applet.user_progress_summary.total_users > 0 && (
+                          <div className="flex items-center space-x-2 ml-4">
+                            <div className="flex items-center text-xs">
+                              {applet.user_progress_summary.completed_count > 0 && (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded">
+                                  ✓ {applet.user_progress_summary.completed_count} completed
+                                </span>
+                              )}
+                              {applet.user_progress_summary.in_progress_count > 0 && (
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded ml-1">
+                                  ⏳ {applet.user_progress_summary.in_progress_count} in progress
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Type-specific content */}
                       {applet.type === 'form' && (
                         <div className="mt-2 text-sm">
-                          <span className="font-medium">Form:</span>
-                          <select
-                            value={applet.form_id || ''}
-                            onChange={(e) => {
-                              if (e.target.value === 'create_new') {
-                                // Set this applet as selected and show AI form builder
-                                setSelectedLibraryApplet(applet);
-                                setShowAIFormBuilder(true);
-                              } else if (e.target.value) {
-                                console.log('Updating applet form_id:', applet.id, 'to:', e.target.value);
-                                updateApplet(applet.id, { 
-                                  form_id: e.target.value,
-                                  config: { 
-                                    ...applet.config,
-                                    form_id: e.target.value 
-                                  }
-                                });
-                              }
-                            }}
-                            className="ml-2 px-2 py-1 bg-white border rounded text-sm"
-                          >
-                            <option value="">Select a form...</option>
-                            <option value="create_new" className="font-semibold text-purple-600">
-                              ✨ Create New Form with AI
-                            </option>
-                            <optgroup label="Existing Forms">
-                              {availableForms.map(form => (
-                                <option key={form.id} value={form.id}>
-                                  {form.title}
-                                </option>
-                              ))}
-                            </optgroup>
-                          </select>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium">Form:</span>
+                            <select
+                              value={applet.form_id || ''}
+                              onChange={(e) => {
+                                if (e.target.value === 'create_new') {
+                                  // Set this applet as selected and show AI form builder
+                                  setSelectedLibraryApplet(applet);
+                                  setShowAIFormBuilder(true);
+                                } else if (e.target.value) {
+                                  console.log('Updating applet form_id:', applet.id, 'to:', e.target.value);
+                                  updateApplet(applet.id, { 
+                                    form_id: e.target.value,
+                                    config: { 
+                                      ...applet.config,
+                                      form_id: e.target.value 
+                                    }
+                                  });
+                                }
+                              }}
+                              className="px-2 py-1 bg-white border rounded text-sm flex-1 max-w-xs"
+                            >
+                              <option value="">Select a form...</option>
+                              <option value="create_new" className="font-semibold text-purple-600">
+                                ✨ Create New Form with AI
+                              </option>
+                              <optgroup label="Existing Forms">
+                                {availableForms.map(form => (
+                                  <option key={form.id} value={form.id}>
+                                    {form.title}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            </select>
+                            
+                            {/* Form action icons */}
+                            {applet.form_id && (
+                              <div className="flex items-center space-x-1">
+                                <button
+                                  onClick={() => {
+                                    const form = availableForms.find(f => f.id === applet.form_id);
+                                    if (form?.urlId || form?.url_id) {
+                                      window.open(`/forms/${form.urlId || form.url_id}`, '_blank');
+                                    }
+                                  }}
+                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                  title="View Form"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => router.push(`/edit/${applet.form_id}`)}
+                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                  title="Edit Form"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => router.push(`/responses/${applet.form_id}`)}
+                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                  title="View Responses"
+                                >
+                                  <BarChart className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Are you sure you want to remove this form from the applet?')) {
+                                      updateApplet(applet.id, { 
+                                        form_id: null,
+                                        config: { 
+                                          ...applet.config,
+                                          form_id: null 
+                                        }
+                                      });
+                                    }
+                                  }}
+                                  className="p-1 hover:bg-red-100 text-red-600 rounded transition-colors"
+                                  title="Remove Form"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
 
@@ -567,6 +641,29 @@ export default function ProjectletAppletsManager({
                       {/* Expanded Details */}
                       {isExpanded && (
                         <div className="mt-4 p-3 bg-white/50 rounded space-y-2">
+                          {/* User Completion Details */}
+                          {applet.user_progress_summary && applet.user_progress_summary.completed_users?.length > 0 && (
+                            <div>
+                              <span className="text-xs font-bold">Completed by:</span>
+                              <div className="mt-1 space-y-1">
+                                {applet.user_progress_summary.completed_users.map((user, idx) => (
+                                  <div key={idx} className="text-xs flex items-center">
+                                    <CheckCircle className="w-3 h-3 text-green-600 mr-1" />
+                                    <span className="text-gray-600">
+                                      {user.user_id.startsWith('client_') ? 
+                                        `Client ${user.user_id.substring(7, 13)}...` : 
+                                        user.user_id}
+                                    </span>
+                                    {user.completed_at && (
+                                      <span className="text-gray-400 ml-2">
+                                        {new Date(user.completed_at).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           {applet.client_instructions && (
                             <div>
                               <span className="text-xs font-bold">Client Instructions:</span>

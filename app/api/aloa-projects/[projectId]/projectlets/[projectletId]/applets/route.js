@@ -19,8 +19,37 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Failed to fetch applets' }, { status: 500 });
     }
 
-    console.log(`Found ${applets?.length || 0} applets for projectlet ${projectletId}:`, applets);
-    return NextResponse.json({ applets: applets || [] });
+    // Fetch user progress for each applet
+    const appletsWithProgress = await Promise.all(applets.map(async (applet) => {
+      // Get all user progress records for this applet
+      const { data: userProgress } = await supabase
+        .from('aloa_applet_progress')
+        .select('user_id, status, completion_percentage, completed_at')
+        .eq('applet_id', applet.id);
+
+      // Calculate completion stats
+      const completedUsers = userProgress?.filter(p => 
+        p.status === 'completed' || p.status === 'approved'
+      ) || [];
+      
+      const inProgressUsers = userProgress?.filter(p => 
+        p.status === 'in_progress'
+      ) || [];
+
+      return {
+        ...applet,
+        user_progress_summary: {
+          total_users: userProgress?.length || 0,
+          completed_count: completedUsers.length,
+          in_progress_count: inProgressUsers.length,
+          completed_users: completedUsers,
+          all_progress: userProgress || []
+        }
+      };
+    }));
+
+    console.log(`Found ${appletsWithProgress?.length || 0} applets for projectlet ${projectletId}`);
+    return NextResponse.json({ applets: appletsWithProgress || [] });
   } catch (error) {
     console.error('Error in applets route:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -1,6 +1,8 @@
 {
-  "/project-setup/page": "app/project-setup/page.js",
-  "/api/aloa-applets/library/route": "app/api/aloa-applets/library/route.js",
-  "/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route": "app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route.js",
-  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js"
+  "/project/[projectId]/dashboard/page": "app/project/[projectId]/dashboard/page.js",
+  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/responses/[formId]/page": "app/responses/[formId]/page.js",
+  "/api/aloa-projects/[projectId]/notifications/route": "app/api/aloa-projects/[projectId]/notifications/route.js",
+  "/forms/[urlId]/page": "app/forms/[urlId]/page.js"
 }

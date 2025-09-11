@@ -34,6 +34,7 @@ function ResponsesPage() {
       const formData = await formRes.json();
       const responsesData = await responsesRes.json();
 
+      // Use the aloa_ structure directly
       setForm(formData);
       setResponses(responsesData);
     } catch (error) {
@@ -84,14 +85,14 @@ function ResponsesPage() {
       return str;
     };
 
-    const headers = ['Submitted At', ...form.fields.map(f => f.label)].map(escapeCSV).join(',');
+    const headers = ['Submitted At', ...form.aloa_form_fields.map(f => f.field_label)].map(escapeCSV).join(',');
     const rows = responses.map(response => {
       const submittedAt = formatDate(response.submittedAt);
-      const values = [submittedAt, ...form.fields.map(field => {
+      const values = [submittedAt, ...form.aloa_form_fields.map(field => {
         // Handle both Map and plain object data structures
         const value = response.data instanceof Map ? 
-          response.data.get(field.name) : 
-          response.data[field.name] || '';
+          response.data.get(field.field_name) : 
+          response.data[field.field_name] || '';
         return Array.isArray(value) ? value.join('; ') : value;
       })];
       return values.map(escapeCSV).join(',');
@@ -130,7 +131,7 @@ function ResponsesPage() {
     );
   }
 
-  if (!form) {
+  if (!form || !form.aloa_form_fields) {
     return null;
   }
 
@@ -173,7 +174,7 @@ function ResponsesPage() {
               No responses yet
             </p>
             <button
-              onClick={() => window.open(`/forms/${form.urlId}`, '_blank')}
+              onClick={() => window.open(`/forms/${form.url_id}`, '_blank')}
               className="btn-primary mx-auto"
             >
               View Form
@@ -193,24 +194,24 @@ function ResponsesPage() {
                     </p>
                     {(() => {
                       // Try to find a name field in the response
-                      const nameField = form.fields.find(f => 
-                        f.name?.toLowerCase().includes('name') || 
-                        f.label?.toLowerCase().includes('name')
+                      const nameField = form.aloa_form_fields.find(f => 
+                        f.field_name?.toLowerCase().includes('name') || 
+                        f.field_label?.toLowerCase().includes('name')
                       );
-                      const emailField = form.fields.find(f => 
-                        f.name?.toLowerCase().includes('email') || 
-                        f.label?.toLowerCase().includes('email')
+                      const emailField = form.aloa_form_fields.find(f => 
+                        f.field_name?.toLowerCase().includes('email') || 
+                        f.field_label?.toLowerCase().includes('email')
                       );
                       
                       const nameValue = nameField ? 
                         (response.data instanceof Map ? 
-                          response.data.get(nameField.name) : 
-                          response.data[nameField.name]) : null;
+                          response.data.get(nameField.field_name) : 
+                          response.data[nameField.field_name]) : null;
                       
                       const emailValue = emailField ? 
                         (response.data instanceof Map ? 
-                          response.data.get(emailField.name) : 
-                          response.data[emailField.name]) : null;
+                          response.data.get(emailField.field_name) : 
+                          response.data[emailField.field_name]) : null;
                       
                       const displayValue = nameValue || emailValue;
                       
@@ -254,11 +255,11 @@ function ResponsesPage() {
                     className="mt-6 pt-6 border-t-2 border-aloa-sand"
                   >
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {form.fields.map((field) => {
+                      {form.aloa_form_fields.map((field) => {
                         // Handle both Map and plain object data structures
                         const value = response.data instanceof Map ? 
-                          response.data.get(field.name) : 
-                          response.data[field.name];
+                          response.data.get(field.field_name) : 
+                          response.data[field.field_name];
                         if (!value || (Array.isArray(value) && value.length === 0)) {
                           return null;
                         }
@@ -266,7 +267,7 @@ function ResponsesPage() {
                         return (
                           <div key={field._id || field.id} className="bg-aloa-sand p-3">
                             <p className="text-xs font-display uppercase tracking-wider text-aloa-gray mb-1">
-                              {field.label}
+                              {field.field_label}
                             </p>
                             <p className="text-aloa-black font-body break-words">
                               {Array.isArray(value) ? value.join(', ') : value}

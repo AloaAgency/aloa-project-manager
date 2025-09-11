@@ -5,8 +5,10 @@ import { supabase } from '@/lib/supabase';
 export async function GET(request, { params }) {
   try {
     const { projectId } = params;
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId') || 'anonymous';
     
-    console.log(`Fetching client view for project: ${projectId}`);
+    console.log(`Fetching client view for project: ${projectId}, user: ${userId}`);
 
     // Fetch project details
     const { data: project, error: projectError } = await supabase
@@ -43,9 +45,34 @@ export async function GET(request, { params }) {
       applets: projectlet.applets?.sort((a, b) => a.order_index - b.order_index) || []
     })) || [];
 
-    // For each form applet, fetch the associated form details
+    // Fetch user-specific progress for each applet
+    const { data: userProgress } = await supabase
+      .from('aloa_applet_progress')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('user_id', userId);
+
+    // Create a map of user progress by applet ID
+    const progressMap = {};
+    userProgress?.forEach(progress => {
+      progressMap[progress.applet_id] = progress;
+    });
+
+    // For each form applet, fetch the associated form details and apply user progress
     for (const projectlet of sortedProjectlets) {
       for (const applet of projectlet.applets) {
+        // Apply user-specific progress
+        const userAppletProgress = progressMap[applet.id];
+        if (userAppletProgress) {
+          applet.user_status = userAppletProgress.status;
+          applet.user_completion_percentage = userAppletProgress.completion_percentage;
+          applet.user_started_at = userAppletProgress.started_at;
+          applet.user_completed_at = userAppletProgress.completed_at;
+          applet.form_progress = userAppletProgress.form_progress;
+        } else {
+          applet.user_status = 'not_started';
+          applet.user_completion_percentage = 0;
+        }
         if (applet.type === 'form' && applet.form_id) {
           const { data: form } = await supabase
             .from('aloa_forms')
@@ -83,10 +110,12 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Calculate overall project progress
+    // Calculate overall project progress based on user-specific status
     const totalApplets = sortedProjectlets.reduce((sum, p) => sum + p.applets.length, 0);
     const completedApplets = sortedProjectlets.reduce((sum, p) => 
-      sum + p.applets.filter(a => a.status === 'completed' || a.status === 'approved').length, 0
+      sum + p.applets.filter(a => 
+        (a.user_status === 'completed' || a.user_status === 'approved')
+      ).length, 0
     );
     const progressPercentage = totalApplets > 0 ? Math.round((completedApplets / totalApplets) * 100) : 0;
 
@@ -111,31 +140,45 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const { projectId } = params;
-    const { appletId, status, interactionType, data } = await request.json();
+    const { appletId, status, interactionType, data, userId = 'anonymous' } = await request.json();
 
-    console.log(`Client interaction - Project: ${projectId}, Applet: ${appletId}, Type: ${interactionType}`);
+    console.log(`Client interaction - Project: ${projectId}, Applet: ${appletId}, User: ${userId}, Type: ${interactionType}, Status: ${status}`);
 
-    // Update applet status
-    const updateData = { status };
-    
-    // Add timestamps based on status
-    if (status === 'in_progress') {
-      updateData.started_at = new Date().toISOString();
-    } else if (status === 'completed') {
-      updateData.completed_at = new Date().toISOString();
-      updateData.completion_percentage = 100;
+    // Update user-specific applet progress
+    const { data: userProgress, error: progressError } = await supabase
+      .rpc('update_applet_progress', {
+        p_applet_id: appletId,
+        p_user_id: userId,
+        p_project_id: projectId,
+        p_status: status,
+        p_completion_percentage: status === 'completed' ? 100 : null,
+        p_form_progress: data?.form_progress || null
+      });
+
+    if (progressError) {
+      console.error('Error updating user progress:', progressError);
+      return NextResponse.json({ error: 'Failed to update progress' }, { status: 500 });
     }
 
-    const { data: updatedApplet, error: updateError } = await supabase
-      .from('aloa_applets')
-      .update(updateData)
-      .eq('id', appletId)
-      .select()
-      .single();
+    console.log('User progress updated successfully:', userProgress);
 
-    if (updateError) {
-      console.error('Error updating applet:', updateError);
-      return NextResponse.json({ error: 'Failed to update applet' }, { status: 500 });
+    // Also update the main applet status if admin or for tracking purposes
+    if (status === 'completed') {
+      // Update the applet's default status for admin view
+      const updateData = { 
+        status: 'completed',
+        completion_percentage: 100,
+        completed_at: new Date().toISOString()
+      };
+      
+      const { error: appletError } = await supabase
+        .from('aloa_applets')
+        .update(updateData)
+        .eq('id', appletId);
+      
+      if (appletError) {
+        console.error('Error updating applet default status:', appletError);
+      }
     }
 
     // Record the interaction
@@ -188,7 +231,7 @@ export async function POST(request, { params }) {
 
     return NextResponse.json({ 
       success: true, 
-      applet: updatedApplet 
+      progress: userProgress 
     });
   } catch (error) {
     console.error('Error in client interaction:', error);

@@ -71,6 +71,7 @@ export async function GET(request) {
         projectName,
         fields: fields || [],
         responseCount: responseCount || 0,
+        response_count: responseCount || 0, // Also include with underscore for compatibility
         status: form.status
       };
     }));

@@ -104,11 +104,13 @@ export async function POST(request) {
       );
     }
     
-    // Create response in aloa_form_responses
+    // Create response in aloa_form_responses with project ID
     const { data: response, error: responseError } = await supabase
       .from('aloa_form_responses')
       .insert([{
         aloa_form_id: body.formId,
+        aloa_project_id: body.projectId || null, // Include project ID if provided
+        responses: body.data || {}, // Add the responses field
         submitted_at: new Date().toISOString(),
         ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
         user_agent: request.headers.get('user-agent')

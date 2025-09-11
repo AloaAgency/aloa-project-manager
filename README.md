@@ -84,21 +84,25 @@ RESEND_API_KEY=your-resend-key
 
 Run these SQL files in your Supabase SQL editor in order:
 ```sql
--- 1. Base schema (if you need the legacy forms system)
-migrations/supabase-schema.sql
+-- 1. SKIP legacy schema - DO NOT RUN supabase-schema.sql
 
--- 2. Aloa project management tables (required)
+-- 2. Aloa project management tables (REQUIRED)
 migrations/aloa_project_management_schema.sql
 
--- 3. Applets system for modular projectlet components
+-- 3. Applets system for modular projectlet components (REQUIRED)
 migrations/add_applets_system.sql
 
 -- 4. Project knowledge base for AI context
 migrations/add_project_knowledge_base.sql
 
--- 5. Optional: Add form status fields for closing/reopening
+-- 5. User-specific applet progress tracking (REQUIRED)
+migrations/add-user-applet-progress.sql
+
+-- 6. Optional: Add form status fields for closing/reopening
 migrations/add_form_status_fields.sql
 ```
+
+**IMPORTANT**: Only use tables with `aloa_` prefix. Never reference or create tables without this prefix.
 
 5. **Start development server**
 ```bash
@@ -159,16 +163,36 @@ The system guides projects through these phases:
 
 ## Database Structure
 
-All tables use `aloa_` prefix to avoid conflicts:
+**CRITICAL: All tables and fields MUST use the `aloa_` prefix. Never use or reference the old database structure without this prefix.**
+
+### Current Database Tables (ALWAYS USE THESE):
 - `aloa_projects` - Main project container
 - `aloa_projectlets` - Mini-projects/tasks
-- `aloa_project_forms` - Form definitions
-- `aloa_project_responses` - Form submissions
+- `aloa_applets` - Modular components within projectlets
+- `aloa_applet_library` - Reusable applet templates
+- `aloa_applet_interactions` - Tracking applet interactions
+- `aloa_applet_progress` - User-specific applet progress tracking
+- `aloa_forms` - Form definitions (NOT forms table)
+- `aloa_form_fields` - Form field definitions (NOT form_fields)
+- `aloa_form_responses` - Form submissions (NOT responses)
+- `aloa_form_response_answers` - Individual form answers
+- `aloa_project_forms` - Link forms to projects
 - `aloa_project_timeline` - Event tracking
 - `aloa_project_team` - Team members
-- `aloa_project_files` - Deliverables
-- `aloa_notification_queue` - Email reminders
-- `aloa_project_achievements` - Gamification
+- `aloa_project_documents` - Project files and deliverables
+- `aloa_project_knowledge` - AI knowledge base
+- `aloa_project_insights` - AI-generated insights
+
+### Important Field Naming Conventions:
+- Form fields use: `field_name`, `field_label`, `field_type` (NOT name, label, type)
+- Forms use: `url_id` (NOT urlId)
+- Project references: `aloa_project_id` (NOT project_id)
+- Form references: `aloa_form_id` (NOT form_id)
+
+### Legacy Tables (DO NOT USE):
+- ❌ `forms` - Old form system, replaced by `aloa_forms`
+- ❌ `responses` - Old responses, replaced by `aloa_form_responses`
+- ❌ Any table without `aloa_` prefix
 
 ## API Routes
 
@@ -178,9 +202,14 @@ All tables use `aloa_` prefix to avoid conflicts:
 - `GET /api/aloa-projects/[projectId]/projectlets` - Get projectlets
 - `PATCH /api/aloa-projects/[projectId]/projectlets` - Update status
 
-### Legacy Form System (maintained for compatibility)
-- `/api/forms/*` - Original form CRUD operations
-- `/api/responses/*` - Form response management
+### Form Management APIs (ALWAYS USE ALOA_ ENDPOINTS)
+- `/api/aloa-forms/*` - Form CRUD operations (uses aloa_forms table)
+- `/api/aloa-responses/*` - Form response management (uses aloa_form_responses table)
+- `/api/aloa-projects/[projectId]/client-view` - Client dashboard data with user progress
+
+### Legacy APIs (DEPRECATED - DO NOT USE)
+- ❌ `/api/forms/*` - Old form system, do not use
+- ❌ `/api/responses/*` - Old response system, do not use
 
 ## Development
 
@@ -201,6 +230,12 @@ Optimized for Vercel:
 
 ## Recent Updates (January 2025)
 
+### 🔥 Critical Database Migration
+- **IMPORTANT**: All database interactions now use `aloa_` prefixed tables and fields
+- **User Progress Tracking**: Added `aloa_applet_progress` table for individual client tracking
+- **Form Response Linking**: Form responses now properly link to projects via `aloa_project_id`
+- **Field Name Consistency**: All form fields use `field_name`, `field_label`, etc. (not `name`, `label`)
+
 ### 🎉 New Features
 - **Client Form Modal**: Integrated multi-step form rendering in client dashboard
 - **Form Progress Saving**: Automatic saving of partial form completions
@@ -214,6 +249,10 @@ Optimized for Vercel:
 - Fixed form parsing to properly separate labels from placeholders
 - Fixed options parsing for select, radio, checkbox, and multiselect fields
 - Resolved runtime errors with form creation
+- **Fixed database field references to use aloa_ prefix consistently**
+- **Fixed response viewer to use aloa_form_fields structure**
+- **Fixed form submission to include project ID linkage**
+- **Added user-specific progress tracking for multi-client support**
 
 ## Previous Updates (December 2024)
 

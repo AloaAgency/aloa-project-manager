@@ -38,7 +38,10 @@ import {
   GripVertical,
   Settings,
   Copy,
-  Bell
+  Bell,
+  ExternalLink,
+  BarChart,
+  Edit2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -88,6 +91,7 @@ function AdminProjectPageContent() {
   const [editingProjectletName, setEditingProjectletName] = useState(null);
   const [tempProjectletName, setTempProjectletName] = useState('');
   const [draggedProjectlet, setDraggedProjectlet] = useState(null);
+  const [isDraggingApplet, setIsDraggingApplet] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(null);
   const [showAppletManager, setShowAppletManager] = useState(false);
   const [selectedProjectletForApplet, setSelectedProjectletForApplet] = useState(null);
@@ -216,6 +220,60 @@ function AdminProjectPageContent() {
     }
   };
 
+  const fetchProjectForms = async () => {
+    try {
+      const formsRes = await fetch(`/api/aloa-forms?project=${params.projectId}`);
+      const formsData = await formsRes.json();
+      setAvailableForms(formsData || []);
+      setProjectForms(formsData || []);
+    } catch (error) {
+      console.error('Error fetching project forms:', error);
+    }
+  };
+
+  const toggleFormStatus = async (formId, currentStatus) => {
+    const isClosing = currentStatus !== false;
+    const action = isClosing ? 'close' : 'reopen';
+    
+    if (!confirm(`Are you sure you want to ${action} this form?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/aloa-forms/${formId}/toggle-status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          is_active: !isClosing,
+          closed_message: isClosing ? 'This survey is now closed. Thank you for your interest!' : null
+        })
+      });
+
+      if (response.ok) {
+        // Refresh forms
+        await fetchProjectForms();
+        // Refresh applets for all projectlets
+        projectlets.forEach(projectlet => {
+          fetchProjectletApplets(projectlet.id);
+        });
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-4 right-4 ${action === 'close' ? 'bg-orange-600' : 'bg-green-600'} text-white px-4 py-2 rounded-lg shadow-lg z-50`;
+        toast.textContent = `Form ${action === 'close' ? 'closed' : 'reopened'} successfully`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      } else {
+        throw new Error('Failed to toggle form status');
+      }
+    } catch (error) {
+      console.error('Error toggling form status:', error);
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      toast.textContent = `Failed to ${action} form`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+  };
+
   const fetchProjectData = async () => {
     try {
       // Fetch project details
@@ -242,11 +300,8 @@ function AdminProjectPageContent() {
         setTeamMembers(teamData.team);
       }
 
-      // Fetch aloa_forms for this project
-      const formsRes = await fetch(`/api/aloa-forms?projectId=${params.projectId}`);
-      const formsData = await formsRes.json();
-      setAvailableForms(formsData || []);
-      setProjectForms(formsData || []);
+      // Fetch forms for this project
+      await fetchProjectForms();
     } catch (error) {
       console.error('Error fetching project data:', error);
     } finally {
@@ -477,8 +532,11 @@ function AdminProjectPageContent() {
   };
 
   const handleDragStart = (e, projectlet, index) => {
-    setDraggedProjectlet({ projectlet, index });
-    e.dataTransfer.effectAllowed = 'move';
+    // Only handle projectlet drag if it's not an applet being dragged
+    if (!e.dataTransfer.getData('isApplet')) {
+      setDraggedProjectlet({ projectlet, index });
+      e.dataTransfer.effectAllowed = 'move';
+    }
   };
 
   const handleDragOver = (e) => {
@@ -488,6 +546,11 @@ function AdminProjectPageContent() {
 
   const handleDrop = async (e, targetIndex) => {
     e.preventDefault();
+    
+    // Don't handle if it's an applet being dropped
+    const isApplet = e.dataTransfer.getData('isApplet');
+    if (isApplet) return;
+    
     if (!draggedProjectlet || draggedProjectlet.index === targetIndex) {
       return;
     }
@@ -902,47 +965,89 @@ function AdminProjectPageContent() {
                               return (
                                 <div 
                                   key={applet.id} 
-                                  className="p-2 bg-white/50 rounded cursor-move hover:bg-white/70 transition-colors group"
+                                  className="p-2 bg-white/50 rounded cursor-move hover:bg-white/70 transition-colors group border-2 border-transparent"
                                   draggable
                                   onDragStart={(e) => {
+                                    e.stopPropagation(); // Prevent projectlet from being dragged
+                                    setIsDraggingApplet(true);
                                     e.dataTransfer.effectAllowed = 'move';
                                     e.dataTransfer.setData('appletId', applet.id);
                                     e.dataTransfer.setData('appletIndex', appletIndex);
                                     e.dataTransfer.setData('projectletId', projectlet.id);
+                                    e.dataTransfer.setData('isApplet', 'true'); // Mark as applet drag
+                                  }}
+                                  onDragEnd={() => {
+                                    setIsDraggingApplet(false);
                                   }}
                                   onDragOver={(e) => {
                                     e.preventDefault();
-                                    e.currentTarget.classList.add('bg-blue-50');
+                                    e.stopPropagation();
+                                    e.currentTarget.style.backgroundColor = '#DBEAFE';
+                                    e.currentTarget.style.borderColor = '#3B82F6';
                                   }}
                                   onDragLeave={(e) => {
-                                    e.currentTarget.classList.remove('bg-blue-50');
+                                    e.currentTarget.style.backgroundColor = '';
+                                    e.currentTarget.style.borderColor = '';
                                   }}
                                   onDrop={async (e) => {
                                     e.preventDefault();
-                                    e.currentTarget.classList.remove('bg-blue-50');
+                                    e.stopPropagation();
+                                    e.currentTarget.style.backgroundColor = '';
+                                    e.currentTarget.style.borderColor = '';
+                                    
+                                    const isApplet = e.dataTransfer.getData('isApplet');
+                                    if (!isApplet) return; // Only handle applet drops
                                     
                                     const draggedAppletId = e.dataTransfer.getData('appletId');
                                     const draggedIndex = parseInt(e.dataTransfer.getData('appletIndex'));
                                     const sourceProjectletId = e.dataTransfer.getData('projectletId');
                                     
-                                    // Only reorder if within same projectlet
-                                    if (sourceProjectletId === projectlet.id && draggedIndex !== appletIndex) {
-                                      const reorderedApplets = [...applets];
-                                      const [movedApplet] = reorderedApplets.splice(draggedIndex, 1);
-                                      reorderedApplets.splice(appletIndex, 0, movedApplet);
-                                      
-                                      // Update order in database
+                                    if (sourceProjectletId === projectlet.id) {
+                                      // Reordering within same projectlet
+                                      if (draggedIndex !== appletIndex) {
+                                        const reorderedApplets = [...applets];
+                                        const [movedApplet] = reorderedApplets.splice(draggedIndex, 1);
+                                        reorderedApplets.splice(appletIndex, 0, movedApplet);
+                                        
+                                        // Update order in database
+                                        try {
+                                          await fetch(`/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/reorder`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                              appletIds: reorderedApplets.map(a => a.id)
+                                            })
+                                          });
+                                          fetchProjectletApplets(projectlet.id);
+                                        } catch (error) {
+                                          console.error('Error reordering applets:', error);
+                                        }
+                                      }
+                                    } else {
+                                      // Moving between projectlets
                                       try {
-                                        await fetch(`/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/reorder`, {
-                                          method: 'PUT',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({
-                                            appletIds: reorderedApplets.map(a => a.id)
-                                          })
-                                        });
-                                        fetchProjectletApplets(projectlet.id);
+                                        // Update the applet's projectlet_id
+                                        const response = await fetch(
+                                          `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${draggedAppletId}`,
+                                          {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                              projectlet_id: projectlet.id,
+                                              order_index: appletIndex
+                                            })
+                                          }
+                                        );
+                                        
+                                        if (response.ok) {
+                                          // Refresh both projectlets
+                                          fetchProjectletApplets(sourceProjectletId);
+                                          fetchProjectletApplets(projectlet.id);
+                                          toast.success('Applet moved successfully');
+                                        }
                                       } catch (error) {
-                                        console.error('Error reordering applets:', error);
+                                        console.error('Error moving applet:', error);
+                                        toast.error('Failed to move applet');
                                       }
                                     }
                                   }}
@@ -973,17 +1078,6 @@ function AdminProjectPageContent() {
                                       {/* Edit and Delete buttons */}
                                       <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            // Open applet editor
-                                            console.log('Edit applet:', applet.id);
-                                          }}
-                                          className="p-1 hover:bg-gray-200 rounded"
-                                          title="Edit applet"
-                                        >
-                                          <Pencil className="w-3 h-3 text-gray-600" />
-                                        </button>
-                                        <button
                                           onClick={async (e) => {
                                             e.stopPropagation();
                                             if (confirm(`Delete applet "${applet.name}"?`)) {
@@ -1011,7 +1105,7 @@ function AdminProjectPageContent() {
                                   
                                   {/* Inline form selector for form applets */}
                                   {applet.type === 'form' && (
-                                    <div className="mt-2">
+                                    <div className="mt-2 flex items-center space-x-2">
                                       <select
                                         value={applet.form_id || applet.config?.form_id || ''}
                                         onChange={async (e) => {
@@ -1047,7 +1141,7 @@ function AdminProjectPageContent() {
                                             }
                                           }
                                         }}
-                                        className="w-full text-sm px-2 py-1 border rounded bg-white"
+                                        className="flex-1 max-w-xs text-sm px-2 py-1 border rounded bg-white"
                                       >
                                         <option value="">Select a form...</option>
                                         <option value="create_new">✨ Create New Form with AI</option>
@@ -1057,15 +1151,186 @@ function AdminProjectPageContent() {
                                           </option>
                                         ))}
                                       </select>
+                                      
+                                      {/* Form action icons */}
+                                      {(applet.form_id || applet.config?.form_id) && (
+                                        <div className="flex items-center space-x-1">
+                                          {(() => {
+                                            const formId = applet.form_id || applet.config?.form_id;
+                                            const form = availableForms.find(f => f.id === formId);
+                                            return (
+                                              <>
+                                                <button
+                                                  onClick={() => toggleFormStatus(formId, form?.is_active)}
+                                                  className={`p-1 rounded transition-colors ${
+                                                    form?.is_active === false 
+                                                      ? 'hover:bg-green-200 text-green-600' 
+                                                      : 'hover:bg-orange-200 text-orange-600'
+                                                  }`}
+                                                  title={form?.is_active === false ? 'Reopen Form' : 'Close Form'}
+                                                >
+                                                  {form?.is_active === false ? (
+                                                    <Unlock className="w-4 h-4" />
+                                                  ) : (
+                                                    <Lock className="w-4 h-4" />
+                                                  )}
+                                                </button>
+                                                <button
+                                                  onClick={() => {
+                                                    if (form?.urlId || form?.url_id) {
+                                                      window.open(`/forms/${form.urlId || form.url_id}`, '_blank');
+                                                    }
+                                                  }}
+                                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                  title="View Form"
+                                                >
+                                                  <ExternalLink className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                  onClick={() => router.push(`/edit/${formId}`)}
+                                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                  title="Edit Form"
+                                                >
+                                                  <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                  onClick={() => router.push(`/responses/${formId}`)}
+                                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                  title="View Responses"
+                                                >
+                                                  <BarChart className="w-4 h-4" />
+                                                </button>
+                                              </>
+                                            );
+                                          })()}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>
                               );
                             })}
+                            
+                            {/* Drop zone at the end of applets list */}
+                            <div
+                              className={`py-3 border-2 border-dashed rounded-lg transition-all ${
+                                isDraggingApplet 
+                                  ? 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50' 
+                                  : 'border-transparent'
+                              }`}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.currentTarget.style.borderColor = '#3B82F6';
+                                e.currentTarget.style.backgroundColor = '#DBEAFE';
+                              }}
+                              onDragLeave={(e) => {
+                                e.currentTarget.style.borderColor = '';
+                                e.currentTarget.style.backgroundColor = '';
+                              }}
+                              onDrop={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.currentTarget.style.borderColor = '';
+                                e.currentTarget.style.backgroundColor = '';
+                                
+                                const isApplet = e.dataTransfer.getData('isApplet');
+                                if (!isApplet) return; // Ignore if not an applet drag
+                                
+                                const draggedAppletId = e.dataTransfer.getData('appletId');
+                                const sourceProjectletId = e.dataTransfer.getData('projectletId');
+                                
+                                if (sourceProjectletId !== projectlet.id) {
+                                  // Moving from another projectlet
+                                  try {
+                                    const response = await fetch(
+                                      `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${draggedAppletId}`,
+                                      {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          projectlet_id: projectlet.id,
+                                          order_index: applets.length // Add at the end
+                                        })
+                                      }
+                                    );
+                                    
+                                    if (response.ok) {
+                                      fetchProjectletApplets(sourceProjectletId);
+                                      fetchProjectletApplets(projectlet.id);
+                                      toast.success('Applet moved successfully');
+                                    }
+                                  } catch (error) {
+                                    console.error('Error moving applet:', error);
+                                    toast.error('Failed to move applet');
+                                  }
+                                }
+                              }}
+                            >
+                              {isDraggingApplet && (
+                                <p className="text-xs text-gray-500 text-center font-medium">Drop applet here</p>
+                              )}
+                            </div>
                           </div>
                         ) : (
-                          <div className="py-4 text-center border-2 border-dashed border-gray-300 rounded-lg bg-white/30">
-                            <p className="text-sm text-gray-500 mb-2">No applets added yet</p>
+                          <div 
+                            className={`text-center border-2 border-dashed rounded-lg bg-white/30 transition-all ${
+                              isDraggingApplet
+                                ? 'py-6 border-gray-300 hover:border-blue-400'
+                                : 'py-4 border-gray-200'
+                            }`}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              e.currentTarget.style.borderColor = '#3B82F6';
+                              e.currentTarget.style.backgroundColor = '#DBEAFE';
+                            }}
+                            onDragLeave={(e) => {
+                              e.currentTarget.style.borderColor = '';
+                              e.currentTarget.style.backgroundColor = '';
+                            }}
+                            onDrop={async (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              e.currentTarget.style.borderColor = '';
+                              e.currentTarget.style.backgroundColor = '';
+                              
+                              const isApplet = e.dataTransfer.getData('isApplet');
+                              if (!isApplet) return; // Ignore if not an applet drag
+                              
+                              const draggedAppletId = e.dataTransfer.getData('appletId');
+                              const sourceProjectletId = e.dataTransfer.getData('projectletId');
+                              
+                              if (sourceProjectletId) {
+                                // Moving from another projectlet
+                                try {
+                                  const response = await fetch(
+                                    `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${draggedAppletId}`,
+                                    {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        projectlet_id: projectlet.id,
+                                        order_index: 0 // First position
+                                      })
+                                    }
+                                  );
+                                  
+                                  if (response.ok) {
+                                    fetchProjectletApplets(sourceProjectletId);
+                                    fetchProjectletApplets(projectlet.id);
+                                    toast.success('Applet moved successfully');
+                                  }
+                                } catch (error) {
+                                  console.error('Error moving applet:', error);
+                                  toast.error('Failed to move applet');
+                                }
+                              }
+                            }}
+                          >
+                            <p className="text-sm text-gray-500 mb-2">
+                              {isDraggingApplet ? 'Drop applet here' : 'No applets added yet'}
+                            </p>
                             <button
                               onClick={() => openAppletManager(projectlet)}
                               className="inline-flex items-center px-3 py-1 bg-black text-white rounded-lg hover:bg-gray-800 text-sm"

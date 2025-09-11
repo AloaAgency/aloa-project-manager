@@ -1,20 +1,50 @@
 {
   "pages": {
+    "/admin/project/[projectId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/admin/project/[projectId]/page.js"
+    ],
     "/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/project-setup/page": [
+    "/project/[projectId]/dashboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/project-setup/page.js"
+      "static/chunks/app/project/[projectId]/dashboard/page.js"
     ],
-    "/admin/project/[projectId]/page": [
+    "/admin/projects/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/project/[projectId]/page.js"
+      "static/chunks/app/admin/projects/page.js"
+    ],
+    "/forms/[urlId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/forms/[urlId]/page.js"
+    ],
+    "/dashboard/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/page.js"
+    ],
+    "/responses/[formId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/responses/[formId]/page.js"
+    ],
+    "/edit/[formId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/edit/[formId]/page.js"
+    ],
+    "/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/page.js"
     ]
   }
 }

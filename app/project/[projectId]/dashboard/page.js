@@ -37,27 +37,52 @@ export default function ClientDashboard() {
   const [completedApplets, setCompletedApplets] = useState(new Set());
   const [stats, setStats] = useState({ totalApplets: 0, completedApplets: 0, progressPercentage: 0 });
   const [formProgress, setFormProgress] = useState({}); // Store progress for each form
+  const [userId, setUserId] = useState(null); // Track user ID
 
   useEffect(() => {
-    fetchProjectData();
-  }, [params.projectId]);
+    // Generate or retrieve user ID
+    const storedUserId = localStorage.getItem('client_user_id');
+    if (storedUserId) {
+      setUserId(storedUserId);
+    } else {
+      // Generate a unique ID for this client session
+      const newUserId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('client_user_id', newUserId);
+      setUserId(newUserId);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      fetchProjectData();
+    }
+  }, [params.projectId, userId]);
 
   const fetchProjectData = async () => {
     try {
-      // Fetch project data and projectlets from client-view endpoint
-      const response = await fetch(`/api/aloa-projects/${params.projectId}/client-view`);
+      // Fetch project data and projectlets from client-view endpoint with user ID
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/client-view?userId=${userId}`);
       const data = await response.json();
       
       setProject(data.project);
       setProjectlets(data.projectlets || []);
       setStats(data.stats || { totalApplets: 0, completedApplets: 0, progressPercentage: 0 });
       
-      // Build completed set from database status
+      // Build completed set from user-specific status
       const completed = new Set();
       data.projectlets?.forEach(projectlet => {
         projectlet.applets?.forEach(applet => {
-          if (applet.status === 'completed' || applet.status === 'approved') {
+          // Use user-specific status if available, otherwise fallback to default
+          const status = applet.user_status || applet.status;
+          if (status === 'completed' || status === 'approved') {
             completed.add(applet.id);
+          }
+          // Restore form progress if available
+          if (applet.form_progress && applet.form_id) {
+            setFormProgress(prev => ({
+              ...prev,
+              [applet.form_id]: applet.form_progress
+            }));
           }
         });
       });
@@ -74,14 +99,15 @@ export default function ClientDashboard() {
       return; // Already completed
     }
 
-    // Mark applet as in progress
+    // Mark applet as in progress for this user
     await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         appletId: applet.id,
         status: 'in_progress',
-        interactionType: 'start'
+        interactionType: 'view',
+        userId: userId
       })
     });
 
@@ -169,30 +195,45 @@ export default function ClientDashboard() {
 
   const handleFormSubmit = async (responses) => {
     try {
-      // Submit form response
-      await fetch('/api/aloa-responses', {
+      // Get CSRF token (generate a simple one for now)
+      const csrfToken = Math.random().toString(36).substring(2);
+      document.cookie = `csrf-token=${csrfToken}; path=/`;
+
+      // Submit form response with project ID
+      const responseResult = await fetch('/api/aloa-responses', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
+        },
         body: JSON.stringify({
-          form_id: selectedApplet.form_id,
-          responses,
-          applet_id: selectedApplet.id,
-          projectlet_id: selectedApplet.projectlet_id,
-          project_id: params.projectId
+          formId: selectedApplet.form_id || selectedApplet.form?.id,
+          projectId: params.projectId,  // Include the project ID
+          data: responses
         })
       });
 
-      // Mark applet as completed in database
-      await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+      if (!responseResult.ok) {
+        console.error('Failed to submit form response:', await responseResult.text());
+      }
+
+      // Mark applet as completed for this user
+      const updateResult = await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           appletId: selectedApplet.id,
           status: 'completed',
           interactionType: 'submission',
+          userId: userId,
           data: { form_responses: responses }
         })
       });
+
+      if (!updateResult.ok) {
+        console.error('Failed to update applet status:', await updateResult.text());
+        throw new Error('Failed to mark form as completed');
+      }
 
       // Update local state
       const newCompleted = new Set(completedApplets);
@@ -217,6 +258,7 @@ export default function ClientDashboard() {
       fetchProjectData();
     } catch (error) {
       console.error('Error submitting form:', error);
+      alert('There was an error submitting the form. Please try again.');
     }
   };
 
