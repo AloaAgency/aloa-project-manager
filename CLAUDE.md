@@ -106,11 +106,15 @@ Max: 100                  # Max value/length
 
 ## Database Migrations
 
-Apply migrations in order from `/migrations/`:
+**IMPORTANT**: All SQL migration files should be placed in the `/supabase` folder for organization and easy access. This allows users to quickly find and run SQL scripts in the Supabase SQL editor.
+
+Apply migrations in order from `/supabase/`:
 1. Run base schema from `supabase-schema.sql` (original forms system)
 2. Run `aloa_project_management_schema.sql` (new aloa_ prefixed tables - no conflicts!)
 3. Run `migrate_existing_forms_to_aloa.sql` (backup and migration utilities)
 4. Apply any additional feature migrations
+
+When creating new SQL files, always save them to `/supabase/` folder, not `/migrations/`
 
 ### New Aloa Tables (all prefixed with aloa_ to avoid conflicts):
 - `aloa_projects` - Main project container
