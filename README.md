@@ -7,21 +7,33 @@ A gamified project management system specifically designed for Aloa web design p
 ### Core Project Management
 - **Structured Workflow**: Proven path from contract to launch
 - **Projectlet System**: Sequential mini-projects that unlock as you progress
+- **Applet System**: Modular components within projectlets (forms, content blocks, approvals)
 - **Gamified Progress**: Achievements, progress bars, and milestone celebrations
 - **Client Dashboard**: Real-time project status and progress tracking
 - **Team Management**: Role-based access for clients, designers, developers
 
+### Advanced Projectlet Management
+- **Inline Editing**: Edit projectlet names and descriptions directly in the UI
+- **Drag & Drop Reordering**: Reorganize projectlets by dragging
+- **Real-time Updates**: All changes save automatically
+- **Quick Actions**: Add projectlets and applets without leaving the management view
+- **Applet Library**: Pre-built applet templates for common tasks
+
 ### Smart Forms & Content Collection
+- **AI-Powered Form Builder**: Create forms with project-specific context
+- **Project Knowledge Base**: AI learns from project documents and insights
 - **Design Inspiration Forms**: Mood boards, fonts, color palettes
 - **Content Forms**: Homepage briefs, page content collection
 - **Site Structure Builder**: Interactive sitemap creation
 - **Approval Workflows**: Client review and approval tracking
+- **Form Applets**: Integrate forms directly into projectlets with automatic attachment
 
 ### Project Tracking
 - **Timeline Management**: Automatic deadline tracking and reminders
 - **Progress Visualization**: Percentage complete, stats, achievements
 - **Email Notifications**: Automated updates for deadlines and milestones
 - **Activity Timeline**: Complete history of project events
+- **Knowledge Base System**: Document and insight storage for AI context
 
 ## Tech Stack
 
@@ -78,7 +90,13 @@ migrations/supabase-schema.sql
 -- 2. Aloa project management tables (required)
 migrations/aloa_project_management_schema.sql
 
--- 3. Optional: Add form status fields for closing/reopening
+-- 3. Applets system for modular projectlet components
+migrations/add_applets_system.sql
+
+-- 4. Project knowledge base for AI context
+migrations/add_project_knowledge_base.sql
+
+-- 5. Optional: Add form status fields for closing/reopening
 migrations/add_form_status_fields.sql
 ```
 
@@ -181,22 +199,44 @@ Optimized for Vercel:
 3. Add environment variables
 4. Deploy
 
+## Recent Updates (December 2024)
+
+### 🎉 New Features
+- **Form Applets**: Create forms with AI directly from projectlets
+- **Inline Projectlet Management**: Edit names and descriptions without navigation
+- **Drag & Drop Reordering**: Reorganize projectlets with visual feedback
+- **Project Knowledge Base**: AI learns from your project documents
+- **Applet Library**: Pre-built templates for common project tasks
+- **Quick Actions**: Add projectlets and applets without leaving the view
+
+### 🐛 Bug Fixes
+- Fixed syntax errors in project admin page
+- Made "+ Add Projectlet" button functional
+- Improved applet modal workflow
+
 ## Project Structure
 
 ```
 aloa-project-manager/
 ├── app/
 │   ├── api/
-│   │   └── aloa-projects/    # Project management APIs
+│   │   ├── aloa-projects/    # Project management APIs
+│   │   └── aloa-applets/     # Applet library API
+│   ├── admin/
+│   │   └── project/
+│   │       └── [projectId]/  # Project management UI
 │   ├── project/
 │   │   └── [projectId]/
 │   │       └── dashboard/     # Client dashboard
 │   ├── project-setup/         # Project initialization
+│   ├── create/                # AI form builder
 │   └── page.js                # Home page
+├── components/
+│   ├── ProjectletAppletsManager.js  # Applet management
+│   └── AIChatFormBuilder.js         # AI form creation
 ├── lib/
 │   └── supabase.js           # Database client
-├── migrations/                # SQL schemas
-└── components/               # Reusable components
+└── migrations/                # SQL schemas
 ```
 
 ## Contributing
