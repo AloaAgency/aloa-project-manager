@@ -17,7 +17,9 @@ import {
   Target,
   Zap,
   X,
-  Edit2
+  Edit2,
+  ExternalLink,
+  Link
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
@@ -41,6 +43,7 @@ export default function ClientDashboard() {
   const [userId, setUserId] = useState(null); // Track user ID
   const [userFormResponses, setUserFormResponses] = useState({}); // Track actual form submissions by form ID
   const [isFormViewOnly, setIsFormViewOnly] = useState(false); // Track if form is in view-only mode
+  const [showLinkSubmissionModal, setShowLinkSubmissionModal] = useState(false); // Track link submission modal
 
   useEffect(() => {
     // Generate or retrieve user ID
@@ -258,6 +261,10 @@ export default function ClientDashboard() {
           alert('Unable to load the form. Please try again later.');
         }
       }
+    } else if (applet.type === 'link_submission') {
+      // Handle link submission applet
+      setSelectedApplet({ ...applet, projectlet });
+      setShowLinkSubmissionModal(true);
     }
   };
 
@@ -659,6 +666,90 @@ export default function ClientDashboard() {
           onProgressUpdate={null}
           isViewOnly={isFormViewOnly}
         />
+      )}
+
+      {/* Link Submission Modal */}
+      {showLinkSubmissionModal && selectedApplet && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">
+                  {selectedApplet.config?.heading || 'Links & Resources'}
+                </h2>
+                <button
+                  onClick={() => setShowLinkSubmissionModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              {selectedApplet.config?.description && (
+                <p className="mt-2 text-gray-600">{selectedApplet.config.description}</p>
+              )}
+            </div>
+            
+            <div className="p-6">
+              {selectedApplet.config?.links && selectedApplet.config.links.length > 0 ? (
+                <div className="space-y-4">
+                  {selectedApplet.config.links.map((link, idx) => (
+                    <div key={idx} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start space-x-3 group"
+                      >
+                        <ExternalLink className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0 group-hover:text-blue-700" />
+                        <div className="flex-1">
+                          <p className="font-medium text-blue-600 group-hover:text-blue-700 group-hover:underline">
+                            {link.text || 'View Link'}
+                          </p>
+                          {link.description && (
+                            <p className="text-sm text-gray-600 mt-1">{link.description}</p>
+                          )}
+                        </div>
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">No links available yet.</p>
+              )}
+              
+              {selectedApplet.config?.allow_client_acknowledgment && (
+                <div className="mt-6 pt-6 border-t">
+                  <button
+                    onClick={async () => {
+                      // Mark as acknowledged
+                      await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          appletId: selectedApplet.id,
+                          status: 'completed',
+                          interactionType: 'acknowledgment',
+                          userId: userId,
+                          data: { acknowledged: true, acknowledgedAt: new Date().toISOString() }
+                        })
+                      });
+                      
+                      // Update local state
+                      setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+                      setShowLinkSubmissionModal(false);
+                      
+                      // Refresh project data
+                      fetchProjectData();
+                    }}
+                    className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                  >
+                    Mark as Reviewed
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

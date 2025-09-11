@@ -67,7 +67,8 @@ const APPLET_ICONS = {
   moodboard: Palette,
   sitemap_builder: Gamepad2,
   content_gather: MessageSquare,
-  feedback_loop: MessageSquare
+  feedback_loop: MessageSquare,
+  link_submission: Link
 };
 
 const APPLET_COLORS = {
@@ -78,7 +79,8 @@ const APPLET_COLORS = {
   moodboard: 'bg-pink-100 text-pink-700 border-pink-300',
   sitemap_builder: 'bg-indigo-100 text-indigo-700 border-indigo-300',
   content_gather: 'bg-yellow-100 text-yellow-700 border-yellow-300',
-  feedback_loop: 'bg-orange-100 text-orange-700 border-orange-300'
+  feedback_loop: 'bg-orange-100 text-orange-700 border-orange-300',
+  link_submission: 'bg-cyan-100 text-cyan-700 border-cyan-300'
 };
 
 export default function ProjectletAppletsManager({ 
@@ -635,6 +637,152 @@ export default function ProjectletAppletsManager({
                               </a>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {applet.type === 'link_submission' && (
+                        <div className="mt-3 space-y-2">
+                          {/* Inline configuration - always visible */}
+                          <div className="space-y-2">
+                            {/* Heading */}
+                            <div>
+                              <input
+                                type="text"
+                                value={applet.config?.heading || ''}
+                                onChange={(e) => updateApplet(applet.id, {
+                                  config: { ...applet.config, heading: e.target.value }
+                                })}
+                                className="w-full px-2 py-1 border rounded text-sm font-medium"
+                                placeholder="Enter heading (e.g., Project Deliverables)"
+                              />
+                            </div>
+                            
+                            {/* Description */}
+                            <div>
+                              <textarea
+                                value={applet.config?.description || ''}
+                                onChange={(e) => updateApplet(applet.id, {
+                                  config: { ...applet.config, description: e.target.value }
+                                })}
+                                className="w-full px-2 py-1 border rounded text-sm"
+                                rows="2"
+                                placeholder="Add description or instructions..."
+                              />
+                            </div>
+                            
+                            {/* Links section */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-gray-700">Links</span>
+                                <button
+                                  onClick={() => {
+                                    const newLinks = [...(applet.config?.links || []), { text: '', url: '', description: '' }];
+                                    updateApplet(applet.id, {
+                                      config: { ...applet.config, links: newLinks }
+                                    });
+                                  }}
+                                  className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                                >
+                                  + Add Link
+                                </button>
+                              </div>
+                              
+                              {(applet.config?.links || []).length === 0 ? (
+                                <div className="text-xs text-gray-500 italic p-2 bg-gray-50 rounded">
+                                  No links added yet. Click "Add Link" to get started.
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {applet.config.links.map((link, idx) => (
+                                    <div key={idx} className="p-2 bg-gray-50 rounded border border-gray-200">
+                                      <div className="flex items-start space-x-2">
+                                        <div className="flex-1 space-y-1">
+                                          <input
+                                            type="text"
+                                            value={link.text || ''}
+                                            onChange={(e) => {
+                                              const newLinks = [...applet.config.links];
+                                              newLinks[idx] = { ...newLinks[idx], text: e.target.value };
+                                              updateApplet(applet.id, {
+                                                config: { ...applet.config, links: newLinks }
+                                              });
+                                            }}
+                                            className="w-full px-2 py-1 border rounded text-sm"
+                                            placeholder="Link text (e.g., View Mockups)"
+                                          />
+                                          <input
+                                            type="url"
+                                            value={link.url || ''}
+                                            onChange={(e) => {
+                                              const newLinks = [...applet.config.links];
+                                              newLinks[idx] = { ...newLinks[idx], url: e.target.value };
+                                              updateApplet(applet.id, {
+                                                config: { ...applet.config, links: newLinks }
+                                              });
+                                            }}
+                                            className="w-full px-2 py-1 border rounded text-sm"
+                                            placeholder="https://..."
+                                          />
+                                          <input
+                                            type="text"
+                                            value={link.description || ''}
+                                            onChange={(e) => {
+                                              const newLinks = [...applet.config.links];
+                                              newLinks[idx] = { ...newLinks[idx], description: e.target.value };
+                                              updateApplet(applet.id, {
+                                                config: { ...applet.config, links: newLinks }
+                                              });
+                                            }}
+                                            className="w-full px-2 py-1 border rounded text-sm"
+                                            placeholder="Optional description"
+                                          />
+                                        </div>
+                                        <button
+                                          onClick={() => {
+                                            const newLinks = applet.config.links.filter((_, i) => i !== idx);
+                                            updateApplet(applet.id, {
+                                              config: { ...applet.config, links: newLinks }
+                                            });
+                                          }}
+                                          className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                          title="Remove link"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                      {link.url && (
+                                        <a 
+                                          href={link.url} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center mt-1 text-xs text-blue-600 hover:text-blue-700"
+                                        >
+                                          <ExternalLink className="w-3 h-3 mr-1" />
+                                          Test link
+                                        </a>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Allow acknowledgment checkbox */}
+                            <div className="flex items-center p-2 bg-gray-50 rounded">
+                              <input
+                                type="checkbox"
+                                id={`ack-${applet.id}`}
+                                checked={applet.config?.allow_client_acknowledgment || false}
+                                onChange={(e) => updateApplet(applet.id, {
+                                  config: { ...applet.config, allow_client_acknowledgment: e.target.checked }
+                                })}
+                                className="mr-2"
+                              />
+                              <label htmlFor={`ack-${applet.id}`} className="text-xs">
+                                Allow client to mark as reviewed
+                              </label>
+                            </div>
+                          </div>
                         </div>
                       )}
 
