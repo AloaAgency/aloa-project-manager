@@ -876,6 +876,9 @@ html {
 .h-full {
   height: 100%;
 }
+.h-1\.5 {
+  height: 0.375rem;
+}
 .max-h-48 {
   max-height: 12rem;
 }
@@ -1331,6 +1334,14 @@ html {
   --tw-border-opacity: 1;
   border-color: rgb(249 168 212 / var(--tw-border-opacity, 1));
 }
+.border-gray-400 {
+  --tw-border-opacity: 1;
+  border-color: rgb(156 163 175 / var(--tw-border-opacity, 1));
+}
+.border-gray-600 {
+  --tw-border-opacity: 1;
+  border-color: rgb(75 85 99 / var(--tw-border-opacity, 1));
+}
 .border-t-aloa-black {
   --tw-border-opacity: 1;
   border-top-color: rgb(10 10 10 / var(--tw-border-opacity, 1));
@@ -1494,6 +1505,9 @@ html {
 .bg-pink-100 {
   --tw-bg-opacity: 1;
   background-color: rgb(252 231 243 / var(--tw-bg-opacity, 1));
+}
+.bg-white\/30 {
+  background-color: rgb(255 255 255 / 0.3);
 }
 .bg-opacity-60 {
   --tw-bg-opacity: 0.6;
@@ -1715,6 +1729,12 @@ html {
 }
 .pl-10 {
   padding-left: 2.5rem;
+}
+.pb-0 {
+  padding-bottom: 0px;
+}
+.pt-2 {
+  padding-top: 0.5rem;
 }
 .text-left {
   text-align: left;
@@ -2216,6 +2236,10 @@ html {
 .hover\:border-gray-400:hover {
   --tw-border-opacity: 1;
   border-color: rgb(156 163 175 / var(--tw-border-opacity, 1));
+}
+.hover\:border-black:hover {
+  --tw-border-opacity: 1;
+  border-color: rgb(0 0 0 / var(--tw-border-opacity, 1));
 }
 .hover\:bg-\[\#f5f1e8\]:hover {
   --tw-bg-opacity: 1;

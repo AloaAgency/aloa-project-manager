@@ -28,7 +28,12 @@ import {
   Brain,
   File,
   Database,
-  Eye
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  Palette,
+  MessageSquare,
+  MoreVertical
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -53,6 +58,8 @@ function AdminProjectPageContent() {
   const [knowledgeBase, setKnowledgeBase] = useState(null);
   const [showKnowledgeUpload, setShowKnowledgeUpload] = useState(false);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
+  const [projectletApplets, setProjectletApplets] = useState({}); // Store applets for each projectlet
+  const [loadingApplets, setLoadingApplets] = useState({});
 
   useEffect(() => {
     fetchProjectData();
@@ -148,6 +155,21 @@ function AdminProjectPageContent() {
     }
   };
 
+  const fetchAppletsForProjectlet = async (projectletId) => {
+    setLoadingApplets(prev => ({ ...prev, [projectletId]: true }));
+    try {
+      const response = await fetch(
+        `/api/aloa-projects/${params.projectId}/projectlets/${projectletId}/applets`
+      );
+      const data = await response.json();
+      setProjectletApplets(prev => ({ ...prev, [projectletId]: data.applets || [] }));
+    } catch (error) {
+      console.error('Error fetching applets:', error);
+    } finally {
+      setLoadingApplets(prev => ({ ...prev, [projectletId]: false }));
+    }
+  };
+
   const fetchProjectData = async () => {
     try {
       // Fetch project details
@@ -159,6 +181,13 @@ function AdminProjectPageContent() {
       const projectletsRes = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`);
       const projectletsData = await projectletsRes.json();
       setProjectlets(projectletsData.projectlets);
+      
+      // Fetch applets for each projectlet
+      if (projectletsData.projectlets) {
+        projectletsData.projectlets.forEach(projectlet => {
+          fetchAppletsForProjectlet(projectlet.id);
+        });
+      }
 
       // Fetch team members
       const teamRes = await fetch(`/api/aloa-projects/${params.projectId}/team`);
@@ -456,81 +485,138 @@ function AdminProjectPageContent() {
               </div>
 
               <div className="space-y-4">
-                {projectlets.map((projectlet, index) => (
-                  <div key={projectlet.id} className={`border-2 rounded-lg p-4 ${getStatusColor(projectlet.status)}`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center mb-2">
-                          <span className="text-sm font-medium text-gray-500 mr-3">
-                            Step {index + 1}
-                          </span>
-                          <h3 className="font-bold">{projectlet.name}</h3>
+                {projectlets.map((projectlet, index) => {
+                  const applets = projectletApplets[projectlet.id] || [];
+                  const isLoadingApplets = loadingApplets[projectlet.id];
+                  const APPLET_ICONS = {
+                    form: FileText,
+                    review: Eye,
+                    upload: Upload,
+                    signoff: CheckCircle,
+                    moodboard: Palette,
+                    content_gather: MessageSquare
+                  };
+
+                  return (
+                    <div key={projectlet.id} className={`border-2 rounded-lg ${getStatusColor(projectlet.status)}`}>
+                      {/* Header */}
+                      <div className="p-4 pb-0">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center mb-2">
+                              <span className="text-sm font-medium text-gray-500 mr-3">
+                                Projectlet {index + 1}
+                              </span>
+                              <h3 className="font-bold text-lg">{projectlet.name}</h3>
+                            </div>
+                            
+                            {projectlet.description && (
+                              <p className="text-sm text-gray-600 mb-2">{projectlet.description}</p>
+                            )}
+
+                            <div className="flex items-center space-x-4 text-sm">
+                              {projectlet.deadline && (
+                                <span className="flex items-center text-gray-600">
+                                  <Calendar className="w-4 h-4 mr-1" />
+                                  {new Date(projectlet.deadline).toLocaleDateString()}
+                                </span>
+                              )}
+                              
+                              <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                {applets.length} applet{applets.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Status Toggle - Top Right */}
+                          <div className="flex items-start space-x-2">
+                            <select
+                              value={projectlet.status}
+                              onChange={(e) => updateProjectletStatus(projectlet.id, e.target.value)}
+                              className={`px-3 py-1 border rounded-lg text-sm font-medium ${getStatusColor(projectlet.status)}`}
+                            >
+                              <option value="locked">🔒 Locked</option>
+                              <option value="available">✅ Available</option>
+                              <option value="in_progress">⏳ In Progress</option>
+                              <option value="client_review">👁 Review</option>
+                              <option value="revision_requested">🔄 Revision</option>
+                              <option value="completed">✓ Completed</option>
+                            </select>
+                            
+                            <button
+                              onClick={() => openProjectletEditor(projectlet)}
+                              className="p-1 hover:bg-white/50 rounded"
+                              title="Edit projectlet"
+                            >
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                          </div>
                         </div>
+                      </div>
 
-                        <div className="flex items-center space-x-4 text-sm">
-                          <span className="flex items-center">
-                            {getStatusIcon(projectlet.status)}
-                            <span className="ml-1 font-medium">
-                              {projectlet.status.replace(/_/g, ' ')}
-                            </span>
-                          </span>
-                          
-                          {projectlet.deadline && (
-                            <span className="flex items-center text-gray-600">
-                              <Calendar className="w-4 h-4 mr-1" />
-                              {new Date(projectlet.deadline).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Admin Controls */}
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <select
-                            value={projectlet.status}
-                            onChange={(e) => updateProjectletStatus(projectlet.id, e.target.value)}
-                            className="px-3 py-1 border rounded-lg text-sm"
-                          >
-                            <option value="locked">Locked</option>
-                            <option value="available">Available</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="client_review">Client Review</option>
-                            <option value="revision_requested">Revision Requested</option>
-                            <option value="completed">Completed</option>
-                          </select>
-
-                          {projectlet.type === 'form' && projectlet.aloa_project_forms?.[0] && (
-                            <button className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200">
-                              View Responses ({projectlet.aloa_project_forms[0].responses_received || 0})
+                      {/* Applets Section */}
+                      <div className="p-4 pt-2">
+                        {isLoadingApplets ? (
+                          <div className="py-4 text-center">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
+                          </div>
+                        ) : applets.length > 0 ? (
+                          <div className="space-y-2">
+                            {applets.map((applet, appletIndex) => {
+                              const Icon = APPLET_ICONS[applet.type] || FileText;
+                              return (
+                                <div key={applet.id} className="flex items-center justify-between p-2 bg-white/50 rounded">
+                                  <div className="flex items-center space-x-2">
+                                    <Icon className="w-4 h-4 text-gray-600" />
+                                    <span className="text-sm font-medium">{applet.name}</span>
+                                    {applet.status && (
+                                      <span className={`text-xs px-2 py-0.5 rounded ${getStatusColor(applet.status)}`}>
+                                        {applet.status}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {applet.completion_percentage > 0 && (
+                                    <div className="flex items-center">
+                                      <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                                        <div
+                                          className="bg-green-600 h-1.5 rounded-full"
+                                          style={{ width: `${applet.completion_percentage}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs ml-2 text-gray-500">{applet.completion_percentage}%</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="py-4 text-center border-2 border-dashed border-gray-300 rounded-lg bg-white/30">
+                            <p className="text-sm text-gray-500 mb-2">No applets added yet</p>
+                            <button
+                              onClick={() => openProjectletEditor(projectlet)}
+                              className="inline-flex items-center px-3 py-1 bg-black text-white rounded-lg hover:bg-gray-800 text-sm"
+                            >
+                              <Plus className="w-3 h-3 mr-1" />
+                              Add First Applet
                             </button>
-                          )}
-
-                          {projectlet.type === 'design' && (
-                            <button className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200 flex items-center">
-                              <Link className="w-3 h-3 mr-1" />
-                              Add Figma Link
-                            </button>
-                          )}
-
-                          {projectlet.type === 'content' && (
-                            <button className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200 flex items-center">
-                              <Upload className="w-3 h-3 mr-1" />
-                              Upload Copy
-                            </button>
-                          )}
-
-                          <button 
+                          </div>
+                        )}
+                        
+                        {/* Quick Add Applet Button */}
+                        {applets.length > 0 && (
+                          <button
                             onClick={() => openProjectletEditor(projectlet)}
-                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 flex items-center"
+                            className="mt-2 w-full py-2 border-2 border-dashed border-gray-400 rounded-lg hover:border-black hover:bg-white/50 transition-all flex items-center justify-center text-sm text-gray-600 hover:text-black"
                           >
-                            <Edit className="w-3 h-3 mr-1" />
-                            Edit
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add Applet
                           </button>
-                        </div>
-
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

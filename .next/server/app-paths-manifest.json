@@ -1,7 +1,13 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
   "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js",
+  "/api/aloa-projects/[projectId]/knowledge/route": "app/api/aloa-projects/[projectId]/knowledge/route.js",
   "/create/page": "app/create/page.js",
+  "/api/aloa-projects/[projectId]/projectlets/route": "app/api/aloa-projects/[projectId]/projectlets/route.js",
+  "/api/aloa-projects/[projectId]/team/route": "app/api/aloa-projects/[projectId]/team/route.js",
+  "/admin/projects/page": "app/admin/projects/page.js",
   "/page": "app/page.js",
-  "/admin/projects/page": "app/admin/projects/page.js"
+  "/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route": "app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route.js",
+  "/api/aloa-projects/[projectId]/route": "app/api/aloa-projects/[projectId]/route.js",
+  "/api/forms/route": "app/api/forms/route.js"
 }
