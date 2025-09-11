@@ -23,12 +23,6 @@
       "static/chunks/_app-pages-browser_components_ProjectletAppletsManager_js.js"
     ]
   },
-  "app/project/[projectId]/dashboard/page.js -> react-confetti": {
-    "id": "app/project/[projectId]/dashboard/page.js -> react-confetti",
-    "files": [
-      "static/chunks/_app-pages-browser_node_modules_react-confetti_dist_react-confetti_mjs.js"
-    ]
-  },
   "components/ProjectletAppletsManager.js -> @/components/AIChatFormBuilder": {
     "id": "components/ProjectletAppletsManager.js -> @/components/AIChatFormBuilder",
     "files": [

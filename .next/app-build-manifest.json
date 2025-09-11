@@ -16,25 +16,10 @@
       "static/chunks/main-app.js",
       "static/chunks/app/admin/projects/page.js"
     ],
-    "/project/[projectId]/dashboard/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/project/[projectId]/dashboard/page.js"
-    ],
     "/admin/project/[projectId]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/admin/project/[projectId]/page.js"
-    ],
-    "/edit/[formId]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/edit/[formId]/page.js"
-    ],
-    "/forms/[urlId]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/forms/[urlId]/page.js"
     ]
   }
 }

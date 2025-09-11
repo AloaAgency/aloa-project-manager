@@ -98,10 +98,14 @@ function AdminProjectPageContent() {
   const [showAIFormBuilder, setShowAIFormBuilder] = useState(false);
   const [showFormBuilderModal, setShowFormBuilderModal] = useState(false);
   const [formBuilderContext, setFormBuilderContext] = useState(null);
+  const [stakeholders, setStakeholders] = useState([]);
+  const [showStakeholderForm, setShowStakeholderForm] = useState(false);
+  const [editingStakeholder, setEditingStakeholder] = useState(null);
 
   useEffect(() => {
     fetchProjectData();
     fetchKnowledgeBase();
+    fetchStakeholders();
   }, [params.projectId]);
 
   // Close action menu when clicking outside
@@ -202,6 +206,60 @@ function AdminProjectPageContent() {
     } catch (error) {
       console.error('Error deleting knowledge:', error);
       toast.error('Failed to delete knowledge document');
+    }
+  };
+
+  // Stakeholder functions
+  const fetchStakeholders = async () => {
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/stakeholders`);
+      const data = await response.json();
+      setStakeholders(data.stakeholders || []);
+    } catch (error) {
+      console.error('Error fetching stakeholders:', error);
+    }
+  };
+
+  const handleSaveStakeholder = async (stakeholderData) => {
+    try {
+      const method = editingStakeholder ? 'PATCH' : 'POST';
+      const url = editingStakeholder 
+        ? `/api/aloa-projects/${params.projectId}/stakeholders?stakeholderId=${editingStakeholder.id}`
+        : `/api/aloa-projects/${params.projectId}/stakeholders`;
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stakeholderData)
+      });
+
+      if (response.ok) {
+        toast.success(editingStakeholder ? 'Stakeholder updated' : 'Stakeholder added');
+        fetchStakeholders();
+        setShowStakeholderForm(false);
+        setEditingStakeholder(null);
+      }
+    } catch (error) {
+      console.error('Error saving stakeholder:', error);
+      toast.error('Failed to save stakeholder');
+    }
+  };
+
+  const handleDeleteStakeholder = async (stakeholderId) => {
+    if (!confirm('Are you sure you want to delete this stakeholder?')) return;
+
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/stakeholders?stakeholderId=${stakeholderId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        toast.success('Stakeholder deleted');
+        fetchStakeholders();
+      }
+    } catch (error) {
+      console.error('Error deleting stakeholder:', error);
+      toast.error('Failed to delete stakeholder');
     }
   };
 
@@ -800,6 +858,110 @@ function AdminProjectPageContent() {
                 </div>
               )}
             </>
+          )}
+        </div>
+
+        {/* Client Stakeholders Section */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <Users className="w-6 h-6 mr-2 text-purple-600" />
+              <h2 className="text-2xl font-bold">Client Stakeholders</h2>
+            </div>
+            <button
+              onClick={() => {
+                setEditingStakeholder(null);
+                setShowStakeholderForm(true);
+              }}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Stakeholder
+            </button>
+          </div>
+
+          {/* Stakeholders List */}
+          {stakeholders.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {stakeholders.map((stakeholder) => (
+                <div key={stakeholder.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      {stakeholder.is_primary && (
+                        <span className="inline-block px-2 py-1 text-xs font-semibold text-purple-800 bg-purple-100 rounded-full mb-2">
+                          Primary Contact
+                        </span>
+                      )}
+                      <h3 className="font-bold text-lg">{stakeholder.name}</h3>
+                      {stakeholder.title && (
+                        <p className="text-sm text-gray-600">{stakeholder.title}</p>
+                      )}
+                      {stakeholder.role && (
+                        <p className="text-xs text-gray-500 capitalize mt-1">
+                          Role: {stakeholder.role.replace('_', ' ')}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex space-x-1">
+                      <button
+                        onClick={() => {
+                          setEditingStakeholder(stakeholder);
+                          setShowStakeholderForm(true);
+                        }}
+                        className="text-gray-600 hover:text-purple-600 p-1"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStakeholder(stakeholder.id)}
+                        className="text-gray-600 hover:text-red-600 p-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {stakeholder.email && (
+                    <p className="text-sm text-gray-600 mb-1">
+                      <Mail className="inline w-3 h-3 mr-1" />
+                      {stakeholder.email}
+                    </p>
+                  )}
+                  
+                  {stakeholder.bio && (
+                    <p className="text-sm text-gray-700 mt-2 line-clamp-3">
+                      {stakeholder.bio}
+                    </p>
+                  )}
+                  
+                  {stakeholder.importance && (
+                    <div className="mt-2">
+                      <div className="flex items-center">
+                        <span className="text-xs text-gray-500 mr-2">Importance:</span>
+                        <div className="flex">
+                          {[...Array(10)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-3 h-3 ${
+                                i < stakeholder.importance
+                                  ? 'text-yellow-400 fill-current'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Users className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p>No stakeholders added yet</p>
+              <p className="text-sm mt-1">Add stakeholders to help AI understand your client better</p>
+            </div>
           )}
         </div>
 
@@ -1825,6 +1987,225 @@ function AdminProjectPageContent() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stakeholder Form Modal */}
+      {showStakeholderForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">
+                {editingStakeholder ? 'Edit Stakeholder' : 'Add New Stakeholder'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowStakeholderForm(false);
+                  setEditingStakeholder(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const stakeholderData = {
+                  name: formData.get('name'),
+                  title: formData.get('title'),
+                  role: formData.get('role'),
+                  email: formData.get('email'),
+                  phone: formData.get('phone'),
+                  bio: formData.get('bio'),
+                  responsibilities: formData.get('responsibilities'),
+                  preferences: formData.get('preferences'),
+                  linkedin_url: formData.get('linkedin_url'),
+                  importance: parseInt(formData.get('importance')),
+                  is_primary: formData.get('is_primary') === 'on'
+                };
+                handleSaveStakeholder(stakeholderData);
+              }}
+              className="space-y-4"
+            >
+              {/* Basic Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    defaultValue={editingStakeholder?.name}
+                    required
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    defaultValue={editingStakeholder?.title}
+                    placeholder="e.g., CEO, Product Manager"
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Role
+                  </label>
+                  <select
+                    name="role"
+                    defaultValue={editingStakeholder?.role || 'decision_maker'}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="decision_maker">Decision Maker</option>
+                    <option value="influencer">Influencer</option>
+                    <option value="end_user">End User</option>
+                    <option value="technical_lead">Technical Lead</option>
+                    <option value="sponsor">Sponsor</option>
+                    <option value="consultant">Consultant</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Importance (1-10)
+                  </label>
+                  <input
+                    type="number"
+                    name="importance"
+                    min="1"
+                    max="10"
+                    defaultValue={editingStakeholder?.importance || 5}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    defaultValue={editingStakeholder?.email}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    defaultValue={editingStakeholder?.phone}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  LinkedIn URL
+                </label>
+                <input
+                  type="url"
+                  name="linkedin_url"
+                  defaultValue={editingStakeholder?.linkedin_url}
+                  placeholder="https://linkedin.com/in/..."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* Bio and Details */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bio / Background
+                </label>
+                <textarea
+                  name="bio"
+                  defaultValue={editingStakeholder?.bio}
+                  rows={3}
+                  placeholder="Brief background about this stakeholder..."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Key Responsibilities
+                </label>
+                <textarea
+                  name="responsibilities"
+                  defaultValue={editingStakeholder?.responsibilities}
+                  rows={2}
+                  placeholder="What are their main responsibilities in this project?"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Communication Preferences
+                </label>
+                <textarea
+                  name="preferences"
+                  defaultValue={editingStakeholder?.preferences}
+                  rows={2}
+                  placeholder="Preferred communication style, meeting times, etc."
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="is_primary"
+                  id="is_primary"
+                  defaultChecked={editingStakeholder?.is_primary}
+                  className="mr-2"
+                />
+                <label htmlFor="is_primary" className="text-sm font-medium text-gray-700">
+                  Set as primary contact
+                </label>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStakeholderForm(false);
+                    setEditingStakeholder(null);
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  {editingStakeholder ? 'Update' : 'Add'} Stakeholder
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -51,13 +51,27 @@ export async function GET(request, { params }) {
       console.error('Error fetching insights:', insightsError);
     }
 
+    // Get stakeholders
+    const { data: stakeholders, error: stakeholdersError } = await supabase
+      .from('aloa_client_stakeholders')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('importance', { ascending: false })
+      .order('is_primary', { ascending: false });
+
+    if (stakeholdersError) {
+      console.error('Error fetching stakeholders:', stakeholdersError);
+    }
+
     return NextResponse.json({
       project: project || {},
       knowledge: knowledge || [],
       insights: insights || [],
+      stakeholders: stakeholders || [],
       stats: {
         totalDocuments: knowledge?.length || 0,
         totalInsights: insights?.length || 0,
+        totalStakeholders: stakeholders?.length || 0,
         lastUpdated: project?.knowledge_updated_at
       }
     });
