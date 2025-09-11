@@ -77,7 +77,7 @@ const LinkSubmissionConfig = dynamic(() => import('@/components/LinkSubmissionCo
 });
 
 // Dynamically import File Upload Config
-const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfig'), {
+const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfigStorage'), {
   ssr: false
 });
 
