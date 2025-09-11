@@ -1,8 +1,6 @@
 {
   "/project/[projectId]/dashboard/page": "app/project/[projectId]/dashboard/page.js",
-  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/responses/[formId]/page": "app/responses/[formId]/page.js",
+  "/admin/projects/page": "app/admin/projects/page.js",
   "/api/aloa-projects/[projectId]/notifications/route": "app/api/aloa-projects/[projectId]/notifications/route.js",
-  "/forms/[urlId]/page": "app/forms/[urlId]/page.js"
+  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js"
 }

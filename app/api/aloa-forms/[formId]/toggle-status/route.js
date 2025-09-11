@@ -6,12 +6,12 @@ export async function PATCH(request, { params }) {
     const { formId } = params;
     const body = await request.json();
     
-    // Update the form status
+    // Update the form status - using 'status' field which exists in the database
+    const newStatus = body.is_active === false ? 'closed' : 'active';
     const { data, error } = await supabase
       .from('aloa_forms')
       .update({
-        is_active: body.is_active,
-        closed_message: body.closed_message,
+        status: newStatus,
         updated_at: new Date().toISOString()
       })
       .eq('id', formId)

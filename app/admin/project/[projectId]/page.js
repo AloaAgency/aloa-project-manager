@@ -231,7 +231,7 @@ function AdminProjectPageContent() {
     }
   };
 
-  const toggleFormStatus = async (formId, currentStatus) => {
+  const toggleFormStatus = async (formId, currentStatus, appletId = null) => {
     const isClosing = currentStatus !== false;
     const action = isClosing ? 'close' : 'reopen';
     
@@ -244,12 +244,33 @@ function AdminProjectPageContent() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          is_active: !isClosing,
-          closed_message: isClosing ? 'This survey is now closed. Thank you for your interest!' : null
+          is_active: !isClosing
         })
       });
 
       if (response.ok) {
+        // If we have an applet ID, update its status based on form lock state
+        if (appletId) {
+          // Check if there are any responses for this form
+          const formResponsesRes = await fetch(`/api/aloa-responses?formId=${formId}`);
+          const responses = formResponsesRes.ok ? await formResponsesRes.json() : [];
+          const hasResponses = responses.length > 0;
+          
+          if (hasResponses) {
+            // Update applet status based on form lock state
+            const newStatus = isClosing ? 'completed' : 'in_progress';
+            await fetch(`/api/aloa-applets/${appletId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                status: newStatus,
+                completion_percentage: isClosing ? 100 : 50,
+                ...(isClosing ? { completed_at: new Date().toISOString() } : { completed_at: null })
+              })
+            });
+          }
+        }
+        
         // Refresh forms
         await fetchProjectForms();
         // Refresh applets for all projectlets
@@ -962,10 +983,18 @@ function AdminProjectPageContent() {
                           <div className="space-y-2">
                             {applets.map((applet, appletIndex) => {
                               const Icon = APPLET_ICONS[applet.type] || FileText;
+                              const formId = applet.form_id || applet.config?.form_id;
+                              const form = formId ? availableForms.find(f => f.id === formId) : null;
+                              const isFormLocked = form?.status === 'closed';
+                              
                               return (
                                 <div 
                                   key={applet.id} 
-                                  className="p-2 bg-white/50 rounded cursor-move hover:bg-white/70 transition-colors group border-2 border-transparent"
+                                  className={`p-2 rounded cursor-move transition-colors group border-2 ${
+                                    isFormLocked && applet.type === 'form' 
+                                      ? 'bg-red-50 border-red-300 hover:bg-red-100' 
+                                      : 'bg-white/50 border-transparent hover:bg-white/70'
+                                  }`}
                                   draggable
                                   onDragStart={(e) => {
                                     e.stopPropagation(); // Prevent projectlet from being dragged
@@ -1062,6 +1091,11 @@ function AdminProjectPageContent() {
                                           {applet.status}
                                         </span>
                                       )}
+                                      {isFormLocked && applet.type === 'form' && (
+                                        <span className="text-xs px-2 py-0.5 bg-red-600 text-white rounded font-semibold uppercase">
+                                          🔒 LOCKED
+                                        </span>
+                                      )}
                                     </div>
                                     <div className="flex items-center space-x-2">
                                       {applet.completion_percentage > 0 && (
@@ -1105,106 +1139,143 @@ function AdminProjectPageContent() {
                                   
                                   {/* Inline form selector for form applets */}
                                   {applet.type === 'form' && (
-                                    <div className="mt-2 flex items-center space-x-2">
-                                      <select
-                                        value={applet.form_id || applet.config?.form_id || ''}
-                                        onChange={async (e) => {
-                                          if (e.target.value === 'create_new') {
-                                            // Open form builder modal
-                                            setShowFormBuilderModal(true);
-                                            setFormBuilderContext({
-                                              projectletId: projectlet.id,
-                                              projectletName: projectlet.name
-                                            });
-                                          } else {
-                                            // Update applet with selected form
-                                            try {
-                                              const response = await fetch(
-                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
-                                                {
-                                                  method: 'PATCH',
-                                                  headers: { 'Content-Type': 'application/json' },
-                                                  body: JSON.stringify({
-                                                    form_id: e.target.value,
-                                                    config: {
-                                                      ...applet.config,
-                                                      form_id: e.target.value
-                                                    }
-                                                  })
-                                                }
-                                              );
-                                              if (response.ok) {
-                                                fetchProjectletApplets(projectlet.id);
-                                              }
-                                            } catch (error) {
-                                              console.error('Error updating applet:', error);
-                                            }
-                                          }
-                                        }}
-                                        className="flex-1 max-w-xs text-sm px-2 py-1 border rounded bg-white"
-                                      >
-                                        <option value="">Select a form...</option>
-                                        <option value="create_new">✨ Create New Form with AI</option>
-                                        {availableForms.map(form => (
-                                          <option key={form.id} value={form.id}>
-                                            {form.title}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      
-                                      {/* Form action icons */}
-                                      {(applet.form_id || applet.config?.form_id) && (
-                                        <div className="flex items-center space-x-1">
-                                          {(() => {
-                                            const formId = applet.form_id || applet.config?.form_id;
-                                            const form = availableForms.find(f => f.id === formId);
-                                            return (
-                                              <>
-                                                <button
-                                                  onClick={() => toggleFormStatus(formId, form?.is_active)}
-                                                  className={`p-1 rounded transition-colors ${
-                                                    form?.is_active === false 
-                                                      ? 'hover:bg-green-200 text-green-600' 
-                                                      : 'hover:bg-orange-200 text-orange-600'
-                                                  }`}
-                                                  title={form?.is_active === false ? 'Reopen Form' : 'Close Form'}
-                                                >
-                                                  {form?.is_active === false ? (
-                                                    <Unlock className="w-4 h-4" />
-                                                  ) : (
-                                                    <Lock className="w-4 h-4" />
-                                                  )}
-                                                </button>
-                                                <button
-                                                  onClick={() => {
-                                                    if (form?.urlId || form?.url_id) {
-                                                      window.open(`/forms/${form.urlId || form.url_id}`, '_blank');
-                                                    }
-                                                  }}
-                                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                                  title="View Form"
-                                                >
-                                                  <ExternalLink className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                  onClick={() => router.push(`/edit/${formId}`)}
-                                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                                  title="Edit Form"
-                                                >
-                                                  <Edit2 className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                  onClick={() => router.push(`/responses/${formId}`)}
-                                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                                  title="View Responses"
-                                                >
-                                                  <BarChart className="w-4 h-4" />
-                                                </button>
-                                              </>
-                                            );
-                                          })()}
+                                    <div className="mt-2">
+                                      {isFormLocked && (
+                                        <div className="mb-2 p-2 bg-red-100 border border-red-300 rounded text-xs text-red-700 font-medium">
+                                          ⚠️ This form is locked and not accepting new responses
                                         </div>
                                       )}
+                                      <div className="flex items-center space-x-2">
+                                        <select
+                                          value={applet.form_id || applet.config?.form_id || ''}
+                                          onChange={async (e) => {
+                                            if (e.target.value === 'create_new') {
+                                              // Open form builder modal
+                                              setShowFormBuilderModal(true);
+                                              setFormBuilderContext({
+                                                projectletId: projectlet.id,
+                                                projectletName: projectlet.name
+                                              });
+                                            } else {
+                                              // Update applet with selected form
+                                              try {
+                                                const response = await fetch(
+                                                  `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                  {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                      form_id: e.target.value,
+                                                      config: {
+                                                        ...applet.config,
+                                                        form_id: e.target.value
+                                                      }
+                                                    })
+                                                  }
+                                                );
+                                                if (response.ok) {
+                                                  fetchProjectletApplets(projectlet.id);
+                                                }
+                                              } catch (error) {
+                                                console.error('Error updating applet:', error);
+                                              }
+                                            }
+                                          }}
+                                          className="flex-1 max-w-xs text-sm px-2 py-1 border rounded bg-white"
+                                        >
+                                          <option value="">Select a form...</option>
+                                          <option value="create_new">✨ Create New Form with AI</option>
+                                          {availableForms.map(form => (
+                                            <option key={form.id} value={form.id}>
+                                              {form.title}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        
+                                        {/* Form action icons */}
+                                        {(applet.form_id || applet.config?.form_id) && (
+                                          <div className="flex items-center space-x-1">
+                                            {(() => {
+                                              const formId = applet.form_id || applet.config?.form_id;
+                                              const form = availableForms.find(f => f.id === formId);
+                                              return (
+                                                <>
+                                                  <button
+                                                    onClick={() => toggleFormStatus(formId, form?.status === 'closed' ? false : true, applet.id)}
+                                                    className={`p-1 rounded transition-colors ${
+                                                      form?.status === 'closed' 
+                                                        ? 'hover:bg-green-200 text-green-600' 
+                                                        : 'hover:bg-orange-200 text-orange-600'
+                                                    }`}
+                                                    title={form?.status === 'closed' ? 'Reopen Form' : 'Close Form'}
+                                                  >
+                                                    {form?.status === 'closed' ? (
+                                                      <Unlock className="w-4 h-4" />
+                                                    ) : (
+                                                      <Lock className="w-4 h-4" />
+                                                    )}
+                                                  </button>
+                                                  <button
+                                                    onClick={() => {
+                                                      if (form?.urlId || form?.url_id) {
+                                                        window.open(`/forms/${form.urlId || form.url_id}`, '_blank');
+                                                      }
+                                                    }}
+                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                    title="View Form"
+                                                  >
+                                                    <ExternalLink className="w-4 h-4" />
+                                                  </button>
+                                                  <button
+                                                    onClick={() => router.push(`/edit/${formId}`)}
+                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                    title="Edit Form"
+                                                  >
+                                                    <Edit2 className="w-4 h-4" />
+                                                  </button>
+                                                  <button
+                                                    onClick={() => router.push(`/responses/${formId}`)}
+                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                    title="View Responses"
+                                                  >
+                                                    <BarChart className="w-4 h-4" />
+                                                  </button>
+                                                </>
+                                              );
+                                            })()}
+                                          </div>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Form statistics - below the dropdown */}
+                                      {(applet.form_id || applet.config?.form_id) && (() => {
+                                        const formId = applet.form_id || applet.config?.form_id;
+                                        const form = availableForms.find(f => f.id === formId);
+                                        if (!form) return null;
+                                        
+                                        return (
+                                          <div className="flex items-center gap-4 mt-2 pl-2 text-xs text-gray-600">
+                                            <span className="flex items-center gap-1">
+                                              <FileText className="w-3 h-3" />
+                                              {form.fields?.length || 0} FIELDS
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                              <Users className="w-3 h-3" />
+                                              {form.responseCount || form.response_count || 0} RESPONSES
+                                            </span>
+                                            {form.createdAt && (
+                                              <span className="flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" />
+                                                {new Date(form.createdAt).toLocaleDateString('en-US', { 
+                                                  month: 'short', 
+                                                  day: 'numeric', 
+                                                  year: 'numeric' 
+                                                }).toUpperCase()}
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                   )}
                                 </div>

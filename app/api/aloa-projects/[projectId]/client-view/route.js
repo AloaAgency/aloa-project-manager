@@ -81,6 +81,7 @@ export async function GET(request, { params }) {
               title, 
               description, 
               url_id,
+              status,
               sections,
               aloa_form_fields (
                 id,
@@ -110,16 +111,33 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Calculate overall project progress based on user-specific status
+    // Calculate overall project progress based on completed projectlets
+    const totalProjectlets = sortedProjectlets.length;
+    let completedProjectlets = 0;
+    
+    // A projectlet is considered complete if ALL its applets are completed or approved
+    for (const projectlet of sortedProjectlets) {
+      const allAppletsComplete = projectlet.applets.length > 0 && 
+        projectlet.applets.every(applet => 
+          applet.user_status === 'completed' || applet.user_status === 'approved'
+        );
+      
+      if (allAppletsComplete) {
+        completedProjectlets++;
+      }
+    }
+    
+    const progressPercentage = totalProjectlets > 0 ? Math.round((completedProjectlets / totalProjectlets) * 100) : 0;
+    
+    // Also calculate applet stats for display
     const totalApplets = sortedProjectlets.reduce((sum, p) => sum + p.applets.length, 0);
     const completedApplets = sortedProjectlets.reduce((sum, p) => 
       sum + p.applets.filter(a => 
         (a.user_status === 'completed' || a.user_status === 'approved')
       ).length, 0
     );
-    const progressPercentage = totalApplets > 0 ? Math.round((completedApplets / totalApplets) * 100) : 0;
 
-    console.log(`Client view data - Total applets: ${totalApplets}, Completed: ${completedApplets}, Progress: ${progressPercentage}%`);
+    console.log(`Client view data - Total projectlets: ${totalProjectlets}, Completed: ${completedProjectlets}, Progress: ${progressPercentage}%`);
 
     return NextResponse.json({ 
       project,
@@ -162,9 +180,43 @@ export async function POST(request, { params }) {
 
     console.log('User progress updated successfully:', userProgress);
 
-    // Also update the main applet status if admin or for tracking purposes
-    if (status === 'completed') {
-      // Update the applet's default status for admin view
+    // For form applets, update status based on form state
+    if (interactionType === 'form_submit' && status === 'completed') {
+      // Get the applet details to check if it's a form type
+      const { data: applet } = await supabase
+        .from('aloa_applets')
+        .select('type, form_id, status')
+        .eq('id', appletId)
+        .single();
+      
+      if (applet?.type === 'form' && applet?.form_id) {
+        // Check if the form is locked/closed
+        const { data: form } = await supabase
+          .from('aloa_forms')
+          .select('status')
+          .eq('id', applet.form_id)
+          .single();
+        
+        // If form is locked (status = 'closed'), mark applet as completed
+        // Otherwise, mark as in_progress (has responses but still accepting)
+        const newStatus = form?.status === 'closed' ? 'completed' : 'in_progress';
+        const updateData = { 
+          status: newStatus,
+          completion_percentage: newStatus === 'completed' ? 100 : 50,
+          ...(newStatus === 'completed' && { completed_at: new Date().toISOString() })
+        };
+        
+        const { error: appletError } = await supabase
+          .from('aloa_applets')
+          .update(updateData)
+          .eq('id', appletId);
+        
+        if (appletError) {
+          console.error('Error updating applet status:', appletError);
+        }
+      }
+    } else if (status === 'completed' && interactionType !== 'form_submit') {
+      // For non-form applets, mark as completed immediately
       const updateData = { 
         status: 'completed',
         completion_percentage: 100,

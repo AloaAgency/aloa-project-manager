@@ -295,17 +295,9 @@ export default function ClientDashboard() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.push('/')}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{project?.name}</h1>
-                <p className="text-sm text-gray-600">Your Project Dashboard</p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{project?.project_name || project?.name || 'Project Dashboard'}</h1>
+              <p className="text-sm text-gray-600 mt-1">Welcome to your project workspace</p>
             </div>
             
             {/* Progress Ring */}
@@ -442,14 +434,44 @@ export default function ClientDashboard() {
                       {applets.map(applet => {
                         const Icon = getAppletIcon(applet.type);
                         const isAppletCompleted = completedApplets.has(applet.id);
+                        // Check if it's a form and whether it's still accepting responses
+                        const isForm = applet.type === 'form';
+                        const formIsLocked = isForm && applet.form?.status === 'closed';
+                        const userHasSubmitted = isForm && applet.user_status === 'completed';
+                        
+                        // Determine display state
+                        let buttonState = 'available';
+                        let statusMessage = null;
+                        
+                        if (isForm) {
+                          if (userHasSubmitted && formIsLocked) {
+                            // User has submitted AND form is locked - they did great!
+                            buttonState = 'completed-locked';
+                            statusMessage = 'Form completed and locked';
+                          } else if (userHasSubmitted && !formIsLocked) {
+                            // User has submitted but form still accepting responses
+                            buttonState = 'user-complete';
+                            statusMessage = 'You completed this! Awaiting other responses';
+                          } else if (formIsLocked) {
+                            // Form is locked but user hasn't submitted
+                            buttonState = 'locked';
+                            statusMessage = 'Form closed to new responses';
+                          }
+                        } else if (isAppletCompleted) {
+                          buttonState = 'completed';
+                        }
                         
                         return (
                           <button
                             key={applet.id}
                             onClick={() => handleAppletClick(applet, projectlet)}
-                            disabled={isAppletCompleted}
+                            disabled={buttonState !== 'available'}
                             className={`w-full p-4 rounded-lg border-2 transition-all ${
-                              isAppletCompleted 
+                              buttonState === 'completed-locked'
+                                ? 'bg-green-50 border-green-300 cursor-default opacity-60'
+                                : buttonState === 'locked'
+                                ? 'bg-gray-50 border-gray-300 cursor-default opacity-75'
+                                : buttonState === 'completed' || buttonState === 'user-complete'
                                 ? 'bg-green-50 border-green-300 cursor-default'
                                 : 'bg-white border-gray-200 hover:border-purple-300 hover:shadow-md cursor-pointer'
                             }`}
@@ -457,10 +479,16 @@ export default function ClientDashboard() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-3">
                                 <div className={`p-2 rounded-lg ${
-                                  isAppletCompleted ? 'bg-green-100' : 'bg-purple-100'
+                                  buttonState === 'completed-locked' ? 'bg-green-100' :
+                                  buttonState === 'locked' ? 'bg-gray-100' :
+                                  buttonState === 'completed' || buttonState === 'user-complete' ? 'bg-green-100' : 
+                                  'bg-purple-100'
                                 }`}>
                                   <Icon className={`w-5 h-5 ${
-                                    isAppletCompleted ? 'text-green-600' : 'text-purple-600'
+                                    buttonState === 'completed-locked' ? 'text-green-600' :
+                                    buttonState === 'locked' ? 'text-gray-600' :
+                                    buttonState === 'completed' || buttonState === 'user-complete' ? 'text-green-600' : 
+                                    'text-purple-600'
                                   }`} />
                                 </div>
                                 <div className="text-left">
@@ -469,13 +497,17 @@ export default function ClientDashboard() {
                                       ? applet.form.title 
                                       : applet.name}
                                   </p>
-                                  {applet.client_instructions && (
+                                  {statusMessage ? (
+                                    <p className="text-sm text-gray-600 italic">{statusMessage}</p>
+                                  ) : applet.client_instructions ? (
                                     <p className="text-sm text-gray-600">{applet.client_instructions}</p>
-                                  )}
+                                  ) : null}
                                 </div>
                               </div>
                               
-                              {isAppletCompleted ? (
+                              {buttonState === 'locked' ? (
+                                <Lock className="w-5 h-5 text-gray-500" />
+                              ) : buttonState === 'completed' || buttonState === 'user-complete' || buttonState === 'completed-locked' ? (
                                 <CheckCircle className="w-6 h-6 text-green-600" />
                               ) : (
                                 <div className="text-purple-600">
