@@ -143,7 +143,7 @@ export default function ProjectletAppletsManager({
         name: libraryApplet.name,
         description: libraryApplet.description,
         type: libraryApplet.type,
-        config: libraryApplet.default_config,
+        config: libraryApplet.default_config || {},
         requires_approval: libraryApplet.requires_approval,
         client_instructions: libraryApplet.client_instructions
       };
@@ -155,6 +155,20 @@ export default function ProjectletAppletsManager({
           required: true
         };
         appletData.form_id = null; // Also set the direct form_id field
+      }
+
+      // For link_submission applets, ensure proper initial config
+      if (libraryApplet.type === 'link_submission') {
+        appletData.config = {
+          heading: libraryApplet.default_config?.heading || 'Project Deliverables',
+          description: libraryApplet.default_config?.description || 'Please review the following materials:',
+          links: libraryApplet.default_config?.links || [{
+            text: 'View Link',
+            url: 'https://example.com',
+            description: 'Link description'
+          }],
+          allow_client_acknowledgment: libraryApplet.default_config?.allow_client_acknowledgment !== false
+        };
       }
 
       const response = await fetch(

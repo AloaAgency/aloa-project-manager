@@ -1,4 +1,7 @@
 {
-  "/api/aloa-projects/[projectId]/notifications/route": "app/api/aloa-projects/[projectId]/notifications/route.js",
-  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js"
+  "/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/[appletId]/route": "app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/[appletId]/route.js",
+  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js",
+  "/api/aloa-applets/library/route": "app/api/aloa-applets/library/route.js",
+  "/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route": "app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route.js",
+  "/api/aloa-projects/[projectId]/notifications/route": "app/api/aloa-projects/[projectId]/notifications/route.js"
 }
