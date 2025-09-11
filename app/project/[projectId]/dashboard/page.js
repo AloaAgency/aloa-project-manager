@@ -162,7 +162,6 @@ export default function ClientDashboard() {
       }
       
       // Set view-only mode if form is locked (isViewOnly parameter is true)
-      console.log('Setting view-only mode:', isViewOnly, 'for form:', formId);
       setIsFormViewOnly(isViewOnly);
       
       // If user has already completed this form, get their previous responses
@@ -526,15 +525,14 @@ export default function ClientDashboard() {
                         let statusMessage = null;
                         
                         if (isForm) {
-                          console.log(`Form ${formId} - userHasSubmitted: ${userHasSubmitted}, formIsLocked: ${formIsLocked}, form.status: ${applet.form?.status}`);
                           if (userHasSubmitted && formIsLocked) {
                             // User has submitted AND form is locked - can view only
                             buttonState = 'completed-locked';
-                            statusMessage = 'Form completed - Click to view your response';
+                            statusMessage = 'Form completed & locked. No longer accepting responses.';
                           } else if (userHasSubmitted && !formIsLocked) {
                             // User has submitted but form still accepting responses - can edit
                             buttonState = 'user-complete-editable';
-                            statusMessage = 'You completed this! Click to edit your response';
+                            statusMessage = 'Form completed! We are still awaiting other responses. Want to make a change? Click the pencil icon.';
                           } else if (formIsLocked) {
                             // Form is locked but user hasn't submitted
                             buttonState = 'locked';
