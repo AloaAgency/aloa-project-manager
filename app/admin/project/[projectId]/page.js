@@ -68,6 +68,8 @@ function AdminProjectPageContent() {
   const [tempProjectletName, setTempProjectletName] = useState('');
   const [draggedProjectlet, setDraggedProjectlet] = useState(null);
   const [showActionMenu, setShowActionMenu] = useState(null);
+  const [showAppletManager, setShowAppletManager] = useState(false);
+  const [selectedProjectletForApplet, setSelectedProjectletForApplet] = useState(null);
 
   useEffect(() => {
     fetchProjectData();
@@ -269,6 +271,11 @@ function AdminProjectPageContent() {
     setShowProjectletEditor(true);
   };
 
+  const openAppletManager = (projectlet) => {
+    setSelectedProjectletForApplet(projectlet);
+    setShowAppletManager(true);
+  };
+
   const updateProjectletStatus = async (projectletId, newStatus) => {
     try {
       const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
@@ -359,6 +366,33 @@ function AdminProjectPageContent() {
     } catch (error) {
       console.error('Error duplicating projectlet:', error);
       toast.error('Failed to duplicate projectlet');
+    }
+  };
+
+  const addProjectlet = async () => {
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `New Projectlet`,
+          description: 'Click to edit description',
+          type: 'design'
+        })
+      });
+
+      if (response.ok) {
+        const { projectlet } = await response.json();
+        // Add the new projectlet to the list
+        setProjectlets([...projectlets, projectlet]);
+        // Initialize empty applets for the new projectlet
+        setProjectletApplets(prev => ({
+          ...prev,
+          [projectlet.id]: []
+        }));
+      }
+    } catch (error) {
+      console.error('Error creating projectlet:', error);
     }
   };
 
@@ -610,7 +644,10 @@ function AdminProjectPageContent() {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold">Projectlets Management</h2>
-                <button className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center">
+                <button 
+                  onClick={addProjectlet}
+                  className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Projectlet
                 </button>
@@ -709,6 +746,7 @@ function AdminProjectPageContent() {
                                 {applets.length} applet{applets.length !== 1 ? 's' : ''}
                               </span>
                             </div>
+                          </div>
                           </div>
 
                           {/* Status Toggle and Actions - Top Right */}
@@ -810,7 +848,7 @@ function AdminProjectPageContent() {
                           <div className="py-4 text-center border-2 border-dashed border-gray-300 rounded-lg bg-white/30">
                             <p className="text-sm text-gray-500 mb-2">No applets added yet</p>
                             <button
-                              onClick={() => openProjectletEditor(projectlet)}
+                              onClick={() => openAppletManager(projectlet)}
                               className="inline-flex items-center px-3 py-1 bg-black text-white rounded-lg hover:bg-gray-800 text-sm"
                             >
                               <Plus className="w-3 h-3 mr-1" />
@@ -822,7 +860,7 @@ function AdminProjectPageContent() {
                         {/* Quick Add Applet Button */}
                         {applets.length > 0 && (
                           <button
-                            onClick={() => openProjectletEditor(projectlet)}
+                            onClick={() => openAppletManager(projectlet)}
                             className="mt-2 w-full py-2 border-2 border-dashed border-gray-400 rounded-lg hover:border-black hover:bg-white/50 transition-all flex items-center justify-center text-sm text-gray-600 hover:text-black"
                           >
                             <Plus className="w-4 h-4 mr-1" />
@@ -1196,6 +1234,45 @@ function AdminProjectPageContent() {
                   <p className="text-sm text-gray-600 mt-2">Uploading document...</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Applet Manager Modal */}
+      {showAppletManager && selectedProjectletForApplet && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">
+                  Add Applets to {selectedProjectletForApplet.name}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowAppletManager(false);
+                    setSelectedProjectletForApplet(null);
+                    // Refresh applets for this projectlet
+                    fetchProjectletApplets(selectedProjectletForApplet.id);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <ProjectletAppletsManager
+                projectId={params.projectId}
+                projectletId={selectedProjectletForApplet.id}
+                projectletName={selectedProjectletForApplet.name}
+                availableForms={availableForms}
+                onAppletsUpdated={() => {
+                  // Refresh applets for this projectlet
+                  fetchProjectletApplets(selectedProjectletForApplet.id);
+                }}
+              />
             </div>
           </div>
         </div>

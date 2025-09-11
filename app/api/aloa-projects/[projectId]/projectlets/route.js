@@ -59,6 +59,71 @@ export async function GET(request, { params }) {
   }
 }
 
+// Create new projectlet
+export async function POST(request, { params }) {
+  try {
+    const { projectId } = params;
+    const { name, description, type } = await request.json();
+
+    // Get the max sequence order for this project
+    const { data: maxSeq } = await supabase
+      .from('aloa_projectlets')
+      .select('sequence_order')
+      .eq('project_id', projectId)
+      .order('sequence_order', { ascending: false })
+      .limit(1)
+      .single();
+
+    const newSequenceOrder = maxSeq ? maxSeq.sequence_order + 1 : 0;
+
+    // Create the new projectlet
+    const { data: newProjectlet, error } = await supabase
+      .from('aloa_projectlets')
+      .insert([{
+        project_id: projectId,
+        name: name || `New Projectlet ${newSequenceOrder + 1}`,
+        description: description || 'Click to edit description',
+        type: type || 'design',
+        status: 'available',
+        sequence_order: newSequenceOrder,
+        metadata: {}
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating projectlet:', error);
+      return NextResponse.json(
+        { error: 'Failed to create projectlet' },
+        { status: 500 }
+      );
+    }
+
+    // Add timeline event
+    await supabase
+      .from('aloa_project_timeline')
+      .insert([{
+        project_id: projectId,
+        projectlet_id: newProjectlet.id,
+        event_type: 'projectlet_created',
+        description: `"${newProjectlet.name}" added to project`,
+        metadata: {}
+      }]);
+
+    return NextResponse.json({
+      success: true,
+      projectlet: newProjectlet
+    });
+
+  } catch (error) {
+    console.error('Error creating projectlet:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
 // Update projectlet status
 export async function PATCH(request, { params }) {
   try {

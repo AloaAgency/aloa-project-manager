@@ -18,6 +18,8 @@ function CreateFormPageContent() {
   const [selectedProject, setSelectedProject] = useState('');
   const [projectName, setProjectName] = useState('');
   const [projectKnowledge, setProjectKnowledge] = useState(null);
+  const [projectletId, setProjectletId] = useState('');
+  const [projectletName, setProjectletName] = useState('');
 
   useEffect(() => {
     fetchProjects();
@@ -25,6 +27,8 @@ function CreateFormPageContent() {
     // Check if project is passed in URL
     const projectId = searchParams.get('project');
     const projectNameParam = searchParams.get('projectName');
+    const projectletIdParam = searchParams.get('projectlet');
+    const projectletNameParam = searchParams.get('projectletName');
     
     if (projectId) {
       setSelectedProject(projectId);
@@ -32,6 +36,13 @@ function CreateFormPageContent() {
         setProjectName(projectNameParam);
       }
       fetchProjectKnowledge(projectId);
+    }
+    
+    if (projectletIdParam) {
+      setProjectletId(projectletIdParam);
+      if (projectletNameParam) {
+        setProjectletName(projectletNameParam);
+      }
     }
   }, [searchParams]);
 
@@ -88,6 +99,43 @@ function CreateFormPageContent() {
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to create form');
+      }
+
+      // If this form is being created for a projectlet, attach it
+      if (projectletId && data.id) {
+        try {
+          const attachResponse = await fetch(`/api/aloa-projects/${selectedProject}/projectlets/${projectletId}/applets`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': csrfToken || '',
+            },
+            body: JSON.stringify({
+              name: data.title || 'Form',
+              description: `Form created with AI: ${data.title}`,
+              type: 'form',
+              form_id: data.id,
+              config: {
+                formTitle: data.title,
+                formId: data.id
+              }
+            })
+          });
+
+          if (attachResponse.ok) {
+            toast.success('Form created and attached to projectlet!');
+            // Close the window if it was opened as a popup
+            if (window.opener) {
+              window.close();
+            } else {
+              router.push(`/admin/project/${selectedProject}`);
+            }
+            return;
+          }
+        } catch (attachError) {
+          console.error('Error attaching form to projectlet:', attachError);
+          // Continue with normal flow even if attachment fails
+        }
       }
 
       toast.success('Form created successfully!');
@@ -169,18 +217,21 @@ function CreateFormPageContent() {
             Create New Form
           </h1>
           <p className="text-aloa-gray mb-6 font-body">
-            Chat with AI or upload a markdown file to generate your form
+            {projectletName ? 
+              `Creating form for "${projectletName}" - Chat with AI or upload a markdown file` :
+              'Chat with AI or upload a markdown file to generate your form'}
           </p>
 
           {/* Project Selector */}
           {projects.length > 0 && (
             <div className="mb-6 sm:mb-8">
               <label className="block text-sm font-medium text-aloa-gray mb-2">
-                Select Project (Optional)
+                {projectletId ? 'Project' : 'Select Project (Optional)'}
               </label>
               <div className="relative">
                 <select
                   value={selectedProject}
+                  disabled={!!projectletId}
                   onChange={(e) => {
                     setSelectedProject(e.target.value);
                     if (e.target.value) {
@@ -189,7 +240,9 @@ function CreateFormPageContent() {
                       setProjectKnowledge(null);
                     }
                   }}
-                  className="w-full md:w-1/2 px-4 py-2 pr-10 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors appearance-none bg-white"
+                  className={`w-full md:w-1/2 px-4 py-2 pr-10 border-2 border-aloa-sand rounded-lg focus:border-aloa-black focus:outline-none transition-colors appearance-none bg-white ${
+                    projectletId ? 'opacity-60 cursor-not-allowed' : ''
+                  }`}
                 >
                   <option value="">No Project (Uncategorized)</option>
                   {projects.map((project) => (
@@ -201,7 +254,9 @@ function CreateFormPageContent() {
                 <Folder className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-aloa-gray pointer-events-none" />
               </div>
               <p className="mt-2 text-sm text-aloa-gray">
-                Organize your form into a project for better management
+                {projectletId ? 
+                  'This form will be attached to the selected projectlet' :
+                  'Organize your form into a project for better management'}
               </p>
               
               {projectKnowledge && projectKnowledge.stats && projectKnowledge.stats.totalDocuments > 0 && (
