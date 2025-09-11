@@ -76,6 +76,11 @@ const LinkSubmissionConfig = dynamic(() => import('@/components/LinkSubmissionCo
   ssr: false
 });
 
+// Dynamically import File Upload Config
+const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfig'), {
+  ssr: false
+});
+
 function AdminProjectPageContent() {
   const params = useParams();
   const router = useRouter();
@@ -1521,6 +1526,19 @@ function AdminProjectPageContent() {
                                       projectId={params.projectId}
                                       projectletId={projectlet.id}
                                       onUpdate={() => fetchProjectletApplets(projectlet.id)}
+                                    />
+                                  )}
+
+                                  {/* Inline file upload configuration */}
+                                  {expandedApplets[applet.id] && (applet.type === 'upload' || 
+                                    applet.type === 'file_upload' ||
+                                    applet.name?.includes('Upload') ||
+                                    applet.description?.includes('upload')) && (
+                                    <FileUploadConfig
+                                      applet={applet}
+                                      projectId={params.projectId}
+                                      projectletId={projectlet.id}
+                                      onClose={() => setExpandedApplets(prev => ({ ...prev, [applet.id]: false }))}
                                     />
                                   )}
                                 </div>

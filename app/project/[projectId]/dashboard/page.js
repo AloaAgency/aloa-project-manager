@@ -19,7 +19,9 @@ import {
   X,
   Edit2,
   ExternalLink,
-  Link
+  Link,
+  Download,
+  File
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
@@ -44,6 +46,7 @@ export default function ClientDashboard() {
   const [userFormResponses, setUserFormResponses] = useState({}); // Track actual form submissions by form ID
   const [isFormViewOnly, setIsFormViewOnly] = useState(false); // Track if form is in view-only mode
   const [showLinkSubmissionModal, setShowLinkSubmissionModal] = useState(false); // Track link submission modal
+  const [showFileUploadModal, setShowFileUploadModal] = useState(false); // Track file upload modal
 
   useEffect(() => {
     // Generate or retrieve user ID
@@ -132,15 +135,16 @@ export default function ClientDashboard() {
     // For forms, allow editing if completed but not locked
     const isForm = applet.type === 'form';
     const isLinkSubmission = applet.type === 'link_submission';
+    const isFileUpload = applet.type === 'upload' || applet.type === 'file_upload';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
     
     // Block if:
-    // 1. Non-form, non-link-submission applet that's already completed
+    // 1. Non-form, non-link-submission, non-file-upload applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    // Link submissions should always be viewable even after completion
-    if ((!isForm && !isLinkSubmission && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions and file uploads should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && !isFileUpload && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -267,6 +271,10 @@ export default function ClientDashboard() {
       // Handle link submission applet
       setSelectedApplet({ ...applet, projectlet });
       setShowLinkSubmissionModal(true);
+    } else if (isFileUpload) {
+      // Handle file upload applet
+      setSelectedApplet({ ...applet, projectlet });
+      setShowFileUploadModal(true);
     }
   };
 
@@ -578,6 +586,10 @@ export default function ClientDashboard() {
                           // Link submissions should be viewable even after completion
                           buttonState = 'link-completed';
                           statusMessage = 'Links reviewed - click to view again';
+                        } else if ((applet.type === 'upload' || applet.type === 'file_upload') && isAppletCompleted) {
+                          // File uploads should be viewable even after completion
+                          buttonState = 'file-completed';
+                          statusMessage = 'Files reviewed - click to view again';
                         } else if (isAppletCompleted) {
                           buttonState = 'completed';
                         }
@@ -586,7 +598,7 @@ export default function ClientDashboard() {
                           <button
                             key={applet.id}
                             onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
-                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission')}
+                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload')}
                             className={`w-full p-4 rounded-lg border-2 transition-all ${
                               buttonState === 'completed-locked'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
@@ -594,6 +606,8 @@ export default function ClientDashboard() {
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'link-completed'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
+                                : buttonState === 'file-completed'
+                                ? 'bg-purple-50 border-purple-300 hover:border-purple-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'locked'
                                 ? 'bg-gray-50 border-gray-300 cursor-default opacity-75'
                                 : buttonState === 'completed'
@@ -605,11 +619,12 @@ export default function ClientDashboard() {
                               <div className="flex items-center space-x-3">
                                 <div className={`p-2 rounded-lg ${
                                   buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'link-completed' ? 'bg-green-100' :
+                                  buttonState === 'file-completed' ? 'bg-purple-100' :
                                   buttonState === 'locked' ? 'bg-gray-100' :
                                   buttonState === 'completed' ? 'bg-green-100' : 
                                   'bg-purple-100'
                                 }`}>
-                                  {buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' || buttonState === 'link-completed' ? (
+                                  {buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' || buttonState === 'link-completed' || buttonState === 'file-completed' ? (
                                     <CheckCircle className="w-5 h-5 text-green-600" />
                                   ) : buttonState === 'locked' ? (
                                     <Lock className="w-5 h-5 text-gray-600" />
@@ -622,6 +637,8 @@ export default function ClientDashboard() {
                                     {applet.type === 'form' && applet.form?.title 
                                       ? applet.form.title 
                                       : applet.type === 'link_submission' && applet.config?.heading
+                                      ? applet.config.heading
+                                      : (applet.type === 'upload' || applet.type === 'file_upload') && applet.config?.heading
                                       ? applet.config.heading
                                       : applet.name}
                                   </p>
@@ -776,6 +793,169 @@ export default function ClientDashboard() {
                       Mark as Reviewed
                     </button>
                   )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* File Upload Modal */}
+      {showFileUploadModal && selectedApplet && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">
+                  {selectedApplet.config?.heading || 'File Downloads'}
+                </h2>
+                <button
+                  onClick={() => setShowFileUploadModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              {selectedApplet.config?.description && (
+                <p className="mt-2 text-gray-600">{selectedApplet.config.description}</p>
+              )}
+            </div>
+            
+            <div className="p-6">
+              {selectedApplet.config?.files && selectedApplet.config.files.length > 0 ? (
+                <div className="space-y-3">
+                  {selectedApplet.config.files.map((file, idx) => {
+                    const getFileIcon = (fileName) => {
+                      const ext = fileName.split('.').pop().toLowerCase();
+                      const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
+                      const docExts = ['pdf', 'doc', 'docx', 'txt'];
+                      
+                      if (imageExts.includes(ext)) return '🖼️';
+                      if (docExts.includes(ext)) return '📄';
+                      if (ext === 'zip' || ext === 'rar') return '📦';
+                      return '📎';
+                    };
+                    
+                    const formatFileSize = (bytes) => {
+                      if (!bytes || bytes === 0) return '0 Bytes';
+                      const k = 1024;
+                      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                      const i = Math.floor(Math.log(bytes) / Math.log(k));
+                      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+                    };
+                    
+                    return (
+                      <div key={idx} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <span className="text-2xl">{getFileIcon(file.name)}</span>
+                            <div>
+                              <p className="font-medium text-gray-900">{file.name}</p>
+                              <p className="text-sm text-gray-500">
+                                {formatFileSize(file.size)} • Uploaded {new Date(file.uploaded_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              // If we have a URL from Supabase, open it
+                              if (file.url && !file.data) {
+                                window.open(file.url, '_blank');
+                              } 
+                              // If we have base64 data, create download link
+                              else if (file.data) {
+                                const link = document.createElement('a');
+                                link.href = file.data;
+                                link.download = file.name;
+                                link.click();
+                              }
+                            }}
+                            className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                          >
+                            <Download className="w-4 h-4" />
+                            <span>Download</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Mark as Reviewed Button */}
+                  {!completedApplets.has(selectedApplet.id) && (
+                    <button
+                      onClick={async () => {
+                        // Mark applet as completed
+                        await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            action: 'update_applet_progress',
+                            appletId: selectedApplet.id,
+                            userId: userId,
+                            projectletId: selectedApplet.projectlet.id,
+                            progressData: {
+                              status: 'completed',
+                              completedAt: new Date().toISOString()
+                            }
+                          })
+                        });
+                        
+                        // Update local state
+                        setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+                        setShowFileUploadModal(false);
+                        
+                        // Trigger confetti celebration
+                        setShowConfetti(true);
+                        setTimeout(() => setShowConfetti(false), 7000);
+                        
+                        // Refresh project data
+                        fetchProjectData();
+                      }}
+                      className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium mt-4"
+                    >
+                      Mark Files as Reviewed
+                    </button>
+                  )}
+                  
+                  {/* Show when already reviewed */}
+                  {completedApplets.has(selectedApplet.id) && (
+                    <div className="text-center py-3 bg-green-50 text-green-700 rounded-lg font-medium">
+                      ✓ Files reviewed on {new Date().toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <File className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>No files available yet</p>
+                  <p className="text-sm mt-1">Check back later for project files</p>
+                </div>
+              )}
+              
+              {/* Allow client upload if enabled */}
+              {selectedApplet.config?.allow_client_upload && (
+                <div className="mt-6 pt-6 border-t">
+                  <p className="text-sm text-gray-600 mb-3">You can upload files too:</p>
+                  <label className="relative">
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        
+                        // TODO: Implement client file upload
+                        alert('Client file upload coming soon!');
+                      }}
+                    />
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-purple-400 transition-colors">
+                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600">Click to upload file</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Max {selectedApplet.config.max_file_size || 10}MB
+                      </p>
+                    </div>
+                  </label>
                 </div>
               )}
             </div>
