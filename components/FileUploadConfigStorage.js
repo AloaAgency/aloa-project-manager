@@ -5,7 +5,7 @@ import { Upload, X, File, Plus, Save, Check, AlertCircle, Download, Folder, Fold
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase';
 
-const STORAGE_BUCKET = 'project-files';
+const STORAGE_BUCKET = 'Aloa Project Tracker Bucket';
 const MAX_BASE64_SIZE = 5 * 1024 * 1024; // 5MB - use base64 for small files
 const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB - max for Supabase Storage
 
