@@ -111,7 +111,18 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Calculate overall project progress based on completed projectlets
+    // Calculate applet stats for display and progress
+    const totalApplets = sortedProjectlets.reduce((sum, p) => sum + p.applets.length, 0);
+    const completedApplets = sortedProjectlets.reduce((sum, p) => 
+      sum + p.applets.filter(a => 
+        (a.user_status === 'completed' || a.user_status === 'approved')
+      ).length, 0
+    );
+    
+    // Calculate progress based on applets (not projectlets) for better granularity
+    const progressPercentage = totalApplets > 0 ? Math.round((completedApplets / totalApplets) * 100) : 0;
+    
+    // Also track projectlet completion for reference
     const totalProjectlets = sortedProjectlets.length;
     let completedProjectlets = 0;
     
@@ -126,18 +137,8 @@ export async function GET(request, { params }) {
         completedProjectlets++;
       }
     }
-    
-    const progressPercentage = totalProjectlets > 0 ? Math.round((completedProjectlets / totalProjectlets) * 100) : 0;
-    
-    // Also calculate applet stats for display
-    const totalApplets = sortedProjectlets.reduce((sum, p) => sum + p.applets.length, 0);
-    const completedApplets = sortedProjectlets.reduce((sum, p) => 
-      sum + p.applets.filter(a => 
-        (a.user_status === 'completed' || a.user_status === 'approved')
-      ).length, 0
-    );
 
-    console.log(`Client view data - Total projectlets: ${totalProjectlets}, Completed: ${completedProjectlets}, Progress: ${progressPercentage}%`);
+    console.log(`Client view data - Applets: ${completedApplets}/${totalApplets} (${progressPercentage}%), Projectlets: ${completedProjectlets}/${totalProjectlets}`);
 
     return NextResponse.json({ 
       project,

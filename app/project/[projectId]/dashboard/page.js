@@ -418,7 +418,7 @@ export default function ClientDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Tasks Complete</p>
-                <p className="text-2xl font-bold">{completedApplets.size}</p>
+                <p className="text-2xl font-bold">{stats.completedApplets || 0}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-500" />
             </div>
@@ -429,7 +429,19 @@ export default function ClientDashboard() {
               <div>
                 <p className="text-sm text-gray-600">In Progress</p>
                 <p className="text-2xl font-bold">
-                  {projectlets.filter(p => p.status === 'in_progress').length}
+                  {(() => {
+                    // Count applets that are in progress (started but not completed)
+                    let inProgressCount = 0;
+                    projectlets.forEach(projectlet => {
+                      projectlet.applets?.forEach(applet => {
+                        const status = applet.user_status || applet.status;
+                        if (status === 'in_progress' || status === 'started') {
+                          inProgressCount++;
+                        }
+                      });
+                    });
+                    return inProgressCount;
+                  })()}
                 </p>
               </div>
               <Clock className="w-8 h-8 text-yellow-500" />
@@ -468,6 +480,17 @@ export default function ClientDashboard() {
             const isCompleted = projectlet.status === 'completed';
             const applets = projectlet.applets || [];
             
+            // Check if projectlet is in progress (has started applets but not all complete)
+            const hasStartedApplets = applets.some(applet => {
+              const status = applet.user_status || applet.status;
+              return status === 'in_progress' || status === 'started' || status === 'completed' || status === 'approved';
+            });
+            const allAppletsComplete = applets.length > 0 && applets.every(applet => {
+              const status = applet.user_status || applet.status;
+              return status === 'completed' || status === 'approved';
+            });
+            const isInProgress = hasStartedApplets && !allAppletsComplete;
+            
             return (
               <div
                 key={projectlet.id}
@@ -477,17 +500,21 @@ export default function ClientDashboard() {
               >
                 {/* Projectlet Header */}
                 <div className={`p-6 border-b ${
-                  isCompleted ? 'bg-green-50' : isLocked ? 'bg-gray-50' : 'bg-white'
+                  isCompleted ? 'bg-green-50' : 
+                  isInProgress ? 'bg-yellow-50' :
+                  isLocked ? 'bg-gray-50' : 'bg-white'
                 }`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                         isCompleted ? 'bg-green-100 text-green-600' :
+                        isInProgress ? 'bg-yellow-100 text-yellow-600' :
                         isLocked ? 'bg-gray-100 text-gray-400' :
                         'bg-purple-100 text-purple-600'
                       }`}>
-                        {isCompleted ? <CheckCircle /> : 
-                         isLocked ? <Lock /> : 
+                        {isCompleted ? <CheckCircle className="w-6 h-6" /> : 
+                         isInProgress ? <Clock className="w-6 h-6" /> :
+                         isLocked ? <Lock className="w-6 h-6" /> : 
                          <span className="font-bold">{index + 1}</span>}
                       </div>
                       <div>
