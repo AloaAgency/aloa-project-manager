@@ -1,10 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Upload, X, File, Plus, Save, Check, AlertCircle } from 'lucide-react';
+import { Upload, X, File, Plus, Save, Check, AlertCircle, Download, Folder, FolderOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { supabase } from '@/lib/supabase';
 
-export default function FileUploadConfig({ 
+const STORAGE_BUCKET = 'Aloa Project Tracker Bucket';
+const MAX_BASE64_SIZE = 5 * 1024 * 1024; // 5MB - use base64 for small files
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB - max for Supabase Storage
+
+export default function FileUploadConfigStorage({ 
   projectId, 
   projectletId, 
   applet, 
@@ -14,12 +19,14 @@ export default function FileUploadConfig({
     heading: applet.config?.heading || 'File Uploads',
     description: applet.config?.description || 'Upload and share project files',
     files: applet.config?.files || [],
+    category: applet.config?.category || 'general', // 'final-deliverables', 'work-in-progress', 'general'
     allow_client_upload: applet.config?.allow_client_upload || false,
-    max_file_size: applet.config?.max_file_size || 100, // MB - default 100MB
-    allowed_file_types: applet.config?.allowed_file_types || ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'zip']
+    max_file_size: applet.config?.max_file_size || 100, // MB - increased default
+    allowed_file_types: applet.config?.allowed_file_types || ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'zip', 'mp4', 'mov', 'ai', 'psd', 'sketch', 'fig']
   });
 
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -30,9 +37,10 @@ export default function FileUploadConfig({
       heading: applet.config?.heading || 'File Uploads',
       description: applet.config?.description || 'Upload and share project files',
       files: applet.config?.files || [],
+      category: applet.config?.category || 'general',
       allow_client_upload: applet.config?.allow_client_upload || false,
       max_file_size: applet.config?.max_file_size || 100,
-      allowed_file_types: applet.config?.allowed_file_types || ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'zip']
+      allowed_file_types: applet.config?.allowed_file_types || ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'zip', 'mp4', 'mov', 'ai', 'psd', 'sketch', 'fig']
     };
     
     const hasChanges = JSON.stringify(config) !== JSON.stringify(originalConfig);
@@ -59,50 +67,133 @@ export default function FileUploadConfig({
     }
 
     setUploading(true);
+    setUploadProgress(0);
 
     try {
-      // Convert file to base64 for now (until we set up proper server-side upload)
-      const reader = new FileReader();
+      let fileData = {};
       
-      reader.onload = () => {
-        const base64String = reader.result;
+      // Decide storage method based on file size
+      if (file.size <= MAX_BASE64_SIZE) {
+        // Small file: use base64
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(file);
+        const base64String = await base64Promise;
         
-        // Add file to config with base64 data
-        const newFile = {
+        fileData = {
           id: Date.now().toString(),
           name: file.name,
           size: file.size,
           type: file.type,
-          data: base64String, // Store as base64 for security
+          data: base64String, // Store as base64
+          storage_type: 'base64',
           uploaded_at: new Date().toISOString(),
           uploaded_by: 'admin'
         };
+        
+        setUploadProgress(100);
+      } else {
+        // Large file: use Supabase Storage
+        const timestamp = Date.now();
+        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const storagePath = `projects/${projectId}/${config.category}/${timestamp}_${safeName}`;
+        
+        // Upload to Supabase Storage
+        const { data, error } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(storagePath, file, {
+            onUploadProgress: (progress) => {
+              const percent = (progress.loaded / progress.total) * 100;
+              setUploadProgress(Math.round(percent));
+            }
+          });
 
-        setConfig(prev => ({
-          ...prev,
-          files: [...prev.files, newFile]
-        }));
+        if (error) {
+          // If bucket doesn't exist or other storage error
+          if (error.message.includes('bucket')) {
+            toast.error('Storage bucket not configured. Please contact admin.');
+          } else {
+            toast.error(`Upload failed: ${error.message}`);
+          }
+          throw error;
+        }
 
-        toast.success('File uploaded successfully');
-        setUploading(false);
-      };
+        // Get public URL (or you can generate signed URLs later)
+        const { data: urlData } = supabase.storage
+          .from(STORAGE_BUCKET)
+          .getPublicUrl(storagePath);
 
-      reader.onerror = () => {
-        toast.error('Failed to read file');
-        setUploading(false);
-      };
+        fileData = {
+          id: Date.now().toString(),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          storage_path: storagePath,
+          storage_type: 'supabase',
+          url: urlData.publicUrl,
+          uploaded_at: new Date().toISOString(),
+          uploaded_by: 'admin',
+          category: config.category
+        };
 
-      // Read file as data URL (includes base64)
-      reader.readAsDataURL(file);
+        // Also save to project_files table if it exists
+        try {
+          await fetch('/api/project-files', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: projectId,
+              projectlet_id: projectletId,
+              applet_id: applet.id,
+              file_name: file.name,
+              file_size: file.size,
+              file_type: file.type,
+              storage_path: storagePath,
+              category: config.category,
+              uploaded_by: 'admin'
+            })
+          });
+        } catch (dbError) {
+          console.log('Database logging skipped:', dbError);
+          // Continue anyway - file is uploaded
+        }
+      }
+
+      // Add file to config
+      setConfig(prev => ({
+        ...prev,
+        files: [...prev.files, fileData]
+      }));
+
+      toast.success(`File uploaded successfully ${file.size > MAX_BASE64_SIZE ? '(stored in cloud)' : '(stored locally)'}`);
     } catch (error) {
       console.error('Error uploading file:', error);
       toast.error('Failed to upload file');
+    } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
-  const removeFile = (fileId) => {
-    // Simply remove from config
+  const removeFile = async (fileId) => {
+    const file = config.files.find(f => f.id === fileId);
+    
+    if (file && file.storage_type === 'supabase' && file.storage_path) {
+      // Try to delete from Supabase Storage
+      try {
+        await supabase.storage
+          .from(STORAGE_BUCKET)
+          .remove([file.storage_path]);
+      } catch (error) {
+        console.error('Error deleting file from storage:', error);
+        // Continue anyway - maybe file is already gone
+      }
+    }
+
+    // Remove from config
     setConfig(prev => ({
       ...prev,
       files: prev.files.filter(f => f.id !== fileId)
@@ -152,11 +243,31 @@ export default function FileUploadConfig({
     const ext = fileName.split('.').pop().toLowerCase();
     const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
     const docExts = ['pdf', 'doc', 'docx', 'txt'];
+    const videoExts = ['mp4', 'mov', 'avi', 'webm'];
+    const designExts = ['ai', 'psd', 'sketch', 'fig', 'xd'];
     
     if (imageExts.includes(ext)) return '🖼️';
     if (docExts.includes(ext)) return '📄';
+    if (videoExts.includes(ext)) return '🎬';
+    if (designExts.includes(ext)) return '🎨';
     if (ext === 'zip' || ext === 'rar') return '📦';
     return '📎';
+  };
+
+  const getCategoryIcon = (category) => {
+    switch(category) {
+      case 'final-deliverables': return <FolderOpen className="w-4 h-4 text-green-600" />;
+      case 'work-in-progress': return <Folder className="w-4 h-4 text-amber-600" />;
+      default: return <Folder className="w-4 h-4 text-gray-600" />;
+    }
+  };
+
+  const getCategoryLabel = (category) => {
+    switch(category) {
+      case 'final-deliverables': return 'Final Deliverables';
+      case 'work-in-progress': return 'Work in Progress';
+      default: return 'General Files';
+    }
   };
 
   return (
@@ -173,6 +284,27 @@ export default function FileUploadConfig({
           </button>
         </div>
 
+        {/* Category Selection */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            File Category
+          </label>
+          <select
+            value={config.category}
+            onChange={(e) => setConfig(prev => ({ ...prev, category: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          >
+            <option value="general">General Files</option>
+            <option value="final-deliverables">Final Deliverables</option>
+            <option value="work-in-progress">Work in Progress</option>
+          </select>
+          {config.category === 'final-deliverables' && (
+            <p className="text-xs text-green-600 mt-1">
+              ✨ Files marked as Final Deliverables will be prominently displayed to clients
+            </p>
+          )}
+        </div>
+
         {/* Heading */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -183,7 +315,7 @@ export default function FileUploadConfig({
             value={config.heading}
             onChange={(e) => setConfig(prev => ({ ...prev, heading: e.target.value }))}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-            placeholder="e.g., Project Deliverables"
+            placeholder="e.g., Style Guide, Brand Assets, Final Designs"
           />
         </div>
 
@@ -218,6 +350,9 @@ export default function FileUploadConfig({
                       <p className="text-sm font-medium">{file.name}</p>
                       <p className="text-xs text-gray-500">
                         {formatFileSize(file.size)} • Uploaded {new Date(file.uploaded_at).toLocaleDateString()}
+                        {file.storage_type === 'supabase' && (
+                          <span className="ml-2 text-blue-600">☁️ Cloud</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -243,16 +378,29 @@ export default function FileUploadConfig({
             />
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors">
               {uploading ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-600"></div>
-                  <span className="text-sm text-gray-600">Uploading...</span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-600"></div>
+                    <span className="text-sm text-gray-600">Uploading...</span>
+                  </div>
+                  {uploadProgress > 0 && (
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-black h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col items-center space-y-2">
                   <Upload className="w-8 h-8 text-gray-400" />
                   <p className="text-sm text-gray-600">Click to upload file</p>
                   <p className="text-xs text-gray-500">
-                    Max {config.max_file_size}MB • {config.allowed_file_types.join(', ')}
+                    Max {config.max_file_size}MB • Supports large files (PDFs, videos, design files)
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {config.allowed_file_types.join(', ')}
                   </p>
                 </div>
               )}
@@ -280,10 +428,10 @@ export default function FileUploadConfig({
               <input
                 type="number"
                 value={config.max_file_size}
-                onChange={(e) => setConfig(prev => ({ ...prev, max_file_size: parseInt(e.target.value) || 10 }))}
+                onChange={(e) => setConfig(prev => ({ ...prev, max_file_size: parseInt(e.target.value) || 100 }))}
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
                 min="1"
-                max="100"
+                max="200"
               />
             </div>
             <div>
@@ -298,9 +446,13 @@ export default function FileUploadConfig({
                   allowed_file_types: e.target.value.split(',').map(t => t.trim()).filter(Boolean)
                 }))}
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                placeholder="pdf, jpg, png"
+                placeholder="pdf, jpg, png, mp4, ai, psd"
               />
             </div>
+          </div>
+
+          <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
+            💡 Files under 5MB are stored securely in the database. Larger files (up to 200MB) are stored in cloud storage for optimal performance.
           </div>
         </div>
 

@@ -850,20 +850,46 @@ export default function ClientDashboard() {
                           <div className="flex items-center space-x-3">
                             <span className="text-2xl">{getFileIcon(file.name)}</span>
                             <div>
-                              <p className="font-medium text-gray-900">{file.name}</p>
+                              <p className="font-medium text-gray-900">
+                                {file.name}
+                                {file.category === 'final-deliverables' && (
+                                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Final</span>
+                                )}
+                              </p>
                               <p className="text-sm text-gray-500">
                                 {formatFileSize(file.size)} • Uploaded {new Date(file.uploaded_at).toLocaleDateString()}
+                                {file.storage_type === 'supabase' && (
+                                  <span className="ml-2 text-blue-600">☁️ Cloud</span>
+                                )}
                               </p>
                             </div>
                           </div>
                           <button
-                            onClick={() => {
-                              // If we have a URL from Supabase, open it
-                              if (file.url && !file.data) {
+                            onClick={async () => {
+                              // Track download
+                              if (file.id) {
+                                try {
+                                  await fetch('/api/project-files', {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id: file.id, increment_download: true })
+                                  });
+                                } catch (err) {
+                                  console.log('Download tracking failed:', err);
+                                }
+                              }
+                              
+                              // Handle different storage types
+                              if (file.storage_type === 'supabase' && file.url) {
+                                // Supabase Storage file
                                 window.open(file.url, '_blank');
                               } 
-                              // If we have base64 data, create download link
+                              else if (file.url && !file.data) {
+                                // Legacy URL file
+                                window.open(file.url, '_blank');
+                              } 
                               else if (file.data) {
+                                // Base64 data
                                 const link = document.createElement('a');
                                 link.href = file.data;
                                 link.download = file.name;
