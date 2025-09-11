@@ -139,6 +139,63 @@ Optimized for Vercel deployment:
 3. Add environment variables
 4. Deploy (automatic builds on push)
 
+## Applet Development Guidelines
+
+### CRITICAL: Two-Sided Applet Architecture
+
+**Every applet in the system has TWO sides that must be implemented:**
+
+1. **Admin Side** - `/admin/project/[projectId]/page.js`
+   - This is the MAIN admin view where all applet configuration happens
+   - Each applet MUST have its basic editing/info available inline on this page
+   - No clicking into modals should be required for basic configuration
+   - Examples:
+     - Form applets: Form selector, statistics, action buttons
+     - Link Submission applets: Heading, description, links management
+     - All configuration should be editable directly in the projectlet view
+
+2. **Client Side** - `/project/[projectId]/page.js`
+   - This is what clients see when viewing the project
+   - Read-only presentation of the applet content
+   - Interactive elements for client actions (form submissions, acknowledgments, etc.)
+   - Must handle client-appropriate display and interactions
+
+### When Adding New Applets
+
+1. **Start with the Admin View** (`/admin/project/[projectId]/page.js`)
+   - Add type-specific inline configuration after line ~1443
+   - Include all editable fields directly in the projectlet card
+   - Use PATCH requests to update applet config in real-time
+   - Follow the pattern of existing applets (form, link_submission)
+
+2. **Then implement Client View** (`/project/[projectId]/page.js`)
+   - Add client-side rendering for the new applet type
+   - Ensure proper read-only display
+   - Handle any client interactions
+
+3. **Update ProjectletAppletsManager** (if needed for modal views)
+   - This component is used in modals for more detailed configuration
+   - Not the primary editing interface - admin page inline editing is primary
+
+### Applet Configuration Pattern
+
+```javascript
+// Admin side - inline configuration
+{(applet.type === 'your_applet_type') && (
+  <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-lg">
+    {/* All configuration fields here */}
+    {/* Direct PATCH calls to update config */}
+  </div>
+)}
+
+// Client side - read-only display
+{applet.type === 'your_applet_type' && (
+  <div>
+    {/* Client-appropriate display */}
+  </div>
+)}
+```
+
 ## Common Development Tasks
 
 ### Adding New Field Types

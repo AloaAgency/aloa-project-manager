@@ -71,6 +71,11 @@ const FormBuilderModal = dynamic(() => import('@/components/FormBuilderModal'), 
   ssr: false
 });
 
+// Dynamically import Link Submission Config
+const LinkSubmissionConfig = dynamic(() => import('@/components/LinkSubmissionConfig'), {
+  ssr: false
+});
+
 function AdminProjectPageContent() {
   const params = useParams();
   const router = useRouter();
@@ -102,6 +107,7 @@ function AdminProjectPageContent() {
   const [stakeholders, setStakeholders] = useState([]);
   const [showStakeholderForm, setShowStakeholderForm] = useState(false);
   const [editingStakeholder, setEditingStakeholder] = useState(null);
+  const [expandedApplets, setExpandedApplets] = useState({});
 
   useEffect(() => {
     fetchProjectData();
@@ -972,13 +978,59 @@ function AdminProjectPageContent() {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold">Projectlets Management</h2>
-                <button 
-                  onClick={addProjectlet}
-                  className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Projectlet
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      // Get all applet IDs
+                      const allAppletIds = [];
+                      projectlets.forEach(p => {
+                        const applets = projectletApplets[p.id] || [];
+                        applets.forEach(a => allAppletIds.push(a.id));
+                      });
+                      
+                      const allExpanded = allAppletIds.length > 0 && 
+                                         allAppletIds.every(id => expandedApplets[id]);
+                      
+                      if (allExpanded) {
+                        setExpandedApplets({});
+                      } else {
+                        const expanded = {};
+                        allAppletIds.forEach(id => expanded[id] = true);
+                        setExpandedApplets(expanded);
+                      }
+                    }}
+                    className="px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 flex items-center"
+                    title="Expand/Collapse All Applets"
+                  >
+                    {(() => {
+                      const allAppletIds = [];
+                      projectlets.forEach(p => {
+                        const applets = projectletApplets[p.id] || [];
+                        applets.forEach(a => allAppletIds.push(a.id));
+                      });
+                      const allExpanded = allAppletIds.length > 0 && 
+                                         allAppletIds.every(id => expandedApplets[id]);
+                      return allExpanded ? (
+                        <>
+                          <ChevronUp className="w-4 h-4 mr-1" />
+                          Collapse All
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-4 h-4 mr-1" />
+                          Expand All
+                        </>
+                      );
+                    })()}
+                  </button>
+                  <button 
+                    onClick={addProjectlet}
+                    className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Projectlet
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -1297,11 +1349,29 @@ function AdminProjectPageContent() {
                                           <Trash2 className="w-3 h-3 text-red-600" />
                                         </button>
                                       </div>
+                                      {/* Expand/Collapse button */}
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedApplets(prev => ({
+                                            ...prev,
+                                            [applet.id]: !prev[applet.id]
+                                          }));
+                                        }}
+                                        className="p-1 hover:bg-gray-200 rounded ml-2"
+                                        title={expandedApplets[applet.id] ? "Collapse" : "Expand"}
+                                      >
+                                        {expandedApplets[applet.id] ? (
+                                          <ChevronUp className="w-4 h-4" />
+                                        ) : (
+                                          <ChevronDown className="w-4 h-4" />
+                                        )}
+                                      </button>
                                     </div>
                                   </div>
                                   
                                   {/* Inline form selector for form applets */}
-                                  {applet.type === 'form' && (
+                                  {expandedApplets[applet.id] && applet.type === 'form' && (
                                     <div className="mt-2">
                                       {isFormLocked && (
                                         <div className="mb-2 p-2 bg-red-100 border border-red-300 rounded text-xs text-red-700 font-medium">
@@ -1440,6 +1510,18 @@ function AdminProjectPageContent() {
                                         );
                                       })()}
                                     </div>
+                                  )}
+
+                                  {/* Inline link submission configuration */}
+                                  {expandedApplets[applet.id] && (applet.type === 'link_submission' || 
+                                    applet.name === 'Link Submission' ||
+                                    applet.description?.includes('Share deliverables and resources')) && (
+                                    <LinkSubmissionConfig
+                                      applet={applet}
+                                      projectId={params.projectId}
+                                      projectletId={projectlet.id}
+                                      onUpdate={() => fetchProjectletApplets(projectlet.id)}
+                                    />
                                   )}
                                 </div>
                               );

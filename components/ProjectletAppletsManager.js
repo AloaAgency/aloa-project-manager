@@ -67,7 +67,8 @@ const APPLET_ICONS = {
   moodboard: Palette,
   sitemap_builder: Gamepad2,
   content_gather: MessageSquare,
-  feedback_loop: MessageSquare
+  feedback_loop: MessageSquare,
+  link_submission: Link
 };
 
 const APPLET_COLORS = {
@@ -78,7 +79,8 @@ const APPLET_COLORS = {
   moodboard: 'bg-pink-100 text-pink-700 border-pink-300',
   sitemap_builder: 'bg-indigo-100 text-indigo-700 border-indigo-300',
   content_gather: 'bg-yellow-100 text-yellow-700 border-yellow-300',
-  feedback_loop: 'bg-orange-100 text-orange-700 border-orange-300'
+  feedback_loop: 'bg-orange-100 text-orange-700 border-orange-300',
+  link_submission: 'bg-cyan-100 text-cyan-700 border-cyan-300'
 };
 
 export default function ProjectletAppletsManager({ 
@@ -115,6 +117,7 @@ export default function ProjectletAppletsManager({
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`
       );
       const data = await response.json();
+      console.log('Fetched applets:', data.applets);
       setApplets(data.applets || []);
     } catch (error) {
       console.error('Error fetching applets:', error);
@@ -136,12 +139,14 @@ export default function ProjectletAppletsManager({
   const addAppletFromLibrary = async (libraryApplet) => {
     // Add all applets directly, including form applets with null form_id for inline configuration
     try {
+      console.log('Adding applet from library:', libraryApplet);
+      
       const appletData = {
         library_applet_id: libraryApplet.id,
         name: libraryApplet.name,
         description: libraryApplet.description,
         type: libraryApplet.type,
-        config: libraryApplet.default_config,
+        config: libraryApplet.default_config || {},
         requires_approval: libraryApplet.requires_approval,
         client_instructions: libraryApplet.client_instructions
       };
@@ -155,6 +160,22 @@ export default function ProjectletAppletsManager({
         appletData.form_id = null; // Also set the direct form_id field
       }
 
+      // For link_submission applets, ensure proper initial config
+      if (libraryApplet.type === 'link_submission') {
+        appletData.config = {
+          heading: libraryApplet.default_config?.heading || 'Project Deliverables',
+          description: libraryApplet.default_config?.description || 'Please review the following materials:',
+          links: libraryApplet.default_config?.links || [{
+            text: 'View Link',
+            url: 'https://example.com',
+            description: 'Link description'
+          }],
+          allow_client_acknowledgment: libraryApplet.default_config?.allow_client_acknowledgment !== false
+        };
+      }
+
+      console.log('Sending applet data to API:', appletData);
+      
       const response = await fetch(
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`,
         {
@@ -165,6 +186,8 @@ export default function ProjectletAppletsManager({
       );
 
       if (response.ok) {
+        const createdApplet = await response.json();
+        console.log('Created applet response:', createdApplet);
         toast.success('Applet added successfully');
         fetchApplets();
         setShowAddApplet(false);
@@ -446,6 +469,7 @@ export default function ProjectletAppletsManager({
           </div>
         ) : (
           applets.map((applet, index) => {
+            console.log(`Rendering applet ${index}:`, applet.name, 'Type:', applet.type);
             const Icon = APPLET_ICONS[applet.type] || FileText;
             const colorClass = APPLET_COLORS[applet.type] || 'bg-gray-100 text-gray-700';
             const isExpanded = expandedApplet === applet.id;
@@ -637,6 +661,175 @@ export default function ProjectletAppletsManager({
                           )}
                         </div>
                       )}
+
+                      {/* DEBUG: Show for ALL applets */}
+                      <div className="mt-3 p-2 border border-purple-500 bg-purple-50 rounded">
+                        <div className="text-xs font-bold text-purple-700">DEBUG INFO:</div>
+                        <div className="text-xs">Name: "{applet.name}"</div>
+                        <div className="text-xs">Type: "{applet.type || 'NULL'}"</div>
+                        <div className="text-xs">Is Link Submission? {applet.name === 'Link Submission' ? 'YES' : 'NO'}</div>
+                      </div>
+                      
+                      {/* Original link submission logic */}
+                      {(() => {
+                        // Check if this is a link submission applet based on type, name, or description
+                        const isLinkSubmission = applet.type === 'link_submission' || 
+                                                applet.name === 'Link Submission' ||
+                                                applet.description?.includes('Share deliverables and resources');
+                        
+                        if (isLinkSubmission) {
+                          return (
+                            <div className="mt-3 p-3 border-2 border-blue-500 bg-blue-50 rounded-lg">
+                              <div className="text-xs font-bold text-blue-700 mb-2">Link Submission Configuration:</div>
+                          {/* Inline configuration - always visible */}
+                          <div className="space-y-2">
+                            {/* Heading */}
+                            <div>
+                              <label className="text-xs font-medium text-gray-700 block mb-1">Heading</label>
+                              <input
+                                type="text"
+                                value={applet.config?.heading || 'Project Deliverables'}
+                                onChange={(e) => updateApplet(applet.id, {
+                                  config: { ...(applet.config || {}), heading: e.target.value }
+                                })}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm font-medium bg-white"
+                                placeholder="Enter heading (e.g., Project Deliverables)"
+                              />
+                            </div>
+                            
+                            {/* Description */}
+                            <div>
+                              <label className="text-xs font-medium text-gray-700 block mb-1">Description</label>
+                              <textarea
+                                value={applet.config?.description || 'Please review the following materials:'}
+                                onChange={(e) => updateApplet(applet.id, {
+                                  config: { ...(applet.config || {}), description: e.target.value }
+                                })}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+                                rows="2"
+                                placeholder="Add description or instructions..."
+                              />
+                            </div>
+                            
+                            {/* Links section */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-gray-700">Links</span>
+                                <button
+                                  onClick={() => {
+                                    const currentLinks = applet.config?.links || [];
+                                    const newLinks = [...currentLinks, { text: 'View Link', url: 'https://example.com', description: '' }];
+                                    updateApplet(applet.id, {
+                                      config: { ...(applet.config || {}), links: newLinks }
+                                    });
+                                  }}
+                                  className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                                >
+                                  + Add Link
+                                </button>
+                              </div>
+                              
+                              {(applet.config?.links || []).length === 0 ? (
+                                <div className="text-xs text-gray-500 italic p-2 bg-gray-50 rounded">
+                                  No links added yet. Click "Add Link" to get started.
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {(applet.config?.links || []).map((link, idx) => (
+                                    <div key={idx} className="p-2 bg-gray-50 rounded border border-gray-200">
+                                      <div className="flex items-start space-x-2">
+                                        <div className="flex-1 space-y-1">
+                                          <input
+                                            type="text"
+                                            value={link.text || ''}
+                                            onChange={(e) => {
+                                              const newLinks = [...(applet.config?.links || [])];
+                                              newLinks[idx] = { ...newLinks[idx], text: e.target.value };
+                                              updateApplet(applet.id, {
+                                                config: { ...(applet.config || {}), links: newLinks }
+                                              });
+                                            }}
+                                            className="w-full px-2 py-1 border rounded text-sm"
+                                            placeholder="Link text (e.g., View Mockups)"
+                                          />
+                                          <input
+                                            type="url"
+                                            value={link.url || ''}
+                                            onChange={(e) => {
+                                              const newLinks = [...(applet.config?.links || [])];
+                                              newLinks[idx] = { ...newLinks[idx], url: e.target.value };
+                                              updateApplet(applet.id, {
+                                                config: { ...(applet.config || {}), links: newLinks }
+                                              });
+                                            }}
+                                            className="w-full px-2 py-1 border rounded text-sm"
+                                            placeholder="https://..."
+                                          />
+                                          <input
+                                            type="text"
+                                            value={link.description || ''}
+                                            onChange={(e) => {
+                                              const newLinks = [...(applet.config?.links || [])];
+                                              newLinks[idx] = { ...newLinks[idx], description: e.target.value };
+                                              updateApplet(applet.id, {
+                                                config: { ...(applet.config || {}), links: newLinks }
+                                              });
+                                            }}
+                                            className="w-full px-2 py-1 border rounded text-sm"
+                                            placeholder="Optional description"
+                                          />
+                                        </div>
+                                        <button
+                                          onClick={() => {
+                                            const newLinks = (applet.config?.links || []).filter((_, i) => i !== idx);
+                                            updateApplet(applet.id, {
+                                              config: { ...(applet.config || {}), links: newLinks }
+                                            });
+                                          }}
+                                          className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                          title="Remove link"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                      {link.url && (
+                                        <a 
+                                          href={link.url} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center mt-1 text-xs text-blue-600 hover:text-blue-700"
+                                        >
+                                          <ExternalLink className="w-3 h-3 mr-1" />
+                                          Test link
+                                        </a>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Allow acknowledgment checkbox */}
+                            <div className="flex items-center p-2 bg-gray-50 rounded">
+                              <input
+                                type="checkbox"
+                                id={`ack-${applet.id}`}
+                                checked={applet.config?.allow_client_acknowledgment || false}
+                                onChange={(e) => updateApplet(applet.id, {
+                                  config: { ...(applet.config || {}), allow_client_acknowledgment: e.target.checked }
+                                })}
+                                className="mr-2"
+                              />
+                              <label htmlFor={`ack-${applet.id}`} className="text-xs">
+                                Allow client to mark as reviewed
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                          );
+                        }
+                        return null;
+                      })()}
 
                       {/* Expanded Details */}
                       {isExpanded && (
