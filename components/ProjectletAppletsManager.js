@@ -117,6 +117,7 @@ export default function ProjectletAppletsManager({
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`
       );
       const data = await response.json();
+      console.log('Fetched applets:', data.applets);
       setApplets(data.applets || []);
     } catch (error) {
       console.error('Error fetching applets:', error);
@@ -138,6 +139,8 @@ export default function ProjectletAppletsManager({
   const addAppletFromLibrary = async (libraryApplet) => {
     // Add all applets directly, including form applets with null form_id for inline configuration
     try {
+      console.log('Adding applet from library:', libraryApplet);
+      
       const appletData = {
         library_applet_id: libraryApplet.id,
         name: libraryApplet.name,
@@ -171,6 +174,8 @@ export default function ProjectletAppletsManager({
         };
       }
 
+      console.log('Sending applet data to API:', appletData);
+      
       const response = await fetch(
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`,
         {
@@ -181,6 +186,8 @@ export default function ProjectletAppletsManager({
       );
 
       if (response.ok) {
+        const createdApplet = await response.json();
+        console.log('Created applet response:', createdApplet);
         toast.success('Applet added successfully');
         fetchApplets();
         setShowAddApplet(false);
@@ -462,6 +469,7 @@ export default function ProjectletAppletsManager({
           </div>
         ) : (
           applets.map((applet, index) => {
+            console.log(`Rendering applet ${index}:`, applet.name, 'Type:', applet.type);
             const Icon = APPLET_ICONS[applet.type] || FileText;
             const colorClass = APPLET_COLORS[applet.type] || 'bg-gray-100 text-gray-700';
             const isExpanded = expandedApplet === applet.id;
@@ -654,31 +662,50 @@ export default function ProjectletAppletsManager({
                         </div>
                       )}
 
-                      {applet.type === 'link_submission' && (
-                        <div className="mt-3 space-y-2">
+                      {/* DEBUG: Show for ALL applets */}
+                      <div className="mt-3 p-2 border border-purple-500 bg-purple-50 rounded">
+                        <div className="text-xs font-bold text-purple-700">DEBUG INFO:</div>
+                        <div className="text-xs">Name: "{applet.name}"</div>
+                        <div className="text-xs">Type: "{applet.type || 'NULL'}"</div>
+                        <div className="text-xs">Is Link Submission? {applet.name === 'Link Submission' ? 'YES' : 'NO'}</div>
+                      </div>
+                      
+                      {/* Original link submission logic */}
+                      {(() => {
+                        // Check if this is a link submission applet based on type, name, or description
+                        const isLinkSubmission = applet.type === 'link_submission' || 
+                                                applet.name === 'Link Submission' ||
+                                                applet.description?.includes('Share deliverables and resources');
+                        
+                        if (isLinkSubmission) {
+                          return (
+                            <div className="mt-3 p-3 border-2 border-blue-500 bg-blue-50 rounded-lg">
+                              <div className="text-xs font-bold text-blue-700 mb-2">Link Submission Configuration:</div>
                           {/* Inline configuration - always visible */}
                           <div className="space-y-2">
                             {/* Heading */}
                             <div>
+                              <label className="text-xs font-medium text-gray-700 block mb-1">Heading</label>
                               <input
                                 type="text"
                                 value={applet.config?.heading || 'Project Deliverables'}
                                 onChange={(e) => updateApplet(applet.id, {
                                   config: { ...(applet.config || {}), heading: e.target.value }
                                 })}
-                                className="w-full px-2 py-1 border rounded text-sm font-medium"
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm font-medium bg-white"
                                 placeholder="Enter heading (e.g., Project Deliverables)"
                               />
                             </div>
                             
                             {/* Description */}
                             <div>
+                              <label className="text-xs font-medium text-gray-700 block mb-1">Description</label>
                               <textarea
                                 value={applet.config?.description || 'Please review the following materials:'}
                                 onChange={(e) => updateApplet(applet.id, {
                                   config: { ...(applet.config || {}), description: e.target.value }
                                 })}
-                                className="w-full px-2 py-1 border rounded text-sm"
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white"
                                 rows="2"
                                 placeholder="Add description or instructions..."
                               />
@@ -799,7 +826,10 @@ export default function ProjectletAppletsManager({
                             </div>
                           </div>
                         </div>
-                      )}
+                          );
+                        }
+                        return null;
+                      })()}
 
                       {/* Expanded Details */}
                       {isExpanded && (

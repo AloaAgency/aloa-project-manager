@@ -111,16 +111,46 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Calculate applet stats for display and progress
-    const totalApplets = sortedProjectlets.reduce((sum, p) => sum + p.applets.length, 0);
-    const completedApplets = sortedProjectlets.reduce((sum, p) => 
-      sum + p.applets.filter(a => 
-        (a.user_status === 'completed' || a.user_status === 'approved')
-      ).length, 0
-    );
+    // Debug: Log all projectlets and their status
+    console.log('All projectlets:', sortedProjectlets.map(p => ({
+      name: p.name,
+      status: p.status,
+      appletCount: p.applets.length,
+      applets: p.applets.map(a => ({
+        name: a.name,
+        user_status: a.user_status,
+        type: a.type
+      }))
+    })));
+
+    // For locked projectlets with no applets, estimate they will have at least 1 applet each
+    // This ensures they're counted in the overall project scope
+    const estimatedTotalApplets = sortedProjectlets.reduce((sum, p) => {
+      if (p.status === 'locked' && p.applets.length === 0) {
+        // Locked projectlet with no applets - count as having 1 future applet
+        return sum + 1;
+      }
+      return sum + p.applets.length;
+    }, 0);
     
-    // Calculate progress based on applets (not projectlets) for better granularity
-    const progressPercentage = totalApplets > 0 ? Math.round((completedApplets / totalApplets) * 100) : 0;
+    // Count completed applets - checking user_status which was set from progress data
+    let completedCount = 0;
+    sortedProjectlets.forEach(p => {
+      p.applets.forEach(a => {
+        if (a.user_status === 'completed' || a.user_status === 'approved') {
+          completedCount++;
+          console.log(`Counting as completed: ${a.name} (status: ${a.user_status})`);
+        } else {
+          console.log(`Not completed: ${a.name} (status: ${a.user_status})`);
+        }
+      });
+    });
+    const completedApplets = completedCount;
+    
+    // Calculate progress based on estimated total to include locked projectlets in scope
+    const progressPercentage = estimatedTotalApplets > 0 ? Math.round((completedApplets / estimatedTotalApplets) * 100) : 0;
+    
+    console.log(`Calculation Debug - Total Projectlets: ${sortedProjectlets.length} (${sortedProjectlets.filter(p => p.status === 'locked').length} locked), Estimated Total Applets: ${estimatedTotalApplets}, Completed: ${completedApplets}, Percentage: ${progressPercentage}%`);
     
     // Also track projectlet completion for reference
     const totalProjectlets = sortedProjectlets.length;
@@ -138,13 +168,13 @@ export async function GET(request, { params }) {
       }
     }
 
-    console.log(`Client view data - Applets: ${completedApplets}/${totalApplets} (${progressPercentage}%), Projectlets: ${completedProjectlets}/${totalProjectlets}`);
+    console.log(`Client view data - Applets: ${completedApplets}/${estimatedTotalApplets} (${progressPercentage}%), Projectlets: ${completedProjectlets}/${totalProjectlets}`);
 
     return NextResponse.json({ 
       project,
       projectlets: sortedProjectlets,
       stats: {
-        totalApplets,
+        totalApplets: estimatedTotalApplets,  // Use estimated total that includes locked projectlets
         completedApplets,
         progressPercentage
       }

@@ -25,7 +25,7 @@ import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
 
 // Dynamic imports for heavy components
-const Confetti = dynamic(() => import('react-confetti'), { ssr: false });
+const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), { ssr: false });
 
 export default function ClientDashboard() {
   const params = useParams();
@@ -131,14 +131,16 @@ export default function ClientDashboard() {
   const handleAppletClick = async (applet, projectlet, isViewOnly = false) => {
     // For forms, allow editing if completed but not locked
     const isForm = applet.type === 'form';
+    const isLinkSubmission = applet.type === 'link_submission';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
     
     // Block if:
-    // 1. Non-form applet that's already completed
+    // 1. Non-form, non-link-submission applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    if ((!isForm && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -338,7 +340,7 @@ export default function ClientDashboard() {
       // Close modal and show celebration
       setShowFormModal(false);
       setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 5000);
+      setTimeout(() => setShowConfetti(false), 7000);
 
       // Refresh data to get updated status from server
       fetchProjectData();
@@ -375,7 +377,7 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-      {showConfetti && <Confetti />}
+      <ConfettiCelebration show={showConfetti} duration={6000} />
       
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
@@ -572,6 +574,10 @@ export default function ClientDashboard() {
                             buttonState = 'locked';
                             statusMessage = 'Form closed to new responses';
                           }
+                        } else if (applet.type === 'link_submission' && isAppletCompleted) {
+                          // Link submissions should be viewable even after completion
+                          buttonState = 'link-completed';
+                          statusMessage = 'Links reviewed - click to view again';
                         } else if (isAppletCompleted) {
                           buttonState = 'completed';
                         }
@@ -580,11 +586,13 @@ export default function ClientDashboard() {
                           <button
                             key={applet.id}
                             onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
-                            disabled={buttonState === 'locked' || buttonState === 'completed'}
+                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission')}
                             className={`w-full p-4 rounded-lg border-2 transition-all ${
                               buttonState === 'completed-locked'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'user-complete-editable'
+                                ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
+                                : buttonState === 'link-completed'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'locked'
                                 ? 'bg-gray-50 border-gray-300 cursor-default opacity-75'
@@ -596,12 +604,12 @@ export default function ClientDashboard() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-3">
                                 <div className={`p-2 rounded-lg ${
-                                  buttonState === 'completed-locked' || buttonState === 'user-complete-editable' ? 'bg-green-100' :
+                                  buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'link-completed' ? 'bg-green-100' :
                                   buttonState === 'locked' ? 'bg-gray-100' :
                                   buttonState === 'completed' ? 'bg-green-100' : 
                                   'bg-purple-100'
                                 }`}>
-                                  {buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' ? (
+                                  {buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' || buttonState === 'link-completed' ? (
                                     <CheckCircle className="w-5 h-5 text-green-600" />
                                   ) : buttonState === 'locked' ? (
                                     <Lock className="w-5 h-5 text-gray-600" />
@@ -613,6 +621,8 @@ export default function ClientDashboard() {
                                   <p className="font-medium">
                                     {applet.type === 'form' && applet.form?.title 
                                       ? applet.form.title 
+                                      : applet.type === 'link_submission' && applet.config?.heading
+                                      ? applet.config.heading
                                       : applet.name}
                                   </p>
                                   {statusMessage ? (
@@ -628,6 +638,8 @@ export default function ClientDashboard() {
                               ) : buttonState === 'user-complete-editable' ? (
                                 <Edit2 className="w-5 h-5 text-green-600" />
                               ) : buttonState === 'completed-locked' ? (
+                                <Eye className="w-5 h-5 text-green-600" />
+                              ) : buttonState === 'link-completed' ? (
                                 <Eye className="w-5 h-5 text-green-600" />
                               ) : buttonState === 'completed' ? (
                                 <CheckCircle className="w-6 h-6 text-green-600" />
@@ -719,32 +731,51 @@ export default function ClientDashboard() {
               
               {selectedApplet.config?.allow_client_acknowledgment && (
                 <div className="mt-6 pt-6 border-t">
-                  <button
-                    onClick={async () => {
-                      // Mark as acknowledged
-                      await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          appletId: selectedApplet.id,
-                          status: 'completed',
-                          interactionType: 'acknowledgment',
-                          userId: userId,
-                          data: { acknowledged: true, acknowledgedAt: new Date().toISOString() }
-                        })
-                      });
-                      
-                      // Update local state
-                      setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
-                      setShowLinkSubmissionModal(false);
-                      
-                      // Refresh project data
-                      fetchProjectData();
-                    }}
-                    className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                  >
-                    Mark as Reviewed
-                  </button>
+                  {completedApplets.has(selectedApplet.id) || selectedApplet.user_status === 'completed' ? (
+                    <div className="w-full py-3 bg-green-100 text-green-700 rounded-lg text-center font-medium border border-green-300">
+                      ✓ Marked as Reviewed on {selectedApplet.user_completed_at ? 
+                        new Date(selectedApplet.user_completed_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        }) : 
+                        'Recently'
+                      }
+                    </div>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        // Mark as acknowledged
+                        await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            appletId: selectedApplet.id,
+                            status: 'completed',
+                            interactionType: 'completion',
+                            userId: userId,
+                            data: { acknowledged: true, acknowledgedAt: new Date().toISOString() }
+                          })
+                        });
+                        
+                        // Update local state
+                        setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+                        setShowLinkSubmissionModal(false);
+                        
+                        // Trigger confetti celebration
+                        setShowConfetti(true);
+                        setTimeout(() => setShowConfetti(false), 7000);
+                        
+                        // Refresh project data
+                        fetchProjectData();
+                      }}
+                      className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                    >
+                      Mark as Reviewed
+                    </button>
+                  )}
                 </div>
               )}
             </div>
