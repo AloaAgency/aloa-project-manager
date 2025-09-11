@@ -15,7 +15,7 @@ export default function FileUploadConfig({
     description: applet.config?.description || 'Upload and share project files',
     files: applet.config?.files || [],
     allow_client_upload: applet.config?.allow_client_upload || false,
-    max_file_size: applet.config?.max_file_size || 10, // MB
+    max_file_size: applet.config?.max_file_size || 100, // MB - default 100MB
     allowed_file_types: applet.config?.allowed_file_types || ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'zip']
   });
 
@@ -31,7 +31,7 @@ export default function FileUploadConfig({
       description: applet.config?.description || 'Upload and share project files',
       files: applet.config?.files || [],
       allow_client_upload: applet.config?.allow_client_upload || false,
-      max_file_size: applet.config?.max_file_size || 10,
+      max_file_size: applet.config?.max_file_size || 100,
       allowed_file_types: applet.config?.allowed_file_types || ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'zip']
     };
     
