@@ -662,9 +662,9 @@ export default function ProjectletAppletsManager({
                             <div>
                               <input
                                 type="text"
-                                value={applet.config?.heading || ''}
+                                value={applet.config?.heading || 'Project Deliverables'}
                                 onChange={(e) => updateApplet(applet.id, {
-                                  config: { ...applet.config, heading: e.target.value }
+                                  config: { ...(applet.config || {}), heading: e.target.value }
                                 })}
                                 className="w-full px-2 py-1 border rounded text-sm font-medium"
                                 placeholder="Enter heading (e.g., Project Deliverables)"
@@ -674,9 +674,9 @@ export default function ProjectletAppletsManager({
                             {/* Description */}
                             <div>
                               <textarea
-                                value={applet.config?.description || ''}
+                                value={applet.config?.description || 'Please review the following materials:'}
                                 onChange={(e) => updateApplet(applet.id, {
-                                  config: { ...applet.config, description: e.target.value }
+                                  config: { ...(applet.config || {}), description: e.target.value }
                                 })}
                                 className="w-full px-2 py-1 border rounded text-sm"
                                 rows="2"
@@ -690,9 +690,10 @@ export default function ProjectletAppletsManager({
                                 <span className="text-xs font-medium text-gray-700">Links</span>
                                 <button
                                   onClick={() => {
-                                    const newLinks = [...(applet.config?.links || []), { text: '', url: '', description: '' }];
+                                    const currentLinks = applet.config?.links || [];
+                                    const newLinks = [...currentLinks, { text: 'View Link', url: 'https://example.com', description: '' }];
                                     updateApplet(applet.id, {
-                                      config: { ...applet.config, links: newLinks }
+                                      config: { ...(applet.config || {}), links: newLinks }
                                     });
                                   }}
                                   className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
@@ -707,7 +708,7 @@ export default function ProjectletAppletsManager({
                                 </div>
                               ) : (
                                 <div className="space-y-2">
-                                  {applet.config.links.map((link, idx) => (
+                                  {(applet.config?.links || []).map((link, idx) => (
                                     <div key={idx} className="p-2 bg-gray-50 rounded border border-gray-200">
                                       <div className="flex items-start space-x-2">
                                         <div className="flex-1 space-y-1">
@@ -715,10 +716,10 @@ export default function ProjectletAppletsManager({
                                             type="text"
                                             value={link.text || ''}
                                             onChange={(e) => {
-                                              const newLinks = [...applet.config.links];
+                                              const newLinks = [...(applet.config?.links || [])];
                                               newLinks[idx] = { ...newLinks[idx], text: e.target.value };
                                               updateApplet(applet.id, {
-                                                config: { ...applet.config, links: newLinks }
+                                                config: { ...(applet.config || {}), links: newLinks }
                                               });
                                             }}
                                             className="w-full px-2 py-1 border rounded text-sm"
@@ -728,10 +729,10 @@ export default function ProjectletAppletsManager({
                                             type="url"
                                             value={link.url || ''}
                                             onChange={(e) => {
-                                              const newLinks = [...applet.config.links];
+                                              const newLinks = [...(applet.config?.links || [])];
                                               newLinks[idx] = { ...newLinks[idx], url: e.target.value };
                                               updateApplet(applet.id, {
-                                                config: { ...applet.config, links: newLinks }
+                                                config: { ...(applet.config || {}), links: newLinks }
                                               });
                                             }}
                                             className="w-full px-2 py-1 border rounded text-sm"
@@ -741,10 +742,10 @@ export default function ProjectletAppletsManager({
                                             type="text"
                                             value={link.description || ''}
                                             onChange={(e) => {
-                                              const newLinks = [...applet.config.links];
+                                              const newLinks = [...(applet.config?.links || [])];
                                               newLinks[idx] = { ...newLinks[idx], description: e.target.value };
                                               updateApplet(applet.id, {
-                                                config: { ...applet.config, links: newLinks }
+                                                config: { ...(applet.config || {}), links: newLinks }
                                               });
                                             }}
                                             className="w-full px-2 py-1 border rounded text-sm"
@@ -753,9 +754,9 @@ export default function ProjectletAppletsManager({
                                         </div>
                                         <button
                                           onClick={() => {
-                                            const newLinks = applet.config.links.filter((_, i) => i !== idx);
+                                            const newLinks = (applet.config?.links || []).filter((_, i) => i !== idx);
                                             updateApplet(applet.id, {
-                                              config: { ...applet.config, links: newLinks }
+                                              config: { ...(applet.config || {}), links: newLinks }
                                             });
                                           }}
                                           className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
@@ -788,7 +789,7 @@ export default function ProjectletAppletsManager({
                                 id={`ack-${applet.id}`}
                                 checked={applet.config?.allow_client_acknowledgment || false}
                                 onChange={(e) => updateApplet(applet.id, {
-                                  config: { ...applet.config, allow_client_acknowledgment: e.target.checked }
+                                  config: { ...(applet.config || {}), allow_client_acknowledgment: e.target.checked }
                                 })}
                                 className="mr-2"
                               />
