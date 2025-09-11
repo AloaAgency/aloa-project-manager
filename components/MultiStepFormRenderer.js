@@ -18,7 +18,8 @@ export default function MultiStepFormRenderer({
   onComplete,
   initialData,
   initialSection,
-  onProgressChange 
+  onProgressChange,
+  isViewOnly = false 
 }) {
   // Generate a unique storage key for this form (don't use localStorage in modal mode)
   const storageKey = `formProgress_${form._id || form.urlId}`;
@@ -211,6 +212,43 @@ export default function MultiStepFormRenderer({
   };
 
   const renderField = (field) => {
+    // If in view-only mode, render as read-only display
+    if (isViewOnly) {
+      const value = formData[field.name];
+      if (!value || (Array.isArray(value) && value.length === 0)) {
+        return <div className="text-gray-500 italic">No response provided</div>;
+      }
+      
+      // Format the value based on field type
+      let displayValue = value;
+      if (Array.isArray(value)) {
+        displayValue = value.join(', ');
+      } else if (field.type === 'rating') {
+        const maxRating = field.validation?.max || 5;
+        return (
+          <div className="flex gap-1">
+            {[...Array(maxRating)].map((_, index) => (
+              <Star
+                key={index}
+                className={`h-5 w-5 ${
+                  index < parseInt(value) 
+                    ? 'fill-yellow-500 text-yellow-500' 
+                    : 'text-gray-300'
+                }`}
+              />
+            ))}
+            <span className="ml-2 text-sm text-gray-600">({value}/{maxRating})</span>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-800">{displayValue}</p>
+        </div>
+      );
+    }
+    
     const commonProps = {
       id: field.name,
       name: field.name,
@@ -466,6 +504,15 @@ export default function MultiStepFormRenderer({
 
       {/* Form Header */}
       <div className="mb-8">
+        {isViewOnly && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <span className="text-sm font-medium text-blue-800">Viewing your submitted response (read-only)</span>
+          </div>
+        )}
         <h1 className="text-3xl font-display font-bold text-aloa-black mb-2 uppercase tracking-tight">{form.title}</h1>
         {form.description && (
           <p className="text-aloa-gray font-body">{form.description}</p>
@@ -533,7 +580,22 @@ export default function MultiStepFormRenderer({
             Previous
           </Button>
 
-          {currentSection === sectionNames.length - 1 ? (
+          {isViewOnly ? (
+            currentSection < sectionNames.length - 1 ? (
+              <Button
+                type="button"
+                onClick={handleNext}
+                className="flex items-center gap-2"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2 text-gray-600">
+                <span className="text-sm font-medium">View Only Mode</span>
+              </div>
+            )
+          ) : currentSection === sectionNames.length - 1 ? (
             <Button
               type="submit"
               disabled={isSubmitting}

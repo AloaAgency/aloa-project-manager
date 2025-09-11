@@ -1,6 +1,11 @@
 {
-  "/project/[projectId]/dashboard/page": "app/project/[projectId]/dashboard/page.js",
   "/admin/projects/page": "app/admin/projects/page.js",
+  "/project/[projectId]/dashboard/page": "app/project/[projectId]/dashboard/page.js",
   "/api/aloa-projects/[projectId]/notifications/route": "app/api/aloa-projects/[projectId]/notifications/route.js",
-  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js"
+  "/api/aloa-forms/[formId]/toggle-status/route": "app/api/aloa-forms/[formId]/toggle-status/route.js",
+  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js",
+  "/api/aloa-responses/route": "app/api/aloa-responses/route.js",
+  "/api/aloa-forms/route": "app/api/aloa-forms/route.js",
+  "/api/aloa-projects/[projectId]/client-view/route": "app/api/aloa-projects/[projectId]/client-view/route.js",
+  "/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route": "app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/route.js"
 }

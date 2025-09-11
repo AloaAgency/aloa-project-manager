@@ -16,7 +16,8 @@ import {
   Trophy,
   Target,
   Zap,
-  X
+  X,
+  Edit2
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
@@ -38,6 +39,8 @@ export default function ClientDashboard() {
   const [stats, setStats] = useState({ totalApplets: 0, completedApplets: 0, progressPercentage: 0 });
   const [formProgress, setFormProgress] = useState({}); // Store progress for each form
   const [userId, setUserId] = useState(null); // Track user ID
+  const [userFormResponses, setUserFormResponses] = useState({}); // Track actual form submissions by form ID
+  const [isFormViewOnly, setIsFormViewOnly] = useState(false); // Track if form is in view-only mode
 
   useEffect(() => {
     // Generate or retrieve user ID
@@ -87,6 +90,34 @@ export default function ClientDashboard() {
         });
       });
       setCompletedApplets(completed);
+      
+      // Fetch all form responses for this user to properly track submissions
+      try {
+        const formIds = new Set();
+        data.projectlets?.forEach(projectlet => {
+          projectlet.applets?.forEach(applet => {
+            if (applet.type === 'form' && (applet.form_id || applet.config?.form_id)) {
+              formIds.add(applet.form_id || applet.config?.form_id);
+            }
+          });
+        });
+        
+        // Fetch responses for all forms
+        const formResponses = {};
+        for (const formId of formIds) {
+          const responseRes = await fetch(`/api/aloa-responses?form_id=${formId}&user_id=${userId}`);
+          if (responseRes.ok) {
+            const responseData = await responseRes.json();
+            if (responseData.responses && responseData.responses.length > 0) {
+              formResponses[formId] = responseData.responses[0];
+            }
+          }
+        }
+        setUserFormResponses(formResponses);
+        console.log('User form responses loaded:', formResponses);
+      } catch (error) {
+        console.error('Error fetching form responses:', error);
+      }
     } catch (error) {
       console.error('Error fetching project:', error);
     } finally {
@@ -94,9 +125,18 @@ export default function ClientDashboard() {
     }
   };
 
-  const handleAppletClick = async (applet, projectlet) => {
-    if (completedApplets.has(applet.id)) {
-      return; // Already completed
+  const handleAppletClick = async (applet, projectlet, isViewOnly = false) => {
+    // For forms, allow editing if completed but not locked
+    const isForm = applet.type === 'form';
+    const formId = applet.form_id || applet.config?.form_id;
+    const formIsLocked = isForm && applet.form?.status === 'closed';
+    const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
+    
+    // Block if:
+    // 1. Non-form applet that's already completed
+    // 2. Form that's locked and user hasn't submitted (can't start new)
+    if ((!isForm && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+      return; // Cannot proceed
     }
 
     // Mark applet as in progress for this user
@@ -119,6 +159,17 @@ export default function ClientDashboard() {
         console.error('No form_id found for applet:', applet);
         alert('This form is not properly configured. Please contact support.');
         return;
+      }
+      
+      // Set view-only mode if form is locked (isViewOnly parameter is true)
+      console.log('Setting view-only mode:', isViewOnly, 'for form:', formId);
+      setIsFormViewOnly(isViewOnly);
+      
+      // If user has already completed this form, get their previous responses
+      let previousResponses = null;
+      if (userHasCompleted && userFormResponses[formId]) {
+        previousResponses = userFormResponses[formId].response_data;
+        console.log('Loaded previous responses for', isViewOnly ? 'viewing' : 'editing', ':', previousResponses);
       }
       
       // Use form data from applet if available, otherwise fetch
@@ -150,6 +201,15 @@ export default function ClientDashboard() {
         console.log('Form fields:', transformedForm.fields);
         setFormData(transformedForm);
         setSelectedApplet({ ...applet, projectlet, form_id: applet.form_id || applet.config?.form_id });
+        
+        // If we have previous responses, set them as saved progress
+        if (previousResponses) {
+          setFormProgress(prev => ({
+            ...prev,
+            [formId]: { data: previousResponses }
+          }));
+        }
+        
         setShowFormModal(true);
       } else {
         try {
@@ -184,6 +244,15 @@ export default function ClientDashboard() {
           console.log('Transformed form:', transformedForm);
           setFormData(transformedForm);
           setSelectedApplet({ ...applet, projectlet, form_id: formId });
+          
+          // If we have previous responses, set them as saved progress
+          if (previousResponses) {
+            setFormProgress(prev => ({
+              ...prev,
+              [formId]: { data: previousResponses }
+            }));
+          }
+          
           setShowFormModal(true);
         } catch (error) {
           console.error('Error fetching form:', error);
@@ -199,7 +268,7 @@ export default function ClientDashboard() {
       const csrfToken = Math.random().toString(36).substring(2);
       document.cookie = `csrf-token=${csrfToken}; path=/`;
 
-      // Submit form response with project ID
+      // Submit form response with project ID and user ID
       const responseResult = await fetch('/api/aloa-responses', {
         method: 'POST',
         headers: { 
@@ -209,6 +278,7 @@ export default function ClientDashboard() {
         body: JSON.stringify({
           formId: selectedApplet.form_id || selectedApplet.form?.id,
           projectId: params.projectId,  // Include the project ID
+          userId: userId,  // Include the user ID
           data: responses
         })
       });
@@ -240,11 +310,21 @@ export default function ClientDashboard() {
       newCompleted.add(selectedApplet.id);
       setCompletedApplets(newCompleted);
       
-      // Clear saved progress for this form since it's completed
-      if (selectedApplet.form_id) {
+      // Update form responses state to track this submission
+      const formId = selectedApplet.form_id || selectedApplet.form?.id;
+      if (formId) {
+        setUserFormResponses(prev => ({
+          ...prev,
+          [formId]: {
+            response_data: responses,
+            submitted_at: new Date().toISOString()
+          }
+        }));
+        
+        // Clear saved progress for this form since it's completed
         setFormProgress(prev => {
           const newProgress = { ...prev };
-          delete newProgress[selectedApplet.form_id];
+          delete newProgress[formId];
           return newProgress;
         });
       }
@@ -254,7 +334,7 @@ export default function ClientDashboard() {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
 
-      // Refresh data
+      // Refresh data to get updated status from server
       fetchProjectData();
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -436,22 +516,25 @@ export default function ClientDashboard() {
                         const isAppletCompleted = completedApplets.has(applet.id);
                         // Check if it's a form and whether it's still accepting responses
                         const isForm = applet.type === 'form';
+                        const formId = applet.form_id || applet.config?.form_id;
                         const formIsLocked = isForm && applet.form?.status === 'closed';
-                        const userHasSubmitted = isForm && applet.user_status === 'completed';
+                        // Check actual form submissions, not just applet status
+                        const userHasSubmitted = isForm && formId && userFormResponses[formId];
                         
                         // Determine display state
                         let buttonState = 'available';
                         let statusMessage = null;
                         
                         if (isForm) {
+                          console.log(`Form ${formId} - userHasSubmitted: ${userHasSubmitted}, formIsLocked: ${formIsLocked}, form.status: ${applet.form?.status}`);
                           if (userHasSubmitted && formIsLocked) {
-                            // User has submitted AND form is locked - they did great!
+                            // User has submitted AND form is locked - can view only
                             buttonState = 'completed-locked';
-                            statusMessage = 'Form completed and locked';
+                            statusMessage = 'Form completed - Click to view your response';
                           } else if (userHasSubmitted && !formIsLocked) {
-                            // User has submitted but form still accepting responses
-                            buttonState = 'user-complete';
-                            statusMessage = 'You completed this! Awaiting other responses';
+                            // User has submitted but form still accepting responses - can edit
+                            buttonState = 'user-complete-editable';
+                            statusMessage = 'You completed this! Click to edit your response';
                           } else if (formIsLocked) {
                             // Form is locked but user hasn't submitted
                             buttonState = 'locked';
@@ -464,14 +547,16 @@ export default function ClientDashboard() {
                         return (
                           <button
                             key={applet.id}
-                            onClick={() => handleAppletClick(applet, projectlet)}
-                            disabled={buttonState !== 'available'}
+                            onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
+                            disabled={buttonState === 'locked' || buttonState === 'completed'}
                             className={`w-full p-4 rounded-lg border-2 transition-all ${
                               buttonState === 'completed-locked'
-                                ? 'bg-green-50 border-green-300 cursor-default opacity-60'
+                                ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
+                                : buttonState === 'user-complete-editable'
+                                ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'locked'
                                 ? 'bg-gray-50 border-gray-300 cursor-default opacity-75'
-                                : buttonState === 'completed' || buttonState === 'user-complete'
+                                : buttonState === 'completed'
                                 ? 'bg-green-50 border-green-300 cursor-default'
                                 : 'bg-white border-gray-200 hover:border-purple-300 hover:shadow-md cursor-pointer'
                             }`}
@@ -479,17 +564,18 @@ export default function ClientDashboard() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-3">
                                 <div className={`p-2 rounded-lg ${
-                                  buttonState === 'completed-locked' ? 'bg-green-100' :
+                                  buttonState === 'completed-locked' || buttonState === 'user-complete-editable' ? 'bg-green-100' :
                                   buttonState === 'locked' ? 'bg-gray-100' :
-                                  buttonState === 'completed' || buttonState === 'user-complete' ? 'bg-green-100' : 
+                                  buttonState === 'completed' ? 'bg-green-100' : 
                                   'bg-purple-100'
                                 }`}>
-                                  <Icon className={`w-5 h-5 ${
-                                    buttonState === 'completed-locked' ? 'text-green-600' :
-                                    buttonState === 'locked' ? 'text-gray-600' :
-                                    buttonState === 'completed' || buttonState === 'user-complete' ? 'text-green-600' : 
-                                    'text-purple-600'
-                                  }`} />
+                                  {buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' ? (
+                                    <CheckCircle className="w-5 h-5 text-green-600" />
+                                  ) : buttonState === 'locked' ? (
+                                    <Lock className="w-5 h-5 text-gray-600" />
+                                  ) : (
+                                    <Icon className="w-5 h-5 text-purple-600" />
+                                  )}
                                 </div>
                                 <div className="text-left">
                                   <p className="font-medium">
@@ -507,7 +593,11 @@ export default function ClientDashboard() {
                               
                               {buttonState === 'locked' ? (
                                 <Lock className="w-5 h-5 text-gray-500" />
-                              ) : buttonState === 'completed' || buttonState === 'user-complete' || buttonState === 'completed-locked' ? (
+                              ) : buttonState === 'user-complete-editable' ? (
+                                <Edit2 className="w-5 h-5 text-green-600" />
+                              ) : buttonState === 'completed-locked' ? (
+                                <Eye className="w-5 h-5 text-green-600" />
+                              ) : buttonState === 'completed' ? (
                                 <CheckCircle className="w-6 h-6 text-green-600" />
                               ) : (
                                 <div className="text-purple-600">
@@ -538,9 +628,11 @@ export default function ClientDashboard() {
               // Progress is automatically saved via onProgressUpdate
             }
             setShowFormModal(false);
+            setIsFormViewOnly(false); // Reset view-only mode when closing
           }}
           savedProgress={formProgress[selectedApplet?.form_id]}
           onProgressUpdate={null}
+          isViewOnly={isFormViewOnly}
         />
       )}
     </div>
@@ -548,7 +640,7 @@ export default function ClientDashboard() {
 }
 
 // Form Modal Component - Using MultiStepFormRenderer
-function FormModal({ form, onSubmit, onClose, savedProgress, onProgressUpdate }) {
+function FormModal({ form, onSubmit, onClose, savedProgress, onProgressUpdate, isViewOnly = false }) {
   // Create a custom onSubmit handler that works with MultiStepFormRenderer
   const handleFormComplete = async (responses) => {
     // Transform responses to match expected format
@@ -581,6 +673,7 @@ function FormModal({ form, onSubmit, onClose, savedProgress, onProgressUpdate })
               initialData={savedProgress?.data}
               initialSection={savedProgress?.section}
               onProgressChange={onProgressUpdate}
+              isViewOnly={isViewOnly}
             />
           </div>
         </div>

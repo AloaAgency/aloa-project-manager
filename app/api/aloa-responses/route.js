@@ -4,7 +4,8 @@ import { supabase } from '@/lib/supabase';
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const formId = searchParams.get('formId');
+    const formId = searchParams.get('formId') || searchParams.get('form_id');
+    const userId = searchParams.get('userId') || searchParams.get('user_id');
     
     if (!formId) {
       return NextResponse.json(
@@ -23,7 +24,7 @@ export async function GET(request) {
     }
     
     // Fetch responses from aloa_form_responses ONLY
-    const { data: responses, error } = await supabase
+    let query = supabase
       .from('aloa_form_responses')
       .select(`
         *,
@@ -33,8 +34,14 @@ export async function GET(request) {
           field_value
         )
       `)
-      .eq('aloa_form_id', formId)
-      .order('submitted_at', { ascending: false });
+      .eq('aloa_form_id', formId);
+    
+    // Filter by user_id if provided
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    
+    const { data: responses, error } = await query.order('submitted_at', { ascending: false });
     
     if (error) throw error;
     
@@ -57,11 +64,12 @@ export async function GET(request) {
       return {
         id: response.id,
         submittedAt: response.submitted_at,
-        data: dataObject
+        response_data: dataObject,  // Match the expected format
+        data: dataObject  // Keep for backward compatibility
       };
     });
     
-    return NextResponse.json(formattedResponses);
+    return NextResponse.json({ responses: formattedResponses });
     
   } catch (error) {
     console.error('Error fetching aloa responses:', error);
@@ -104,26 +112,74 @@ export async function POST(request) {
       );
     }
     
-    // Create response in aloa_form_responses with project ID
-    const { data: response, error: responseError } = await supabase
-      .from('aloa_form_responses')
-      .insert([{
-        aloa_form_id: body.formId,
-        aloa_project_id: body.projectId || null, // Include project ID if provided
-        responses: body.data || {}, // Add the responses field
-        submitted_at: new Date().toISOString(),
-        ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
-        user_agent: request.headers.get('user-agent')
-      }])
-      .select()
-      .single();
+    const userId = body.userId || body.user_id || null;
+    let response;
+    let isUpdate = false;
     
-    if (responseError) {
-      console.error('Error creating response:', responseError);
-      throw responseError;
+    // Check if user already has a response for this form
+    if (userId) {
+      const { data: existingResponse } = await supabase
+        .from('aloa_form_responses')
+        .select('id')
+        .eq('aloa_form_id', body.formId)
+        .eq('user_id', userId)
+        .single();
+      
+      if (existingResponse) {
+        isUpdate = true;
+        // Update existing response
+        const { data: updatedResponse, error: updateError } = await supabase
+          .from('aloa_form_responses')
+          .update({
+            responses: body.data || {},
+            submitted_at: new Date().toISOString(),
+            ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
+            user_agent: request.headers.get('user-agent')
+          })
+          .eq('id', existingResponse.id)
+          .select()
+          .single();
+        
+        if (updateError) {
+          console.error('Error updating response:', updateError);
+          throw updateError;
+        }
+        
+        response = updatedResponse;
+        
+        // Delete old answers for this response
+        await supabase
+          .from('aloa_form_response_answers')
+          .delete()
+          .eq('response_id', response.id);
+      }
     }
     
-    // Store answers in aloa_form_response_answers
+    // If no existing response, create a new one
+    if (!response) {
+      const { data: newResponse, error: responseError } = await supabase
+        .from('aloa_form_responses')
+        .insert([{
+          aloa_form_id: body.formId,
+          aloa_project_id: body.projectId || null,
+          user_id: userId,
+          responses: body.data || {},
+          submitted_at: new Date().toISOString(),
+          ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
+          user_agent: request.headers.get('user-agent')
+        }])
+        .select()
+        .single();
+      
+      if (responseError) {
+        console.error('Error creating response:', responseError);
+        throw responseError;
+      }
+      
+      response = newResponse;
+    }
+    
+    // Store/update answers in aloa_form_response_answers
     const answers = [];
     Object.entries(body.data || {}).forEach(([fieldName, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -146,17 +202,19 @@ export async function POST(request) {
       }
     }
     
-    // Update submission count on the form
-    const { error: updateError } = await supabase
-      .from('aloa_forms')
-      .update({ 
-        submission_count: supabase.raw('submission_count + 1'),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', body.formId);
-    
-    if (updateError) {
-      console.error('Error updating submission count:', updateError);
+    // Only update submission count for new responses, not edits
+    if (!isUpdate) {
+      const { error: updateError } = await supabase
+        .from('aloa_forms')
+        .update({ 
+          submission_count: supabase.raw('submission_count + 1'),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', body.formId);
+      
+      if (updateError) {
+        console.error('Error updating submission count:', updateError);
+      }
     }
     
     return NextResponse.json({ 

@@ -100,6 +100,9 @@ migrations/add-user-applet-progress.sql
 
 -- 6. Optional: Add form status fields for closing/reopening
 migrations/add_form_status_fields.sql
+
+-- 7. REQUIRED: Add user_id to track multi-stakeholder form responses
+migrations/add_user_id_to_responses.sql
 ```
 
 **IMPORTANT**: Only use tables with `aloa_` prefix. Never reference or create tables without this prefix.
