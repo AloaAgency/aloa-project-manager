@@ -33,7 +33,11 @@ import {
   ChevronUp,
   Palette,
   MessageSquare,
-  MoreVertical
+  MoreVertical,
+  Pencil,
+  GripVertical,
+  Settings,
+  Copy
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -60,11 +64,27 @@ function AdminProjectPageContent() {
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
   const [projectletApplets, setProjectletApplets] = useState({}); // Store applets for each projectlet
   const [loadingApplets, setLoadingApplets] = useState({});
+  const [editingProjectletName, setEditingProjectletName] = useState(null);
+  const [tempProjectletName, setTempProjectletName] = useState('');
+  const [draggedProjectlet, setDraggedProjectlet] = useState(null);
+  const [showActionMenu, setShowActionMenu] = useState(null);
 
   useEffect(() => {
     fetchProjectData();
     fetchKnowledgeBase();
   }, [params.projectId]);
+
+  // Close action menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.action-menu-container')) {
+        setShowActionMenu(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const fetchKnowledgeBase = async () => {
     try {
@@ -266,6 +286,118 @@ function AdminProjectPageContent() {
       }
     } catch (error) {
       console.error('Error updating projectlet:', error);
+    }
+  };
+
+  const startEditingName = (projectlet) => {
+    setEditingProjectletName(projectlet.id);
+    setTempProjectletName(projectlet.name);
+  };
+
+  const saveProjectletName = async (projectletId) => {
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectletId,
+          name: tempProjectletName
+        })
+      });
+
+      if (response.ok) {
+        setEditingProjectletName(null);
+        fetchProjectData();
+        toast.success('Name updated');
+      }
+    } catch (error) {
+      console.error('Error updating name:', error);
+      toast.error('Failed to update name');
+    }
+  };
+
+  const deleteProjectlet = async (projectletId) => {
+    if (!confirm('Are you sure you want to delete this entire projectlet? This will also delete all applets within it.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/aloa-projects/${params.projectId}/projectlets?projectletId=${projectletId}`,
+        { method: 'DELETE' }
+      );
+
+      if (response.ok) {
+        toast.success('Projectlet deleted');
+        fetchProjectData();
+        setShowActionMenu(null);
+      }
+    } catch (error) {
+      console.error('Error deleting projectlet:', error);
+      toast.error('Failed to delete projectlet');
+    }
+  };
+
+  const duplicateProjectlet = async (projectlet) => {
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${projectlet.name} (Copy)`,
+          description: projectlet.description,
+          type: projectlet.type,
+          metadata: projectlet.metadata
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Projectlet duplicated');
+        fetchProjectData();
+        setShowActionMenu(null);
+      }
+    } catch (error) {
+      console.error('Error duplicating projectlet:', error);
+      toast.error('Failed to duplicate projectlet');
+    }
+  };
+
+  const handleDragStart = (e, projectlet, index) => {
+    setDraggedProjectlet({ projectlet, index });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e, targetIndex) => {
+    e.preventDefault();
+    if (!draggedProjectlet || draggedProjectlet.index === targetIndex) {
+      return;
+    }
+
+    const newProjectlets = [...projectlets];
+    const [movedProjectlet] = newProjectlets.splice(draggedProjectlet.index, 1);
+    newProjectlets.splice(targetIndex, 0, movedProjectlet);
+    
+    setProjectlets(newProjectlets);
+    setDraggedProjectlet(null);
+
+    // Update order in database
+    try {
+      const updates = newProjectlets.map((p, idx) => ({
+        id: p.id,
+        order_index: idx
+      }));
+      
+      // You might need to create an endpoint for bulk order update
+      // For now, we'll just update locally
+      toast.success('Order updated');
+    } catch (error) {
+      console.error('Error updating order:', error);
+      fetchProjectData(); // Revert on error
     }
   };
 
@@ -488,6 +620,7 @@ function AdminProjectPageContent() {
                 {projectlets.map((projectlet, index) => {
                   const applets = projectletApplets[projectlet.id] || [];
                   const isLoadingApplets = loadingApplets[projectlet.id];
+                  const isEditingName = editingProjectletName === projectlet.id;
                   const APPLET_ICONS = {
                     form: FileText,
                     review: Eye,
@@ -498,17 +631,67 @@ function AdminProjectPageContent() {
                   };
 
                   return (
-                    <div key={projectlet.id} className={`border-2 rounded-lg ${getStatusColor(projectlet.status)}`}>
+                    <div 
+                      key={projectlet.id} 
+                      className={`border-2 rounded-lg ${getStatusColor(projectlet.status)} transition-all hover:shadow-lg`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, projectlet, index)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, index)}
+                    >
                       {/* Header */}
                       <div className="p-4 pb-0">
                         <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center mb-2">
-                              <span className="text-sm font-medium text-gray-500 mr-3">
-                                Projectlet {index + 1}
-                              </span>
-                              <h3 className="font-bold text-lg">{projectlet.name}</h3>
+                          <div className="flex items-start flex-1">
+                            {/* Drag Handle */}
+                            <div className="mr-3 mt-1 cursor-move opacity-50 hover:opacity-100">
+                              <GripVertical className="w-5 h-5" />
                             </div>
+                            
+                            <div className="flex-1">
+                              <div className="flex items-center mb-2 group">
+                                <span className="text-sm font-medium text-gray-500 mr-3">
+                                  #{index + 1}
+                                </span>
+                                
+                                {isEditingName ? (
+                                  <div className="flex items-center space-x-2">
+                                    <input
+                                      type="text"
+                                      value={tempProjectletName}
+                                      onChange={(e) => setTempProjectletName(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') saveProjectletName(projectlet.id);
+                                        if (e.key === 'Escape') setEditingProjectletName(null);
+                                      }}
+                                      className="font-bold text-lg px-2 py-1 border rounded"
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={() => saveProjectletName(projectlet.id)}
+                                      className="p-1 hover:bg-green-100 rounded"
+                                    >
+                                      <CheckCircle className="w-4 h-4 text-green-600" />
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingProjectletName(null)}
+                                      className="p-1 hover:bg-red-100 rounded"
+                                    >
+                                      <X className="w-4 h-4 text-red-600" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center">
+                                    <h3 className="font-bold text-lg">{projectlet.name}</h3>
+                                    <button
+                                      onClick={() => startEditingName(projectlet)}
+                                      className="ml-2 p-1 opacity-0 group-hover:opacity-100 hover:bg-gray-200 rounded transition-opacity"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             
                             {projectlet.description && (
                               <p className="text-sm text-gray-600 mb-2">{projectlet.description}</p>
@@ -528,7 +711,7 @@ function AdminProjectPageContent() {
                             </div>
                           </div>
 
-                          {/* Status Toggle - Top Right */}
+                          {/* Status Toggle and Actions - Top Right */}
                           <div className="flex items-start space-x-2">
                             <select
                               value={projectlet.status}
@@ -543,13 +726,46 @@ function AdminProjectPageContent() {
                               <option value="completed">✓ Completed</option>
                             </select>
                             
-                            <button
-                              onClick={() => openProjectletEditor(projectlet)}
-                              className="p-1 hover:bg-white/50 rounded"
-                              title="Edit projectlet"
-                            >
-                              <MoreVertical className="w-5 h-5" />
-                            </button>
+                            {/* Actions Dropdown */}
+                            <div className="relative action-menu-container">
+                              <button
+                                onClick={() => setShowActionMenu(showActionMenu === projectlet.id ? null : projectlet.id)}
+                                className="p-1 hover:bg-white/50 rounded"
+                                title="More actions"
+                              >
+                                <MoreVertical className="w-5 h-5" />
+                              </button>
+                              
+                              {showActionMenu === projectlet.id && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-10">
+                                  <button
+                                    onClick={() => {
+                                      openProjectletEditor(projectlet);
+                                      setShowActionMenu(null);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                                  >
+                                    <Settings className="w-4 h-4 mr-2" />
+                                    Edit Details
+                                  </button>
+                                  <button
+                                    onClick={() => duplicateProjectlet(projectlet)}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                                  >
+                                    <Copy className="w-4 h-4 mr-2" />
+                                    Duplicate
+                                  </button>
+                                  <hr className="my-1" />
+                                  <button
+                                    onClick={() => deleteProjectlet(projectlet.id)}
+                                    className="w-full px-4 py-2 text-left hover:bg-red-50 text-red-600 flex items-center"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Projectlet
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{\"app/admin/project/[projectId]/page.js -> @/components/ProjectletAppletsManager\":{\"id\":\"app/admin/project/[projectId]/page.js -> @/components/ProjectletAppletsManager\",\"files\":[\"static/chunks/_app-pages-browser_components_ProjectletAppletsManager_js.js\"]}}"
+self.__REACT_LOADABLE_MANIFEST="{}"

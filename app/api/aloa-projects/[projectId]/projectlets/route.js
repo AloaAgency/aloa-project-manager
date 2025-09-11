@@ -259,3 +259,45 @@ export async function PUT(request, { params }) {
     );
   }
 }
+
+// DELETE - Delete a projectlet
+export async function DELETE(request, { params }) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const projectletId = searchParams.get('projectletId');
+
+    if (!projectletId) {
+      return NextResponse.json(
+        { error: 'Projectlet ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Delete the projectlet (cascade will handle related records)
+    const { error } = await supabase
+      .from('aloa_projectlets')
+      .delete()
+      .eq('id', projectletId)
+      .eq('project_id', params.projectId); // Extra safety check
+
+    if (error) {
+      console.error('Error deleting projectlet:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete projectlet' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Projectlet deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in DELETE projectlet:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
