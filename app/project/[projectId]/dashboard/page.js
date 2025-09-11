@@ -535,7 +535,7 @@ export default function ClientDashboard() {
 
                 {/* Applets (Tasks) */}
                 {!isLocked && applets.length > 0 && (
-                  <div className="p-6">
+                  <div className={`p-6 ${isInProgress ? 'bg-yellow-50/50' : ''}`}>
                     <div className="space-y-3">
                       {applets.map(applet => {
                         const Icon = getAppletIcon(applet.type);
