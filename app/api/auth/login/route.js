@@ -161,7 +161,8 @@ export async function POST(request) {
 
     console.log('Login successful for:', email, 'with role:', userRole);
 
-    return NextResponse.json({ 
+    // Create response with explicit headers
+    const response = NextResponse.json({ 
       success: true,
       user: {
         id: data.user.id,
@@ -171,6 +172,12 @@ export async function POST(request) {
       },
       clientProject: clientProject
     });
+
+    // Set cache control headers to prevent caching of auth responses
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    
+    return response;
 
   } catch (error) {
     console.error('Server error during login:', error);

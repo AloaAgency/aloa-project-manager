@@ -49,22 +49,23 @@ export default function LoginPage() {
         // Role-based redirection
         const userRole = result.user?.role;
         
+        // Use window.location.href for a full page refresh to ensure cookies are properly set
         if (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member') {
           // Admin users go to admin projects page
           console.log('Redirecting admin user to /admin/projects');
-          router.push('/admin/projects');
+          window.location.href = '/admin/projects';
         } else if (userRole === 'client' && result.clientProject) {
           // Client users go to their project dashboard
           console.log('Redirecting client to project dashboard:', result.clientProject.id);
-          router.push(`/project/${result.clientProject.id}/dashboard`);
+          window.location.href = `/project/${result.clientProject.id}/dashboard`;
         } else if (userRole === 'client') {
           // Client without a project goes to a waiting page
           console.log('Client has no project, redirecting to dashboard');
-          router.push('/dashboard');
+          window.location.href = '/dashboard';
         } else {
           // Default fallback
           console.log('Default redirect to dashboard');
-          router.push('/dashboard');
+          window.location.href = '/dashboard';
         }
       } else {
         console.error('Unexpected result:', result);
