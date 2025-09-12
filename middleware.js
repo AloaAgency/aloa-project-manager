@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
+import { createServerClient } from '@supabase/ssr';
 
 // Rate limiting implementation
 const requestCounts = new Map();
@@ -49,9 +50,82 @@ function checkRateLimit(ip, pathname) {
 // Note: In production, use a proper cache like Redis for rate limiting
 // The Map will be cleared on server restart
 
-export function middleware(request) {
-  const response = NextResponse.next();
+export async function middleware(request) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
   const { pathname } = request.nextUrl;
+  
+  // Authentication check for protected routes
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          get(name) {
+            return request.cookies.get(name)?.value;
+          },
+          set(name, value, options) {
+            request.cookies.set({ name, value, ...options });
+            response.cookies.set({ name, value, ...options });
+          },
+          remove(name, options) {
+            request.cookies.set({ name, value: '', ...options });
+            response.cookies.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
+
+    // Refresh session if expired
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Protected routes that require authentication
+    const protectedPaths = [
+      '/dashboard',
+      '/create',
+      '/edit',
+      '/responses',
+      '/ai-analysis',
+      '/admin',
+      '/profile',
+      '/settings'
+    ];
+
+    const isProtectedPath = protectedPaths.some(path => 
+      pathname.startsWith(path)
+    );
+
+    // Auth routes that should redirect if already logged in
+    const authPaths = ['/auth/login', '/auth/signup'];
+    const isAuthPath = authPaths.some(path => 
+      pathname.startsWith(path)
+    );
+
+    // If accessing protected route without authentication, redirect to login
+    if (isProtectedPath && !user) {
+      const redirectUrl = new URL('/auth/login', request.url);
+      redirectUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // If accessing auth routes while authenticated, redirect to dashboard
+    if (isAuthPath && user) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+
+    // For the root path, redirect based on auth status
+    if (pathname === '/') {
+      if (user) {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      } else {
+        return NextResponse.redirect(new URL('/auth/login', request.url));
+      }
+    }
+  }
   
   // Get client IP (works with Vercel)
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
