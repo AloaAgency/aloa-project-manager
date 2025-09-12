@@ -1,6 +1,11 @@
 {
+  "/admin/users/page": "app/admin/users/page.js",
+  "/api/aloa-projects/[projectId]/notifications/route": "app/api/aloa-projects/[projectId]/notifications/route.js",
+  "/api/auth/profile/route": "app/api/auth/profile/route.js",
+  "/api/aloa-projects/route": "app/api/aloa-projects/route.js",
+  "/api/auth/users/route": "app/api/auth/users/route.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/auth/login/page": "app/auth/login/page.js",
-  "/admin/projects/page": "app/admin/projects/page.js",
-  "/auth/reset-password/page": "app/auth/reset-password/page.js"
+  "/auth/reset-password/page": "app/auth/reset-password/page.js",
+  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js",
+  "/admin/projects/page": "app/admin/projects/page.js"
 }

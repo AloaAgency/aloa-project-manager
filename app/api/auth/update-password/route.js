@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+
+// Force dynamic rendering for routes that use cookies
+export const dynamic = 'force-dynamic';import { createServerClient } from '@supabase/ssr';
 
 export async function POST(request) {
   try {

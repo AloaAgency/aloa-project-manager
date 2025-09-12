@@ -37,8 +37,8 @@ export default function Navigation() {
   const navItems = isAdmin ? [
     { href: '/admin/projects', label: 'Projects', icon: BarChart3 },
     { href: '/admin/forms', label: 'Forms', icon: FileText },
+    { href: '/admin/users', label: 'Users', icon: Users, show: isSuperAdmin },
     { href: '/create', label: 'Create Form', icon: Plus },
-    { href: '/admin', label: 'Admin', icon: Users, show: isSuperAdmin },
   ].filter(item => item.show !== false) : [
     { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
   ];
