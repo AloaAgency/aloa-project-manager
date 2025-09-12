@@ -124,9 +124,35 @@ export async function POST(request) {
     }
 
     // Prepare the invitation URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    // Use production URL if set, otherwise fall back to request headers
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    
+    if (!baseUrl) {
+      // Try to get the production URL from Vercel environment
+      if (process.env.VERCEL_ENV === 'production' && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+        baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+      } else if (process.env.VERCEL_URL && !process.env.VERCEL_URL.includes('vercel.app')) {
+        // Use VERCEL_URL only if it's a custom domain
+        baseUrl = `https://${process.env.VERCEL_URL}`;
+      } else {
+        // Fall back to the request headers to get the actual domain
+        const headers = request.headers;
+        const host = headers.get('host');
+        const protocol = headers.get('x-forwarded-proto') || 'https';
+        
+        // Avoid using Vercel preview URLs
+        if (host && !host.includes('vercel.app')) {
+          baseUrl = `${protocol}://${host}`;
+        } else {
+          // Last resort: use a hardcoded production URL
+          // TODO: Update this with your actual production domain
+          baseUrl = 'https://aloa-project-manager.vercel.app';
+        }
+      }
+    }
+    
     const inviteUrl = `${baseUrl}/auth/accept-invite?token=${inviteToken}`;
+    console.log('Generated invitation URL:', inviteUrl);
 
     // Send invitation email
     let emailSent = false;
