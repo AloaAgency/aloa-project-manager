@@ -21,11 +21,6 @@
       "static/chunks/main-app.js",
       "static/chunks/app/error.js"
     ],
-    "/auth/reset-password/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/auth/reset-password/page.js"
-    ],
     "/auth/update-password/form/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -41,11 +36,6 @@
       "static/chunks/main-app.js",
       "static/chunks/app/admin/projects/page.js"
     ],
-    "/projects/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/projects/page.js"
-    ],
     "/admin/project/[projectId]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -56,10 +46,10 @@
       "static/chunks/main-app.js",
       "static/chunks/app/project/[projectId]/dashboard/page.js"
     ],
-    "/_not-found/page": [
+    "/auth/reset-password/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
+      "static/chunks/app/auth/reset-password/page.js"
     ]
   }
 }

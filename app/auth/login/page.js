@@ -42,7 +42,9 @@ export default function LoginPage() {
         setError(result.error || 'Login failed');
         setLoading(false);
       } else if (result.success) {
-        console.log('Login successful, user role:', result.user?.role);
+        console.log('Login successful, full result:', result);
+        console.log('User object:', result.user);
+        console.log('User role:', result.user?.role);
         
         // Role-based redirection
         const userRole = result.user?.role;
@@ -52,9 +54,9 @@ export default function LoginPage() {
           console.log('Redirecting admin user to /admin/projects');
           router.push('/admin/projects');
         } else if (userRole === 'client' && result.clientProject) {
-          // Client users go to their project page
-          console.log('Redirecting client to project:', result.clientProject.id);
-          router.push(`/project/${result.clientProject.id}`);
+          // Client users go to their project dashboard
+          console.log('Redirecting client to project dashboard:', result.clientProject.id);
+          router.push(`/project/${result.clientProject.id}/dashboard`);
         } else if (userRole === 'client') {
           // Client without a project goes to a waiting page
           console.log('Client has no project, redirecting to dashboard');

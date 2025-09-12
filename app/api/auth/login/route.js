@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request) {
   try {
@@ -19,7 +20,7 @@ export async function POST(request) {
     const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       {
         cookies: {
           get(name) {
@@ -64,18 +65,61 @@ export async function POST(request) {
     }
 
     // Get user profile with role information
-    const { data: profile, error: profileError } = await supabase
-      .from('aloa_user_profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
+    // Use service role to bypass RLS issues
+    let profile = null;
+    let profileError = null;
+    
+    // Try with service role key if available
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    if (serviceKey) {
+      const serviceSupabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        serviceKey
+      );
+      
+      // First try by email (more reliable for super_admin)
+      const { data: profileByEmail, error: emailError } = await serviceSupabase
+        .from('aloa_user_profiles')
+        .select('*')
+        .eq('email', email)
+        .single();
+      
+      if (profileByEmail) {
+        profile = profileByEmail;
+      } else {
+        // Fallback to ID if email not found
+        const { data: profileById, error: idError } = await serviceSupabase
+          .from('aloa_user_profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+        
+        profile = profileById;
+        profileError = idError;
+      }
+    } else {
+      // Fallback to regular client if no service key
+      const { data: profileData, error: err } = await supabase
+        .from('aloa_user_profiles')
+        .select('*')
+        .eq('email', email)
+        .single();
+      
+      profile = profileData;
+      profileError = err;
+    }
 
     if (profileError) {
       console.error('Error fetching user profile:', profileError);
     }
 
     const userRole = profile?.role || 'client';
-    console.log('User role:', userRole);
+    console.log('User profile found:', {
+      email: profile?.email,
+      role: profile?.role,
+      id: profile?.id
+    });
+    console.log('User role determined:', userRole);
 
     // If user is a client, get their project
     let clientProject = null;

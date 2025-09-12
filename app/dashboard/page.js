@@ -436,7 +436,11 @@ function Dashboard() {
 
 export default function DashboardPage() {
   return (
-    <AuthGuard requireAuth={true} redirectTo="/auth/login">
+    <AuthGuard 
+      requireAuth={true} 
+      allowedRoles={['super_admin', 'project_admin', 'team_member']}
+      redirectTo="/auth/login"
+    >
       <Dashboard />
     </AuthGuard>
   );
