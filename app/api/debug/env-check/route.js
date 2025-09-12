@@ -7,40 +7,53 @@ export async function GET() {
     environment: process.env.NODE_ENV,
     vercel_env: process.env.VERCEL_ENV,
     
-    // Check if Supabase variables exist (not the actual values for security)
-    supabase: {
+    // Check NEW format keys (what we should be using)
+    new_format: {
       has_url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
       url: process.env.NEXT_PUBLIC_SUPABASE_URL || 'NOT SET',
       
-      has_anon_key: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      anon_key_prefix: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY 
-        ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.substring(0, 30) + '...'
-        : 'NOT SET',
-      
       has_publishable_key: !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       publishable_key_prefix: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-        ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.substring(0, 30) + '...'
+        ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.substring(0, 20) + '...'
         : 'NOT SET',
+      publishable_key_starts_with_sb: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.startsWith('sb_publishable_') || false,
         
+      has_secret_key: !!process.env.SUPABASE_SECRET_KEY,
+      secret_key_prefix: process.env.SUPABASE_SECRET_KEY
+        ? process.env.SUPABASE_SECRET_KEY.substring(0, 15) + '...'
+        : 'NOT SET',
+      secret_key_starts_with_sb: process.env.SUPABASE_SECRET_KEY?.startsWith('sb_secret_') || false,
+    },
+    
+    // Check legacy format keys (should NOT exist)
+    legacy_format: {
+      has_anon_key: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      anon_key_prefix: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY 
+        ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.substring(0, 10) + '...'
+        : 'NOT SET',
+      anon_key_starts_with_eyJ: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.startsWith('eyJ') || false,
+      
       has_service_role: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       service_role_prefix: process.env.SUPABASE_SERVICE_ROLE_KEY
-        ? process.env.SUPABASE_SERVICE_ROLE_KEY.substring(0, 30) + '...'
+        ? process.env.SUPABASE_SERVICE_ROLE_KEY.substring(0, 10) + '...'
         : 'NOT SET',
-    },
-    
-    // Check other important variables
-    resend: {
-      has_api_key: !!process.env.RESEND_API_KEY,
-      api_key_prefix: process.env.RESEND_API_KEY
-        ? process.env.RESEND_API_KEY.substring(0, 10) + '...'
-        : 'NOT SET',
-    },
-    
-    // Check if keys match expected patterns
-    validation: {
-      anon_key_starts_with_eyJ: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.startsWith('eyJ') || false,
       service_role_starts_with_eyJ: process.env.SUPABASE_SERVICE_ROLE_KEY?.startsWith('eyJ') || false,
+    },
+    
+    // Key selection logic (what the app will actually use)
+    actual_keys_used: {
+      publishable: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ? 'NEW FORMAT' : 
+                   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'LEGACY FORMAT' : 'NONE',
+      service: process.env.SUPABASE_SECRET_KEY ? 'NEW FORMAT' :
+               process.env.SUPABASE_SERVICE_ROLE_KEY ? 'LEGACY FORMAT' : 'NONE',
+    },
+    
+    // Validation
+    validation: {
       url_is_supabase: process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('supabase.co') || false,
+      keys_are_new_format: 
+        (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.startsWith('sb_publishable_') || false) &&
+        (process.env.SUPABASE_SECRET_KEY?.startsWith('sb_secret_') || false),
     }
   };
   
