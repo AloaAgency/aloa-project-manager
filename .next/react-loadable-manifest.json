@@ -1,7 +1,49 @@
 {
+  "app/admin/project/[projectId]/page.js -> @/components/AIChatFormBuilder": {
+    "id": "app/admin/project/[projectId]/page.js -> @/components/AIChatFormBuilder",
+    "files": [
+      "static/chunks/_app-pages-browser_components_AIChatFormBuilder_js-_f8d30.js"
+    ]
+  },
+  "app/admin/project/[projectId]/page.js -> @/components/AdminNotifications": {
+    "id": "app/admin/project/[projectId]/page.js -> @/components/AdminNotifications",
+    "files": [
+      "static/chunks/_app-pages-browser_components_AdminNotifications_js.js"
+    ]
+  },
+  "app/admin/project/[projectId]/page.js -> @/components/FileUploadConfigStorage": {
+    "id": "app/admin/project/[projectId]/page.js -> @/components/FileUploadConfigStorage",
+    "files": [
+      "static/chunks/_app-pages-browser_components_FileUploadConfigStorage_js.js"
+    ]
+  },
+  "app/admin/project/[projectId]/page.js -> @/components/FormBuilderModal": {
+    "id": "app/admin/project/[projectId]/page.js -> @/components/FormBuilderModal",
+    "files": [
+      "static/chunks/_app-pages-browser_components_FormBuilderModal_js.js"
+    ]
+  },
+  "app/admin/project/[projectId]/page.js -> @/components/LinkSubmissionConfig": {
+    "id": "app/admin/project/[projectId]/page.js -> @/components/LinkSubmissionConfig",
+    "files": [
+      "static/chunks/_app-pages-browser_components_LinkSubmissionConfig_js.js"
+    ]
+  },
+  "app/admin/project/[projectId]/page.js -> @/components/ProjectletAppletsManager": {
+    "id": "app/admin/project/[projectId]/page.js -> @/components/ProjectletAppletsManager",
+    "files": [
+      "static/chunks/_app-pages-browser_components_ProjectletAppletsManager_js.js"
+    ]
+  },
   "app/auth/login/page.js -> @/lib/supabase-auth": {
     "id": "app/auth/login/page.js -> @/lib/supabase-auth",
     "files": []
+  },
+  "components/ProjectletAppletsManager.js -> @/components/AIChatFormBuilder": {
+    "id": "components/ProjectletAppletsManager.js -> @/components/AIChatFormBuilder",
+    "files": [
+      "static/chunks/_app-pages-browser_components_AIChatFormBuilder_js-_f8d31.js"
+    ]
   },
   "node_modules/@supabase/auth-js/dist/module/lib/helpers.js -> @supabase/node-fetch": {
     "id": "node_modules/@supabase/auth-js/dist/module/lib/helpers.js -> @supabase/node-fetch",
