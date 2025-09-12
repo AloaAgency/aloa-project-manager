@@ -70,25 +70,43 @@ export async function POST(request) {
     }
 
     // Create the profile
+    console.log('Creating profile for user:', {
+      id: newUser.user.id,
+      email: newUser.user.email,
+      full_name,
+      role: invitation.role
+    });
+    
     const { error: profileError } = await serviceSupabase
       .from('aloa_user_profiles')
-      .upsert({
+      .insert({
         id: newUser.user.id,
         email: newUser.user.email,
         full_name,
         role: invitation.role,
-        metadata: {
-          invited_by: invitation.invited_by,
-          invitation_accepted_at: new Date().toISOString()
-        }
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_active: true,
+        notification_settings: {
+          email: true,
+          in_app: true
+        },
+        preferences: {}
       });
 
     if (profileError) {
       console.error('Error creating profile:', profileError);
+      console.error('Profile error details:', {
+        code: profileError.code,
+        message: profileError.message,
+        details: profileError.details,
+        hint: profileError.hint
+      });
+      
       // Try to delete the user if profile creation failed
       await serviceSupabase.auth.admin.deleteUser(newUser.user.id);
       return NextResponse.json({ 
-        error: 'Failed to create user profile' 
+        error: `Failed to create user profile: ${profileError.message}` 
       }, { status: 500 });
     }
 
