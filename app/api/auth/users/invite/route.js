@@ -91,63 +91,18 @@ export async function POST(request) {
       });
 
     if (inviteError) {
-      // If the table doesn't exist, create it first
+      console.error('Error storing invitation:', inviteError);
+      
+      // Check if table doesn't exist
       if (inviteError.code === '42P01') {
-        // Create the invitations table
-        const { error: createTableError } = await supabase.rpc('exec_sql', {
-          query: `
-            CREATE TABLE IF NOT EXISTS user_invitations (
-              id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-              email TEXT NOT NULL,
-              full_name TEXT NOT NULL,
-              role TEXT NOT NULL DEFAULT 'client',
-              project_id UUID REFERENCES aloa_projects(id) ON DELETE CASCADE,
-              token TEXT UNIQUE NOT NULL,
-              invited_by UUID NOT NULL REFERENCES aloa_user_profiles(id),
-              custom_message TEXT,
-              expires_at TIMESTAMPTZ NOT NULL,
-              accepted_at TIMESTAMPTZ,
-              created_at TIMESTAMPTZ DEFAULT NOW()
-            );
-            
-            CREATE INDEX IF NOT EXISTS idx_invitations_token ON user_invitations(token);
-            CREATE INDEX IF NOT EXISTS idx_invitations_email ON user_invitations(email);
-          `
-        });
-
-        if (createTableError) {
-          console.error('Error creating invitations table:', createTableError);
-          return NextResponse.json({ 
-            error: 'Failed to initialize invitation system' 
-          }, { status: 500 });
-        }
-
-        // Retry the insertion
-        const { error: retryError } = await supabase
-          .from('user_invitations')
-          .insert({
-            email,
-            full_name,
-            role,
-            project_id,
-            token: inviteToken,
-            invited_by: user.id,
-            expires_at: expiresAt.toISOString(),
-            custom_message
-          });
-
-        if (retryError) {
-          console.error('Error storing invitation:', retryError);
-          return NextResponse.json({ 
-            error: 'Failed to create invitation' 
-          }, { status: 500 });
-        }
-      } else {
-        console.error('Error storing invitation:', inviteError);
         return NextResponse.json({ 
-          error: 'Failed to create invitation' 
+          error: 'Invitation system not initialized. Please run the user_invitations_table.sql migration in Supabase.' 
         }, { status: 500 });
       }
+      
+      return NextResponse.json({ 
+        error: 'Failed to create invitation: ' + inviteError.message 
+      }, { status: 500 });
     }
 
     // Get project name if applicable
