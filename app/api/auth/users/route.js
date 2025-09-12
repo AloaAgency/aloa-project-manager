@@ -30,7 +30,7 @@ export async function GET(request) {
 
     // Get user's profile to check role
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
       .single();
@@ -41,7 +41,7 @@ export async function GET(request) {
 
     // Get all users with their profiles
     const { data: users, error: usersError } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select(`
         id,
         email,
@@ -136,7 +136,7 @@ export async function POST(request) {
     }
 
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
       .single();
@@ -164,7 +164,7 @@ export async function POST(request) {
 
     // Create or update the profile
     const { error: profileError } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .upsert({
         id: newUser.user.id,
         email: newUser.user.email,
@@ -252,7 +252,7 @@ export async function PATCH(request) {
     }
 
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
       .single();
@@ -273,7 +273,7 @@ export async function PATCH(request) {
 
     if (Object.keys(profileUpdates).length > 0) {
       const { error: updateError } = await supabase
-        .from('profiles')
+        .from('aloa_user_profiles')
         .update(profileUpdates)
         .eq('id', user_id);
 
@@ -297,7 +297,7 @@ export async function PATCH(request) {
 
       // Also update email in profiles table
       await supabase
-        .from('profiles')
+        .from('aloa_user_profiles')
         .update({ email: updates.email })
         .eq('id', user_id);
     }
@@ -356,7 +356,7 @@ export async function DELETE(request) {
     }
 
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
       .single();
