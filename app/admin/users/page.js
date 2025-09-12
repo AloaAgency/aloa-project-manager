@@ -21,7 +21,7 @@ import {
 
 export default function UsersManagementPage() {
   const router = useRouter();
-  const { user, loading: userLoading } = useUser();
+  const { user, profile, isSuperAdmin, loading: userLoading } = useUser();
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,14 +43,14 @@ export default function UsersManagementPage() {
     if (!userLoading) {
       if (!user) {
         router.push('/auth/login');
-      } else if (user.role !== 'super_admin') {
+      } else if (!isSuperAdmin) {
         router.push('/dashboard');
       } else {
         fetchUsers();
         fetchProjects();
       }
     }
-  }, [user, userLoading, router]);
+  }, [user, userLoading, router, isSuperAdmin]);
 
   const fetchUsers = async () => {
     try {
