@@ -1,0 +1,14 @@
+"use strict";(()=>{var e={};e.id=405,e.ids=[405],e.modules={20399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},30517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},32615:e=>{e.exports=require("http")},35240:e=>{e.exports=require("https")},68621:e=>{e.exports=require("punycode")},76162:e=>{e.exports=require("stream")},17360:e=>{e.exports=require("url")},71568:e=>{e.exports=require("zlib")},88797:(e,r,t)=>{t.r(r),t.d(r,{originalPathname:()=>c,patchFetch:()=>_,requestAsyncStorage:()=>u,routeModule:()=>p,serverHooks:()=>m,staticGenerationAsyncStorage:()=>f});var o={};t.r(o),t.d(o,{GET:()=>n});var a=t(49303),i=t(88716),s=t(60670),d=t(87070),l=t(76995);async function n(e,{params:r}){try{let{data:e,error:t}=await l.O.from("aloa_forms").select(`
+        *,
+        aloa_form_fields (
+          id,
+          field_label,
+          field_name,
+          field_type,
+          required,
+          placeholder,
+          options,
+          validation,
+          field_order
+        )
+      `).eq("url_id",r.urlId).single();if(t||!e)return d.NextResponse.json({error:"Form not found"},{status:404});let o=e.aloa_form_fields?.sort((e,r)=>(e.field_order||0)-(r.field_order||0))||[];return d.NextResponse.json({...e,_id:e.id,urlId:e.url_id,fields:o.map(e=>({_id:e.id,label:e.field_label,name:e.field_name,type:e.field_type,position:e.field_order,section:e.validation?.section||"General Information",required:e.required,placeholder:e.placeholder,options:e.options,validation:e.validation})),createdAt:e.created_at,updatedAt:e.updated_at})}catch(e){return console.error("Error fetching form:",e),d.NextResponse.json({error:"Failed to fetch form"},{status:500})}}let p=new a.AppRouteRouteModule({definition:{kind:i.x.APP_ROUTE,page:"/api/forms/[urlId]/route",pathname:"/api/forms/[urlId]",filename:"route",bundlePath:"app/api/forms/[urlId]/route"},resolvedPagePath:"/Users/rosspalmer/Ross GitHub Projects/aloa-web-design-project-manager/app/api/forms/[urlId]/route.js",nextConfigOutput:"",userland:o}),{requestAsyncStorage:u,staticGenerationAsyncStorage:f,serverHooks:m}=p,c="/api/forms/[urlId]/route";function _(){return(0,s.patchFetch)({serverHooks:m,staticGenerationAsyncStorage:f})}},76995:(e,r,t)=>{t.d(r,{O:()=>s});var o=t(69498);let a="https://eycgzjqwowrdmjlzqqyg.supabase.co",i="sb_publishable_eG0lH_ACpyOjqG44mN_5PA_1-oFLr5n",s=null;a&&i?s=(0,o.eI)(a,i):console.error("Warning: Supabase environment variables are missing")}};var r=require("../../../../webpack-runtime.js");r.C(e);var t=e=>r(r.s=e),o=r.X(0,[9276,5972,9498],()=>t(88797));module.exports=o})();
