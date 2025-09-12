@@ -35,6 +35,7 @@ The application uses Supabase with the following core tables:
 ### API Structure
 
 All API routes are in `/app/api/`:
+- `/auth/*` - Authentication endpoints (login, logout, reset-password, users management)
 - `/forms/*` - Form CRUD operations
 - `/responses/*` - Response management
 - `/ai-analysis/*` - AI analysis generation and export
@@ -88,6 +89,37 @@ Max: 100                  # Max value/length
   - Option 1              # For select/radio/checkbox
   - Option 2
 ```
+
+## Authentication System
+
+### Role-Based Access Control
+The system implements a hierarchical role-based access control with four user roles:
+
+1. **super_admin** - Full system access, can manage users and all projects
+2. **project_admin** - Can manage specific projects and team members
+3. **team_member** - Can work on assigned projects with edit permissions
+4. **client** - Read-only access to their assigned project dashboard
+
+### Authentication Flow
+- Login endpoint: `/api/auth/login`
+- Protected routes use `AuthGuard` component to enforce role requirements
+- Client users are automatically redirected to their project dashboard upon login
+- Non-client users are redirected to the main dashboard
+
+### Client Access
+- Clients are assigned to projects via the `aloa_project_members` table with `project_role='viewer'`
+- Client dashboard at `/project/[projectId]/dashboard` shows project progress and allows form submissions
+- Clients cannot access admin areas (`/dashboard`, `/admin/*`)
+
+### User Management
+- Super admins can manage users at `/admin/users`
+- User creation, editing, and deletion available via `/api/auth/users` endpoints
+- Password reset functionality with email verification
+
+### Database Tables
+- `aloa_user_profiles` - Stores user profile information and roles
+- `aloa_project_members` - Links users to projects with specific roles
+- `aloa_project_stakeholders` - Additional project stakeholder relationships
 
 ## Key Features Implementation
 

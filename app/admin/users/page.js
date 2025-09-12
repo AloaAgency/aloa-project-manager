@@ -62,6 +62,7 @@ export default function UsersManagementPage() {
       }
       
       const data = await response.json();
+      console.log('Users data from API:', data.users);
       setUsers(data.users || []);
     } catch (err) {
       console.error('Error fetching users:', err);

@@ -25,11 +25,12 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
+import AuthGuard from '@/components/AuthGuard';
 
 // Dynamic imports for heavy components
 const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), { ssr: false });
 
-export default function ClientDashboard() {
+function ClientDashboard() {
   const params = useParams();
   const router = useRouter();
   const [project, setProject] = useState(null);
@@ -1032,5 +1033,17 @@ function FormModal({ form, onSubmit, onClose, savedProgress, onProgressUpdate, i
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ClientDashboardPage() {
+  return (
+    <AuthGuard 
+      requireAuth={true} 
+      allowedRoles={['client', 'super_admin', 'project_admin', 'team_member']}
+      redirectTo="/auth/login"
+    >
+      <ClientDashboard />
+    </AuthGuard>
   );
 }

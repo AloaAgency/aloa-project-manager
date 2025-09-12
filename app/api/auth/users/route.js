@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
 // Force dynamic rendering for routes that use cookies
@@ -65,13 +66,22 @@ export async function GET(request) {
     let projectAssignments = {};
     
     if (clientIds.length > 0) {
+      // Create a service client to bypass RLS for fetching project members
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+      const serviceClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        serviceKey
+      );
+      
       // Get from aloa_project_members table (where we actually store client assignments)
-      const { data: members } = await supabase
+      const { data: members, error: membersError } = await serviceClient
         .from('aloa_project_members')
         .select('user_id, project_id, aloa_projects(id, project_name, client_name)')
         .in('user_id', clientIds)
         .eq('project_role', 'viewer'); // Clients are stored as 'viewer' role
-
+      
+      console.log('Members query with service client:', { members, error: membersError });
+      
       if (members) {
         members.forEach(m => {
           if (!projectAssignments[m.user_id]) {
@@ -87,6 +97,12 @@ export async function GET(request) {
       ...user,
       projects: projectAssignments[user.id] || []
     }));
+
+    // Debug: Log John G's data specifically
+    const johnG = usersWithProjects.find(u => u.email === 'exabyte@me.com');
+    if (johnG) {
+      console.log('John G data being sent:', JSON.stringify(johnG, null, 2));
+    }
 
     return NextResponse.json({ users: usersWithProjects });
 
