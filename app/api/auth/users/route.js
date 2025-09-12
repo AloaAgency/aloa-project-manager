@@ -64,7 +64,7 @@ export async function GET(request) {
     if (clientIds.length > 0) {
       const { data: stakeholders } = await supabase
         .from('aloa_project_stakeholders')
-        .select('user_id, project_id, aloa_projects(id, name)')
+        .select('user_id, project_id, aloa_projects(id, project_name, client_name)')
         .in('user_id', clientIds);
 
       if (stakeholders) {

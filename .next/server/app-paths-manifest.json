@@ -1,9 +1,11 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/admin/projects/page": "app/admin/projects/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js",
-  "/api/aloa-projects/[projectId]/notifications/route": "app/api/aloa-projects/[projectId]/notifications/route.js",
   "/admin/users/page": "app/admin/users/page.js",
-  "/auth/reset-password/page": "app/auth/reset-password/page.js"
+  "/api/aloa-projects/[projectId]/notifications/route": "app/api/aloa-projects/[projectId]/notifications/route.js",
+  "/api/auth/profile/route": "app/api/auth/profile/route.js",
+  "/api/aloa-projects/route": "app/api/aloa-projects/route.js",
+  "/api/auth/users/route": "app/api/auth/users/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/auth/reset-password/page": "app/auth/reset-password/page.js",
+  "/admin/project/[projectId]/page": "app/admin/project/[projectId]/page.js",
+  "/admin/projects/page": "app/admin/projects/page.js"
 }

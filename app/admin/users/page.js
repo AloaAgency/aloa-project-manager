@@ -77,6 +77,7 @@ export default function UsersManagementPage() {
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Fetched projects:', data.projects); // Debug log
         setProjects(data.projects || []);
       }
     } catch (err) {
@@ -330,21 +331,21 @@ export default function UsersManagementPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id}>
+              {users.map((userData) => (
+                <tr key={userData.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        {user.full_name || 'No name'}
+                        {userData.full_name || 'No name'}
                       </div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
+                      <div className="text-sm text-gray-500">{userData.email}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {editingUser === user.id ? (
+                    {editingUser === userData.id ? (
                       <select
-                        value={user.role}
-                        onChange={(e) => handleUpdateUser(user.id, { role: e.target.value })}
+                        value={userData.role}
+                        onChange={(e) => handleUpdateUser(userData.id, { role: e.target.value })}
                         className="text-sm border-gray-300 rounded-md"
                       >
                         <option value="super_admin">Super Admin</option>
@@ -353,23 +354,23 @@ export default function UsersManagementPage() {
                         <option value="client">Client</option>
                       </select>
                     ) : (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(userData.role)}`}>
                         <Shield className="h-3 w-3 mr-1" />
-                        {user.role}
+                        {userData.role}
                       </span>
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    {user.role === 'client' && (
+                    {userData.role === 'client' && (
                       <div className="flex flex-wrap gap-1">
-                        {user.projects?.map(project => (
+                        {userData.projects?.map(project => (
                           <span
                             key={project.id}
                             className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-700"
                           >
-                            {project.name}
+                            {project.project_name || project.name || project.client_name}
                             <button
-                              onClick={() => handleRemoveProject(user.id, project.id)}
+                              onClick={() => handleRemoveProject(userData.id, project.id)}
                               className="ml-1 text-gray-400 hover:text-red-600"
                             >
                               <X className="h-3 w-3" />
@@ -380,7 +381,7 @@ export default function UsersManagementPage() {
                           <select
                             onChange={(e) => {
                               if (e.target.value) {
-                                handleAssignProject(user.id, e.target.value);
+                                handleAssignProject(userData.id, e.target.value);
                                 e.target.value = '';
                               }
                             }}
@@ -388,10 +389,10 @@ export default function UsersManagementPage() {
                           >
                             <option value="">Add project...</option>
                             {projects
-                              .filter(p => !user.projects?.find(up => up.id === p.id))
+                              .filter(p => !userData.projects?.find(up => up.id === p.id))
                               .map(project => (
                                 <option key={project.id} value={project.id}>
-                                  {project.name}
+                                  {project.project_name || project.client_name || `Project ${project.id.substring(0, 8)}`}
                                 </option>
                               ))}
                           </select>
@@ -400,23 +401,31 @@ export default function UsersManagementPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(user.created_at).toLocaleDateString()}
+                    {new Date(userData.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => setEditingUser(editingUser === user.id ? null : user.id)}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    {user.id !== user.id && ( // Prevent deleting yourself
+                    <div className="flex items-center justify-end space-x-3">
                       <button
-                        onClick={() => handleDeleteUser(user.id, user.email)}
-                        className="text-red-600 hover:text-red-900"
+                        onClick={() => setEditingUser(editingUser === userData.id ? null : userData.id)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit user"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Edit2 className="h-4 w-4" />
                       </button>
-                    )}
+                      {userData.id !== user.id ? ( // Prevent deleting yourself
+                        <button
+                          onClick={() => handleDeleteUser(userData.id, userData.email)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete user"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <span className="inline-block text-gray-400 cursor-not-allowed" title="Cannot delete yourself">
+                          <Trash2 className="h-4 w-4" />
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -544,23 +553,27 @@ export default function UsersManagementPage() {
                   </select>
                 </div>
 
-                {formData.role === 'client' && projects.length > 0 && (
+                {formData.role === 'client' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
                       Assign to Project (Optional)
                     </label>
-                    <select
-                      value={formData.project_id}
-                      onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    >
-                      <option value="">Select a project...</option>
-                      {projects.map(project => (
-                        <option key={project.id} value={project.id}>
-                          {project.name}
-                        </option>
-                      ))}
-                    </select>
+                    {projects.length > 0 ? (
+                      <select
+                        value={formData.project_id}
+                        onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      >
+                        <option value="">Select a project...</option>
+                        {projects.map(project => (
+                          <option key={project.id} value={project.id}>
+                            {project.project_name || project.client_name || `Project ${project.id.substring(0, 8)}`}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="mt-1 text-sm text-gray-500">No projects available</p>
+                    )}
                   </div>
                 )}
 

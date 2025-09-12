@@ -38,7 +38,7 @@ export async function POST(request) {
 
     // Check if requester is super admin or project admin for this project
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
       .single();
@@ -146,7 +146,7 @@ export async function DELETE(request) {
 
     // Check if requester is super admin or project admin for this project
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
       .single();

@@ -41,7 +41,7 @@ export async function POST(request) {
     }
 
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select('role, full_name')
       .eq('id', user.id)
       .single();
@@ -57,7 +57,7 @@ export async function POST(request) {
 
     // Check if user already exists
     const { data: existingUser } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select('id')
       .eq('email', email)
       .single();
@@ -100,7 +100,7 @@ export async function POST(request) {
               role TEXT NOT NULL DEFAULT 'client',
               project_id UUID REFERENCES aloa_projects(id) ON DELETE CASCADE,
               token TEXT UNIQUE NOT NULL,
-              invited_by UUID NOT NULL REFERENCES profiles(id),
+              invited_by UUID NOT NULL REFERENCES aloa_user_profiles(id),
               custom_message TEXT,
               expires_at TIMESTAMPTZ NOT NULL,
               accepted_at TIMESTAMPTZ,
@@ -261,7 +261,7 @@ export async function GET(request) {
     }
 
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
       .single();
@@ -286,7 +286,7 @@ export async function GET(request) {
         accepted_at,
         invited_by,
         aloa_projects(name),
-        profiles!invited_by(full_name, email)
+        aloa_user_profiles!invited_by(full_name, email)
       `)
       .is('accepted_at', null)
       .gte('expires_at', new Date().toISOString())
@@ -342,7 +342,7 @@ export async function DELETE(request) {
     }
 
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
       .single();

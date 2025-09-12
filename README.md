@@ -4,6 +4,17 @@ A gamified project management system specifically designed for Aloa web design p
 
 ## Features
 
+### Authentication & User Management
+- **Controlled Access**: No open signup - all users must be provisioned by admins
+- **Role-Based Access Control**: Four distinct roles with specific permissions:
+  - **Super Admin**: Full system access, user management, all projects
+  - **Project Admin**: Manage specific projects and team members
+  - **Team Member**: Access to assigned projects with edit capabilities
+  - **Client**: View-only access to their specific project dashboard
+- **User Provisioning**: Super admins can create users directly or send email invitations
+- **Project Assignment**: Clients can be assigned to specific projects
+- **Secure API Access**: All sensitive operations use service role keys
+
 ### Core Project Management
 - **Structured Workflow**: Proven path from contract to launch
 - **Projectlet System**: Sequential mini-projects that unlock as you progress
@@ -103,9 +114,19 @@ migrations/add_form_status_fields.sql
 
 -- 7. REQUIRED: Add user_id to track multi-stakeholder form responses
 migrations/add_user_id_to_responses.sql
+
+-- 8. User management and authentication (REQUIRED)
+supabase/create_or_update_aloa_user_profiles.sql
+supabase/user_invitations_table.sql
+supabase/create_aloa_project_stakeholders_table.sql
+
+-- 9. CRITICAL FIX: Disable RLS on user profiles to prevent infinite recursion
+supabase/completely_fix_aloa_user_profiles.sql
 ```
 
 **IMPORTANT**: Only use tables with `aloa_` prefix. Never reference or create tables without this prefix.
+
+**⚠️ SECURITY NOTE**: Row Level Security (RLS) is currently disabled on `aloa_user_profiles` table to prevent infinite recursion issues. Security is handled at the API level using Supabase service role keys. This should be re-enabled in the future with properly designed non-recursive policies.
 
 5. **Start development server**
 ```bash
@@ -145,13 +166,28 @@ The system guides projects through these phases:
 
 ## Usage
 
+### Initial Setup (Super Admin)
+1. First user to register becomes super admin (ross@aloa.agency is pre-configured)
+2. Navigate to `/admin/users` to manage users
+3. Create project admin and team member accounts
+4. Create client accounts and assign them to projects
+
 ### Creating a New Project
 1. Navigate to `/project-setup`
 2. Fill in project details (client, timeline, scope)
 3. Submit to initialize the project
-4. Client receives access to their dashboard
+4. Assign client users to the project via `/admin/users`
+
+### User Management
+- **Super Admins**: Access `/admin/users` to:
+  - Create new users with specific roles
+  - Send email invitations
+  - Assign clients to projects
+  - Edit user roles and permissions
+  - Delete user accounts
 
 ### Client Dashboard
+- Clients login to see only their assigned project
 - View overall progress
 - Access available projectlets
 - Submit forms
@@ -163,6 +199,7 @@ The system guides projects through these phases:
 - Update projectlet status
 - Upload deliverables
 - Track team progress
+- Control user access and permissions
 
 ## Database Structure
 
@@ -182,9 +219,12 @@ The system guides projects through these phases:
 - `aloa_project_forms` - Link forms to projects
 - `aloa_project_timeline` - Event tracking
 - `aloa_project_team` - Team members
+- `aloa_project_stakeholders` - Client-project associations
 - `aloa_project_documents` - Project files and deliverables
 - `aloa_project_knowledge` - AI knowledge base
 - `aloa_project_insights` - AI-generated insights
+- `aloa_user_profiles` - User profiles and roles (⚠️ RLS disabled)
+- `user_invitations` - Pending user invitations
 
 ### Important Field Naming Conventions:
 - Form fields use: `field_name`, `field_label`, `field_type` (NOT name, label, type)
@@ -198,6 +238,18 @@ The system guides projects through these phases:
 - ❌ Any table without `aloa_` prefix
 
 ## API Routes
+
+### Authentication & User Management
+- `POST /api/auth/login` - User login
+- `POST /api/auth/logout` - User logout  
+- `GET /api/auth/profile` - Get current user profile
+- `GET /api/auth/users` - List all users (super admin only)
+- `POST /api/auth/users` - Create new user (super admin only)
+- `PATCH /api/auth/users` - Update user (super admin only)
+- `DELETE /api/auth/users` - Delete user (super admin only)
+- `POST /api/auth/users/invite` - Send user invitation (super admin only)
+- `POST /api/auth/users/assign-project` - Assign user to project (super admin only)
+- `DELETE /api/auth/users/assign-project` - Remove user from project (super admin only)
 
 ### Project Management
 - `POST /api/aloa-projects/initialize` - Create new project
@@ -233,19 +285,34 @@ Optimized for Vercel:
 
 ## Recent Updates (January 2025)
 
+### 🔒 Authentication & User Management System
+- **Controlled User Access**: Removed open signup - all users must be provisioned by admins
+- **Role-Based Access Control**: Implemented four-tier permission system
+- **User Management Dashboard**: Super admins can create, edit, and delete users at `/admin/users`
+- **Email Invitations**: Send invitations with Resend integration for new users
+- **Project Assignment**: Assign clients to specific projects with restricted access
+- **Secure API Endpoints**: All user management APIs require super admin authentication
+- **RLS Temporarily Disabled**: Fixed infinite recursion issue by disabling RLS on `aloa_user_profiles`
+
 ### 🔥 Critical Database Migration
 - **IMPORTANT**: All database interactions now use `aloa_` prefixed tables and fields
+- **User Profiles Table**: Added `aloa_user_profiles` for authentication and roles
+- **Project Stakeholders**: Added `aloa_project_stakeholders` for client-project associations
+- **User Invitations**: Added `user_invitations` table for invitation system
 - **User Progress Tracking**: Added `aloa_applet_progress` table for individual client tracking
 - **Form Response Linking**: Form responses now properly link to projects via `aloa_project_id`
 - **Field Name Consistency**: All form fields use `field_name`, `field_label`, etc. (not `name`, `label`)
 
 ### 🎉 New Features
+- **User Management Page**: Complete admin interface for managing system users
 - **Client Form Modal**: Integrated multi-step form rendering in client dashboard
 - **Form Progress Saving**: Automatic saving of partial form completions
 - **Enhanced Form Parsing**: Improved markdown parsing for pipe-delimited format
 - **Multiselect Field Support**: Added support for multiselect form fields
 
 ### 🐛 Bug Fixes
+- Fixed infinite recursion in RLS policies for user profiles
+- Fixed authentication flow and role detection
 - Fixed form modal display in client dashboard
 - Fixed dropdown z-index issues in modal overlays
 - Fixed multiselect/checkbox field rendering and state management
