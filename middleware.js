@@ -113,6 +113,11 @@ export async function middleware(request) {
     const isProtectedPath = protectedPaths.some(path => 
       pathname.startsWith(path)
     );
+    
+    // Redirect admins from /dashboard to /admin/projects
+    if (pathname === '/dashboard' && user && (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member')) {
+      return NextResponse.redirect(new URL('/admin/projects', request.url));
+    }
 
     // Auth routes that should redirect if already logged in
     const authPaths = ['/auth/login', '/auth/signup'];
