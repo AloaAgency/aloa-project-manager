@@ -2,14 +2,11 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "installCommand": "npm ci --legacy-peer-deps",
+  "installCommand": "npm install",
   "regions": ["iad1"],
   "functions": {
     "app/api/**/*": {
       "maxDuration": 30
     }
-  },
-  "env": {
-    "FORCE_BUILDER_TAG": "canary"
   }
 }
