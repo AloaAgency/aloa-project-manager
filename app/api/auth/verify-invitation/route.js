@@ -15,11 +15,16 @@ export async function GET(request) {
       }, { status: 400 });
     }
 
+    console.log('Verifying invitation token:', token);
+
     // Create Supabase client with service role to bypass RLS
-    const serviceSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
-    );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    
+    console.log('Using Supabase URL:', supabaseUrl);
+    console.log('Service key available:', !!supabaseKey);
+    
+    const serviceSupabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch invitation details
     const { data: invitation, error: inviteError } = await serviceSupabase
@@ -32,13 +37,26 @@ export async function GET(request) {
         project_id,
         expires_at,
         accepted_at,
-        aloa_projects(name)
+        aloa_projects(project_name)
       `)
       .eq('token', token)
       .single();
 
-    if (inviteError || !invitation) {
-      console.error('Error fetching invitation:', inviteError);
+    if (inviteError) {
+      console.error('Database error fetching invitation:', inviteError);
+      console.error('Error details:', {
+        code: inviteError.code,
+        message: inviteError.message,
+        details: inviteError.details
+      });
+      return NextResponse.json({ 
+        error: 'Database error: ' + inviteError.message,
+        valid: false 
+      }, { status: 500 });
+    }
+    
+    if (!invitation) {
+      console.log('No invitation found for token:', token);
       return NextResponse.json({ 
         error: 'Invalid or expired invitation',
         valid: false 
@@ -70,7 +88,9 @@ export async function GET(request) {
         role: invitation.role,
         project_id: invitation.project_id,
         expires_at: invitation.expires_at,
-        project: invitation.aloa_projects
+        project: invitation.aloa_projects ? {
+          name: invitation.aloa_projects.project_name
+        } : null
       }
     });
 
