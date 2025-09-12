@@ -143,10 +143,14 @@ export async function POST(request) {
     // If user is a client, get their project
     let clientProject = null;
     if (userRole === 'client') {
-      const { data: memberData } = await supabase
+      console.log('Fetching project for client:', data.user.id);
+      
+      // Use service role to bypass RLS
+      const { data: memberData, error: memberError } = await serviceSupabase
         .from('aloa_project_members')
         .select(`
           project_id,
+          role,
           aloa_projects (
             id,
             project_name,
@@ -154,11 +158,16 @@ export async function POST(request) {
           )
         `)
         .eq('user_id', data.user.id)
+        .eq('role', 'client')
         .single();
 
-      if (memberData?.aloa_projects) {
+      if (memberError) {
+        console.error('Error fetching client project:', memberError);
+      } else if (memberData?.aloa_projects) {
         clientProject = memberData.aloa_projects;
         console.log('Client project found:', clientProject);
+      } else {
+        console.log('No project found for client');
       }
     }
 

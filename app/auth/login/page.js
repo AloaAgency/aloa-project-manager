@@ -45,6 +45,8 @@ export default function LoginPage() {
         console.log('Login successful, full result:', result);
         console.log('User object:', result.user);
         console.log('User role:', result.user?.role);
+        console.log('Client project:', result.clientProject);
+        console.log('Has client project?', !!result.clientProject);
         
         // If we have a session, set it in the client
         if (result.session) {
