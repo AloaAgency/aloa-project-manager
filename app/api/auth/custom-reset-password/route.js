@@ -103,7 +103,7 @@ export async function POST(request) {
       </html>
     `;
 
-    const { data, error: emailError } = await resend.emails.send({
+    const { data: emailData, error: emailError } = await resend.emails.send({
       from: 'Aloa <noreply@updates.aloa.agency>',
       to: email,
       subject: 'Reset Your Password',
