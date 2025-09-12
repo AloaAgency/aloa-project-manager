@@ -36,42 +36,51 @@ export async function GET() {
     }
 
     // Try to get user profile
-    // If RLS fails, we'll use service role
+    // Use service role to bypass RLS issues
     let profile = null;
     let profileError = null;
     
-    // First try with regular client
-    const { data, error } = await supabase
-      .from('aloa_user_profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    
-    profile = data;
-    profileError = error;
-
-    // If we get an RLS error, try with service role
-    if (profileError && profileError.message?.includes('infinite recursion')) {
-      console.log('RLS error detected, using service role client');
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    if (serviceKey) {
+      const serviceSupabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        serviceKey
+      );
       
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-      if (serviceKey) {
-        const serviceSupabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          serviceKey
-        );
-        
-        const { data: serviceData, error: serviceError } = await serviceSupabase
+      // First try by email (more reliable for super_admin)
+      const { data: profileByEmail, error: emailError } = await serviceSupabase
+        .from('aloa_user_profiles')
+        .select('*')
+        .eq('email', user.email)
+        .single();
+      
+      if (profileByEmail) {
+        profile = profileByEmail;
+        console.log('Profile found by email:', user.email, 'role:', profileByEmail.role);
+      } else {
+        // Fallback to ID if email not found
+        const { data: profileById, error: idError } = await serviceSupabase
           .from('aloa_user_profiles')
           .select('*')
           .eq('id', user.id)
           .single();
         
-        if (!serviceError) {
-          profile = serviceData;
-          profileError = null;
+        profile = profileById;
+        profileError = idError;
+        if (profile) {
+          console.log('Profile found by ID:', user.id, 'role:', profile.role);
         }
       }
+    } else {
+      // Fallback to regular client if no service key
+      const { data, error } = await supabase
+        .from('aloa_user_profiles')
+        .select('*')
+        .eq('email', user.email)
+        .single();
+      
+      profile = data;
+      profileError = error;
     }
 
     if (profileError) {
