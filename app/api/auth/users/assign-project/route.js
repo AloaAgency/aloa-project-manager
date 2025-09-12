@@ -49,13 +49,13 @@ export async function POST(request) {
     if (profile?.role !== 'super_admin') {
       // Check if user is project admin for this specific project
       const { data: teamMember } = await supabase
-        .from('aloa_project_team')
-        .select('role')
+        .from('aloa_project_members')
+        .select('project_role')
         .eq('project_id', project_id)
         .eq('user_id', user.id)
         .single();
 
-      if (!teamMember || teamMember.role !== 'project_admin') {
+      if (!teamMember || teamMember.project_role !== 'admin') {
         return NextResponse.json({ 
           error: 'Forbidden - Super admin or project admin access required' 
         }, { status: 403 });
@@ -64,7 +64,7 @@ export async function POST(request) {
 
     // Check if assignment already exists
     const { data: existingAssignment } = await supabase
-      .from('aloa_project_stakeholders')
+      .from('aloa_project_members')
       .select('id')
       .eq('project_id', project_id)
       .eq('user_id', user_id)
@@ -76,18 +76,23 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Add user as stakeholder
-    const { error: stakeholderError } = await supabase
-      .from('aloa_project_stakeholders')
+    // Add user as project member
+    const { error: memberError } = await supabase
+      .from('aloa_project_members')
       .insert({
         project_id,
         user_id,
-        role,
-        added_by: user.id
+        project_role: role === 'client' ? 'viewer' : role,
+        can_edit: false,
+        can_delete: false,
+        can_invite: false,
+        can_manage_team: false,
+        invited_by: user.id,
+        joined_at: new Date().toISOString()
       });
 
-    if (stakeholderError) {
-      console.error('Error adding stakeholder:', stakeholderError);
+    if (memberError) {
+      console.error('Error adding project member:', memberError);
       return NextResponse.json({ 
         error: 'Failed to assign user to project' 
       }, { status: 500 });
@@ -157,28 +162,28 @@ export async function DELETE(request) {
     if (profile?.role !== 'super_admin') {
       // Check if user is project admin for this specific project
       const { data: teamMember } = await supabase
-        .from('aloa_project_team')
-        .select('role')
+        .from('aloa_project_members')
+        .select('project_role')
         .eq('project_id', project_id)
         .eq('user_id', user.id)
         .single();
 
-      if (!teamMember || teamMember.role !== 'project_admin') {
+      if (!teamMember || teamMember.project_role !== 'admin') {
         return NextResponse.json({ 
           error: 'Forbidden - Super admin or project admin access required' 
         }, { status: 403 });
       }
     }
 
-    // Remove user from project stakeholders
+    // Remove user from project members
     const { error: deleteError } = await supabase
-      .from('aloa_project_stakeholders')
+      .from('aloa_project_members')
       .delete()
       .eq('project_id', project_id)
       .eq('user_id', user_id);
 
     if (deleteError) {
-      console.error('Error removing stakeholder:', deleteError);
+      console.error('Error removing project member:', deleteError);
       return NextResponse.json({ 
         error: 'Failed to remove user from project' 
       }, { status: 500 });
