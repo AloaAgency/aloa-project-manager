@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { createServiceClient } from '@/lib/supabase-service';
 
 // Force dynamic rendering for routes that use cookies
 export const dynamic = 'force-dynamic';
@@ -11,6 +12,8 @@ export async function POST(request) {
     const cookieStore = await cookies();
     const body = await request.json();
     const { user_id, project_id, role = 'client' } = body;
+    
+    console.log('Assign project request:', { user_id, project_id, role });
 
     if (!user_id || !project_id) {
       return NextResponse.json({ 
@@ -18,10 +21,10 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Create Supabase client with service role
-    const supabase = createServerClient(
+    // Create Supabase client for auth
+    const authSupabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         cookies: {
           get(name) {
@@ -32,9 +35,12 @@ export async function POST(request) {
         }
       }
     );
+    
+    // Create service role client for database operations (bypasses RLS)
+    const supabase = createServiceClient();
 
     // Check if requester is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await authSupabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -94,8 +100,14 @@ export async function POST(request) {
 
     if (memberError) {
       console.error('Error adding project member:', memberError);
+      console.error('Error details:', {
+        code: memberError.code,
+        message: memberError.message,
+        details: memberError.details,
+        hint: memberError.hint
+      });
       return NextResponse.json({ 
-        error: 'Failed to assign user to project' 
+        error: `Failed to assign user to project: ${memberError.message}` 
       }, { status: 500 });
     }
 
@@ -132,10 +144,10 @@ export async function DELETE(request) {
       }, { status: 400 });
     }
 
-    // Create Supabase client with service role
-    const supabase = createServerClient(
+    // Create Supabase client for auth
+    const authSupabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         cookies: {
           get(name) {
@@ -146,9 +158,12 @@ export async function DELETE(request) {
         }
       }
     );
+    
+    // Create service role client for database operations (bypasses RLS)
+    const supabase = createServiceClient();
 
     // Check if requester is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await authSupabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
