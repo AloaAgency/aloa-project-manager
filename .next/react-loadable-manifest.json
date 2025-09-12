@@ -35,10 +35,6 @@
       "static/chunks/_app-pages-browser_components_ProjectletAppletsManager_js.js"
     ]
   },
-  "app/auth/login/page.js -> @/lib/supabase-auth": {
-    "id": "app/auth/login/page.js -> @/lib/supabase-auth",
-    "files": []
-  },
   "components/ProjectletAppletsManager.js -> @/components/AIChatFormBuilder": {
     "id": "components/ProjectletAppletsManager.js -> @/components/AIChatFormBuilder",
     "files": [
