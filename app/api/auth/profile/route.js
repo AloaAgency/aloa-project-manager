@@ -64,7 +64,7 @@ export async function GET() {
       
       // First try by email (more reliable for super_admin)
       const { data: profileByEmail, error: emailError } = await serviceSupabase
-        .from('aloa_user_profiles')
+        .from('profiles')
         .select('*')
         .eq('email', user.email)
         .single();
@@ -75,7 +75,7 @@ export async function GET() {
       } else {
         // Fallback to ID if email not found
         const { data: profileById, error: idError } = await serviceSupabase
-          .from('aloa_user_profiles')
+          .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
@@ -89,7 +89,7 @@ export async function GET() {
     } else {
       // Fallback to regular client if no service key
       const { data, error } = await supabase
-        .from('aloa_user_profiles')
+        .from('profiles')
         .select('*')
         .eq('email', user.email)
         .single();
