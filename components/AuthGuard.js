@@ -51,6 +51,13 @@ export default function AuthGuard({
       const data = await response.json();
       
       console.log('Profile API response:', data);
+      console.log('Response structure:', {
+        hasUser: !!data.user,
+        hasRole: !!data.user?.role,
+        hasProfile: !!data.user?.profile,
+        profileRole: data.user?.profile?.role,
+        userRole: data.user?.role
+      });
       
       if (!response.ok || data.error) {
         console.error('Error fetching user profile:', data.error);
@@ -61,31 +68,38 @@ export default function AuthGuard({
       
       if (!data.user || !data.user.role) {
         console.error('No user role found in response');
+        console.error('Full data structure:', JSON.stringify(data, null, 2));
         setError('User profile incomplete. Please contact support.');
         setLoading(false);
         return;
       }
       
       const profile = data.user.profile || { role: data.user.role };
-      setUserRole(profile.role);
-      console.log('User role set to:', profile.role);
+      const actualRole = profile.role || data.user.role;
+      setUserRole(actualRole);
+      console.log('User role determined:', {
+        profileRole: profile.role,
+        userRole: data.user.role,
+        actualRole: actualRole,
+        settingTo: actualRole
+      });
 
       // Check if user role is allowed
       if (allowedRoles.length > 0) {
         console.log('Checking role access:', {
-          userRole: profile.role,
+          userRole: actualRole,
           allowedRoles: allowedRoles,
-          isIncluded: allowedRoles.includes(profile.role)
+          isIncluded: allowedRoles.includes(actualRole)
         });
         
-        const isAllowed = allowedRoles.includes(profile.role);
+        const isAllowed = allowedRoles.includes(actualRole);
         
         if (!isAllowed) {
-          console.log(`User role ${profile.role} not in allowed roles:`, allowedRoles);
+          console.log(`User role ${actualRole} not in allowed roles:`, allowedRoles);
           setError(`Access denied. This area is restricted to: ${allowedRoles.join(', ')}`);
           setAuthorized(false);
         } else {
-          console.log('Access granted for role:', profile.role);
+          console.log('Access granted for role:', actualRole);
           setAuthorized(true);
         }
       } else {
