@@ -215,6 +215,12 @@ export default function UsersManagementPage() {
 
       if (!response.ok) {
         const data = await response.json();
+        // Handle "already assigned" error more gracefully
+        if (data.error?.includes('already assigned')) {
+          setError('This user is already assigned to the selected project');
+          fetchUsers(); // Refresh to show current state
+          return;
+        }
         throw new Error(data.error || 'Failed to assign project');
       }
 
@@ -376,25 +382,31 @@ export default function UsersManagementPage() {
                             className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-700"
                           >
                             {project.project_name || project.name || project.client_name}
-                            <button
-                              onClick={() => handleRemoveProject(userData.id, project.id)}
-                              className="ml-1 text-gray-400 hover:text-red-600"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
+                            {editingUser === userData.id && (
+                              <button
+                                onClick={() => handleRemoveProject(userData.id, project.id)}
+                                className="ml-1 text-gray-400 hover:text-red-600"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
                           </span>
                         ))}
-                        {projects.length > 0 && (
+                        {editingUser === userData.id && projects.length > 0 && (
                           <select
                             onChange={(e) => {
                               if (e.target.value) {
                                 handleAssignProject(userData.id, e.target.value);
-                                e.target.value = '';
+                                // Reset the select after selection
+                                setTimeout(() => {
+                                  e.target.value = '';
+                                }, 100);
                               }
                             }}
                             className="text-xs border-gray-300 rounded"
+                            defaultValue=""
                           >
-                            <option value="">Add project...</option>
+                            <option value="" disabled>Add project...</option>
                             {projects
                               .filter(p => !userData.projects?.find(up => up.id === p.id))
                               .map(project => (
@@ -403,6 +415,9 @@ export default function UsersManagementPage() {
                                 </option>
                               ))}
                           </select>
+                        )}
+                        {userData.projects?.length === 0 && editingUser !== userData.id && (
+                          <span className="text-xs text-gray-500">No projects assigned</span>
                         )}
                       </div>
                     )}
