@@ -51,12 +51,13 @@ All API routes are in `/app/api/`:
 
 ## Environment Variables
 
-Required in `.env.local`:
+Required in `.env.local` and Vercel Environment Variables:
 ```env
-# Supabase (Required)
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-SUPABASE_SECRET_KEY=
+# Supabase (Required) - Using NEW key format only
+# DO NOT use legacy JWT keys that start with "eyJ"
+NEXT_PUBLIC_SUPABASE_URL=your-project-url.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_... # NEW format anon/publishable key
+SUPABASE_SECRET_KEY=sb_secret_... # NEW format service role key
 
 # AI Features (Optional)
 ANTHROPIC_API_KEY=
@@ -64,6 +65,10 @@ ANTHROPIC_API_KEY=
 # Email Features (Optional)
 RESEND_API_KEY=
 ```
+
+**IMPORTANT**: Supabase has deprecated the old JWT format keys (that start with `eyJ`). We exclusively use the NEW key format:
+- Publishable keys start with `sb_publishable_`
+- Secret/service role keys start with `sb_secret_`
 
 ## Markdown Form DSL
 
