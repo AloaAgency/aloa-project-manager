@@ -87,11 +87,12 @@ export async function POST(request) {
     // Use service role to bypass RLS issues
     let profile = null;
     let profileError = null;
+    let serviceSupabase = null;
     
     // Try with service role key if available
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
     if (serviceKey) {
-      const serviceSupabase = createClient(
+      serviceSupabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         serviceKey
       );
@@ -145,29 +146,33 @@ export async function POST(request) {
     if (userRole === 'client') {
       console.log('Fetching project for client:', data.user.id);
       
-      // Use service role to bypass RLS
-      const { data: memberData, error: memberError } = await serviceSupabase
-        .from('aloa_project_members')
-        .select(`
-          project_id,
-          project_role,
-          aloa_projects (
-            id,
-            project_name,
-            status
-          )
-        `)
-        .eq('user_id', data.user.id)
-        .eq('project_role', 'client')
-        .single();
-
-      if (memberError) {
-        console.error('Error fetching client project:', memberError);
-      } else if (memberData?.aloa_projects) {
-        clientProject = memberData.aloa_projects;
-        console.log('Client project found:', clientProject);
+      // Use service role to bypass RLS - must be available if we're here
+      if (!serviceSupabase) {
+        console.error('No service client available for fetching client project');
       } else {
-        console.log('No project found for client');
+        const { data: memberData, error: memberError } = await serviceSupabase
+          .from('aloa_project_members')
+          .select(`
+            project_id,
+            project_role,
+            aloa_projects (
+              id,
+              project_name,
+              status
+            )
+          `)
+          .eq('user_id', data.user.id)
+          .eq('project_role', 'viewer')
+          .single();
+
+        if (memberError) {
+          console.error('Error fetching client project:', memberError);
+        } else if (memberData?.aloa_projects) {
+          clientProject = memberData.aloa_projects;
+          console.log('Client project found:', clientProject);
+        } else {
+          console.log('No project found for client');
+        }
       }
     }
 
