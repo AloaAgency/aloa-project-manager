@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Mail, User, AlertCircle, CheckCircle } from 'lucide-react';
-import { createClient } from '@/lib/supabase-auth';
 
 function AcceptInviteContent() {
   const router = useRouter();
@@ -33,45 +32,17 @@ function AcceptInviteContent() {
 
   const fetchInvitation = async () => {
     try {
-      const supabase = createClient();
-      
-      // Fetch invitation details
-      const { data: invite, error: inviteError } = await supabase
-        .from('user_invitations')
-        .select(`
-          id,
-          email,
-          full_name,
-          role,
-          project_id,
-          expires_at,
-          accepted_at,
-          aloa_projects(name)
-        `)
-        .eq('token', token)
-        .single();
+      // Use API endpoint to verify invitation (bypasses RLS)
+      const response = await fetch(`/api/auth/verify-invitation?token=${encodeURIComponent(token)}`);
+      const data = await response.json();
 
-      if (inviteError || !invite) {
-        setError('Invalid or expired invitation');
+      if (!response.ok || !data.valid) {
+        setError(data.error || 'Invalid or expired invitation');
         setLoading(false);
         return;
       }
 
-      // Check if already accepted
-      if (invite.accepted_at) {
-        setError('This invitation has already been accepted');
-        setLoading(false);
-        return;
-      }
-
-      // Check if expired
-      if (new Date(invite.expires_at) < new Date()) {
-        setError('This invitation has expired');
-        setLoading(false);
-        return;
-      }
-
-      setInvitation(invite);
+      setInvitation(data.invitation);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching invitation:', err);
@@ -194,10 +165,10 @@ function AcceptInviteContent() {
               <dt>Role:</dt>
               <dd className="font-medium">{roleDisplay}</dd>
             </div>
-            {invitation.aloa_projects && (
+            {invitation.project && (
               <div className="flex justify-between">
                 <dt>Project:</dt>
-                <dd className="font-medium">{invitation.aloa_projects.name}</dd>
+                <dd className="font-medium">{invitation.project.name}</dd>
               </div>
             )}
           </dl>
