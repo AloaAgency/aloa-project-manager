@@ -48,8 +48,7 @@ export async function GET(request) {
         full_name,
         role,
         created_at,
-        updated_at,
-        metadata
+        updated_at
       `)
       .order('created_at', { ascending: false });
 
@@ -169,11 +168,7 @@ export async function POST(request) {
         id: newUser.user.id,
         email: newUser.user.email,
         full_name,
-        role,
-        metadata: {
-          created_by: user.id,
-          created_at: new Date().toISOString()
-        }
+        role
       });
 
     if (profileError) {
@@ -262,7 +257,7 @@ export async function PATCH(request) {
     }
 
     // Update the profile
-    const allowedUpdates = ['full_name', 'role', 'metadata'];
+    const allowedUpdates = ['full_name', 'role'];
     const profileUpdates = {};
     
     for (const key of allowedUpdates) {
