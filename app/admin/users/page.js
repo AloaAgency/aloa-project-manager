@@ -100,7 +100,7 @@ export default function UsersManagementPage() {
             email: formData.email,
             full_name: formData.full_name,
             role: formData.role,
-            project_id: formData.project_id,
+            project_id: formData.project_id || undefined, // Don't send empty string
             custom_message: customMessage
           })
         });

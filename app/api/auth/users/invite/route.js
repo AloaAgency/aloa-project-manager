@@ -83,7 +83,7 @@ export async function POST(request) {
         email,
         full_name,
         role,
-        project_id,
+        project_id: project_id || null, // Convert empty string to null
         token: inviteToken,
         invited_by: user.id,
         expires_at: expiresAt.toISOString(),
