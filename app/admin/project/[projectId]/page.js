@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import PasswordProtect from '@/components/PasswordProtect';
+import AuthGuard from '@/components/AuthGuard';
 import { 
   ArrowLeft,
   Edit,
@@ -2428,8 +2428,11 @@ function AdminProjectPageContent() {
 
 export default function AdminProjectPage() {
   return (
-    <PasswordProtect>
+    <AuthGuard 
+      allowedRoles={['super_admin', 'project_admin', 'team_member']}
+      redirectTo="/auth/login"
+    >
       <AdminProjectPageContent />
-    </PasswordProtect>
+    </AuthGuard>
   );
 }

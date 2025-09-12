@@ -59,7 +59,7 @@ export async function POST(request, { params }) {
     
     // Prepare email options
     const emailOptions = {
-      from: process.env.EMAIL_FROM || 'Aloa® Forms <forms@resend.dev>',
+      from: process.env.EMAIL_FROM || 'Aloa® Forms <forms@updates.aloa.agency>',
       to: recipientEmail,
       subject: customSubject || (isClientFacing ? `Your Input Summary: ${formTitle}` : `AI Analysis Report: ${formTitle}`),
       html: emailHTML,

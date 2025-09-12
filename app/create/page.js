@@ -6,7 +6,7 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, Check, AlertCircle, Bot, Wand2, Folder, Brain } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AIChatFormBuilder from '@/components/AIChatFormBuilder';
-import PasswordProtect from '@/components/PasswordProtect';
+import AuthGuard from '@/components/AuthGuard';
 
 function CreateFormPageContent() {
   const router = useRouter();
@@ -415,8 +415,8 @@ Subscribe to newsletter? (checkbox: Yes, subscribe me)`}
 
 export default function CreateFormPage() {
   return (
-    <PasswordProtect>
+    <AuthGuard requireAuth={true} redirectTo="/auth/login">
       <CreateFormPageContent />
-    </PasswordProtect>
+    </AuthGuard>
   );
 }

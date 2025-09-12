@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Download, Eye, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import PasswordProtect from '@/components/PasswordProtect';
+import AuthGuard from '@/components/AuthGuard';
 import toast from 'react-hot-toast';
 
 function ResponsesPage() {
@@ -289,8 +289,8 @@ function ResponsesPage() {
 
 export default function ResponsesPageWrapper() {
   return (
-    <PasswordProtect>
+    <AuthGuard requireAuth={true} redirectTo="/auth/login">
       <ResponsesPage />
-    </PasswordProtect>
+    </AuthGuard>
   );
 }

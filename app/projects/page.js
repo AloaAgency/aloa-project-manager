@@ -16,7 +16,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import PasswordProtect from '@/components/PasswordProtect';
+import AuthGuard from '@/components/AuthGuard';
 import toast from 'react-hot-toast';
 
 function Projects() {
@@ -435,8 +435,8 @@ function Projects() {
 
 export default function ProjectsPage() {
   return (
-    <PasswordProtect>
+    <AuthGuard requireAuth={true} redirectTo="/auth/login">
       <Projects />
-    </PasswordProtect>
+    </AuthGuard>
   );
 }

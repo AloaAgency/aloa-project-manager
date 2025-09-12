@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import PasswordProtect from '@/components/PasswordProtect';
+import AuthGuard from '@/components/AuthGuard';
 import { 
   Briefcase, 
   Plus, 
@@ -330,8 +330,11 @@ function AdminProjectsPageContent() {
 
 export default function AdminProjectsPage() {
   return (
-    <PasswordProtect>
+    <AuthGuard 
+      allowedRoles={['super_admin', 'project_admin', 'team_member']}
+      redirectTo="/auth/login"
+    >
       <AdminProjectsPageContent />
-    </PasswordProtect>
+    </AuthGuard>
   );
 }

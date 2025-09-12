@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2, Brain, Folder, FolderOpen, MoveRight, Lock, Unlock } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import PasswordProtect from '@/components/PasswordProtect';
+import AuthGuard from '@/components/AuthGuard';
 import toast from 'react-hot-toast';
 
 function Dashboard() {
@@ -436,8 +436,8 @@ function Dashboard() {
 
 export default function DashboardPage() {
   return (
-    <PasswordProtect>
+    <AuthGuard requireAuth={true} redirectTo="/auth/login">
       <Dashboard />
-    </PasswordProtect>
+    </AuthGuard>
   );
 }

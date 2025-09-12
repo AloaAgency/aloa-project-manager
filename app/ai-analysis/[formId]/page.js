@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Brain, Users, TrendingUp, AlertTriangle, CheckCircle, ArrowRight, Sparkles, RefreshCw, Download, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import PasswordProtect from '@/components/PasswordProtect';
+import AuthGuard from '@/components/AuthGuard';
 import toast from 'react-hot-toast';
 
 function AIAnalysisPage() {
@@ -920,8 +920,8 @@ function AIAnalysisPage() {
 
 export default function AIAnalysisPageWrapper() {
   return (
-    <PasswordProtect>
+    <AuthGuard requireAuth={true} redirectTo="/auth/login">
       <AIAnalysisPage />
-    </PasswordProtect>
+    </AuthGuard>
   );
 }
