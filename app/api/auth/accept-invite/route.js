@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
 // Force dynamic rendering for routes that use cookies
@@ -17,23 +18,14 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Create Supabase client with service role
-    const supabase = createServerClient(
+    // Create Supabase client with service role for admin operations
+    const serviceSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
-      {
-        cookies: {
-          get(name) {
-            return cookieStore.get(name)?.value;
-          },
-          set() {},
-          remove() {}
-        }
-      }
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
     );
 
     // Verify the invitation token
-    const { data: invitation, error: inviteError } = await supabase
+    const { data: invitation, error: inviteError } = await serviceSupabase
       .from('user_invitations')
       .select('*')
       .eq('token', token)
@@ -61,7 +53,7 @@ export async function POST(request) {
     }
 
     // Create the user account
-    const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+    const { data: newUser, error: createError } = await serviceSupabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // Auto-confirm the email since they came from invitation
@@ -78,8 +70,8 @@ export async function POST(request) {
     }
 
     // Create the profile
-    const { error: profileError } = await supabase
-      .from('profiles')
+    const { error: profileError } = await serviceSupabase
+      .from('aloa_user_profiles')
       .upsert({
         id: newUser.user.id,
         email: newUser.user.email,
@@ -94,30 +86,44 @@ export async function POST(request) {
     if (profileError) {
       console.error('Error creating profile:', profileError);
       // Try to delete the user if profile creation failed
-      await supabase.auth.admin.deleteUser(newUser.user.id);
+      await serviceSupabase.auth.admin.deleteUser(newUser.user.id);
       return NextResponse.json({ 
         error: 'Failed to create user profile' 
       }, { status: 500 });
     }
 
-    // If role is client and project_id exists, add them as stakeholder
-    if (invitation.role === 'client' && invitation.project_id) {
-      const { error: stakeholderError } = await supabase
-        .from('aloa_project_stakeholders')
-        .insert({
-          project_id: invitation.project_id,
-          user_id: newUser.user.id,
-          role: 'client',
-          added_by: invitation.invited_by
-        });
+    // Add project associations based on role
+    if (invitation.project_id) {
+      if (invitation.role === 'client') {
+        // Add as project member for client
+        const { error: memberError } = await serviceSupabase
+          .from('aloa_project_members')
+          .insert({
+            project_id: invitation.project_id,
+            user_id: newUser.user.id,
+            role: 'client'
+          });
 
-      if (stakeholderError) {
-        console.error('Error adding stakeholder:', stakeholderError);
-        // Don't fail the whole operation
+        if (memberError) {
+          console.error('Error adding project member:', memberError);
+        }
+      } else if (invitation.role === 'project_admin' || invitation.role === 'team_member') {
+        // Add to project team for admins and team members
+        const { error: teamError } = await serviceSupabase
+          .from('aloa_project_team')
+          .insert({
+            project_id: invitation.project_id,
+            user_id: newUser.user.id,
+            role: invitation.role
+          });
+
+        if (teamError) {
+          console.error('Error adding to project team:', teamError);
+        }
       }
 
       // Log in timeline
-      await supabase
+      await serviceSupabase
         .from('aloa_project_timeline')
         .insert({
           project_id: invitation.project_id,
@@ -133,7 +139,7 @@ export async function POST(request) {
     }
 
     // Mark invitation as accepted
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceSupabase
       .from('user_invitations')
       .update({ 
         accepted_at: new Date().toISOString() 
