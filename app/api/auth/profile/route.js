@@ -16,10 +16,25 @@ export async function GET() {
             return cookieStore.get(name)?.value;
           },
           set(name, value, options) {
-            cookieStore.set({ name, value, ...options });
+            // Ensure proper cookie settings for production
+            cookieStore.set({ 
+              name, 
+              value, 
+              ...options,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+              httpOnly: true,
+              path: '/'
+            });
           },
           remove(name, options) {
-            cookieStore.set({ name, value: '', ...options });
+            cookieStore.set({ 
+              name, 
+              value: '', 
+              ...options,
+              maxAge: 0,
+              path: '/'
+            });
           }
         }
       }

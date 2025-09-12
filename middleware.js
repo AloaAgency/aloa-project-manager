@@ -72,12 +72,29 @@ export async function middleware(request) {
             return request.cookies.get(name)?.value;
           },
           set(name, value, options) {
-            request.cookies.set({ name, value, ...options });
-            response.cookies.set({ name, value, ...options });
+            // Ensure proper cookie settings for production
+            const cookieOptions = {
+              name,
+              value,
+              ...options,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+              httpOnly: true,
+              path: '/'
+            };
+            request.cookies.set(cookieOptions);
+            response.cookies.set(cookieOptions);
           },
           remove(name, options) {
-            request.cookies.set({ name, value: '', ...options });
-            response.cookies.set({ name, value: '', ...options });
+            const removeOptions = {
+              name,
+              value: '',
+              ...options,
+              maxAge: 0,
+              path: '/'
+            };
+            request.cookies.set(removeOptions);
+            response.cookies.set(removeOptions);
           },
         },
       }

@@ -27,10 +27,26 @@ export async function POST(request) {
             return cookieStore.get(name)?.value;
           },
           set(name, value, options) {
-            cookieStore.set({ name, value, ...options });
+            // Ensure proper cookie settings for production
+            const cookieOptions = {
+              name,
+              value,
+              ...options,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+              httpOnly: true,
+              path: '/'
+            };
+            cookieStore.set(cookieOptions);
           },
           remove(name, options) {
-            cookieStore.set({ name, value: '', ...options });
+            cookieStore.set({ 
+              name, 
+              value: '', 
+              ...options,
+              maxAge: 0,
+              path: '/'
+            });
           }
         }
       }
