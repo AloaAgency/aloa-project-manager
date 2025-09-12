@@ -65,17 +65,19 @@ export async function GET(request) {
     let projectAssignments = {};
     
     if (clientIds.length > 0) {
-      const { data: stakeholders } = await supabase
-        .from('aloa_project_stakeholders')
+      // Get from aloa_project_members table (where we actually store client assignments)
+      const { data: members } = await supabase
+        .from('aloa_project_members')
         .select('user_id, project_id, aloa_projects(id, project_name, client_name)')
-        .in('user_id', clientIds);
+        .in('user_id', clientIds)
+        .eq('project_role', 'viewer'); // Clients are stored as 'viewer' role
 
-      if (stakeholders) {
-        stakeholders.forEach(s => {
-          if (!projectAssignments[s.user_id]) {
-            projectAssignments[s.user_id] = [];
+      if (members) {
+        members.forEach(m => {
+          if (!projectAssignments[m.user_id]) {
+            projectAssignments[m.user_id] = [];
           }
-          projectAssignments[s.user_id].push(s.aloa_projects);
+          projectAssignments[m.user_id].push(m.aloa_projects);
         });
       }
     }
