@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { Resend } from 'resend';
 
@@ -76,8 +77,14 @@ export async function POST(request) {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
 
-    // Store the invitation in database
-    const { error: inviteError } = await supabase
+    // Use createClient directly with service role to bypass RLS
+    const serviceSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
+    );
+
+    // Store the invitation in database using service role client
+    const { error: inviteError } = await serviceSupabase
       .from('user_invitations')
       .insert({
         email,
