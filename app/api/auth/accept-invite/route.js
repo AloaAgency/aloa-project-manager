@@ -52,62 +52,125 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Create the user account
-    const { data: newUser, error: createError } = await serviceSupabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true, // Auto-confirm the email since they came from invitation
-      user_metadata: {
-        full_name
+    // Check if user already exists
+    const { data: existingUsers } = await serviceSupabase.auth.admin.listUsers();
+    const existingUser = existingUsers?.users?.find(u => u.email === email);
+    
+    let userId;
+    
+    if (existingUser) {
+      console.log('User already exists, updating password and profile');
+      // User already exists, update their password
+      const { data: updatedUser, error: updateError } = await serviceSupabase.auth.admin.updateUserById(
+        existingUser.id,
+        { 
+          password,
+          email_confirm: true,
+          user_metadata: {
+            full_name
+          }
+        }
+      );
+      
+      if (updateError) {
+        console.error('Error updating existing user:', updateError);
+        return NextResponse.json({ 
+          error: updateError.message || 'Failed to update account' 
+        }, { status: 400 });
       }
-    });
+      
+      userId = existingUser.id;
+    } else {
+      // Create new user
+      const { data: newUser, error: createError } = await serviceSupabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true, // Auto-confirm the email since they came from invitation
+        user_metadata: {
+          full_name
+        }
+      });
 
-    if (createError) {
-      console.error('Error creating user:', createError);
-      return NextResponse.json({ 
-        error: createError.message || 'Failed to create account' 
-      }, { status: 400 });
+      if (createError) {
+        console.error('Error creating user:', createError);
+        return NextResponse.json({ 
+          error: createError.message || 'Failed to create account' 
+        }, { status: 400 });
+      }
+      
+      userId = newUser.user.id;
     }
 
-    // Create the profile
-    console.log('Creating profile for user:', {
-      id: newUser.user.id,
-      email: newUser.user.email,
+    // Create or update the profile
+    console.log('Creating/updating profile for user:', {
+      id: userId,
+      email: email,
       full_name,
       role: invitation.role
     });
     
-    const { error: profileError } = await serviceSupabase
+    // Check if profile already exists
+    const { data: existingProfile } = await serviceSupabase
       .from('aloa_user_profiles')
-      .insert({
-        id: newUser.user.id,
-        email: newUser.user.email,
-        full_name,
-        role: invitation.role,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_active: true,
-        notification_settings: {
-          email: true,
-          in_app: true
-        },
-        preferences: {}
-      });
-
-    if (profileError) {
-      console.error('Error creating profile:', profileError);
-      console.error('Profile error details:', {
-        code: profileError.code,
-        message: profileError.message,
-        details: profileError.details,
-        hint: profileError.hint
-      });
+      .select('id')
+      .eq('id', userId)
+      .single();
+    
+    if (existingProfile) {
+      // Update existing profile
+      const { error: profileError } = await serviceSupabase
+        .from('aloa_user_profiles')
+        .update({
+          email: email,
+          full_name,
+          role: invitation.role,
+          updated_at: new Date().toISOString(),
+          is_active: true
+        })
+        .eq('id', userId);
       
-      // Try to delete the user if profile creation failed
-      await serviceSupabase.auth.admin.deleteUser(newUser.user.id);
-      return NextResponse.json({ 
-        error: `Failed to create user profile: ${profileError.message}` 
-      }, { status: 500 });
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        return NextResponse.json({ 
+          error: `Failed to update user profile: ${profileError.message}` 
+        }, { status: 500 });
+      }
+    } else {
+      // Create new profile
+      const { error: profileError } = await serviceSupabase
+        .from('aloa_user_profiles')
+        .insert({
+          id: userId,
+          email: email,
+          full_name,
+          role: invitation.role,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          is_active: true,
+          notification_settings: {
+            email: true,
+            in_app: true
+          },
+          preferences: {}
+        });
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError);
+        console.error('Profile error details:', {
+          code: profileError.code,
+          message: profileError.message,
+          details: profileError.details,
+          hint: profileError.hint
+        });
+        
+        // Only delete user if we just created them
+        if (!existingUser) {
+          await serviceSupabase.auth.admin.deleteUser(userId);
+        }
+        return NextResponse.json({ 
+          error: `Failed to create user profile: ${profileError.message}` 
+        }, { status: 500 });
+      }
     }
 
     // Add project associations based on role
@@ -118,7 +181,7 @@ export async function POST(request) {
           .from('aloa_project_members')
           .insert({
             project_id: invitation.project_id,
-            user_id: newUser.user.id,
+            user_id: userId,
             role: 'client'
           });
 
@@ -131,7 +194,7 @@ export async function POST(request) {
           .from('aloa_project_team')
           .insert({
             project_id: invitation.project_id,
-            user_id: newUser.user.id,
+            user_id: userId,
             role: invitation.role
           });
 
@@ -147,9 +210,9 @@ export async function POST(request) {
           project_id: invitation.project_id,
           event_type: 'user_joined',
           description: `${full_name} joined the project as ${invitation.role}`,
-          created_by: newUser.user.id,
+          created_by: userId,
           metadata: { 
-            user_id: newUser.user.id,
+            user_id: userId,
             role: invitation.role,
             via_invitation: true
           }
@@ -173,8 +236,8 @@ export async function POST(request) {
       success: true,
       message: 'Account created successfully. Please sign in with your credentials.',
       user: {
-        id: newUser.user.id,
-        email: newUser.user.email,
+        id: userId,
+        email: email,
         full_name,
         role: invitation.role
       }
