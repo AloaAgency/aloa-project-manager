@@ -32,23 +32,30 @@ export async function GET() {
       });
     }
 
-    // Get the user's profile directly from the database
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
+    // Get the user's profile from aloa_user_profiles table
+    const { data: aloaProfile, error: aloaProfileError } = await supabase
+      .from('aloa_user_profiles')
       .select('*')
       .eq('id', user.id)
       .single();
 
     // Also check by email as a fallback
-    let profileByEmail = null;
+    let aloaProfileByEmail = null;
     if (user.email) {
       const { data: emailProfile } = await supabase
-        .from('profiles')
+        .from('aloa_user_profiles')
         .select('*')
         .eq('email', user.email)
         .single();
-      profileByEmail = emailProfile;
+      aloaProfileByEmail = emailProfile;
     }
+    
+    // Also check old profiles table for comparison
+    const { data: oldProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
 
     return NextResponse.json({
       authenticated: true,
@@ -57,12 +64,13 @@ export async function GET() {
         email: user.email,
         metadata: user.user_metadata
       },
-      profile: profile || null,
-      profileByEmail: profileByEmail || null,
-      profileError: profileError?.message || null,
-      hasRole: profile?.role ? true : false,
-      role: profile?.role || 'NOT SET',
-      isSuperAdmin: profile?.role === 'super_admin'
+      aloaProfile: aloaProfile || null,
+      aloaProfileByEmail: aloaProfileByEmail || null,
+      aloaProfileError: aloaProfileError?.message || null,
+      oldProfile: oldProfile || null,
+      hasRole: aloaProfile?.role ? true : false,
+      role: aloaProfile?.role || aloaProfileByEmail?.role || 'NOT SET',
+      isSuperAdmin: (aloaProfile?.role === 'super_admin' || aloaProfileByEmail?.role === 'super_admin')
     });
 
   } catch (error) {
