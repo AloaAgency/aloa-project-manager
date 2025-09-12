@@ -46,6 +46,17 @@ export default function LoginPage() {
         console.log('User object:', result.user);
         console.log('User role:', result.user?.role);
         
+        // If we have a session, set it in the client
+        if (result.session) {
+          const { createClient } = await import('@/lib/supabase-auth');
+          const supabase = createClient();
+          await supabase.auth.setSession(result.session);
+          console.log('Session set in client');
+        }
+        
+        // Small delay to ensure session is properly set
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Role-based redirection
         const userRole = result.user?.role;
         

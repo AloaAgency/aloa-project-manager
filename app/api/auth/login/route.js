@@ -170,6 +170,7 @@ export async function POST(request) {
         role: userRole,
         profile: profile
       },
+      session: data.session, // Include session for client-side handling
       clientProject: clientProject
     });
 
