@@ -12,6 +12,26 @@ export function UserProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const supabase = createClient();
+  
+  // Helper function to fetch profile using API (which uses service role)
+  const fetchProfileFromAPI = async () => {
+    try {
+      const response = await fetch('/api/auth/profile', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.user?.profile || null;
+      }
+    } catch (error) {
+      console.error('Error fetching profile from API:', error);
+    }
+    return null;
+  };
 
   useEffect(() => {
     // Get initial user
@@ -22,14 +42,11 @@ export function UserProvider({ children }) {
         if (user && !error) {
           setUser(user);
           
-          // Get user profile
-          const { data: profileData } = await supabase
-            .from('aloa_user_profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
+          // Get user profile using API (which uses service role to bypass RLS)
+          const profileData = await fetchProfileFromAPI();
           
           setProfile(profileData);
+          console.log('UserContext: Profile loaded', { email: user.email, role: profileData?.role });
         }
       } catch (error) {
         console.error('Error getting user:', error);
@@ -46,14 +63,11 @@ export function UserProvider({ children }) {
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
           
-          // Get user profile
-          const { data: profileData } = await supabase
-            .from('aloa_user_profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+          // Get user profile using API
+          const profileData = await fetchProfileFromAPI();
           
           setProfile(profileData);
+          console.log('UserContext (SIGNED_IN): Profile loaded', { email: session.user.email, role: profileData?.role });
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setProfile(null);
@@ -61,12 +75,8 @@ export function UserProvider({ children }) {
         } else if (event === 'USER_UPDATED' && session?.user) {
           setUser(session.user);
           
-          // Refresh profile
-          const { data: profileData } = await supabase
-            .from('aloa_user_profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+          // Refresh profile using API
+          const profileData = await fetchProfileFromAPI();
           
           setProfile(profileData);
         }

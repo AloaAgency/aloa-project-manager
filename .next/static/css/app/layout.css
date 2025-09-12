@@ -2771,6 +2771,9 @@ html {
 .focus\:ring-offset-white:focus {
   --tw-ring-offset-color: #fff;
 }
+.focus\:ring-offset-aloa-black:focus {
+  --tw-ring-offset-color: #0A0A0A;
+}
 .focus-visible\:outline-none:focus-visible {
   outline: 2px solid transparent;
   outline-offset: 2px;

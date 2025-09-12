@@ -11,6 +11,16 @@ export default function Navigation() {
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
+  // Debug logging
+  console.log('Navigation Debug:', {
+    user: !!user,
+    profile: profile,
+    role: profile?.role,
+    isSuperAdmin,
+    isProjectAdmin, 
+    isTeamMember
+  });
+
   // Don't show navigation on auth pages
   if (pathname.startsWith('/auth/')) {
     return null;
@@ -22,7 +32,7 @@ export default function Navigation() {
   }
 
   // Different nav items for admins vs clients
-  const isAdmin = isSuperAdmin || isProjectAdmin || isTeamMember;
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'project_admin' || profile?.role === 'team_member';
   
   const navItems = isAdmin ? [
     { href: '/admin/projects', label: 'Projects', icon: BarChart3 },
@@ -34,7 +44,7 @@ export default function Navigation() {
   ];
 
   return (
-    <nav className="bg-aloa-dark border-b-2 border-aloa-dark">
+    <nav className="bg-aloa-black border-b-2 border-aloa-black">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo and main navigation */}
@@ -71,7 +81,7 @@ export default function Navigation() {
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-aloa-dark focus:ring-aloa-cream"
+                className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-aloa-black focus:ring-aloa-cream"
               >
                 <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors">
                   <div className="text-right hidden sm:block">
@@ -83,7 +93,7 @@ export default function Navigation() {
                     </p>
                   </div>
                   <div className="h-8 w-8 rounded-full bg-aloa-cream flex items-center justify-center">
-                    <User className="h-5 w-5 text-aloa-dark" />
+                    <User className="h-5 w-5 text-aloa-black" />
                   </div>
                 </div>
               </button>
