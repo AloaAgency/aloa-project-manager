@@ -175,18 +175,39 @@ export async function POST(request) {
 
     // Add project associations based on role
     if (invitation.project_id) {
+      console.log('Adding project association for user:', userId, 'to project:', invitation.project_id);
+      
       if (invitation.role === 'client') {
-        // Add as project member for client
-        const { error: memberError } = await serviceSupabase
+        // Check if association already exists
+        const { data: existingMember } = await serviceSupabase
           .from('aloa_project_members')
-          .insert({
-            project_id: invitation.project_id,
-            user_id: userId,
-            role: 'client'
-          });
+          .select('id')
+          .eq('project_id', invitation.project_id)
+          .eq('user_id', userId)
+          .single();
+        
+        if (!existingMember) {
+          // Add as project member for client
+          const { error: memberError } = await serviceSupabase
+            .from('aloa_project_members')
+            .insert({
+              project_id: invitation.project_id,
+              user_id: userId,
+              project_role: 'client'
+            });
 
-        if (memberError) {
-          console.error('Error adding project member:', memberError);
+          if (memberError) {
+            console.error('Error adding project member:', memberError);
+            console.error('Member error details:', {
+              code: memberError.code,
+              message: memberError.message,
+              details: memberError.details
+            });
+          } else {
+            console.log('Successfully added client to project');
+          }
+        } else {
+          console.log('Client already associated with project');
         }
       } else if (invitation.role === 'project_admin' || invitation.role === 'team_member') {
         // Add to project team for admins and team members

@@ -150,7 +150,7 @@ export async function POST(request) {
         .from('aloa_project_members')
         .select(`
           project_id,
-          role,
+          project_role,
           aloa_projects (
             id,
             project_name,
@@ -158,7 +158,7 @@ export async function POST(request) {
           )
         `)
         .eq('user_id', data.user.id)
-        .eq('role', 'client')
+        .eq('project_role', 'client')
         .single();
 
       if (memberError) {

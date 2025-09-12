@@ -84,6 +84,14 @@ export async function POST(request) {
     );
 
     // Store the invitation in database using service role client
+    console.log('Creating invitation with:', {
+      email,
+      full_name,
+      role,
+      project_id: project_id || null,
+      hasProjectId: !!project_id
+    });
+    
     const { error: inviteError } = await serviceSupabase
       .from('user_invitations')
       .insert({
