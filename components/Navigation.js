@@ -11,6 +11,16 @@ export default function Navigation() {
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
+  // Debug logging
+  console.log('Navigation Debug:', {
+    user: !!user,
+    profile: profile,
+    role: profile?.role,
+    isSuperAdmin,
+    isProjectAdmin, 
+    isTeamMember
+  });
+
   // Don't show navigation on auth pages
   if (pathname.startsWith('/auth/')) {
     return null;
@@ -21,28 +31,33 @@ export default function Navigation() {
     return null;
   }
 
-  const navItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-    { href: '/create', label: 'Create Form', icon: Plus, show: isTeamMember },
-    { href: '/responses', label: 'Responses', icon: FileText, show: isTeamMember },
-    { href: '/ai-analysis', label: 'AI Analysis', icon: Sparkles, show: isTeamMember },
+  // Different nav items for admins vs clients
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'project_admin' || profile?.role === 'team_member';
+  
+  const navItems = isAdmin ? [
+    { href: '/admin/projects', label: 'Projects', icon: BarChart3 },
+    { href: '/admin/forms', label: 'Forms', icon: FileText },
+    { href: '/create', label: 'Create Form', icon: Plus },
     { href: '/admin', label: 'Admin', icon: Users, show: isSuperAdmin },
-  ].filter(item => item.show !== false);
+  ].filter(item => item.show !== false) : [
+    { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
+  ];
 
   return (
-    <nav className="bg-aloa-dark border-b-2 border-aloa-dark">
+    <nav className="bg-aloa-black border-b-2 border-aloa-black">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo and main navigation */}
           <div className="flex">
-            <Link href="/dashboard" className="flex items-center px-2 py-2 text-aloa-cream font-bold text-xl">
+            <Link href={isAdmin ? "/admin/projects" : "/dashboard"} className="flex items-center px-2 py-2 text-aloa-cream font-bold text-xl">
               Aloa®
             </Link>
             
             <div className="hidden sm:ml-6 sm:flex sm:space-x-4">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href;
+                const isActive = pathname === item.href || 
+                  (item.href === '/admin/projects' && pathname === '/dashboard');
                 return (
                   <Link
                     key={item.href}
@@ -66,7 +81,7 @@ export default function Navigation() {
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-aloa-dark focus:ring-aloa-cream"
+                className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-aloa-black focus:ring-aloa-cream"
               >
                 <div className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors">
                   <div className="text-right hidden sm:block">
@@ -78,7 +93,7 @@ export default function Navigation() {
                     </p>
                   </div>
                   <div className="h-8 w-8 rounded-full bg-aloa-cream flex items-center justify-center">
-                    <User className="h-5 w-5 text-aloa-dark" />
+                    <User className="h-5 w-5 text-aloa-black" />
                   </div>
                 </div>
               </button>

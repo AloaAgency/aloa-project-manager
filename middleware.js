@@ -59,10 +59,13 @@ export async function middleware(request) {
   const { pathname } = request.nextUrl;
   
   // Authentication check for protected routes
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  
+  if (supabaseUrl && supabaseKey) {
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      supabaseUrl,
+      supabaseKey,
       {
         cookies: {
           get(name) {
@@ -82,6 +85,18 @@ export async function middleware(request) {
 
     // Refresh session if expired
     const { data: { user } } = await supabase.auth.getUser();
+    
+    // Get user profile if authenticated
+    let userRole = null;
+    if (user) {
+      const { data: profile } = await supabase
+        .from('aloa_user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      
+      userRole = profile?.role;
+    }
 
     // Protected routes that require authentication
     const protectedPaths = [
@@ -98,6 +113,11 @@ export async function middleware(request) {
     const isProtectedPath = protectedPaths.some(path => 
       pathname.startsWith(path)
     );
+    
+    // Redirect admins from /dashboard to /admin/projects
+    if (pathname === '/dashboard' && user && (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member')) {
+      return NextResponse.redirect(new URL('/admin/projects', request.url));
+    }
 
     // Auth routes that should redirect if already logged in
     const authPaths = ['/auth/login', '/auth/signup'];
@@ -112,15 +132,24 @@ export async function middleware(request) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // If accessing auth routes while authenticated, redirect to dashboard
+    // If accessing auth routes while authenticated, redirect based on role
     if (isAuthPath && user) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      if (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member') {
+        return NextResponse.redirect(new URL('/admin/projects', request.url));
+      } else {
+        // For clients, we'd need to get their project, so just go to dashboard for now
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
     }
 
-    // For the root path, redirect based on auth status
+    // For the root path, redirect based on auth status and role
     if (pathname === '/') {
       if (user) {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
+        if (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member') {
+          return NextResponse.redirect(new URL('/admin/projects', request.url));
+        } else {
+          return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
       } else {
         return NextResponse.redirect(new URL('/auth/login', request.url));
       }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import PasswordProtect from '@/components/PasswordProtect';
+import AuthGuard from '@/components/AuthGuard';
 import { 
   FileText, 
   Plus, 
@@ -438,8 +438,8 @@ function AdminFormsPageContent() {
 
 export default function AdminFormsPage() {
   return (
-    <PasswordProtect>
+    <AuthGuard allowedRoles={['super_admin', 'project_admin', 'team_member']} redirectTo="/auth/login">
       <AdminFormsPageContent />
-    </PasswordProtect>
+    </AuthGuard>
   );
 }

@@ -19,19 +19,61 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    console.log('Starting login for:', email);
 
     try {
-      const result = await signInWithEmail(email, password);
+      // Use server-side API route for login
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email,
+          password
+        }),
+      });
       
-      if (result.error) {
-        setError(result.error);
+      const result = await response.json();
+      console.log('Login API response:', result);
+      
+      if (!response.ok || result.error) {
+        console.error('Login error:', result.error);
+        setError(result.error || 'Login failed');
+        setLoading(false);
+      } else if (result.success) {
+        console.log('Login successful, full result:', result);
+        console.log('User object:', result.user);
+        console.log('User role:', result.user?.role);
+        
+        // Role-based redirection
+        const userRole = result.user?.role;
+        
+        if (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member') {
+          // Admin users go to admin projects page
+          console.log('Redirecting admin user to /admin/projects');
+          router.push('/admin/projects');
+        } else if (userRole === 'client' && result.clientProject) {
+          // Client users go to their project dashboard
+          console.log('Redirecting client to project dashboard:', result.clientProject.id);
+          router.push(`/project/${result.clientProject.id}/dashboard`);
+        } else if (userRole === 'client') {
+          // Client without a project goes to a waiting page
+          console.log('Client has no project, redirecting to dashboard');
+          router.push('/dashboard');
+        } else {
+          // Default fallback
+          console.log('Default redirect to dashboard');
+          router.push('/dashboard');
+        }
       } else {
-        // Redirect to dashboard
-        router.push('/dashboard');
+        console.error('Unexpected result:', result);
+        setError('Login failed - please try again');
+        setLoading(false);
       }
     } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
+      console.error('Unexpected error during login:', err);
+      setError('An unexpected error occurred: ' + err.message);
       setLoading(false);
     }
   };

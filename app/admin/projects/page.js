@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import PasswordProtect from '@/components/PasswordProtect';
+import AuthGuard from '@/components/AuthGuard';
+import { createClient } from '@/lib/supabase-browser';
 import { 
   Briefcase, 
   Plus, 
@@ -17,7 +18,9 @@ import {
   ChevronRight,
   Zap,
   FileText,
-  Upload
+  Upload,
+  LogOut,
+  User
 } from 'lucide-react';
 
 function AdminProjectsPageContent() {
@@ -104,16 +107,16 @@ function AdminProjectsPageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8]">
       {/* Header */}
-      <div className="bg-black text-white">
+      <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-              <p className="text-gray-300 mt-1">Aloa Project Management</p>
+              <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+              <p className="text-gray-600 mt-1">Aloa Project Management</p>
             </div>
             <button
               onClick={() => router.push('/project-setup')}
-              className="bg-white text-black px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center"
+              className="bg-black text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center"
             >
               <Plus className="w-5 h-5 mr-2" />
               New Project
@@ -330,8 +333,11 @@ function AdminProjectsPageContent() {
 
 export default function AdminProjectsPage() {
   return (
-    <PasswordProtect>
+    <AuthGuard 
+      allowedRoles={['super_admin', 'project_admin', 'team_member']}
+      redirectTo="/auth/login"
+    >
       <AdminProjectsPageContent />
-    </PasswordProtect>
+    </AuthGuard>
   );
 }

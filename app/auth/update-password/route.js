@@ -38,17 +38,25 @@ export async function GET(request) {
     
     try {
       // Exchange the code for a session
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
       
-      console.log('Code exchange result:', { error: exchangeError });
+      console.log('Code exchange result:', { 
+        hasSession: !!sessionData?.session,
+        hasUser: !!sessionData?.user,
+        error: exchangeError 
+      });
       
-      if (!exchangeError) {
+      if (!exchangeError && sessionData?.session) {
+        // Verify the session is actually set
+        const { data: { session: verifySession } } = await supabase.auth.getSession();
+        console.log('Session verification after exchange:', !!verifySession);
+        
         // Redirect to the password update page with session established
         return NextResponse.redirect(new URL('/auth/update-password/form', requestUrl.origin));
       } else {
-        console.error('Failed to exchange code:', exchangeError);
+        console.error('Failed to exchange code or no session returned:', exchangeError);
         return NextResponse.redirect(
-          new URL('/auth/reset-password?error=Invalid or expired link', requestUrl.origin)
+          new URL('/auth/reset-password?error=Invalid or expired link. Please request a new one.', requestUrl.origin)
         );
       }
     } catch (err) {

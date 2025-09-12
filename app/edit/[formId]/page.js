@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Save, AlertCircle, Edit2, Trash2, GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import PasswordProtect from '@/components/PasswordProtect';
+import AuthGuard from '@/components/AuthGuard';
 
 function EditFormPageContent() {
   const params = useParams();
@@ -370,8 +370,8 @@ function EditFormPageContent() {
 
 export default function EditFormPage() {
   return (
-    <PasswordProtect>
+    <AuthGuard requireAuth={true} redirectTo="/auth/login">
       <EditFormPageContent />
-    </PasswordProtect>
+    </AuthGuard>
   );
 }
