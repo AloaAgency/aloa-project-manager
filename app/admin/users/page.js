@@ -111,7 +111,14 @@ export default function UsersManagementPage() {
           throw new Error(data.error || 'Failed to send invitation');
         }
 
-        setSuccess(`Invitation sent to ${formData.email}`);
+        // Check if email was actually sent
+        if (data.emailError) {
+          setSuccess(`Invitation created for ${formData.email}. Note: Email could not be sent (${data.emailError}). Share this link manually: ${data.invitation?.invite_url}`);
+        } else if (data.emailSent === false) {
+          setSuccess(`Invitation created for ${formData.email}. Email notifications not configured. Share this link: ${data.invitation?.invite_url}`);
+        } else {
+          setSuccess(`Invitation sent to ${formData.email}`);
+        }
       } else {
         // Create user directly
         const response = await fetch('/api/auth/users', {

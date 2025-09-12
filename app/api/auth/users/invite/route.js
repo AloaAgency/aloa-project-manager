@@ -129,12 +129,16 @@ export async function POST(request) {
     const inviteUrl = `${baseUrl}/auth/accept-invite?token=${inviteToken}`;
 
     // Send invitation email
+    let emailSent = false;
+    let emailError = null;
+    
     if (process.env.RESEND_API_KEY) {
       try {
+        console.log('Attempting to send invitation email to:', email);
         const roleDisplay = role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
         
-        await resend.emails.send({
-          from: 'Aloa Project Manager <noreply@aloa.agency>',
+        const emailResult = await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev', // Use verified domain or default
           to: email,
           subject: `Invitation to join Aloa Project Manager${projectName ? ` - ${projectName}` : ''}`,
           html: `
@@ -174,15 +178,23 @@ export async function POST(request) {
             </div>
           `
         });
-      } catch (emailError) {
-        console.error('Error sending invitation email:', emailError);
+        
+        console.log('Email sent successfully:', emailResult);
+        emailSent = true;
+      } catch (error) {
+        console.error('Error sending invitation email:', error);
+        emailError = error.message;
         // Don't fail the whole operation if email fails
         // The invitation is still stored and can be retrieved
       }
+    } else {
+      console.log('RESEND_API_KEY not configured - skipping email');
     }
 
     return NextResponse.json({ 
       success: true,
+      emailSent,
+      emailError,
       invitation: {
         email,
         full_name,
