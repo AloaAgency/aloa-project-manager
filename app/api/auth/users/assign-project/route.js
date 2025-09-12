@@ -77,6 +77,7 @@ export async function POST(request) {
     }
 
     // Add user as project member
+    // Note: invited_by might be null if the current user isn't in aloa_user_profiles yet
     const { error: memberError } = await supabase
       .from('aloa_project_members')
       .insert({
@@ -87,7 +88,7 @@ export async function POST(request) {
         can_delete: false,
         can_invite: false,
         can_manage_team: false,
-        invited_by: user.id,
+        invited_by: null, // Set to null to avoid foreign key constraint issues
         joined_at: new Date().toISOString()
       });
 
