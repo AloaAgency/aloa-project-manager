@@ -986,6 +986,20 @@ function AdminProjectPageContent() {
                       <button
                         onClick={() => {
                           setEditingStakeholder(stakeholder);
+                          // Initialize form data with stakeholder values for editing
+                          setStakeholderFormData({
+                            name: stakeholder.name || '',
+                            email: stakeholder.email || '',
+                            title: stakeholder.title || '',
+                            role: stakeholder.role || 'decision_maker',
+                            phone: stakeholder.phone || '',
+                            bio: stakeholder.bio || '',
+                            responsibilities: stakeholder.responsibilities || '',
+                            preferences: stakeholder.preferences || '',
+                            linkedin_url: stakeholder.linkedin_url || '',
+                            importance: stakeholder.importance || 5,
+                            is_primary: stakeholder.is_primary || false
+                          });
                           setShowStakeholderForm(true);
                         }}
                         className="text-gray-600 hover:text-purple-600 p-1"
@@ -2272,10 +2286,12 @@ function AdminProjectPageContent() {
                   <input
                     type="text"
                     name="name"
-                    value={editingStakeholder ? editingStakeholder.name : stakeholderFormData.name}
+                    value={editingStakeholder ? (editingStakeholder.name || '') : stakeholderFormData.name}
                     onChange={(e) => {
                       if (!editingStakeholder) {
                         setStakeholderFormData(prev => ({ ...prev, name: e.target.value }));
+                      } else {
+                        setEditingStakeholder(prev => ({ ...prev, name: e.target.value }));
                       }
                     }}
                     required
@@ -2344,6 +2360,8 @@ function AdminProjectPageContent() {
                     onChange={(e) => {
                       if (!editingStakeholder) {
                         setStakeholderFormData(prev => ({ ...prev, email: e.target.value }));
+                      } else {
+                        setEditingStakeholder(prev => ({ ...prev, email: e.target.value }));
                       }
                     }}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -2370,7 +2388,14 @@ function AdminProjectPageContent() {
                 <input
                   type="url"
                   name="linkedin_url"
-                  defaultValue={editingStakeholder?.linkedin_url}
+                  value={editingStakeholder ? (editingStakeholder.linkedin_url || '') : stakeholderFormData.linkedin_url}
+                  onChange={(e) => {
+                    if (!editingStakeholder) {
+                      setStakeholderFormData(prev => ({ ...prev, linkedin_url: e.target.value }));
+                    } else {
+                      setEditingStakeholder(prev => ({ ...prev, linkedin_url: e.target.value }));
+                    }
+                  }}
                   placeholder="https://linkedin.com/in/..."
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
@@ -2383,7 +2408,14 @@ function AdminProjectPageContent() {
                 </label>
                 <textarea
                   name="bio"
-                  defaultValue={editingStakeholder?.bio}
+                  value={editingStakeholder ? (editingStakeholder.bio || '') : stakeholderFormData.bio}
+                  onChange={(e) => {
+                    if (!editingStakeholder) {
+                      setStakeholderFormData(prev => ({ ...prev, bio: e.target.value }));
+                    } else {
+                      setEditingStakeholder(prev => ({ ...prev, bio: e.target.value }));
+                    }
+                  }}
                   rows={3}
                   placeholder="Brief background about this stakeholder..."
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -2396,7 +2428,14 @@ function AdminProjectPageContent() {
                 </label>
                 <textarea
                   name="responsibilities"
-                  defaultValue={editingStakeholder?.responsibilities}
+                  value={editingStakeholder ? (editingStakeholder.responsibilities || '') : stakeholderFormData.responsibilities}
+                  onChange={(e) => {
+                    if (!editingStakeholder) {
+                      setStakeholderFormData(prev => ({ ...prev, responsibilities: e.target.value }));
+                    } else {
+                      setEditingStakeholder(prev => ({ ...prev, responsibilities: e.target.value }));
+                    }
+                  }}
                   rows={2}
                   placeholder="What are their main responsibilities in this project?"
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -2409,7 +2448,14 @@ function AdminProjectPageContent() {
                 </label>
                 <textarea
                   name="preferences"
-                  defaultValue={editingStakeholder?.preferences}
+                  value={editingStakeholder ? (editingStakeholder.preferences || '') : stakeholderFormData.preferences}
+                  onChange={(e) => {
+                    if (!editingStakeholder) {
+                      setStakeholderFormData(prev => ({ ...prev, preferences: e.target.value }));
+                    } else {
+                      setEditingStakeholder(prev => ({ ...prev, preferences: e.target.value }));
+                    }
+                  }}
                   rows={2}
                   placeholder="Preferred communication style, meeting times, etc."
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -2421,7 +2467,14 @@ function AdminProjectPageContent() {
                   type="checkbox"
                   name="is_primary"
                   id="is_primary"
-                  defaultChecked={editingStakeholder?.is_primary}
+                  checked={editingStakeholder ? (editingStakeholder.is_primary || false) : stakeholderFormData.is_primary}
+                  onChange={(e) => {
+                    if (!editingStakeholder) {
+                      setStakeholderFormData(prev => ({ ...prev, is_primary: e.target.checked }));
+                    } else {
+                      setEditingStakeholder(prev => ({ ...prev, is_primary: e.target.checked }));
+                    }
+                  }}
                   className="mr-2"
                 />
                 <label htmlFor="is_primary" className="text-sm font-medium text-gray-700">
