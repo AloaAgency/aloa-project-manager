@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import AuthGuard from '@/components/AuthGuard';
+import useEscapeKey from '@/hooks/useEscapeKey';
+import UserAvatar from '@/components/UserAvatar';
 import { 
   ArrowLeft,
   Edit,
@@ -103,6 +105,9 @@ function AdminProjectPageContent() {
   const [tempProjectletName, setTempProjectletName] = useState('');
   const [draggedProjectlet, setDraggedProjectlet] = useState(null);
   const [isDraggingApplet, setIsDraggingApplet] = useState(false);
+  const [draggedAppletInfo, setDraggedAppletInfo] = useState(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState(null);
+  const [dropTargetProjectletId, setDropTargetProjectletId] = useState(null);
   const [showActionMenu, setShowActionMenu] = useState(null);
   const [showAppletManager, setShowAppletManager] = useState(false);
   const [selectedProjectletForApplet, setSelectedProjectletForApplet] = useState(null);
@@ -113,11 +118,61 @@ function AdminProjectPageContent() {
   const [showStakeholderForm, setShowStakeholderForm] = useState(false);
   const [editingStakeholder, setEditingStakeholder] = useState(null);
   const [expandedApplets, setExpandedApplets] = useState({});
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [showTeamMemberModal, setShowTeamMemberModal] = useState(false);
+  const [selectedTeamUserId, setSelectedTeamUserId] = useState('');
+  const [selectedProjectRole, setSelectedProjectRole] = useState('team_member');
+  const [stakeholderFormData, setStakeholderFormData] = useState({
+    name: '',
+    email: '',
+    title: '',
+    role: 'decision_maker',
+    phone: '',
+    bio: '',
+    responsibilities: '',
+    preferences: '',
+    linkedin_url: '',
+    importance: 5,
+    is_primary: false
+  });
+
+  // ESC key handlers for modals
+  useEscapeKey(() => {
+    setShowProjectletEditor(false);
+    setSelectedProjectlet(null);
+  }, showProjectletEditor);
+
+  useEscapeKey(() => {
+    setShowStakeholderForm(false);
+    setEditingStakeholder(null);
+    setSelectedUserId(null);
+    setStakeholderFormData({
+      name: '',
+      email: '',
+      title: '',
+      role: 'decision_maker',
+      phone: '',
+      bio: '',
+      responsibilities: '',
+      preferences: '',
+      linkedin_url: '',
+      importance: 5,
+      is_primary: false
+    });
+  }, showStakeholderForm);
+
+  useEscapeKey(() => {
+    setShowTeamMemberModal(false);
+    setSelectedTeamUserId('');
+    setSelectedProjectRole('team_member');
+  }, showTeamMemberModal);
 
   useEffect(() => {
     fetchProjectData();
     fetchKnowledgeBase();
     fetchStakeholders();
+    fetchAvailableUsers();
   }, [params.projectId]);
 
   // Close action menu when clicking outside
@@ -232,6 +287,28 @@ function AdminProjectPageContent() {
     }
   };
 
+  const fetchAvailableUsers = async () => {
+    try {
+      const response = await fetch('/api/auth/users');
+      console.log('Users API response status:', response.status);
+
+      if (!response.ok) {
+        console.error('Failed to fetch users:', response.status, response.statusText);
+        const errorData = await response.json();
+        console.error('Error details:', errorData);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('Users API data:', data);
+
+      // Set all users - we'll filter them where needed
+      setAvailableUsers(data.users || []);
+    } catch (error) {
+      console.error('Error fetching available users:', error);
+    }
+  };
+
   const handleSaveStakeholder = async (stakeholderData) => {
     try {
       const method = editingStakeholder ? 'PATCH' : 'POST';
@@ -250,6 +327,20 @@ function AdminProjectPageContent() {
         fetchStakeholders();
         setShowStakeholderForm(false);
         setEditingStakeholder(null);
+        setSelectedUserId(null);
+        setStakeholderFormData({
+          name: '',
+          email: '',
+          title: '',
+          role: 'decision_maker',
+          phone: '',
+          bio: '',
+          responsibilities: '',
+          preferences: '',
+          linkedin_url: '',
+          importance: 5,
+          is_primary: false
+        });
       }
     } catch (error) {
       console.error('Error saving stakeholder:', error);
@@ -365,6 +456,181 @@ function AdminProjectPageContent() {
     }
   };
 
+  const handleAddTeamMember = async () => {
+    if (!selectedTeamUserId || !selectedProjectRole) {
+      toast.error('Please select a user and role');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/team`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: selectedTeamUserId,
+          project_role: selectedProjectRole
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTeamMembers([...teamMembers, data.member]);
+        setShowTeamMemberModal(false);
+        setSelectedTeamUserId('');
+        setSelectedProjectRole('team_member');
+        toast.success('Team member added successfully');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to add team member');
+      }
+    } catch (error) {
+      console.error('Error adding team member:', error);
+      toast.error('Failed to add team member');
+    }
+  };
+
+  const handleRemoveTeamMember = async (memberId) => {
+    if (!confirm('Are you sure you want to remove this team member?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/team?memberId=${memberId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setTeamMembers(teamMembers.filter(m => m.id !== memberId));
+        toast.success('Team member removed successfully');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to remove team member');
+      }
+    } catch (error) {
+      console.error('Error removing team member:', error);
+      toast.error('Failed to remove team member');
+    }
+  };
+
+  const handleAppletDrop = async (appletId, sourceProjectletId, targetProjectletId, targetIndex) => {
+    try {
+      // Get the source applets list
+      const sourceApplets = appletsData[sourceProjectletId] || [];
+      const targetApplets = appletsData[targetProjectletId] || [];
+
+      // Find the dragged applet
+      const draggedApplet = sourceApplets.find(a => a.id === appletId);
+      if (!draggedApplet) return;
+
+      // Calculate new order indices
+      let updatedApplets = [];
+
+      if (sourceProjectletId === targetProjectletId) {
+        // Reordering within the same projectlet
+        const currentIndex = sourceApplets.findIndex(a => a.id === appletId);
+        if (currentIndex === targetIndex || currentIndex === targetIndex - 1) {
+          // No change needed if dropping in the same position
+          return;
+        }
+
+        // Remove from current position
+        const newApplets = [...sourceApplets];
+        newApplets.splice(currentIndex, 1);
+
+        // Insert at new position
+        const adjustedIndex = currentIndex < targetIndex ? targetIndex - 1 : targetIndex;
+        newApplets.splice(adjustedIndex, 0, draggedApplet);
+
+        // Update order indices for all applets
+        updatedApplets = newApplets.map((applet, index) => ({
+          id: applet.id,
+          order_index: index
+        }));
+      } else {
+        // Moving between projectlets
+        // Remove from source
+        const newSourceApplets = sourceApplets.filter(a => a.id !== appletId);
+
+        // Insert into target
+        const newTargetApplets = [...targetApplets];
+        newTargetApplets.splice(targetIndex, 0, { ...draggedApplet, projectlet_id: targetProjectletId });
+
+        // Update order indices for source projectlet
+        const sourceUpdates = newSourceApplets.map((applet, index) => ({
+          id: applet.id,
+          order_index: index
+        }));
+
+        // Update order indices for target projectlet
+        const targetUpdates = newTargetApplets.map((applet, index) => ({
+          id: applet.id,
+          order_index: index
+        }));
+
+        // Update the applet's projectlet_id
+        const response = await fetch(
+          `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${appletId}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectlet_id: targetProjectletId,
+              order_index: targetIndex
+            })
+          }
+        );
+
+        if (response.ok) {
+          // Update both source and target applets
+          if (sourceUpdates.length > 0) {
+            await fetch(
+              `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/reorder`,
+              {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ applets: sourceUpdates })
+              }
+            );
+          }
+
+          if (targetUpdates.length > 1) {
+            await fetch(
+              `/api/aloa-projects/${params.projectId}/projectlets/${targetProjectletId}/applets/reorder`,
+              {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ applets: targetUpdates })
+              }
+            );
+          }
+
+          fetchProjectletApplets(sourceProjectletId);
+          fetchProjectletApplets(targetProjectletId);
+          toast.success('Applet moved successfully');
+        }
+        return;
+      }
+
+      // For same projectlet reordering
+      const response = await fetch(
+        `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/reorder`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ applets: updatedApplets })
+        }
+      );
+
+      if (response.ok) {
+        fetchProjectletApplets(sourceProjectletId);
+        toast.success('Applet reordered successfully');
+      }
+    } catch (error) {
+      console.error('Error handling applet drop:', error);
+      toast.error('Failed to reorder applet');
+    }
+  };
+
   const fetchProjectData = async () => {
     try {
       // Fetch project details
@@ -443,9 +709,37 @@ function AdminProjectPageContent() {
       if (response.ok) {
         const data = await response.json();
         console.log(`Fetched ${data.applets?.length || 0} applets for projectlet ${projectletId}:`, data.applets);
+        
+        // Fetch completion data for each applet
+        const appletsWithCompletions = await Promise.all(
+          (data.applets || []).map(async (applet) => {
+            try {
+              const completionRes = await fetch(
+                `/api/aloa-projects/${params.projectId}/applet-completions?appletId=${applet.id}`
+              );
+              if (completionRes.ok) {
+                const completionData = await completionRes.json();
+                console.log(`Completion data for applet ${applet.id} (${applet.name}):`, completionData);
+                return {
+                  ...applet,
+                  completions: completionData.completions || [],
+                  completion_percentage: completionData.percentage || 0,
+                  totalStakeholders: completionData.totalStakeholders || 0,
+                  completedCount: completionData.completedCount || 0
+                };
+              } else {
+                console.error(`Failed to fetch completion data for applet ${applet.id}:`, completionRes.status);
+              }
+            } catch (error) {
+              console.error('Error fetching completion data for applet:', error);
+            }
+            return applet;
+          })
+        );
+        
         setProjectletApplets(prev => ({
           ...prev,
-          [projectletId]: data.applets || []
+          [projectletId]: appletsWithCompletions
         }));
       } else {
         console.error('Failed to fetch applets:', response.status);
@@ -883,6 +1177,20 @@ function AdminProjectPageContent() {
             <button
               onClick={() => {
                 setEditingStakeholder(null);
+                setSelectedUserId(null);
+                setStakeholderFormData({
+                  name: '',
+                  email: '',
+                  title: '',
+                  role: 'decision_maker',
+                  phone: '',
+                  bio: '',
+                  responsibilities: '',
+                  preferences: '',
+                  linkedin_url: '',
+                  importance: 5,
+                  is_primary: false
+                });
                 setShowStakeholderForm(true);
               }}
               className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
@@ -898,26 +1206,53 @@ function AdminProjectPageContent() {
               {stakeholders.map((stakeholder) => (
                 <div key={stakeholder.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      {stakeholder.is_primary && (
-                        <span className="inline-block px-2 py-1 text-xs font-semibold text-purple-800 bg-purple-100 rounded-full mb-2">
-                          Primary Contact
-                        </span>
-                      )}
-                      <h3 className="font-bold text-lg">{stakeholder.name}</h3>
-                      {stakeholder.title && (
-                        <p className="text-sm text-gray-600">{stakeholder.title}</p>
-                      )}
-                      {stakeholder.role && (
-                        <p className="text-xs text-gray-500 capitalize mt-1">
-                          Role: {stakeholder.role.replace('_', ' ')}
-                        </p>
-                      )}
+                    <div className="flex items-start gap-3 flex-1">
+                      {/* Show avatar */}
+                      <UserAvatar
+                        user={{
+                          id: stakeholder.user_id || stakeholder.id,
+                          email: stakeholder.email,
+                          full_name: stakeholder.name,
+                          name: stakeholder.name,
+                          avatar_url: stakeholder.user?.avatar_url
+                        }}
+                        size="md"
+                      />
+                      <div className="flex-1">
+                        {stakeholder.is_primary && (
+                          <span className="inline-block px-2 py-1 text-xs font-semibold text-purple-800 bg-purple-100 rounded-full mb-2">
+                            Primary Contact
+                          </span>
+                        )}
+                        <h3 className="font-bold text-lg">{stakeholder.name}</h3>
+                        {stakeholder.title && (
+                          <p className="text-sm text-gray-600">{stakeholder.title}</p>
+                        )}
+                        {stakeholder.role && (
+                          <p className="text-xs text-gray-500 capitalize mt-1">
+                            Role: {stakeholder.role.replace('_', ' ')}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <div className="flex space-x-1">
                       <button
                         onClick={() => {
                           setEditingStakeholder(stakeholder);
+                          // Initialize form data with stakeholder values for editing
+                          setStakeholderFormData({
+                            name: stakeholder.name || '',
+                            email: stakeholder.email || '',
+                            title: stakeholder.title || '',
+                            role: stakeholder.role || 'decision_maker',
+                            phone: stakeholder.phone || '',
+                            bio: stakeholder.bio || '',
+                            responsibilities: stakeholder.responsibilities || '',
+                            preferences: stakeholder.preferences || '',
+                            linkedin_url: stakeholder.linkedin_url || '',
+                            importance: stakeholder.importance || 5,
+                            is_primary: stakeholder.is_primary || false
+                          });
                           setShowStakeholderForm(true);
                         }}
                         className="text-gray-600 hover:text-purple-600 p-1"
@@ -1200,109 +1535,84 @@ function AdminProjectPageContent() {
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
                           </div>
                         ) : applets.length > 0 ? (
-                          <div className="space-y-2">
+                          <div className="space-y-0">
+                            {/* Drop zone at the beginning */}
+                            {isDraggingApplet && (
+                              <div
+                                className={`h-1 transition-all ${
+                                  dropTargetProjectletId === projectlet.id && dropTargetIndex === 0
+                                    ? 'bg-blue-500 h-12 border-2 border-dashed border-blue-500 rounded mb-2'
+                                    : ''
+                                }`}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDropTargetProjectletId(projectlet.id);
+                                  setDropTargetIndex(0);
+                                }}
+                                onDragLeave={(e) => {
+                                  e.stopPropagation();
+                                  if (dropTargetIndex === 0) {
+                                    setDropTargetIndex(null);
+                                    setDropTargetProjectletId(null);
+                                  }
+                                }}
+                                onDrop={async (e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDropTargetIndex(null);
+                                  setDropTargetProjectletId(null);
+
+                                  const isApplet = e.dataTransfer.getData('isApplet');
+                                  if (!isApplet) return;
+
+                                  const draggedAppletId = e.dataTransfer.getData('appletId');
+                                  const sourceProjectletId = e.dataTransfer.getData('projectletId');
+
+                                  // Handle drop at beginning
+                                  await handleAppletDrop(draggedAppletId, sourceProjectletId, projectlet.id, 0);
+                                }}
+                              />
+                            )}
+
                             {applets.map((applet, appletIndex) => {
                               const Icon = APPLET_ICONS[applet.type] || FileText;
                               const formId = applet.form_id || applet.config?.form_id;
                               const form = formId ? availableForms.find(f => f.id === formId) : null;
                               const isFormLocked = form?.status === 'closed';
-                              
+
                               return (
-                                <div 
-                                  key={applet.id} 
-                                  className={`p-2 rounded cursor-move transition-colors group border-2 ${
-                                    isFormLocked && applet.type === 'form' 
-                                      ? 'bg-red-50 border-red-300 hover:bg-red-100' 
-                                      : 'bg-white/50 border-transparent hover:bg-white/70'
-                                  }`}
-                                  draggable
-                                  onDragStart={(e) => {
-                                    e.stopPropagation(); // Prevent projectlet from being dragged
-                                    setIsDraggingApplet(true);
-                                    e.dataTransfer.effectAllowed = 'move';
-                                    e.dataTransfer.setData('appletId', applet.id);
-                                    e.dataTransfer.setData('appletIndex', appletIndex);
-                                    e.dataTransfer.setData('projectletId', projectlet.id);
-                                    e.dataTransfer.setData('isApplet', 'true'); // Mark as applet drag
-                                  }}
-                                  onDragEnd={() => {
-                                    setIsDraggingApplet(false);
-                                  }}
-                                  onDragOver={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    e.currentTarget.style.backgroundColor = '#DBEAFE';
-                                    e.currentTarget.style.borderColor = '#3B82F6';
-                                  }}
-                                  onDragLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '';
-                                    e.currentTarget.style.borderColor = '';
-                                  }}
-                                  onDrop={async (e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    e.currentTarget.style.backgroundColor = '';
-                                    e.currentTarget.style.borderColor = '';
-                                    
-                                    const isApplet = e.dataTransfer.getData('isApplet');
-                                    if (!isApplet) return; // Only handle applet drops
-                                    
-                                    const draggedAppletId = e.dataTransfer.getData('appletId');
-                                    const draggedIndex = parseInt(e.dataTransfer.getData('appletIndex'));
-                                    const sourceProjectletId = e.dataTransfer.getData('projectletId');
-                                    
-                                    if (sourceProjectletId === projectlet.id) {
-                                      // Reordering within same projectlet
-                                      if (draggedIndex !== appletIndex) {
-                                        const reorderedApplets = [...applets];
-                                        const [movedApplet] = reorderedApplets.splice(draggedIndex, 1);
-                                        reorderedApplets.splice(appletIndex, 0, movedApplet);
-                                        
-                                        // Update order in database
-                                        try {
-                                          await fetch(`/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/reorder`, {
-                                            method: 'PUT',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                              appletIds: reorderedApplets.map(a => a.id)
-                                            })
-                                          });
-                                          fetchProjectletApplets(projectlet.id);
-                                        } catch (error) {
-                                          console.error('Error reordering applets:', error);
-                                        }
-                                      }
-                                    } else {
-                                      // Moving between projectlets
-                                      try {
-                                        // Update the applet's projectlet_id
-                                        const response = await fetch(
-                                          `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${draggedAppletId}`,
-                                          {
-                                            method: 'PATCH',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                              projectlet_id: projectlet.id,
-                                              order_index: appletIndex
-                                            })
-                                          }
-                                        );
-                                        
-                                        if (response.ok) {
-                                          // Refresh both projectlets
-                                          fetchProjectletApplets(sourceProjectletId);
-                                          fetchProjectletApplets(projectlet.id);
-                                          toast.success('Applet moved successfully');
-                                        }
-                                      } catch (error) {
-                                        console.error('Error moving applet:', error);
-                                        toast.error('Failed to move applet');
-                                      }
-                                    }
-                                  }}
-                                >
+                                <React.Fragment key={applet.id}>
+                                  <div
+                                    className={`p-2 rounded cursor-move transition-colors group border-2 mb-2 ${
+                                      isFormLocked && applet.type === 'form'
+                                        ? 'bg-red-50 border-red-300 hover:bg-red-100'
+                                        : 'bg-white/50 border-transparent hover:bg-white/70'
+                                    }`}
+                                    draggable
+                                    onDragStart={(e) => {
+                                      e.stopPropagation(); // Prevent projectlet from being dragged
+                                      setIsDraggingApplet(true);
+                                      setDraggedAppletInfo({
+                                        id: applet.id,
+                                        index: appletIndex,
+                                        projectletId: projectlet.id
+                                      });
+                                      e.dataTransfer.effectAllowed = 'move';
+                                      e.dataTransfer.setData('appletId', applet.id);
+                                      e.dataTransfer.setData('appletIndex', appletIndex);
+                                      e.dataTransfer.setData('projectletId', projectlet.id);
+                                      e.dataTransfer.setData('isApplet', 'true'); // Mark as applet drag
+                                    }}
+                                    onDragEnd={() => {
+                                      setIsDraggingApplet(false);
+                                      setDraggedAppletInfo(null);
+                                      setDropTargetIndex(null);
+                                      setDropTargetProjectletId(null);
+                                    }}
+                                  >
                                   <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-2">
+                                    <div className="flex items-center space-x-2 flex-1">
                                       <GripVertical className="w-4 h-4 text-gray-400" />
                                       <Icon className="w-4 h-4 text-gray-600" />
                                       <span className="text-sm font-medium">{applet.name}</span>
@@ -1317,16 +1627,52 @@ function AdminProjectPageContent() {
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center space-x-2">
-                                      {applet.completion_percentage > 0 && (
+                                    <div className="flex items-center space-x-3">
+                                      {/* Show avatars of users who completed this applet */}
+                                      {applet.completions && applet.completions.length > 0 && (
+                                        <div className="flex items-center space-x-2">
+                                          <div className="flex -space-x-2">
+                                            {applet.completions.slice(0, 4).map((completion) => (
+                                              <div
+                                                key={completion.user_id}
+                                                className="relative group"
+                                                title={`${completion.user?.full_name || completion.user?.email || 'User'} - Reviewed ${
+                                                  completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
+                                                }`}
+                                              >
+                                                {completion.user?.avatar_url ? (
+                                                  <img
+                                                    src={completion.user.avatar_url}
+                                                    alt={completion.user.full_name || ''}
+                                                    className="w-7 h-7 rounded-full ring-2 ring-white object-cover"
+                                                  />
+                                                ) : (
+                                                  <div className="w-7 h-7 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-medium ring-2 ring-white">
+                                                    {(completion.user?.full_name || completion.user?.email || '?')[0].toUpperCase()}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                            {applet.completions.length > 4 && (
+                                              <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 ring-2 ring-white">
+                                                +{applet.completions.length - 4}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {/* Progress indicator */}
+                                      {(applet.completion_percentage > 0 || applet.totalStakeholders > 0) && (
                                         <div className="flex items-center">
-                                          <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                                          <div className="w-20 bg-gray-200 rounded-full h-2">
                                             <div
-                                              className="bg-green-600 h-1.5 rounded-full"
-                                              style={{ width: `${applet.completion_percentage}%` }}
+                                              className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                                              style={{ width: `${applet.completion_percentage || 0}%` }}
                                             />
                                           </div>
-                                          <span className="text-xs ml-2 text-gray-500">{applet.completion_percentage}%</span>
+                                          <span className="text-xs ml-2 text-gray-600 font-medium min-w-[60px]">
+                                            {applet.completedCount || 0}/{applet.totalStakeholders || 0}
+                                          </span>
                                         </div>
                                       )}
                                       {/* Edit and Delete buttons */}
@@ -1542,126 +1888,42 @@ function AdminProjectPageContent() {
                                     />
                                   )}
                                 </div>
-                              );
-                            })}
-                            
-                            {/* Drop zone at the end of applets list */}
-                            <div
-                              className={`py-3 border-2 border-dashed rounded-lg transition-all ${
-                                isDraggingApplet 
-                                  ? 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50' 
-                                  : 'border-transparent'
-                              }`}
-                              onDragOver={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.currentTarget.style.borderColor = '#3B82F6';
-                                e.currentTarget.style.backgroundColor = '#DBEAFE';
-                              }}
-                              onDragLeave={(e) => {
-                                e.currentTarget.style.borderColor = '';
-                                e.currentTarget.style.backgroundColor = '';
-                              }}
-                              onDrop={async (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.currentTarget.style.borderColor = '';
-                                e.currentTarget.style.backgroundColor = '';
-                                
-                                const isApplet = e.dataTransfer.getData('isApplet');
-                                if (!isApplet) return; // Ignore if not an applet drag
-                                
-                                const draggedAppletId = e.dataTransfer.getData('appletId');
-                                const sourceProjectletId = e.dataTransfer.getData('projectletId');
-                                
-                                if (sourceProjectletId !== projectlet.id) {
-                                  // Moving from another projectlet
-                                  try {
-                                    const response = await fetch(
-                                      `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${draggedAppletId}`,
-                                      {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                          projectlet_id: projectlet.id,
-                                          order_index: applets.length // Add at the end
-                                        })
+                                {/* Drop zone after this applet */}
+                                {isDraggingApplet && draggedAppletInfo?.id !== applet.id && (
+                                  <div
+                                    className={`transition-all ${
+                                      dropTargetProjectletId === projectlet.id && dropTargetIndex === appletIndex + 1
+                                        ? 'h-12 border-2 border-dashed border-blue-500 bg-blue-50 rounded mb-2'
+                                        : 'h-1'
+                                    }`}
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setDropTargetProjectletId(projectlet.id);
+                                      setDropTargetIndex(appletIndex + 1);
+                                    }}
+                                    onDragLeave={(e) => {
+                                      e.stopPropagation();
+                                      if (dropTargetIndex === appletIndex + 1) {
+                                        setDropTargetIndex(null);
+                                        setDropTargetProjectletId(null);
                                       }
-                                    );
-                                    
-                                    if (response.ok) {
-                                      fetchProjectletApplets(sourceProjectletId);
-                                      fetchProjectletApplets(projectlet.id);
-                                      toast.success('Applet moved successfully');
-                                    }
-                                  } catch (error) {
-                                    console.error('Error moving applet:', error);
-                                    toast.error('Failed to move applet');
-                                  }
-                                }
-                              }}
-                            >
-                              {isDraggingApplet && (
-                                <p className="text-xs text-gray-500 text-center font-medium">Drop applet here</p>
-                              )}
-                            </div>
+                                    }}
+                                    onDrop={async (e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      await handleAppletDrop(draggedAppletInfo.id, draggedAppletInfo.projectletId, projectlet.id, appletIndex + 1);
+                                      setDropTargetIndex(null);
+                                      setDropTargetProjectletId(null);
+                                    }}
+                                  />
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
                           </div>
                         ) : (
-                          <div 
-                            className={`text-center border-2 border-dashed rounded-lg bg-white/30 transition-all ${
-                              isDraggingApplet
-                                ? 'py-6 border-gray-300 hover:border-blue-400'
-                                : 'py-4 border-gray-200'
-                            }`}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.currentTarget.style.borderColor = '#3B82F6';
-                              e.currentTarget.style.backgroundColor = '#DBEAFE';
-                            }}
-                            onDragLeave={(e) => {
-                              e.currentTarget.style.borderColor = '';
-                              e.currentTarget.style.backgroundColor = '';
-                            }}
-                            onDrop={async (e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.currentTarget.style.borderColor = '';
-                              e.currentTarget.style.backgroundColor = '';
-                              
-                              const isApplet = e.dataTransfer.getData('isApplet');
-                              if (!isApplet) return; // Ignore if not an applet drag
-                              
-                              const draggedAppletId = e.dataTransfer.getData('appletId');
-                              const sourceProjectletId = e.dataTransfer.getData('projectletId');
-                              
-                              if (sourceProjectletId) {
-                                // Moving from another projectlet
-                                try {
-                                  const response = await fetch(
-                                    `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${draggedAppletId}`,
-                                    {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({
-                                        projectlet_id: projectlet.id,
-                                        order_index: 0 // First position
-                                      })
-                                    }
-                                  );
-                                  
-                                  if (response.ok) {
-                                    fetchProjectletApplets(sourceProjectletId);
-                                    fetchProjectletApplets(projectlet.id);
-                                    toast.success('Applet moved successfully');
-                                  }
-                                } catch (error) {
-                                  console.error('Error moving applet:', error);
-                                  toast.error('Failed to move applet');
-                                }
-                              }
-                            }}
-                          >
+                          <div className="text-center py-4 border-2 border-dashed border-gray-200 rounded-lg bg-white/30">
                             <p className="text-sm text-gray-500 mb-2">
                               {isDraggingApplet ? 'Drop applet here' : 'No applets added yet'}
                             </p>
@@ -1731,22 +1993,53 @@ function AdminProjectPageContent() {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold">Team Members</h3>
-                <button className="text-black hover:bg-gray-100 p-1 rounded">
+                <button
+                  onClick={() => setShowTeamMemberModal(true)}
+                  className="text-black hover:bg-gray-100 p-1 rounded"
+                >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
               <div className="space-y-3">
-                {teamMembers.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">{member.name || member.email}</div>
-                      <div className="text-xs text-gray-600 capitalize">{member.role}</div>
+                {teamMembers.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No team members assigned yet
+                  </p>
+                ) : (
+                  teamMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <UserAvatar
+                          user={{
+                            full_name: member.name,
+                            email: member.email,
+                            avatar_url: member.avatar_url
+                          }}
+                          size="sm"
+                        />
+                        <div>
+                          <div className="font-medium text-sm">{member.name || member.email}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-600 capitalize">
+                              {member.project_role || member.role}
+                            </span>
+                            {member.system_role && (
+                              <span className="text-xs px-1.5 py-0.5 bg-gray-100 rounded">
+                                {member.system_role}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveTeamMember(member.id)}
+                        className="text-gray-400 hover:text-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button className="text-gray-400 hover:text-red-600">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -1769,9 +2062,29 @@ function AdminProjectPageContent() {
                     <div key={form.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{form.title}</p>
-                        <p className="text-xs text-gray-500">
-                          {form.response_count || 0} responses • {form.status}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-gray-500">
+                            {form.response_count || 0} responses • {form.status}
+                          </p>
+                          {/* Show avatars of form respondents if available */}
+                          {form.respondents && form.respondents.length > 0 && (
+                            <div className="flex -space-x-1">
+                              {form.respondents.slice(0, 3).map((user) => (
+                                <UserAvatar
+                                  key={user.id}
+                                  user={user}
+                                  size="xs"
+                                  className="ring-1 ring-white"
+                                />
+                              ))}
+                              {form.respondents.length > 3 && (
+                                <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 ring-1 ring-white">
+                                  +{form.respondents.length - 3}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="flex space-x-1">
                         <button
@@ -2104,6 +2417,20 @@ function AdminProjectPageContent() {
                 onClick={() => {
                   setShowStakeholderForm(false);
                   setEditingStakeholder(null);
+                  setSelectedUserId(null);
+                  setStakeholderFormData({
+                    name: '',
+                    email: '',
+                    title: '',
+                    role: 'decision_maker',
+                    phone: '',
+                    bio: '',
+                    responsibilities: '',
+                    preferences: '',
+                    linkedin_url: '',
+                    importance: 5,
+                    is_primary: false
+                  });
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -2115,7 +2442,23 @@ function AdminProjectPageContent() {
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
+                
+                // Determine actual user_id to use
+                let actualUserId = null;
+                let shouldCreateUser = false;
+                let userRole = null;
+                
+                if (selectedUserId === 'create_new') {
+                  shouldCreateUser = true;
+                  userRole = formData.get('user_role') || 'client';
+                } else if (selectedUserId) {
+                  actualUserId = selectedUserId;
+                } else if (editingStakeholder?.user_id) {
+                  actualUserId = editingStakeholder.user_id;
+                }
+                
                 const stakeholderData = {
+                  user_id: actualUserId,
                   name: formData.get('name'),
                   title: formData.get('title'),
                   role: formData.get('role'),
@@ -2126,12 +2469,114 @@ function AdminProjectPageContent() {
                   preferences: formData.get('preferences'),
                   linkedin_url: formData.get('linkedin_url'),
                   importance: parseInt(formData.get('importance')),
-                  is_primary: formData.get('is_primary') === 'on'
+                  is_primary: formData.get('is_primary') === 'on',
+                  // Add user provisioning info
+                  create_user: shouldCreateUser,
+                  user_role: userRole
                 };
                 handleSaveStakeholder(stakeholderData);
               }}
               className="space-y-4"
             >
+              {/* User Account Management Section */}
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <h4 className="font-medium text-gray-900 mb-3">User Account Management</h4>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {editingStakeholder ? 'Update User Connection' : 'Link to User Account'}
+                    </label>
+                    <select
+                      value={selectedUserId || editingStakeholder?.user_id || ''}
+                      onChange={(e) => {
+                        const userId = e.target.value;
+                        setSelectedUserId(userId || null);
+                        
+                        // Auto-fill fields if user is selected
+                        if (userId && userId !== 'create_new') {
+                          const user = availableUsers.find(u => u.id === userId);
+                          if (user) {
+                            // Update form data state
+                            setStakeholderFormData(prev => ({
+                              ...prev,
+                              name: user.full_name || '',
+                              email: user.email || ''
+                            }));
+                            if (editingStakeholder) {
+                              setEditingStakeholder(prev => ({
+                                ...prev,
+                                name: user.full_name || prev.name,
+                                email: user.email || prev.email,
+                                user_id: userId
+                              }));
+                            }
+                          }
+                        } else if (!userId) {
+                          // Clear user connection
+                          if (editingStakeholder) {
+                            setEditingStakeholder(prev => ({
+                              ...prev,
+                              user_id: null
+                            }));
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">-- No User Account --</option>
+                      <option value="create_new">✨ Create New User Account</option>
+                      {availableUsers
+                        .filter(user => user.role === 'client')
+                        .map(user => (
+                          <option key={user.id} value={user.id}>
+                            {user.full_name} ({user.email})
+                            {user.projects?.length > 0 && ` - ${user.projects.map(p => p.project_name).join(', ')}`}
+                          </option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {editingStakeholder 
+                        ? "Update the user account connection or create a new account for this stakeholder."
+                        : "Link to an existing user account or create a new one."}
+                    </p>
+                  </div>
+
+                  {/* Show provisioning options when creating new user */}
+                  {selectedUserId === 'create_new' && (
+                    <div className="border-t pt-3 mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Account Type for New User
+                      </label>
+                      <select
+                        name="user_role"
+                        defaultValue="client"
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="client">Client (View-only access to their project)</option>
+                        <option value="project_admin">Project Admin (Can manage this project)</option>
+                        <option value="team_member">Team Member (Limited admin access)</option>
+                      </select>
+                      <div className="mt-2 p-2 bg-blue-50 rounded">
+                        <p className="text-xs text-blue-800">
+                          <strong>Note:</strong> A new user account will be created with the email and name provided below. 
+                          They will receive an invitation to set their password.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show current connection status */}
+                  {editingStakeholder && editingStakeholder.user_id && selectedUserId !== 'create_new' && (
+                    <div className="p-2 bg-green-50 rounded">
+                      <p className="text-xs text-green-800">
+                        ✓ Currently connected to user account
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Basic Information */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -2141,7 +2586,14 @@ function AdminProjectPageContent() {
                   <input
                     type="text"
                     name="name"
-                    defaultValue={editingStakeholder?.name}
+                    value={editingStakeholder ? (editingStakeholder.name || '') : stakeholderFormData.name}
+                    onChange={(e) => {
+                      if (!editingStakeholder) {
+                        setStakeholderFormData(prev => ({ ...prev, name: e.target.value }));
+                      } else {
+                        setEditingStakeholder(prev => ({ ...prev, name: e.target.value }));
+                      }
+                    }}
                     required
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
@@ -2204,7 +2656,14 @@ function AdminProjectPageContent() {
                   <input
                     type="email"
                     name="email"
-                    defaultValue={editingStakeholder?.email}
+                    value={editingStakeholder ? (editingStakeholder.email || '') : stakeholderFormData.email}
+                    onChange={(e) => {
+                      if (!editingStakeholder) {
+                        setStakeholderFormData(prev => ({ ...prev, email: e.target.value }));
+                      } else {
+                        setEditingStakeholder(prev => ({ ...prev, email: e.target.value }));
+                      }
+                    }}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
@@ -2229,7 +2688,14 @@ function AdminProjectPageContent() {
                 <input
                   type="url"
                   name="linkedin_url"
-                  defaultValue={editingStakeholder?.linkedin_url}
+                  value={editingStakeholder ? (editingStakeholder.linkedin_url || '') : stakeholderFormData.linkedin_url}
+                  onChange={(e) => {
+                    if (!editingStakeholder) {
+                      setStakeholderFormData(prev => ({ ...prev, linkedin_url: e.target.value }));
+                    } else {
+                      setEditingStakeholder(prev => ({ ...prev, linkedin_url: e.target.value }));
+                    }
+                  }}
                   placeholder="https://linkedin.com/in/..."
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
@@ -2242,7 +2708,14 @@ function AdminProjectPageContent() {
                 </label>
                 <textarea
                   name="bio"
-                  defaultValue={editingStakeholder?.bio}
+                  value={editingStakeholder ? (editingStakeholder.bio || '') : stakeholderFormData.bio}
+                  onChange={(e) => {
+                    if (!editingStakeholder) {
+                      setStakeholderFormData(prev => ({ ...prev, bio: e.target.value }));
+                    } else {
+                      setEditingStakeholder(prev => ({ ...prev, bio: e.target.value }));
+                    }
+                  }}
                   rows={3}
                   placeholder="Brief background about this stakeholder..."
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -2255,7 +2728,14 @@ function AdminProjectPageContent() {
                 </label>
                 <textarea
                   name="responsibilities"
-                  defaultValue={editingStakeholder?.responsibilities}
+                  value={editingStakeholder ? (editingStakeholder.responsibilities || '') : stakeholderFormData.responsibilities}
+                  onChange={(e) => {
+                    if (!editingStakeholder) {
+                      setStakeholderFormData(prev => ({ ...prev, responsibilities: e.target.value }));
+                    } else {
+                      setEditingStakeholder(prev => ({ ...prev, responsibilities: e.target.value }));
+                    }
+                  }}
                   rows={2}
                   placeholder="What are their main responsibilities in this project?"
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -2268,7 +2748,14 @@ function AdminProjectPageContent() {
                 </label>
                 <textarea
                   name="preferences"
-                  defaultValue={editingStakeholder?.preferences}
+                  value={editingStakeholder ? (editingStakeholder.preferences || '') : stakeholderFormData.preferences}
+                  onChange={(e) => {
+                    if (!editingStakeholder) {
+                      setStakeholderFormData(prev => ({ ...prev, preferences: e.target.value }));
+                    } else {
+                      setEditingStakeholder(prev => ({ ...prev, preferences: e.target.value }));
+                    }
+                  }}
                   rows={2}
                   placeholder="Preferred communication style, meeting times, etc."
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -2280,7 +2767,14 @@ function AdminProjectPageContent() {
                   type="checkbox"
                   name="is_primary"
                   id="is_primary"
-                  defaultChecked={editingStakeholder?.is_primary}
+                  checked={editingStakeholder ? (editingStakeholder.is_primary || false) : stakeholderFormData.is_primary}
+                  onChange={(e) => {
+                    if (!editingStakeholder) {
+                      setStakeholderFormData(prev => ({ ...prev, is_primary: e.target.checked }));
+                    } else {
+                      setEditingStakeholder(prev => ({ ...prev, is_primary: e.target.checked }));
+                    }
+                  }}
                   className="mr-2"
                 />
                 <label htmlFor="is_primary" className="text-sm font-medium text-gray-700">
@@ -2378,6 +2872,105 @@ function AdminProjectPageContent() {
             }
           }}
         />
+      )}
+
+      {/* Team Member Modal */}
+      {showTeamMemberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold">Add Team Member</h2>
+              <button
+                onClick={() => {
+                  setShowTeamMemberModal(false);
+                  setSelectedTeamUserId('');
+                  setSelectedProjectRole('team_member');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* User Selection */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Select User</label>
+                <select
+                  value={selectedTeamUserId}
+                  onChange={(e) => {
+                    setSelectedTeamUserId(e.target.value);
+                    // Auto-populate project role based on user's system role
+                    const selectedUser = availableUsers.find(u => u.id === e.target.value);
+                    if (selectedUser) {
+                      // Map system role to project role
+                      if (selectedUser.role === 'super_admin') {
+                        setSelectedProjectRole('super_admin');
+                      } else if (selectedUser.role === 'project_admin') {
+                        setSelectedProjectRole('project_admin');
+                      } else if (selectedUser.role === 'team_member') {
+                        setSelectedProjectRole('team_member');
+                      } else {
+                        setSelectedProjectRole('team_member'); // Default fallback
+                      }
+                    }
+                  }}
+                  className="w-full p-2 border rounded-lg"
+                >
+                  <option value="">Choose a user...</option>
+                  {availableUsers
+                    .filter(user => user.role !== 'client') // Filter out client users
+                    .filter(user => !teamMembers.some(m => m.user_id === user.id)) // Filter out already assigned users
+                    .map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.full_name || user.email} ({user.role})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Project Role Selection */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Project Role</label>
+                <select
+                  value={selectedProjectRole}
+                  onChange={(e) => setSelectedProjectRole(e.target.value)}
+                  className="w-full p-2 border rounded-lg"
+                >
+                  <option value="super_admin">Super Admin</option>
+                  <option value="project_admin">Project Admin</option>
+                  <option value="team_member">Team Member</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedProjectRole === 'super_admin' && 'Full system access and control over the project'}
+                  {selectedProjectRole === 'project_admin' && 'Can manage project settings, team, and content'}
+                  {selectedProjectRole === 'team_member' && 'Can work on project tasks and content'}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowTeamMemberModal(false);
+                    setSelectedTeamUserId('');
+                    setSelectedProjectRole('team_member');
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddTeamMember}
+                  disabled={!selectedTeamUserId}
+                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add Team Member
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* AI Form Builder Modal (deprecated - kept for backward compatibility) */}

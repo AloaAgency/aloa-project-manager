@@ -39,12 +39,13 @@ export async function GET(request) {
       .eq('id', user.id)
       .single();
 
-    if (profileError || profile?.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Forbidden - Super admin access required' }, { status: 403 });
+    // Allow super_admin and project_admin to see users (but project_admin only sees clients)
+    if (profileError || !['super_admin', 'project_admin'].includes(profile?.role)) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
-    // Get all users with their profiles
-    const { data: users, error: usersError } = await supabase
+    // Get users based on requester's role
+    let query = supabase
       .from('aloa_user_profiles')
       .select(`
         id,
@@ -55,6 +56,13 @@ export async function GET(request) {
         updated_at
       `)
       .order('created_at', { ascending: false });
+
+    // If project_admin, only show client users
+    if (profile?.role === 'project_admin') {
+      query = query.eq('role', 'client');
+    }
+
+    const { data: users, error: usersError } = await query;
 
     if (usersError) {
       console.error('Error fetching users:', usersError);

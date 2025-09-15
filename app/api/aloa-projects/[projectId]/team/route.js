@@ -1,16 +1,29 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { createServiceClient } from '@/lib/supabase-service';
 
 export async function GET(request, { params }) {
   try {
     const { projectId } = params;
 
-    // Get team members for this project
-    const { data: team, error } = await supabase
-      .from('aloa_project_team')
-      .select('*')
+    // Use service client to bypass RLS for reading team members
+    const serviceClient = createServiceClient();
+
+    // Get team members for this project with user profile information
+    const { data: team, error } = await serviceClient
+      .from('aloa_project_members')
+      .select(`
+        *,
+        user:aloa_user_profiles!aloa_project_members_user_id_fkey(
+          id,
+          email,
+          full_name,
+          avatar_url,
+          role
+        )
+      `)
       .eq('project_id', projectId)
-      .order('created_at', { ascending: true });
+      .neq('project_role', 'viewer'); // Exclude client stakeholders (viewers)
 
     if (error) {
       console.error('Error fetching team:', error);
@@ -20,9 +33,21 @@ export async function GET(request, { params }) {
       );
     }
 
+    // Format the response to include user details
+    const formattedTeam = (team || []).map(member => ({
+      id: member.id,
+      user_id: member.user_id,
+      project_id: member.project_id,
+      project_role: member.project_role,
+      email: member.user?.email,
+      name: member.user?.full_name,
+      avatar_url: member.user?.avatar_url,
+      system_role: member.user?.role
+    }));
+
     return NextResponse.json({
-      team: team || [],
-      count: team?.length || 0
+      team: formattedTeam,
+      count: formattedTeam.length
     });
 
   } catch (error) {
@@ -37,36 +62,111 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const { projectId } = params;
-    const { email, name, role } = await request.json();
+    const body = await request.json();
+    const { user_id, project_role } = body;
 
-    // Add new team member
-    const { data: newMember, error } = await supabase
-      .from('aloa_project_team')
+    console.log('Adding team member:', { projectId, user_id, project_role });
+
+    if (!user_id || !project_role) {
+      return NextResponse.json(
+        { error: 'User ID and project role are required' },
+        { status: 400 }
+      );
+    }
+
+    // Use service client to bypass RLS for modifications
+    const serviceClient = createServiceClient();
+
+    // Check if user is already a member of this project
+    const { data: existingMember } = await serviceClient
+      .from('aloa_project_members')
+      .select('id')
+      .eq('project_id', projectId)
+      .eq('user_id', user_id)
+      .single();
+
+    if (existingMember) {
+      // Update existing member's role
+      const { data: updatedMember, error: updateError } = await serviceClient
+        .from('aloa_project_members')
+        .update({ project_role })
+        .eq('id', existingMember.id)
+        .select(`
+          *,
+          user:aloa_user_profiles!aloa_project_members_user_id_fkey(
+            id,
+            email,
+            full_name,
+            avatar_url,
+            role
+          )
+        `)
+        .single();
+
+      if (updateError) {
+        console.error('Error updating team member:', updateError);
+        return NextResponse.json(
+          { error: 'Failed to update team member' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        member: {
+          id: updatedMember.id,
+          user_id: updatedMember.user_id,
+          project_id: updatedMember.project_id,
+          project_role: updatedMember.project_role,
+          email: updatedMember.user?.email,
+          name: updatedMember.user?.full_name,
+          avatar_url: updatedMember.user?.avatar_url,
+          system_role: updatedMember.user?.role
+        }
+      });
+    }
+
+    // Add new team member using service client to bypass RLS
+    const { data: newMember, error } = await serviceClient
+      .from('aloa_project_members')
       .insert([{
         project_id: projectId,
-        email,
-        name,
-        role: role || 'viewer',
-        permissions: {
-          can_fill_forms: true,
-          can_approve: role === 'client' || role === 'admin',
-          can_edit_project: role === 'admin'
-        }
+        user_id,
+        project_role
       }])
-      .select()
+      .select(`
+        *,
+        user:aloa_user_profiles!aloa_project_members_user_id_fkey(
+          id,
+          email,
+          full_name,
+          avatar_url,
+          role
+        )
+      `)
       .single();
 
     if (error) {
       console.error('Error adding team member:', error);
+      console.error('Error details:', error.message, error.code);
       return NextResponse.json(
-        { error: 'Failed to add team member' },
+        { error: error.message || 'Failed to add team member' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      member: newMember
+      member: {
+        id: newMember.id,
+        user_id: newMember.user_id,
+        project_id: newMember.project_id,
+        project_role: newMember.project_role,
+        email: newMember.user?.email,
+        name: newMember.user?.full_name,
+        avatar_url: newMember.user?.avatar_url,
+        system_role: newMember.user?.role
+      }
     });
 
   } catch (error) {
@@ -91,8 +191,11 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const { error } = await supabase
-      .from('aloa_project_team')
+    // Use service client to bypass RLS for deletions
+    const serviceClient = createServiceClient();
+
+    const { error } = await serviceClient
+      .from('aloa_project_members')
       .delete()
       .eq('id', memberId)
       .eq('project_id', projectId);

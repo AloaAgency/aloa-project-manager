@@ -166,7 +166,10 @@ export default function AuthGuard({
             </button>
             
             <button
-              onClick={() => router.push('/auth/login')}
+              onClick={() => {
+                // Use window.location for more reliable redirect when session is lost
+                window.location.href = '/auth/login';
+              }}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Return to Login
