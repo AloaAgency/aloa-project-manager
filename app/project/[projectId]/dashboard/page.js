@@ -26,6 +26,7 @@ import {
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
 import AuthGuard from '@/components/AuthGuard';
+import useEscapeKey from '@/hooks/useEscapeKey';
 import { createClient } from '@/lib/supabase-browser';
 
 // Dynamic imports for heavy components
@@ -49,6 +50,20 @@ function ClientDashboard() {
   const [isFormViewOnly, setIsFormViewOnly] = useState(false); // Track if form is in view-only mode
   const [showLinkSubmissionModal, setShowLinkSubmissionModal] = useState(false); // Track link submission modal
   const [showFileUploadModal, setShowFileUploadModal] = useState(false); // Track file upload modal
+
+  // ESC key handlers for modals
+  useEscapeKey(() => {
+    setShowFormModal(false);
+    setIsFormViewOnly(false);
+  }, showFormModal);
+
+  useEscapeKey(() => {
+    setShowLinkSubmissionModal(false);
+  }, showLinkSubmissionModal);
+
+  useEscapeKey(() => {
+    setShowFileUploadModal(false);
+  }, showFileUploadModal);
 
   useEffect(() => {
     // Get authenticated user's ID

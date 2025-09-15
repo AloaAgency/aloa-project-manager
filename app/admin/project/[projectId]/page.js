@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import AuthGuard from '@/components/AuthGuard';
+import useEscapeKey from '@/hooks/useEscapeKey';
 import { 
   ArrowLeft,
   Edit,
@@ -128,6 +129,31 @@ function AdminProjectPageContent() {
     importance: 5,
     is_primary: false
   });
+
+  // ESC key handlers for modals
+  useEscapeKey(() => {
+    setShowProjectletEditor(false);
+    setSelectedProjectlet(null);
+  }, showProjectletEditor);
+
+  useEscapeKey(() => {
+    setShowStakeholderForm(false);
+    setEditingStakeholder(null);
+    setSelectedUserId(null);
+    setStakeholderFormData({
+      name: '',
+      email: '',
+      title: '',
+      role: 'decision_maker',
+      phone: '',
+      bio: '',
+      responsibilities: '',
+      preferences: '',
+      linkedin_url: '',
+      importance: 5,
+      is_primary: false
+    });
+  }, showStakeholderForm);
 
   useEffect(() => {
     fetchProjectData();

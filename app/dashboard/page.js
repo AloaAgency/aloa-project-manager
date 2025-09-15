@@ -6,6 +6,7 @@ import { Plus, Eye, BarChart, ExternalLink, Trash2, Edit2, Brain, Folder, Folder
 import LoadingSpinner from '@/components/LoadingSpinner';
 import AuthGuard from '@/components/AuthGuard';
 import toast from 'react-hot-toast';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 function Dashboard() {
   const router = useRouter();
@@ -18,6 +19,11 @@ function Dashboard() {
   const [showBulkAssign, setShowBulkAssign] = useState(false);
   const [bulkProjectId, setBulkProjectId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
+
+  // ESC key handler for bulk assign modal
+  useEscapeKey(() => {
+    setShowBulkAssign(false);
+  }, showBulkAssign);
 
   useEffect(() => {
     fetchProjects();

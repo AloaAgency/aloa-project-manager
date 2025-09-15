@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { 
   Users, 
   Plus, 
@@ -38,6 +39,12 @@ export default function UsersManagementPage() {
   });
   const [inviteMode, setInviteMode] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
+
+  // ESC key handler for create modal
+  useEscapeKey(() => {
+    setShowCreateModal(false);
+    setInviteMode(false);
+  }, showCreateModal);
 
   useEffect(() => {
     if (!userLoading) {
