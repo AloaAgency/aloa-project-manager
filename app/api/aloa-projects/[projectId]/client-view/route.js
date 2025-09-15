@@ -27,12 +27,12 @@ export async function GET(request, { params }) {
       .from('aloa_projectlets')
       .select(`
         *,
-        applets:aloa_applets(
+        applets:aloa_projectlet_applets(
           *
         )
       `)
       .eq('project_id', projectId)
-      .order('sequence_order', { ascending: true });
+      .order('order_index', { ascending: true });
 
     if (projectletsError) {
       console.error('Error fetching projectlets:', projectletsError);

@@ -168,6 +168,22 @@ function AdminProjectPageContent() {
     setSelectedProjectRole('team_member');
   }, showTeamMemberModal);
 
+  // Add ESC key handler for Knowledge Upload modal
+  useEscapeKey(() => {
+    setShowKnowledgeUpload(false);
+  }, showKnowledgeUpload);
+
+  // Add ESC key handler for Applet Manager modal
+  useEscapeKey(() => {
+    setShowAppletManager(false);
+    setSelectedProjectletForApplet(null);
+  }, showAppletManager);
+
+  // Add ESC key handler for AI Form Builder modal
+  useEscapeKey(() => {
+    setShowAIFormBuilder(false);
+  }, showAIFormBuilder);
+
   useEffect(() => {
     fetchProjectData();
     fetchKnowledgeBase();
@@ -217,34 +233,38 @@ function AdminProjectPageContent() {
 
   const handleFileUpload = async (file) => {
     setUploadingKnowledge(true);
-    
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('projectId', params.projectId);
-    
+
     try {
-      const uploadResponse = await fetch('/api/aloa-forms/upload', {
+      // Upload file to project-files endpoint
+      const uploadResponse = await fetch('/api/project-files', {
         method: 'POST',
         body: formData
       });
-      
+
       if (!uploadResponse.ok) {
+        const error = await uploadResponse.text();
+        console.error('Upload error:', error);
         throw new Error('Failed to upload file');
       }
-      
-      const { fileUrl } = await uploadResponse.json();
-      
+
+      const { url, id } = await uploadResponse.json();
+
+      // Add to knowledge base
       const knowledgeResponse = await fetch(`/api/aloa-projects/${params.projectId}/knowledge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'file',
           title: file.name,
-          file_url: fileUrl,
+          file_url: url,
           importance: 7
         })
       });
-      
+
       if (knowledgeResponse.ok) {
         toast.success('File added to knowledge base');
         fetchKnowledgeBase();

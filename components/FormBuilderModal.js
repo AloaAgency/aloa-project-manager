@@ -5,10 +5,10 @@ import { X, Brain, Wand2 } from 'lucide-react';
 import AIChatFormBuilder from './AIChatFormBuilder';
 import toast from 'react-hot-toast';
 
-export default function FormBuilderModal({ 
-  isOpen, 
-  onClose, 
-  projectId, 
+export default function FormBuilderModal({
+  isOpen,
+  onClose,
+  projectId,
   projectName,
   projectKnowledge,
   projectletId,
@@ -16,6 +16,20 @@ export default function FormBuilderModal({
   onFormCreated
 }) {
   const [isCreating, setIsCreating] = useState(false);
+
+  // Add ESC key handler
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
