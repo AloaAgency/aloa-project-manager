@@ -168,7 +168,7 @@ function ClientDashboard() {
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
-    
+
     // Block if:
     // 1. Non-form, non-link-submission, non-file-upload applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
@@ -177,17 +177,19 @@ function ClientDashboard() {
       return; // Cannot proceed
     }
 
-    // Mark applet as in progress for this user
-    await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        appletId: applet.id,
-        status: 'in_progress',
-        interactionType: 'view',
-        userId: userId
-      })
-    });
+    // Only mark as in_progress if not already completed
+    if (!completedApplets.has(applet.id)) {
+      await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appletId: applet.id,
+          status: 'in_progress',
+          interactionType: 'view',
+          userId: userId
+        })
+      });
+    }
 
     if (applet.type === 'form') {
       // Check for form_id in multiple places
@@ -596,16 +598,35 @@ function ClientDashboard() {
                         // Determine display state
                         let buttonState = 'available';
                         let statusMessage = null;
-                        
+
+                        // Get completion date if available
+                        const completionDate = applet.user_completed_at ?
+                          new Date(applet.user_completed_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          }) : null;
+
                         if (isForm) {
+                          const submissionDate = userHasSubmitted && userFormResponses[formId]?.submitted_at ?
+                            new Date(userFormResponses[formId].submitted_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            }) : completionDate;
+
                           if (userHasSubmitted && formIsLocked) {
                             // User has submitted AND form is locked - can view only
                             buttonState = 'completed-locked';
-                            statusMessage = 'Form completed & locked. No longer accepting responses.';
+                            statusMessage = submissionDate ?
+                              `Form submitted on ${submissionDate} • Locked` :
+                              'Form completed & locked. No longer accepting responses.';
                           } else if (userHasSubmitted && !formIsLocked) {
                             // User has submitted but form still accepting responses - can edit
                             buttonState = 'user-complete-editable';
-                            statusMessage = 'Form completed! We are still awaiting other responses. Want to make a change? Click the pencil icon.';
+                            statusMessage = submissionDate ?
+                              `Submitted on ${submissionDate} • Click to edit` :
+                              'Form completed! We are still awaiting other responses. Want to make a change? Click the pencil icon.';
                           } else if (formIsLocked) {
                             // Form is locked but user hasn't submitted
                             buttonState = 'locked';
@@ -614,13 +635,19 @@ function ClientDashboard() {
                         } else if (applet.type === 'link_submission' && isAppletCompleted) {
                           // Link submissions should be viewable even after completion
                           buttonState = 'link-completed';
-                          statusMessage = 'Links reviewed - click to view again';
+                          statusMessage = completionDate ?
+                            `Links reviewed on ${completionDate}` :
+                            'Links reviewed - click to view again';
                         } else if ((applet.type === 'upload' || applet.type === 'file_upload') && isAppletCompleted) {
                           // File uploads should be viewable even after completion
                           buttonState = 'file-completed';
-                          statusMessage = 'Files reviewed - click to view again';
+                          statusMessage = completionDate ?
+                            `Files reviewed on ${completionDate}` :
+                            'Files reviewed - click to view again';
                         } else if (isAppletCompleted) {
                           buttonState = 'completed';
+                          statusMessage = completionDate ?
+                            `Completed on ${completionDate}` : null;
                         }
                         
                         return (
@@ -636,7 +663,7 @@ function ClientDashboard() {
                                 : buttonState === 'link-completed'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'file-completed'
-                                ? 'bg-purple-50 border-purple-300 hover:border-purple-400 hover:shadow-md cursor-pointer'
+                                ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'locked'
                                 ? 'bg-gray-50 border-gray-300 cursor-default opacity-75'
                                 : buttonState === 'completed'
@@ -648,7 +675,7 @@ function ClientDashboard() {
                               <div className="flex items-center space-x-3">
                                 <div className={`p-2 rounded-lg ${
                                   buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'link-completed' ? 'bg-green-100' :
-                                  buttonState === 'file-completed' ? 'bg-purple-100' :
+                                  buttonState === 'file-completed' ? 'bg-green-100' :
                                   buttonState === 'locked' ? 'bg-gray-100' :
                                   buttonState === 'completed' ? 'bg-green-100' : 
                                   'bg-purple-100'
@@ -687,11 +714,13 @@ function ClientDashboard() {
                                 <Eye className="w-5 h-5 text-green-600" />
                               ) : buttonState === 'link-completed' ? (
                                 <Eye className="w-5 h-5 text-green-600" />
+                              ) : buttonState === 'file-completed' ? (
+                                <Eye className="w-5 h-5 text-green-600" />
                               ) : buttonState === 'completed' ? (
                                 <CheckCircle className="w-6 h-6 text-green-600" />
                               ) : (
                                 <div className="text-purple-600">
-                                  Start →
+                                  {(applet.type === 'upload' || applet.type === 'file_upload') ? 'Review Files →' : 'Start →'}
                                 </div>
                               )}
                             </div>
@@ -940,31 +969,47 @@ function ClientDashboard() {
                     <button
                       onClick={async () => {
                         // Mark applet as completed
-                        await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+                        const response = await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
-                            action: 'update_applet_progress',
                             appletId: selectedApplet.id,
                             userId: userId,
-                            projectletId: selectedApplet.projectlet.id,
-                            progressData: {
-                              status: 'completed',
-                              completedAt: new Date().toISOString()
+                            status: 'completed',
+                            interactionType: 'file_review',
+                            data: {
+                              acknowledgedAt: new Date().toISOString()
                             }
                           })
                         });
+
+                        if (!response.ok) {
+                          console.error('Failed to update applet progress');
+                        }
                         
-                        // Update local state
+                        // Update local state immediately
                         setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
-                        setShowFileUploadModal(false);
-                        
+
+                        // Update the selected applet to show completion
+                        const updatedApplet = {
+                          ...selectedApplet,
+                          user_progress: [{
+                            status: 'completed',
+                            completedAt: new Date().toISOString()
+                          }]
+                        };
+                        setSelectedApplet(updatedApplet);
+
                         // Trigger confetti celebration
                         setShowConfetti(true);
-                        setTimeout(() => setShowConfetti(false), 7000);
-                        
-                        // Refresh project data
-                        fetchProjectData();
+
+                        // Wait a moment for the user to see the success, then close modal
+                        setTimeout(() => {
+                          setShowConfetti(false);
+                          setShowFileUploadModal(false);
+                          // Don't refresh project data here as it will reset local state
+                          // The completion is already tracked locally
+                        }, 3000);
                       }}
                       className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium mt-4"
                     >
