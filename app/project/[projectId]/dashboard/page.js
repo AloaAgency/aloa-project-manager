@@ -26,6 +26,7 @@ import {
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
 import AuthGuard from '@/components/AuthGuard';
+import { createClient } from '@/lib/supabase-browser';
 
 // Dynamic imports for heavy components
 const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), { ssr: false });
@@ -50,16 +51,28 @@ function ClientDashboard() {
   const [showFileUploadModal, setShowFileUploadModal] = useState(false); // Track file upload modal
 
   useEffect(() => {
-    // Generate or retrieve user ID
-    const storedUserId = localStorage.getItem('client_user_id');
-    if (storedUserId) {
-      setUserId(storedUserId);
-    } else {
-      // Generate a unique ID for this client session
-      const newUserId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('client_user_id', newUserId);
-      setUserId(newUserId);
-    }
+    // Get authenticated user's ID
+    const getAuthenticatedUser = async () => {
+      const supabase = createClient();
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (user) {
+        setUserId(user.id);
+      } else {
+        console.error('No authenticated user found:', error);
+        // Fallback to localStorage for anonymous users (shouldn't happen with AuthGuard)
+        const storedUserId = localStorage.getItem('client_user_id');
+        if (storedUserId) {
+          setUserId(storedUserId);
+        } else {
+          const newUserId = `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          localStorage.setItem('client_user_id', newUserId);
+          setUserId(newUserId);
+        }
+      }
+    };
+    
+    getAuthenticatedUser();
   }, []);
 
   useEffect(() => {

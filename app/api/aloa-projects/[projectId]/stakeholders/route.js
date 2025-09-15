@@ -44,6 +44,7 @@ export async function POST(request, { params }) {
 
     const stakeholderData = {
       project_id: projectId,
+      user_id: body.user_id || null,
       name: body.name,
       title: body.title || null,
       role: body.role || null,
@@ -83,6 +84,29 @@ export async function POST(request, { params }) {
       );
     }
 
+    // If user_id is provided, also add them to project_members table
+    if (stakeholderData.user_id) {
+      // Check if user is already a project member
+      const { data: existingMember } = await supabase
+        .from('aloa_project_members')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('user_id', stakeholderData.user_id)
+        .single();
+
+      if (!existingMember) {
+        // Add user as a project member with 'viewer' role (client role)
+        await supabase
+          .from('aloa_project_members')
+          .insert({
+            project_id: projectId,
+            user_id: stakeholderData.user_id,
+            project_role: 'viewer',
+            added_by: body.created_by || 'admin'
+          });
+      }
+    }
+
     // Trigger AI context update to include new stakeholder info
     await supabase.rpc('update_project_ai_context', { p_project_id: projectId });
 
@@ -118,6 +142,7 @@ export async function PATCH(request, { params }) {
     
     // Remove undefined values
     const updateData = {};
+    if (body.user_id !== undefined) updateData.user_id = body.user_id;
     if (body.name !== undefined) updateData.name = body.name;
     if (body.title !== undefined) updateData.title = body.title;
     if (body.role !== undefined) updateData.role = body.role;

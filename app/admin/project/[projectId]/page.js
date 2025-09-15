@@ -113,11 +113,27 @@ function AdminProjectPageContent() {
   const [showStakeholderForm, setShowStakeholderForm] = useState(false);
   const [editingStakeholder, setEditingStakeholder] = useState(null);
   const [expandedApplets, setExpandedApplets] = useState({});
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [stakeholderFormData, setStakeholderFormData] = useState({
+    name: '',
+    email: '',
+    title: '',
+    role: 'decision_maker',
+    phone: '',
+    bio: '',
+    responsibilities: '',
+    preferences: '',
+    linkedin_url: '',
+    importance: 5,
+    is_primary: false
+  });
 
   useEffect(() => {
     fetchProjectData();
     fetchKnowledgeBase();
     fetchStakeholders();
+    fetchAvailableUsers();
   }, [params.projectId]);
 
   // Close action menu when clicking outside
@@ -232,6 +248,30 @@ function AdminProjectPageContent() {
     }
   };
 
+  const fetchAvailableUsers = async () => {
+    try {
+      const response = await fetch('/api/auth/users');
+      console.log('Users API response status:', response.status);
+      
+      if (!response.ok) {
+        console.error('Failed to fetch users:', response.status, response.statusText);
+        const errorData = await response.json();
+        console.error('Error details:', errorData);
+        return;
+      }
+      
+      const data = await response.json();
+      console.log('Users API data:', data);
+      
+      // Filter for client users only
+      const clientUsers = data.users?.filter(user => user.role === 'client') || [];
+      console.log('Filtered client users:', clientUsers);
+      setAvailableUsers(clientUsers);
+    } catch (error) {
+      console.error('Error fetching available users:', error);
+    }
+  };
+
   const handleSaveStakeholder = async (stakeholderData) => {
     try {
       const method = editingStakeholder ? 'PATCH' : 'POST';
@@ -250,6 +290,20 @@ function AdminProjectPageContent() {
         fetchStakeholders();
         setShowStakeholderForm(false);
         setEditingStakeholder(null);
+        setSelectedUserId(null);
+        setStakeholderFormData({
+          name: '',
+          email: '',
+          title: '',
+          role: 'decision_maker',
+          phone: '',
+          bio: '',
+          responsibilities: '',
+          preferences: '',
+          linkedin_url: '',
+          importance: 5,
+          is_primary: false
+        });
       }
     } catch (error) {
       console.error('Error saving stakeholder:', error);
@@ -883,6 +937,20 @@ function AdminProjectPageContent() {
             <button
               onClick={() => {
                 setEditingStakeholder(null);
+                setSelectedUserId(null);
+                setStakeholderFormData({
+                  name: '',
+                  email: '',
+                  title: '',
+                  role: 'decision_maker',
+                  phone: '',
+                  bio: '',
+                  responsibilities: '',
+                  preferences: '',
+                  linkedin_url: '',
+                  importance: 5,
+                  is_primary: false
+                });
                 setShowStakeholderForm(true);
               }}
               className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
@@ -2104,6 +2172,20 @@ function AdminProjectPageContent() {
                 onClick={() => {
                   setShowStakeholderForm(false);
                   setEditingStakeholder(null);
+                  setSelectedUserId(null);
+                  setStakeholderFormData({
+                    name: '',
+                    email: '',
+                    title: '',
+                    role: 'decision_maker',
+                    phone: '',
+                    bio: '',
+                    responsibilities: '',
+                    preferences: '',
+                    linkedin_url: '',
+                    importance: 5,
+                    is_primary: false
+                  });
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -2116,6 +2198,7 @@ function AdminProjectPageContent() {
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const stakeholderData = {
+                  user_id: selectedUserId || null,
                   name: formData.get('name'),
                   title: formData.get('title'),
                   role: formData.get('role'),
@@ -2132,6 +2215,54 @@ function AdminProjectPageContent() {
               }}
               className="space-y-4"
             >
+              {/* Select Existing User or Create New */}
+              {!editingStakeholder && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Link to Existing User (Optional)
+                  </label>
+                  <select
+                    value={selectedUserId || ''}
+                    onChange={(e) => {
+                      const userId = e.target.value;
+                      setSelectedUserId(userId || null);
+                      
+                      // Auto-fill fields if user is selected
+                      if (userId) {
+                        const user = availableUsers.find(u => u.id === userId);
+                        if (user) {
+                          // Update form data state
+                          setStakeholderFormData(prev => ({
+                            ...prev,
+                            name: user.full_name || '',
+                            email: user.email || ''
+                          }));
+                        }
+                      } else {
+                        // Clear fields if no user selected
+                        setStakeholderFormData(prev => ({
+                          ...prev,
+                          name: '',
+                          email: ''
+                        }));
+                      }
+                    }}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="">-- Select an existing client user or create new --</option>
+                    {availableUsers.map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.full_name} ({user.email})
+                        {user.projects?.length > 0 && ` - ${user.projects.map(p => p.project_name).join(', ')}`}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select a client user from the system to link them as a stakeholder, or leave blank to create a new stakeholder profile.
+                  </p>
+                </div>
+              )}
+
               {/* Basic Information */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -2141,7 +2272,12 @@ function AdminProjectPageContent() {
                   <input
                     type="text"
                     name="name"
-                    defaultValue={editingStakeholder?.name}
+                    value={editingStakeholder ? editingStakeholder.name : stakeholderFormData.name}
+                    onChange={(e) => {
+                      if (!editingStakeholder) {
+                        setStakeholderFormData(prev => ({ ...prev, name: e.target.value }));
+                      }
+                    }}
                     required
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
@@ -2204,7 +2340,12 @@ function AdminProjectPageContent() {
                   <input
                     type="email"
                     name="email"
-                    defaultValue={editingStakeholder?.email}
+                    value={editingStakeholder ? (editingStakeholder.email || '') : stakeholderFormData.email}
+                    onChange={(e) => {
+                      if (!editingStakeholder) {
+                        setStakeholderFormData(prev => ({ ...prev, email: e.target.value }));
+                      }
+                    }}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
