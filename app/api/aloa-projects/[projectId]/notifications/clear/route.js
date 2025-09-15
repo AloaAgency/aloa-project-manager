@@ -1,31 +1,30 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Create service client to bypass RLS
+// Use service key to bypass RLS
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SECRET_KEY
 );
 
-// POST mark notification as read
 export async function POST(request, { params }) {
   try {
-    const { notificationId } = params;
+    const { projectId } = params;
 
-    // Update the interaction record to mark as read
+    // Clear all notifications for this project
     const { error } = await supabase
       .from('aloa_applet_interactions')
-      .update({ read: true })
-      .eq('id', notificationId);
+      .delete()
+      .eq('project_id', projectId);
 
     if (error) {
-      console.error('Error marking notification as read:', error);
-      return NextResponse.json({ error: 'Failed to mark as read' }, { status: 500 });
+      console.error('Error clearing notifications:', error);
+      return NextResponse.json({ error: 'Failed to clear notifications' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error in mark-as-read route:', error);
+    console.error('Error clearing notifications:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

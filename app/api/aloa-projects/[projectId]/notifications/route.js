@@ -6,7 +6,7 @@ export async function GET(request, { params }) {
   try {
     const { projectId } = params;
     
-    // Get recent applet interactions that are completions or need approval
+    // Get recent applet interactions from clients (exclude system role)
     const { data: interactions, error } = await supabase
       .from('aloa_applet_interactions')
       .select(`
@@ -23,7 +23,7 @@ export async function GET(request, { params }) {
         )
       `)
       .eq('project_id', projectId)
-      .in('interaction_type', ['submission', 'approval_request', 'start'])
+      .eq('user_role', 'client')  // Only show client interactions
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -35,8 +35,38 @@ export async function GET(request, { params }) {
     // Transform interactions into notifications
     const notifications = interactions?.map(interaction => {
       let title, message, type;
-      
+
       switch (interaction.interaction_type) {
+        case 'form_submit':
+          title = 'Form Submitted';
+          message = `Client submitted "${interaction.applet?.name}" in ${interaction.applet?.projectlet?.name}`;
+          type = 'form_submitted';
+          break;
+        case 'form_save':
+          title = 'Form Progress Saved';
+          message = `Client saved progress on "${interaction.applet?.name}"`;
+          type = 'form_progress';
+          break;
+        case 'view':
+          title = 'Task Viewed';
+          message = `Client viewed "${interaction.applet?.name}" in ${interaction.applet?.projectlet?.name}`;
+          type = 'applet_viewed';
+          break;
+        case 'acknowledge':
+          title = 'Task Acknowledged';
+          message = `Client acknowledged "${interaction.applet?.name}"`;
+          type = 'applet_acknowledged';
+          break;
+        case 'link_submit':
+          title = 'Link Submitted';
+          message = `Client submitted links for "${interaction.applet?.name}"`;
+          type = 'link_submitted';
+          break;
+        case 'file_upload':
+          title = 'File Uploaded';
+          message = `Client uploaded files for "${interaction.applet?.name}"`;
+          type = 'file_uploaded';
+          break;
         case 'submission':
           title = 'Task Completed';
           message = `Client completed "${interaction.applet?.name}" in ${interaction.applet?.projectlet?.name}`;
@@ -53,16 +83,17 @@ export async function GET(request, { params }) {
           type = 'applet_started';
           break;
         default:
-          title = 'Project Update';
-          message = `Activity on "${interaction.applet?.name}"`;
+          title = 'Client Activity';
+          message = `Client activity on "${interaction.applet?.name}" (${interaction.interaction_type})`;
           type = 'general';
       }
-      
+
       return {
         id: interaction.id,
         title,
         message,
         type,
+        interaction_type: interaction.interaction_type,
         created_at: interaction.created_at,
         read: interaction.read || false,
         applet_id: interaction.applet_id,
