@@ -2316,8 +2316,23 @@ function AdminProjectPageContent() {
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
+                
+                // Determine actual user_id to use
+                let actualUserId = null;
+                let shouldCreateUser = false;
+                let userRole = null;
+                
+                if (selectedUserId === 'create_new') {
+                  shouldCreateUser = true;
+                  userRole = formData.get('user_role') || 'client';
+                } else if (selectedUserId) {
+                  actualUserId = selectedUserId;
+                } else if (editingStakeholder?.user_id) {
+                  actualUserId = editingStakeholder.user_id;
+                }
+                
                 const stakeholderData = {
-                  user_id: selectedUserId || null,
+                  user_id: actualUserId,
                   name: formData.get('name'),
                   title: formData.get('title'),
                   role: formData.get('role'),
@@ -2328,59 +2343,111 @@ function AdminProjectPageContent() {
                   preferences: formData.get('preferences'),
                   linkedin_url: formData.get('linkedin_url'),
                   importance: parseInt(formData.get('importance')),
-                  is_primary: formData.get('is_primary') === 'on'
+                  is_primary: formData.get('is_primary') === 'on',
+                  // Add user provisioning info
+                  create_user: shouldCreateUser,
+                  user_role: userRole
                 };
                 handleSaveStakeholder(stakeholderData);
               }}
               className="space-y-4"
             >
-              {/* Select Existing User or Create New */}
-              {!editingStakeholder && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Link to Existing User (Optional)
-                  </label>
-                  <select
-                    value={selectedUserId || ''}
-                    onChange={(e) => {
-                      const userId = e.target.value;
-                      setSelectedUserId(userId || null);
-                      
-                      // Auto-fill fields if user is selected
-                      if (userId) {
-                        const user = availableUsers.find(u => u.id === userId);
-                        if (user) {
-                          // Update form data state
-                          setStakeholderFormData(prev => ({
-                            ...prev,
-                            name: user.full_name || '',
-                            email: user.email || ''
-                          }));
+              {/* User Account Management Section */}
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <h4 className="font-medium text-gray-900 mb-3">User Account Management</h4>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {editingStakeholder ? 'Update User Connection' : 'Link to User Account'}
+                    </label>
+                    <select
+                      value={selectedUserId || editingStakeholder?.user_id || ''}
+                      onChange={(e) => {
+                        const userId = e.target.value;
+                        setSelectedUserId(userId || null);
+                        
+                        // Auto-fill fields if user is selected
+                        if (userId && userId !== 'create_new') {
+                          const user = availableUsers.find(u => u.id === userId);
+                          if (user) {
+                            // Update form data state
+                            setStakeholderFormData(prev => ({
+                              ...prev,
+                              name: user.full_name || '',
+                              email: user.email || ''
+                            }));
+                            if (editingStakeholder) {
+                              setEditingStakeholder(prev => ({
+                                ...prev,
+                                name: user.full_name || prev.name,
+                                email: user.email || prev.email,
+                                user_id: userId
+                              }));
+                            }
+                          }
+                        } else if (!userId) {
+                          // Clear user connection
+                          if (editingStakeholder) {
+                            setEditingStakeholder(prev => ({
+                              ...prev,
+                              user_id: null
+                            }));
+                          }
                         }
-                      } else {
-                        // Clear fields if no user selected
-                        setStakeholderFormData(prev => ({
-                          ...prev,
-                          name: '',
-                          email: ''
-                        }));
-                      }
-                    }}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="">-- Select an existing client user or create new --</option>
-                    {availableUsers.map(user => (
-                      <option key={user.id} value={user.id}>
-                        {user.full_name} ({user.email})
-                        {user.projects?.length > 0 && ` - ${user.projects.map(p => p.project_name).join(', ')}`}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Select a client user from the system to link them as a stakeholder, or leave blank to create a new stakeholder profile.
-                  </p>
+                      }}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">-- No User Account --</option>
+                      <option value="create_new">✨ Create New User Account</option>
+                      {availableUsers.map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.full_name} ({user.email})
+                          {user.projects?.length > 0 && ` - ${user.projects.map(p => p.project_name).join(', ')}`}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {editingStakeholder 
+                        ? "Update the user account connection or create a new account for this stakeholder."
+                        : "Link to an existing user account or create a new one."}
+                    </p>
+                  </div>
+
+                  {/* Show provisioning options when creating new user */}
+                  {selectedUserId === 'create_new' && (
+                    <div className="border-t pt-3 mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Account Type for New User
+                      </label>
+                      <select
+                        name="user_role"
+                        defaultValue="client"
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="client">Client (View-only access to their project)</option>
+                        <option value="project_admin">Project Admin (Can manage this project)</option>
+                        <option value="team_member">Team Member (Limited admin access)</option>
+                      </select>
+                      <div className="mt-2 p-2 bg-blue-50 rounded">
+                        <p className="text-xs text-blue-800">
+                          <strong>Note:</strong> A new user account will be created with the email and name provided below. 
+                          They will receive an invitation to set their password.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show current connection status */}
+                  {editingStakeholder && editingStakeholder.user_id && selectedUserId !== 'create_new' && (
+                    <div className="p-2 bg-green-50 rounded">
+                      <p className="text-xs text-green-800">
+                        ✓ Currently connected to user account
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Basic Information */}
               <div className="grid grid-cols-2 gap-4">

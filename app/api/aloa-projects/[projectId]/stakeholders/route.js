@@ -42,9 +42,61 @@ export async function POST(request, { params }) {
     const { projectId } = params;
     const body = await request.json();
 
+    // Handle user account creation if requested
+    let userId = body.user_id;
+    if (body.create_user && body.email) {
+      try {
+        // Create user invitation
+        const inviteResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/invite`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': request.headers.get('cookie') || ''
+          },
+          body: JSON.stringify({
+            email: body.email,
+            full_name: body.name,
+            role: body.user_role || 'client',
+            send_email: true
+          })
+        });
+
+        if (inviteResponse.ok) {
+          const inviteData = await inviteResponse.json();
+          userId = inviteData.user?.id;
+          
+          // If it's a client, assign them to this project
+          if (body.user_role === 'client' || !body.user_role) {
+            const assignResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/assign-project`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Cookie': request.headers.get('cookie') || ''
+              },
+              body: JSON.stringify({
+                userId: userId,
+                projectId: projectId
+              })
+            });
+            
+            if (!assignResponse.ok) {
+              console.error('Failed to assign user to project');
+            }
+          }
+        } else {
+          const errorData = await inviteResponse.json();
+          console.error('Failed to create user account:', errorData);
+          // Continue without user account if creation fails
+        }
+      } catch (error) {
+        console.error('Error creating user account:', error);
+        // Continue without user account if creation fails
+      }
+    }
+
     const stakeholderData = {
       project_id: projectId,
-      user_id: body.user_id || null,
+      user_id: userId || null,
       name: body.name,
       title: body.title || null,
       role: body.role || null,
@@ -140,9 +192,59 @@ export async function PATCH(request, { params }) {
 
     const body = await request.json();
     
+    // Handle user account creation if requested for existing stakeholder
+    let userId = body.user_id;
+    if (body.create_user && body.email && !body.user_id) {
+      try {
+        // Create user invitation
+        const inviteResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/invite`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': request.headers.get('cookie') || ''
+          },
+          body: JSON.stringify({
+            email: body.email,
+            full_name: body.name,
+            role: body.user_role || 'client',
+            send_email: true
+          })
+        });
+
+        if (inviteResponse.ok) {
+          const inviteData = await inviteResponse.json();
+          userId = inviteData.user?.id;
+          
+          // If it's a client, assign them to this project
+          if (body.user_role === 'client' || !body.user_role) {
+            const assignResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/assign-project`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Cookie': request.headers.get('cookie') || ''
+              },
+              body: JSON.stringify({
+                userId: userId,
+                projectId: projectId
+              })
+            });
+            
+            if (!assignResponse.ok) {
+              console.error('Failed to assign user to project');
+            }
+          }
+        } else {
+          const errorData = await inviteResponse.json();
+          console.error('Failed to create user account:', errorData);
+        }
+      } catch (error) {
+        console.error('Error creating user account:', error);
+      }
+    }
+    
     // Remove undefined values
     const updateData = {};
-    if (body.user_id !== undefined) updateData.user_id = body.user_id;
+    if (userId !== undefined) updateData.user_id = userId;
     if (body.name !== undefined) updateData.name = body.name;
     if (body.title !== undefined) updateData.title = body.title;
     if (body.role !== undefined) updateData.role = body.role;
