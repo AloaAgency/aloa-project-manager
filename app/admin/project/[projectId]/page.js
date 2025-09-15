@@ -515,8 +515,8 @@ function AdminProjectPageContent() {
   const handleAppletDrop = async (appletId, sourceProjectletId, targetProjectletId, targetIndex) => {
     try {
       // Get the source applets list
-      const sourceApplets = appletsData[sourceProjectletId] || [];
-      const targetApplets = appletsData[targetProjectletId] || [];
+      const sourceApplets = projectletApplets[sourceProjectletId] || [];
+      const targetApplets = projectletApplets[targetProjectletId] || [];
 
       // Find the dragged applet
       const draggedApplet = sourceApplets.find(a => a.id === appletId);
@@ -612,6 +612,7 @@ function AdminProjectPageContent() {
       }
 
       // For same projectlet reordering
+      console.log('Reordering applets:', updatedApplets);
       const response = await fetch(
         `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/reorder`,
         {
@@ -624,6 +625,10 @@ function AdminProjectPageContent() {
       if (response.ok) {
         fetchProjectletApplets(sourceProjectletId);
         toast.success('Applet reordered successfully');
+      } else {
+        const errorData = await response.json();
+        console.error('Reorder failed:', errorData);
+        toast.error(errorData.error || 'Failed to reorder applet');
       }
     } catch (error) {
       console.error('Error handling applet drop:', error);
@@ -890,6 +895,7 @@ function AdminProjectPageContent() {
   };
 
   const addProjectlet = async () => {
+    console.log('Adding new projectlet...');
     try {
       const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
         method: 'POST',
@@ -903,16 +909,23 @@ function AdminProjectPageContent() {
 
       if (response.ok) {
         const { projectlet } = await response.json();
+        console.log('New projectlet created:', projectlet);
         // Add the new projectlet to the list
-        setProjectlets([...projectlets, projectlet]);
+        setProjectlets(prevProjectlets => [...prevProjectlets, projectlet]);
         // Initialize empty applets for the new projectlet
         setProjectletApplets(prev => ({
           ...prev,
           [projectlet.id]: []
         }));
+        toast.success('Projectlet added successfully');
+      } else {
+        const error = await response.json();
+        console.error('Failed to create projectlet:', error);
+        toast.error(error.error || 'Failed to add projectlet');
       }
     } catch (error) {
       console.error('Error creating projectlet:', error);
+      toast.error('Failed to add projectlet');
     }
   };
 
