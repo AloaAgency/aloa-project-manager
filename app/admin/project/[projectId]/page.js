@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import AuthGuard from '@/components/AuthGuard';
 import useEscapeKey from '@/hooks/useEscapeKey';
+import UserAvatar from '@/components/UserAvatar';
 import { 
   ArrowLeft,
   Edit,
@@ -523,9 +524,34 @@ function AdminProjectPageContent() {
       if (response.ok) {
         const data = await response.json();
         console.log(`Fetched ${data.applets?.length || 0} applets for projectlet ${projectletId}:`, data.applets);
+        
+        // Fetch completion data for each applet
+        const appletsWithCompletions = await Promise.all(
+          (data.applets || []).map(async (applet) => {
+            try {
+              const completionRes = await fetch(
+                `/api/aloa-projects/${params.projectId}/applet-completions?appletId=${applet.id}`
+              );
+              if (completionRes.ok) {
+                const completionData = await completionRes.json();
+                return {
+                  ...applet,
+                  completions: completionData.completions || [],
+                  completion_percentage: completionData.percentage || 0,
+                  totalStakeholders: completionData.totalStakeholders || 0,
+                  completedCount: completionData.completedCount || 0
+                };
+              }
+            } catch (error) {
+              console.error('Error fetching completion data for applet:', error);
+            }
+            return applet;
+          })
+        );
+        
         setProjectletApplets(prev => ({
           ...prev,
-          [projectletId]: data.applets || []
+          [projectletId]: appletsWithCompletions
         }));
       } else {
         console.error('Failed to fetch applets:', response.status);
@@ -992,21 +1018,34 @@ function AdminProjectPageContent() {
               {stakeholders.map((stakeholder) => (
                 <div key={stakeholder.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      {stakeholder.is_primary && (
-                        <span className="inline-block px-2 py-1 text-xs font-semibold text-purple-800 bg-purple-100 rounded-full mb-2">
-                          Primary Contact
-                        </span>
-                      )}
-                      <h3 className="font-bold text-lg">{stakeholder.name}</h3>
-                      {stakeholder.title && (
-                        <p className="text-sm text-gray-600">{stakeholder.title}</p>
-                      )}
-                      {stakeholder.role && (
-                        <p className="text-xs text-gray-500 capitalize mt-1">
-                          Role: {stakeholder.role.replace('_', ' ')}
-                        </p>
-                      )}
+                    <div className="flex items-start gap-3 flex-1">
+                      {/* Show avatar */}
+                      <UserAvatar
+                        user={{
+                          id: stakeholder.user_id || stakeholder.id,
+                          email: stakeholder.email,
+                          full_name: stakeholder.name,
+                          name: stakeholder.name,
+                          avatar_url: stakeholder.user?.avatar_url
+                        }}
+                        size="md"
+                      />
+                      <div className="flex-1">
+                        {stakeholder.is_primary && (
+                          <span className="inline-block px-2 py-1 text-xs font-semibold text-purple-800 bg-purple-100 rounded-full mb-2">
+                            Primary Contact
+                          </span>
+                        )}
+                        <h3 className="font-bold text-lg">{stakeholder.name}</h3>
+                        {stakeholder.title && (
+                          <p className="text-sm text-gray-600">{stakeholder.title}</p>
+                        )}
+                        {stakeholder.role && (
+                          <p className="text-xs text-gray-500 capitalize mt-1">
+                            Role: {stakeholder.role.replace('_', ' ')}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <div className="flex space-x-1">
                       <button
@@ -1434,7 +1473,27 @@ function AdminProjectPageContent() {
                                               style={{ width: `${applet.completion_percentage}%` }}
                                             />
                                           </div>
-                                          <span className="text-xs ml-2 text-gray-500">{applet.completion_percentage}%</span>
+                                          <span className="text-xs ml-2 text-gray-500">
+                                            {applet.completedCount}/{applet.totalStakeholders} ({applet.completion_percentage}%)
+                                          </span>
+                                        </div>
+                                      )}
+                                      {/* Show avatars of users who completed this applet */}
+                                      {applet.completions && applet.completions.length > 0 && (
+                                        <div className="flex -space-x-2">
+                                          {applet.completions.slice(0, 3).map((completion) => (
+                                            <UserAvatar
+                                              key={completion.user_id}
+                                              user={completion.user}
+                                              size="xs"
+                                              className="ring-2 ring-white"
+                                            />
+                                          ))}
+                                          {applet.completions.length > 3 && (
+                                            <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 ring-2 ring-white">
+                                              +{applet.completions.length - 3}
+                                            </div>
+                                          )}
                                         </div>
                                       )}
                                       {/* Edit and Delete buttons */}
@@ -1877,9 +1936,29 @@ function AdminProjectPageContent() {
                     <div key={form.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{form.title}</p>
-                        <p className="text-xs text-gray-500">
-                          {form.response_count || 0} responses • {form.status}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-gray-500">
+                            {form.response_count || 0} responses • {form.status}
+                          </p>
+                          {/* Show avatars of form respondents if available */}
+                          {form.respondents && form.respondents.length > 0 && (
+                            <div className="flex -space-x-1">
+                              {form.respondents.slice(0, 3).map((user) => (
+                                <UserAvatar
+                                  key={user.id}
+                                  user={user}
+                                  size="xs"
+                                  className="ring-1 ring-white"
+                                />
+                              ))}
+                              {form.respondents.length > 3 && (
+                                <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 ring-1 ring-white">
+                                  +{form.respondents.length - 3}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="flex space-x-1">
                         <button
