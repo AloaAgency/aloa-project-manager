@@ -725,13 +725,15 @@ function AdminProjectPageContent() {
               if (completionRes.ok) {
                 const completionData = await completionRes.json();
                 console.log(`Completion data for applet ${applet.id} (${applet.name}):`, completionData);
-                return {
+                const enrichedApplet = {
                   ...applet,
                   completions: completionData.completions || [],
                   completion_percentage: completionData.percentage || 0,
                   totalStakeholders: completionData.totalStakeholders || 0,
                   completedCount: completionData.completedCount || 0
                 };
+                console.log('Enriched applet data:', enrichedApplet);
+                return enrichedApplet;
               } else {
                 console.error(`Failed to fetch completion data for applet ${applet.id}:`, completionRes.status);
               }
@@ -1589,6 +1591,7 @@ function AdminProjectPageContent() {
                             )}
 
                             {applets.map((applet, appletIndex) => {
+                              console.log('Rendering applet:', applet.name, 'totalStakeholders:', applet.totalStakeholders, 'completedCount:', applet.completedCount);
                               const Icon = APPLET_ICONS[applet.type] || FileText;
                               const formId = applet.form_id || applet.config?.form_id;
                               const form = formId ? availableForms.find(f => f.id === formId) : null;
@@ -1629,10 +1632,29 @@ function AdminProjectPageContent() {
                                       <GripVertical className="w-4 h-4 text-gray-400" />
                                       <Icon className="w-4 h-4 text-gray-600" />
                                       <span className="text-sm font-medium">{applet.name}</span>
-                                      {applet.status && (
-                                        <span className={`text-xs px-2 py-0.5 rounded ${getStatusColor(applet.status)}`}>
-                                          {applet.status}
-                                        </span>
+                                      {/* Always show progress - even if 0 stakeholders to show 0/0 */}
+                                      {(
+                                        <div className="flex items-center space-x-2">
+                                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                                            <div
+                                              className={`h-2 rounded-full transition-all duration-300 ${
+                                                applet.completion_percentage === 100 && applet.totalStakeholders > 0
+                                                  ? 'bg-green-600'
+                                                  : applet.completion_percentage > 0
+                                                  ? 'bg-yellow-500'
+                                                  : 'bg-gray-300'
+                                              }`}
+                                              style={{ width: `${applet.completion_percentage || 0}%` }}
+                                            />
+                                          </div>
+                                          <span className={`text-xs font-medium ${
+                                            applet.completion_percentage === 100 && applet.totalStakeholders > 0
+                                              ? 'text-green-600'
+                                              : 'text-gray-600'
+                                          }`}>
+                                            {applet.completedCount || 0}/{applet.totalStakeholders || 0}
+                                          </span>
+                                        </div>
                                       )}
                                       {isFormLocked && applet.type === 'form' && (
                                         <span className="text-xs px-2 py-0.5 bg-red-600 text-white rounded font-semibold uppercase">
@@ -1672,20 +1694,6 @@ function AdminProjectPageContent() {
                                               </div>
                                             )}
                                           </div>
-                                        </div>
-                                      )}
-                                      {/* Progress indicator */}
-                                      {(applet.completion_percentage > 0 || applet.totalStakeholders > 0) && (
-                                        <div className="flex items-center">
-                                          <div className="w-20 bg-gray-200 rounded-full h-2">
-                                            <div
-                                              className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                                              style={{ width: `${applet.completion_percentage || 0}%` }}
-                                            />
-                                          </div>
-                                          <span className="text-xs ml-2 text-gray-600 font-medium min-w-[60px]">
-                                            {applet.completedCount || 0}/{applet.totalStakeholders || 0}
-                                          </span>
                                         </div>
                                       )}
                                       {/* Edit and Delete buttons */}

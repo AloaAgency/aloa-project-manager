@@ -63,30 +63,14 @@ export async function GET(request, { params }) {
         };
       });
 
-      // Calculate completion percentage based on project members with viewer role (clients)
-      const { data: projectMembers, error: membersError } = await supabase
-        .from('aloa_project_members')
-        .select('user_id')
-        .eq('project_id', projectId)
-        .eq('project_role', 'viewer');
-
-      // Also check for any team members who might review files
-      const { data: allMembers, error: allMembersError } = await supabase
-        .from('aloa_project_members')
-        .select('user_id')
+      // Get client stakeholders for completion tracking
+      const { data: stakeholders, error: stakeholdersError } = await supabase
+        .from('aloa_client_stakeholders')
+        .select('*')
         .eq('project_id', projectId);
 
-      // For file uploads and general applets, count all project members as potential completers
-      // For forms, only count viewers (clients)
-      const { data: appletInfo } = await supabase
-        .from('aloa_applets')
-        .select('type')
-        .eq('id', appletId)
-        .single();
-
-      const isFormApplet = appletInfo?.type === 'form';
-      const relevantMembers = isFormApplet ? projectMembers : allMembers;
-      const totalStakeholders = relevantMembers?.length || 0;
+      // Count unique stakeholders
+      const totalStakeholders = stakeholders?.length || 0;
       const completedCount = completions?.length || 0;
       const percentage = totalStakeholders > 0
         ? Math.round((completedCount / totalStakeholders) * 100)
@@ -94,11 +78,10 @@ export async function GET(request, { params }) {
 
       console.log('Completion calculation:', {
         appletId,
-        isFormApplet,
         totalStakeholders,
         completedCount,
         percentage,
-        relevantMemberIds: relevantMembers?.map(m => m.user_id)
+        stakeholderCount: stakeholders?.length || 0
       });
 
       return NextResponse.json({
