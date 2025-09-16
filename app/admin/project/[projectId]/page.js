@@ -2670,7 +2670,6 @@ function AdminProjectPageContent() {
                     >
                       <option value="">-- No User Account --</option>
                       <option value="create_new">✨ Create New User Account</option>
-<<<<<<< HEAD
                       {(availableUsers || []).map(user => (
                         <option key={user.id} value={user.id}>
                           {user.full_name} ({user.email})
