@@ -11,10 +11,16 @@
       "static/chunks/_app-pages-browser_components_AdminNotifications_js.js"
     ]
   },
-  "app/admin/project/[projectId]/page.js -> @/components/FileUploadConfigStorage": {
-    "id": "app/admin/project/[projectId]/page.js -> @/components/FileUploadConfigStorage",
+  "app/admin/project/[projectId]/page.js -> @/components/EnhancedFileRepository": {
+    "id": "app/admin/project/[projectId]/page.js -> @/components/EnhancedFileRepository",
     "files": [
-      "static/chunks/_app-pages-browser_components_FileUploadConfigStorage_js.js"
+      "static/chunks/_app-pages-browser_components_EnhancedFileRepository_js-_87291.js"
+    ]
+  },
+  "app/admin/project/[projectId]/page.js -> @/components/FileUploadConfigWithSelector": {
+    "id": "app/admin/project/[projectId]/page.js -> @/components/FileUploadConfigWithSelector",
+    "files": [
+      "static/chunks/_app-pages-browser_components_FileUploadConfigWithSelector_js.js"
     ]
   },
   "app/admin/project/[projectId]/page.js -> @/components/FormBuilderModal": {
@@ -39,16 +45,16 @@
     "id": "app/auth/login/page.js -> @/lib/supabase-auth",
     "files": []
   },
-  "app/project/[projectId]/dashboard/page.js -> @/components/ClientFileRepository": {
-    "id": "app/project/[projectId]/dashboard/page.js -> @/components/ClientFileRepository",
-    "files": [
-      "static/chunks/_app-pages-browser_components_ClientFileRepository_js.js"
-    ]
-  },
   "app/project/[projectId]/dashboard/page.js -> @/components/ConfettiCelebration": {
     "id": "app/project/[projectId]/dashboard/page.js -> @/components/ConfettiCelebration",
     "files": [
       "static/chunks/_app-pages-browser_components_ConfettiCelebration_js.js"
+    ]
+  },
+  "app/project/[projectId]/dashboard/page.js -> @/components/EnhancedFileRepository": {
+    "id": "app/project/[projectId]/dashboard/page.js -> @/components/EnhancedFileRepository",
+    "files": [
+      "static/chunks/_app-pages-browser_components_EnhancedFileRepository_js-_87290.js"
     ]
   },
   "components/ConfettiCelebration.js -> react-confetti": {

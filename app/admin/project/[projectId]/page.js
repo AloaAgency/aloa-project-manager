@@ -1320,8 +1320,18 @@ function AdminProjectPageContent() {
                           )}
                         </div>
                         <h3 className="font-bold text-lg">{stakeholder.name}</h3>
-                        {stakeholder.title && (
-                          <p className="text-sm text-gray-600">{stakeholder.title}</p>
+                        {/* Show role for client users instead of title */}
+                        {stakeholder.user?.role ? (
+                          <p className="text-sm text-gray-600">
+                            {stakeholder.user.role === 'client_admin' ? 'Client Admin' :
+                             stakeholder.user.role === 'client_participant' ? 'Client Participant' :
+                             stakeholder.user.role === 'client' ? 'Client' :
+                             stakeholder.title || ''}
+                          </p>
+                        ) : (
+                          stakeholder.title && (
+                            <p className="text-sm text-gray-600">{stakeholder.title}</p>
+                          )
                         )}
                       </div>
                     </div>
