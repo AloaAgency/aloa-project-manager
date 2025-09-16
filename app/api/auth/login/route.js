@@ -19,12 +19,26 @@ export async function POST(request) {
 
     console.log('Server-side login attempt for:', email);
 
+    // Create custom fetch with longer timeout
+    const customFetch = (url, options = {}) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      return fetch(url, {
+        ...options,
+        signal: controller.signal
+      }).finally(() => clearTimeout(timeoutId));
+    };
+
     // Create server-side Supabase client with cookies
     const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       {
+        global: {
+          fetch: customFetch,
+        },
         cookies: {
           get(name) {
             return cookieStore.get(name)?.value;

@@ -5,6 +5,25 @@ import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import AuthGuard from '@/components/AuthGuard';
 import useEscapeKey from '@/hooks/useEscapeKey';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import UserAvatar from '@/components/UserAvatar';
 import { 
   ArrowLeft,
@@ -83,6 +102,11 @@ const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfigStor
   ssr: false
 });
 
+// Dynamically import SortableProjectlet
+const SortableProjectlet = dynamic(() => import('@/components/SortableProjectlet'), {
+  ssr: false
+});
+
 function AdminProjectPageContent() {
   const params = useParams();
   const router = useRouter();
@@ -103,7 +127,7 @@ function AdminProjectPageContent() {
   const [loadingApplets, setLoadingApplets] = useState({});
   const [editingProjectletName, setEditingProjectletName] = useState(null);
   const [tempProjectletName, setTempProjectletName] = useState('');
-  const [draggedProjectlet, setDraggedProjectlet] = useState(null);
+  const [activeId, setActiveId] = useState(null);
   const [isDraggingApplet, setIsDraggingApplet] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(null);
   const [showAppletManager, setShowAppletManager] = useState(false);
@@ -729,51 +753,54 @@ function AdminProjectPageContent() {
     }
   };
 
-  const handleDragStart = (e, projectlet, index) => {
-    // Only handle projectlet drag if it's not an applet being dragged
-    if (!e.dataTransfer.getData('isApplet')) {
-      setDraggedProjectlet({ projectlet, index });
-      e.dataTransfer.effectAllowed = 'move';
-    }
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
 
-  const handleDrop = async (e, targetIndex) => {
-    e.preventDefault();
-    
-    // Don't handle if it's an applet being dropped
-    const isApplet = e.dataTransfer.getData('isApplet');
-    if (isApplet) return;
-    
-    if (!draggedProjectlet || draggedProjectlet.index === targetIndex) {
-      return;
+    if (active.id !== over.id) {
+      const oldIndex = projectlets.findIndex((p) => p.id === active.id);
+      const newIndex = projectlets.findIndex((p) => p.id === over.id);
+
+      const newProjectlets = arrayMove(projectlets, oldIndex, newIndex);
+      setProjectlets(newProjectlets);
+
+      // Update order in database
+      try {
+        const response = await fetch(
+          `/api/aloa-projects/${params.projectId}/projectlets/reorder`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectletId: active.id,
+              newIndex
+            })
+          }
+        );
+
+        if (response.ok) {
+          toast.success('Order updated');
+        } else {
+          throw new Error('Failed to update order');
+        }
+      } catch (error) {
+        console.error('Error updating order:', error);
+        toast.error('Failed to update order');
+        fetchProjectData(); // Revert on error
+      }
     }
 
-    const newProjectlets = [...projectlets];
-    const [movedProjectlet] = newProjectlets.splice(draggedProjectlet.index, 1);
-    newProjectlets.splice(targetIndex, 0, movedProjectlet);
-    
-    setProjectlets(newProjectlets);
-    setDraggedProjectlet(null);
-
-    // Update order in database
-    try {
-      const updates = newProjectlets.map((p, idx) => ({
-        id: p.id,
-        order_index: idx
-      }));
-      
-      // You might need to create an endpoint for bulk order update
-      // For now, we'll just update locally
-      toast.success('Order updated');
-    } catch (error) {
-      console.error('Error updating order:', error);
-      fetchProjectData(); // Revert on error
-    }
+    setActiveId(null);
   };
 
   const getStatusColor = (status) => {
@@ -1032,19 +1059,21 @@ function AdminProjectPageContent() {
                         size="md"
                       />
                       <div className="flex-1">
-                        {stakeholder.is_primary && (
-                          <span className="inline-block px-2 py-1 text-xs font-semibold text-purple-800 bg-purple-100 rounded-full mb-2">
-                            Primary Contact
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2 mb-2">
+                          {stakeholder.is_primary && (
+                            <span className="inline-block px-2 py-1 text-xs font-semibold text-purple-800 bg-purple-100 rounded-full">
+                              Primary Contact
+                            </span>
+                          )}
+                          {stakeholder.role && (
+                            <span className="text-xs text-gray-500 capitalize">
+                              {stakeholder.role === 'client_admin' ? 'Client Admin' : stakeholder.role === 'client_participant' ? 'Client Participant' : stakeholder.role.replace('_', ' ')}
+                            </span>
+                          )}
+                        </div>
                         <h3 className="font-bold text-lg">{stakeholder.name}</h3>
                         {stakeholder.title && (
                           <p className="text-sm text-gray-600">{stakeholder.title}</p>
-                        )}
-                        {stakeholder.role && (
-                          <p className="text-xs text-gray-500 capitalize mt-1">
-                            Role: {stakeholder.role.replace('_', ' ')}
-                          </p>
                         )}
                       </div>
                     </div>
@@ -1084,10 +1113,13 @@ function AdminProjectPageContent() {
                   </div>
                   
                   {stakeholder.email && (
-                    <p className="text-sm text-gray-600 mb-1">
-                      <Mail className="inline w-3 h-3 mr-1" />
+                    <a
+                      href={`mailto:${stakeholder.email}`}
+                      className="inline-flex items-center text-sm text-gray-600 hover:text-black mb-1 transition-colors"
+                    >
+                      <Mail className="w-3 h-3 mr-1" />
                       {stakeholder.email}
-                    </p>
+                    </a>
                   )}
                   
                   {stakeholder.bio && (
@@ -1188,37 +1220,41 @@ function AdminProjectPageContent() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                {projectlets.map((projectlet, index) => {
-                  const applets = projectletApplets[projectlet.id] || [];
-                  const isLoadingApplets = loadingApplets[projectlet.id];
-                  const isEditingName = editingProjectletName === projectlet.id;
-                  const APPLET_ICONS = {
-                    form: FileText,
-                    review: Eye,
-                    upload: Upload,
-                    signoff: CheckCircle,
-                    moodboard: Palette,
-                    content_gather: MessageSquare
-                  };
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={projectlets.map(p => p.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-4">
+                    {projectlets.map((projectlet, index) => {
+                      const applets = projectletApplets[projectlet.id] || [];
+                      const isLoadingApplets = loadingApplets[projectlet.id];
+                      const isEditingName = editingProjectletName === projectlet.id;
+                      const APPLET_ICONS = {
+                        form: FileText,
+                        review: Eye,
+                        upload: Upload,
+                        signoff: CheckCircle,
+                        moodboard: Palette,
+                        content_gather: MessageSquare
+                      };
 
-                  return (
-                    <div 
-                      key={projectlet.id} 
-                      className={`border-2 rounded-lg ${getStatusColor(projectlet.status)} transition-all hover:shadow-lg`}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, projectlet, index)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, index)}
-                    >
-                      {/* Header */}
-                      <div className="p-4 pb-0">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start flex-1">
-                            {/* Drag Handle */}
-                            <div className="mr-3 mt-1 cursor-move opacity-50 hover:opacity-100">
-                              <GripVertical className="w-5 h-5" />
-                            </div>
+                      return (
+                        <SortableProjectlet
+                          key={projectlet.id}
+                          id={projectlet.id}
+                          isDragging={activeId !== null}
+                        >
+                          <div className={`border-2 rounded-lg ${getStatusColor(projectlet.status)} transition-all`}>
+                            {/* Header */}
+                            <div className="p-4 pb-0">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start flex-1">
                             
                             <div className="flex-1">
                               <div className="flex items-center mb-2 group">
@@ -1857,10 +1893,13 @@ function AdminProjectPageContent() {
                         )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </SortableProjectlet>
+                );
+              })}
             </div>
+          </SortableContext>
+        </DndContext>
+      </div>
           </div>
 
           {/* Sidebar */}
