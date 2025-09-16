@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { 
+import {
   ArrowLeft,
   CheckCircle,
   Clock,
@@ -21,7 +21,9 @@ import {
   ExternalLink,
   Link,
   Download,
-  File
+  File,
+  FolderOpen,
+  Home
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
@@ -31,6 +33,7 @@ import { createClient } from '@/lib/supabase-browser';
 
 // Dynamic imports for heavy components
 const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), { ssr: false });
+const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRepository'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -50,6 +53,7 @@ function ClientDashboard() {
   const [isFormViewOnly, setIsFormViewOnly] = useState(false); // Track if form is in view-only mode
   const [showLinkSubmissionModal, setShowLinkSubmissionModal] = useState(false); // Track link submission modal
   const [showFileUploadModal, setShowFileUploadModal] = useState(false); // Track file upload modal
+  const [activeTab, setActiveTab] = useState('journey'); // Track active tab
 
   // ESC key handlers for modals
   useEscapeKey(() => {
@@ -460,6 +464,32 @@ function ClientDashboard() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tab Navigation */}
+        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-8">
+          <button
+            onClick={() => setActiveTab('journey')}
+            className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'journey'
+                ? 'bg-white text-purple-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Home className="w-4 h-4" />
+            <span>Project Journey</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('files')}
+            className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'files'
+                ? 'bg-white text-purple-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <FolderOpen className="w-4 h-4" />
+            <span>File Repository</span>
+          </button>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white rounded-xl p-6 shadow-sm">
@@ -519,9 +549,11 @@ function ClientDashboard() {
           </div>
         </div>
 
-        {/* Projectlets Timeline */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-bold text-gray-900">Your Project Journey</h2>
+        {/* Tab Content */}
+        {activeTab === 'journey' ? (
+          /* Projectlets Timeline */
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-gray-900">Your Project Journey</h2>
           
           {projectlets.map((projectlet, index) => {
             const isLocked = projectlet.status === 'locked';
@@ -733,7 +765,18 @@ function ClientDashboard() {
               </div>
             );
           })}
-        </div>
+          </div>
+        ) : activeTab === 'files' ? (
+          /* File Repository */
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <EnhancedFileRepository
+              projectId={params.projectId}
+              canUpload={true}
+              canDelete={true}
+              canCreateFolders={true}
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Form Modal */}

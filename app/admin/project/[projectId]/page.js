@@ -78,8 +78,13 @@ const LinkSubmissionConfig = dynamic(() => import('@/components/LinkSubmissionCo
   ssr: false
 });
 
-// Dynamically import File Upload Config
-const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfigStorage'), {
+// Dynamically import File Upload Config with Selector
+const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfigWithSelector'), {
+  ssr: false
+});
+
+// Dynamically import Enhanced File Repository
+const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRepository'), {
   ssr: false
 });
 
@@ -136,6 +141,7 @@ function AdminProjectPageContent() {
     importance: 5,
     is_primary: false
   });
+  const [projectFileCount, setProjectFileCount] = useState(0);
 
   // ESC key handlers for modals
   useEscapeKey(() => {
@@ -168,11 +174,28 @@ function AdminProjectPageContent() {
     setSelectedProjectRole('team_member');
   }, showTeamMemberModal);
 
+  // Add ESC key handler for Knowledge Upload modal
+  useEscapeKey(() => {
+    setShowKnowledgeUpload(false);
+  }, showKnowledgeUpload);
+
+  // Add ESC key handler for Applet Manager modal
+  useEscapeKey(() => {
+    setShowAppletManager(false);
+    setSelectedProjectletForApplet(null);
+  }, showAppletManager);
+
+  // Add ESC key handler for AI Form Builder modal
+  useEscapeKey(() => {
+    setShowAIFormBuilder(false);
+  }, showAIFormBuilder);
+
   useEffect(() => {
     fetchProjectData();
     fetchKnowledgeBase();
     fetchStakeholders();
     fetchAvailableUsers();
+    fetchProjectFileCount();
   }, [params.projectId]);
 
   // Close action menu when clicking outside
@@ -186,6 +209,18 @@ function AdminProjectPageContent() {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  const fetchProjectFileCount = async () => {
+    try {
+      const response = await fetch(`/api/project-files?projectId=${params.projectId}`);
+      if (response.ok) {
+        const files = await response.json();
+        setProjectFileCount(files.length);
+      }
+    } catch (error) {
+      console.error('Error fetching project file count:', error);
+    }
+  };
 
   const fetchKnowledgeBase = async () => {
     try {
@@ -217,34 +252,38 @@ function AdminProjectPageContent() {
 
   const handleFileUpload = async (file) => {
     setUploadingKnowledge(true);
-    
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('projectId', params.projectId);
-    
+
     try {
-      const uploadResponse = await fetch('/api/aloa-forms/upload', {
+      // Upload file to project-files endpoint
+      const uploadResponse = await fetch('/api/project-files', {
         method: 'POST',
         body: formData
       });
-      
+
       if (!uploadResponse.ok) {
+        const error = await uploadResponse.text();
+        console.error('Upload error:', error);
         throw new Error('Failed to upload file');
       }
-      
-      const { fileUrl } = await uploadResponse.json();
-      
+
+      const { url, id } = await uploadResponse.json();
+
+      // Add to knowledge base
       const knowledgeResponse = await fetch(`/api/aloa-projects/${params.projectId}/knowledge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'file',
           title: file.name,
-          file_url: fileUrl,
+          file_url: url,
           importance: 7
         })
       });
-      
+
       if (knowledgeResponse.ok) {
         toast.success('File added to knowledge base');
         fetchKnowledgeBase();
@@ -1109,10 +1148,27 @@ function AdminProjectPageContent() {
                 />
               </div>
 
-              {/* Knowledge Documents */}
+              {/* File Repository - Central Knowledge Base */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-3 flex items-center">
+                  <FolderOpen className="w-5 h-5 mr-2 text-purple-600" />
+                  Project File Repository
+                </h3>
+                <div className="border border-gray-200 rounded-lg bg-gray-50">
+                  <EnhancedFileRepository
+                    projectId={params.projectId}
+                    canUpload={true}
+                    canDelete={true}
+                    canCreateFolders={true}
+                    onFileChange={() => fetchProjectFileCount()}
+                  />
+                </div>
+              </div>
+
+              {/* Legacy Knowledge Documents (if any exist) */}
               {knowledgeBase.knowledge && knowledgeBase.knowledge.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3">Knowledge Documents ({knowledgeBase.knowledge.length})</h3>
+                  <h3 className="text-lg font-semibold mb-3">Legacy Knowledge Documents ({knowledgeBase.knowledge.length})</h3>
                   <div className="space-y-2">
                     {knowledgeBase.knowledge.map((doc) => (
                       <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -1160,24 +1216,24 @@ function AdminProjectPageContent() {
               )}
 
               {/* Stats */}
-              {knowledgeBase.stats && (
-                <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-purple-600">{knowledgeBase.stats.totalDocuments}</p>
-                    <p className="text-sm text-gray-600">Documents</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-purple-600">{knowledgeBase.stats.totalInsights}</p>
-                    <p className="text-sm text-gray-600">Insights</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600">Last Updated</p>
-                    <p className="text-xs text-gray-500">
-                      {knowledgeBase.stats.lastUpdated ? new Date(knowledgeBase.stats.lastUpdated).toLocaleString() : 'Never'}
-                    </p>
-                  </div>
+              <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-600">{projectFileCount}</p>
+                  <p className="text-sm text-gray-600">Files</p>
                 </div>
-              )}
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {(knowledgeBase.knowledge?.length || 0) + (knowledgeBase.insights?.length || 0)}
+                  </p>
+                  <p className="text-sm text-gray-600">Knowledge Items</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Last Updated</p>
+                  <p className="text-xs text-gray-500">
+                    {knowledgeBase.stats?.lastUpdated ? new Date(knowledgeBase.stats.lastUpdated).toLocaleString() : 'Never'}
+                  </p>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -1897,16 +1953,18 @@ function AdminProjectPageContent() {
                                   )}
 
                                   {/* Inline file upload configuration */}
-                                  {expandedApplets[applet.id] && (applet.type === 'upload' || 
+                                  {expandedApplets[applet.id] && (applet.type === 'upload' ||
                                     applet.type === 'file_upload' ||
                                     applet.name?.includes('Upload') ||
                                     applet.description?.includes('upload')) && (
-                                    <FileUploadConfig
-                                      applet={applet}
-                                      projectId={params.projectId}
-                                      projectletId={projectlet.id}
-                                      onClose={() => setExpandedApplets(prev => ({ ...prev, [applet.id]: false }))}
-                                    />
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                      <FileUploadConfig
+                                        applet={applet}
+                                        projectId={params.projectId}
+                                        projectletId={projectlet.id}
+                                        onClose={() => setExpandedApplets(prev => ({ ...prev, [applet.id]: false }))}
+                                      />
+                                    </div>
                                   )}
                                 </div>
                                 {/* Drop zone after this applet */}
