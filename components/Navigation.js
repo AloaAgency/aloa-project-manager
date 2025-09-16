@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { User, LogOut, Settings, Users, FileText, BarChart3, Plus, Sparkles } from 'lucide-react';
 import { useState } from 'react';
+import UserAvatar from '@/components/UserAvatar';
 
 export default function Navigation() {
   const { user, profile, signOut, isSuperAdmin, isProjectAdmin, isTeamMember } = useUser();
@@ -92,9 +93,14 @@ export default function Navigation() {
                       {profile?.role?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </p>
                   </div>
-                  <div className="h-8 w-8 rounded-full bg-aloa-cream flex items-center justify-center">
-                    <User className="h-5 w-5 text-aloa-black" />
-                  </div>
+                  <UserAvatar
+                    user={{
+                      full_name: profile?.full_name,
+                      email: user?.email || profile?.email,
+                      avatar_url: profile?.avatar_url
+                    }}
+                    size="sm"
+                  />
                 </div>
               </button>
 

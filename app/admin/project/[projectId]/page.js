@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import AuthGuard from '@/components/AuthGuard';
@@ -25,6 +25,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import UserAvatar from '@/components/UserAvatar';
+import FormResponseModal from '@/components/FormResponseModal';
 import { 
   ArrowLeft,
   Edit,
@@ -97,8 +98,13 @@ const LinkSubmissionConfig = dynamic(() => import('@/components/LinkSubmissionCo
   ssr: false
 });
 
-// Dynamically import File Upload Config
-const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfigStorage'), {
+// Dynamically import File Upload Config with Selector
+const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfigWithSelector'), {
+  ssr: false
+});
+
+// Dynamically import Enhanced File Repository
+const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRepository'), {
   ssr: false
 });
 
@@ -129,6 +135,9 @@ function AdminProjectPageContent() {
   const [tempProjectletName, setTempProjectletName] = useState('');
   const [activeId, setActiveId] = useState(null);
   const [isDraggingApplet, setIsDraggingApplet] = useState(false);
+  const [draggedAppletInfo, setDraggedAppletInfo] = useState(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState(null);
+  const [dropTargetProjectletId, setDropTargetProjectletId] = useState(null);
   const [showActionMenu, setShowActionMenu] = useState(null);
   const [showAppletManager, setShowAppletManager] = useState(false);
   const [selectedProjectletForApplet, setSelectedProjectletForApplet] = useState(null);
@@ -141,6 +150,9 @@ function AdminProjectPageContent() {
   const [expandedApplets, setExpandedApplets] = useState({});
   const [availableUsers, setAvailableUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [showTeamMemberModal, setShowTeamMemberModal] = useState(false);
+  const [selectedTeamUserId, setSelectedTeamUserId] = useState('');
+  const [selectedProjectRole, setSelectedProjectRole] = useState('team_member');
   const [stakeholderFormData, setStakeholderFormData] = useState({
     name: '',
     email: '',
@@ -153,6 +165,14 @@ function AdminProjectPageContent() {
     linkedin_url: '',
     importance: 5,
     is_primary: false
+  });
+  const [projectFileCount, setProjectFileCount] = useState(0);
+  const [showFormResponseModal, setShowFormResponseModal] = useState(false);
+  const [selectedResponseData, setSelectedResponseData] = useState({
+    formId: null,
+    userId: null,
+    userName: null,
+    formName: null
   });
 
   // ESC key handlers for modals
@@ -180,11 +200,34 @@ function AdminProjectPageContent() {
     });
   }, showStakeholderForm);
 
+  useEscapeKey(() => {
+    setShowTeamMemberModal(false);
+    setSelectedTeamUserId('');
+    setSelectedProjectRole('team_member');
+  }, showTeamMemberModal);
+
+  // Add ESC key handler for Knowledge Upload modal
+  useEscapeKey(() => {
+    setShowKnowledgeUpload(false);
+  }, showKnowledgeUpload);
+
+  // Add ESC key handler for Applet Manager modal
+  useEscapeKey(() => {
+    setShowAppletManager(false);
+    setSelectedProjectletForApplet(null);
+  }, showAppletManager);
+
+  // Add ESC key handler for AI Form Builder modal
+  useEscapeKey(() => {
+    setShowAIFormBuilder(false);
+  }, showAIFormBuilder);
+
   useEffect(() => {
     fetchProjectData();
     fetchKnowledgeBase();
     fetchStakeholders();
     fetchAvailableUsers();
+    fetchProjectFileCount();
   }, [params.projectId]);
 
   // Close action menu when clicking outside
@@ -198,6 +241,18 @@ function AdminProjectPageContent() {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  const fetchProjectFileCount = async () => {
+    try {
+      const response = await fetch(`/api/project-files?projectId=${params.projectId}`);
+      if (response.ok) {
+        const files = await response.json();
+        setProjectFileCount(files.length);
+      }
+    } catch (error) {
+      console.error('Error fetching project file count:', error);
+    }
+  };
 
   const fetchKnowledgeBase = async () => {
     try {
@@ -229,34 +284,38 @@ function AdminProjectPageContent() {
 
   const handleFileUpload = async (file) => {
     setUploadingKnowledge(true);
-    
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('projectId', params.projectId);
-    
+
     try {
-      const uploadResponse = await fetch('/api/aloa-forms/upload', {
+      // Upload file to project-files endpoint
+      const uploadResponse = await fetch('/api/project-files', {
         method: 'POST',
         body: formData
       });
-      
+
       if (!uploadResponse.ok) {
+        const error = await uploadResponse.text();
+        console.error('Upload error:', error);
         throw new Error('Failed to upload file');
       }
-      
-      const { fileUrl } = await uploadResponse.json();
-      
+
+      const { url, id } = await uploadResponse.json();
+
+      // Add to knowledge base
       const knowledgeResponse = await fetch(`/api/aloa-projects/${params.projectId}/knowledge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'file',
           title: file.name,
-          file_url: fileUrl,
+          file_url: url,
           importance: 7
         })
       });
-      
+
       if (knowledgeResponse.ok) {
         toast.success('File added to knowledge base');
         fetchKnowledgeBase();
@@ -471,6 +530,186 @@ function AdminProjectPageContent() {
     }
   };
 
+  const handleAddTeamMember = async () => {
+    if (!selectedTeamUserId || !selectedProjectRole) {
+      toast.error('Please select a user and role');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/team`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: selectedTeamUserId,
+          project_role: selectedProjectRole
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTeamMembers([...teamMembers, data.member]);
+        setShowTeamMemberModal(false);
+        setSelectedTeamUserId('');
+        setSelectedProjectRole('team_member');
+        toast.success('Team member added successfully');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to add team member');
+      }
+    } catch (error) {
+      console.error('Error adding team member:', error);
+      toast.error('Failed to add team member');
+    }
+  };
+
+  const handleRemoveTeamMember = async (memberId) => {
+    if (!confirm('Are you sure you want to remove this team member?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/team?memberId=${memberId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setTeamMembers(teamMembers.filter(m => m.id !== memberId));
+        toast.success('Team member removed successfully');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to remove team member');
+      }
+    } catch (error) {
+      console.error('Error removing team member:', error);
+      toast.error('Failed to remove team member');
+    }
+  };
+
+  const handleAppletDrop = async (appletId, sourceProjectletId, targetProjectletId, targetIndex) => {
+    try {
+      // Get the source applets list
+      const sourceApplets = projectletApplets[sourceProjectletId] || [];
+      const targetApplets = projectletApplets[targetProjectletId] || [];
+
+      // Find the dragged applet
+      const draggedApplet = sourceApplets.find(a => a.id === appletId);
+      if (!draggedApplet) return;
+
+      // Calculate new order indices
+      let updatedApplets = [];
+
+      if (sourceProjectletId === targetProjectletId) {
+        // Reordering within the same projectlet
+        const currentIndex = sourceApplets.findIndex(a => a.id === appletId);
+        if (currentIndex === targetIndex || currentIndex === targetIndex - 1) {
+          // No change needed if dropping in the same position
+          return;
+        }
+
+        // Remove from current position
+        const newApplets = [...sourceApplets];
+        newApplets.splice(currentIndex, 1);
+
+        // Insert at new position
+        const adjustedIndex = currentIndex < targetIndex ? targetIndex - 1 : targetIndex;
+        newApplets.splice(adjustedIndex, 0, draggedApplet);
+
+        // Update order indices for all applets
+        updatedApplets = newApplets.map((applet, index) => ({
+          id: applet.id,
+          order_index: index
+        }));
+      } else {
+        // Moving between projectlets
+        // Remove from source
+        const newSourceApplets = sourceApplets.filter(a => a.id !== appletId);
+
+        // Insert into target
+        const newTargetApplets = [...targetApplets];
+        newTargetApplets.splice(targetIndex, 0, { ...draggedApplet, projectlet_id: targetProjectletId });
+
+        // Update order indices for source projectlet
+        const sourceUpdates = newSourceApplets.map((applet, index) => ({
+          id: applet.id,
+          order_index: index
+        }));
+
+        // Update order indices for target projectlet
+        const targetUpdates = newTargetApplets.map((applet, index) => ({
+          id: applet.id,
+          order_index: index
+        }));
+
+        // Update the applet's projectlet_id
+        const response = await fetch(
+          `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${appletId}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectlet_id: targetProjectletId,
+              order_index: targetIndex
+            })
+          }
+        );
+
+        if (response.ok) {
+          // Update both source and target applets
+          if (sourceUpdates.length > 0) {
+            await fetch(
+              `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/reorder`,
+              {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ applets: sourceUpdates })
+              }
+            );
+          }
+
+          if (targetUpdates.length > 1) {
+            await fetch(
+              `/api/aloa-projects/${params.projectId}/projectlets/${targetProjectletId}/applets/reorder`,
+              {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ applets: targetUpdates })
+              }
+            );
+          }
+
+          fetchProjectletApplets(sourceProjectletId);
+          fetchProjectletApplets(targetProjectletId);
+          toast.success('Applet moved successfully');
+        }
+        return;
+      }
+
+      // For same projectlet reordering
+      console.log('Reordering applets:', updatedApplets);
+      const response = await fetch(
+        `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/reorder`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ applets: updatedApplets })
+        }
+      );
+
+      if (response.ok) {
+        fetchProjectletApplets(sourceProjectletId);
+        toast.success('Applet reordered successfully');
+      } else {
+        const errorData = await response.json();
+        console.error('Reorder failed:', errorData);
+        toast.error(errorData.error || 'Failed to reorder applet');
+      }
+    } catch (error) {
+      console.error('Error handling applet drop:', error);
+      toast.error('Failed to reorder applet');
+    }
+  };
+
   const fetchProjectData = async () => {
     try {
       // Fetch project details
@@ -559,13 +798,18 @@ function AdminProjectPageContent() {
               );
               if (completionRes.ok) {
                 const completionData = await completionRes.json();
-                return {
+                console.log(`Completion data for applet ${applet.id} (${applet.name}):`, completionData);
+                const enrichedApplet = {
                   ...applet,
                   completions: completionData.completions || [],
                   completion_percentage: completionData.percentage || 0,
                   totalStakeholders: completionData.totalStakeholders || 0,
                   completedCount: completionData.completedCount || 0
                 };
+                console.log('Enriched applet data:', enrichedApplet);
+                return enrichedApplet;
+              } else {
+                console.error(`Failed to fetch completion data for applet ${applet.id}:`, completionRes.status);
               }
             } catch (error) {
               console.error('Error fetching completion data for applet:', error);
@@ -727,6 +971,7 @@ function AdminProjectPageContent() {
   };
 
   const addProjectlet = async () => {
+    console.log('Adding new projectlet...');
     try {
       const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
         method: 'POST',
@@ -740,16 +985,23 @@ function AdminProjectPageContent() {
 
       if (response.ok) {
         const { projectlet } = await response.json();
+        console.log('New projectlet created:', projectlet);
         // Add the new projectlet to the list
-        setProjectlets([...projectlets, projectlet]);
+        setProjectlets(prevProjectlets => [...prevProjectlets, projectlet]);
         // Initialize empty applets for the new projectlet
         setProjectletApplets(prev => ({
           ...prev,
           [projectlet.id]: []
         }));
+        toast.success('Projectlet added successfully');
+      } else {
+        const error = await response.json();
+        console.error('Failed to create projectlet:', error);
+        toast.error(error.error || 'Failed to add projectlet');
       }
     } catch (error) {
       console.error('Error creating projectlet:', error);
+      toast.error('Failed to add projectlet');
     }
   };
 
@@ -934,10 +1186,27 @@ function AdminProjectPageContent() {
                 />
               </div>
 
-              {/* Knowledge Documents */}
+              {/* File Repository - Central Knowledge Base */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-3 flex items-center">
+                  <FolderOpen className="w-5 h-5 mr-2 text-purple-600" />
+                  Project File Repository
+                </h3>
+                <div className="border border-gray-200 rounded-lg bg-gray-50">
+                  <EnhancedFileRepository
+                    projectId={params.projectId}
+                    canUpload={true}
+                    canDelete={true}
+                    canCreateFolders={true}
+                    onFileChange={() => fetchProjectFileCount()}
+                  />
+                </div>
+              </div>
+
+              {/* Legacy Knowledge Documents (if any exist) */}
               {knowledgeBase.knowledge && knowledgeBase.knowledge.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3">Knowledge Documents ({knowledgeBase.knowledge.length})</h3>
+                  <h3 className="text-lg font-semibold mb-3">Legacy Knowledge Documents ({knowledgeBase.knowledge.length})</h3>
                   <div className="space-y-2">
                     {knowledgeBase.knowledge.map((doc) => (
                       <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -985,24 +1254,24 @@ function AdminProjectPageContent() {
               )}
 
               {/* Stats */}
-              {knowledgeBase.stats && (
-                <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-purple-600">{knowledgeBase.stats.totalDocuments}</p>
-                    <p className="text-sm text-gray-600">Documents</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-purple-600">{knowledgeBase.stats.totalInsights}</p>
-                    <p className="text-sm text-gray-600">Insights</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600">Last Updated</p>
-                    <p className="text-xs text-gray-500">
-                      {knowledgeBase.stats.lastUpdated ? new Date(knowledgeBase.stats.lastUpdated).toLocaleString() : 'Never'}
-                    </p>
-                  </div>
+              <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-600">{projectFileCount}</p>
+                  <p className="text-sm text-gray-600">Files</p>
                 </div>
-              )}
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {(knowledgeBase.knowledge?.length || 0) + (knowledgeBase.insights?.length || 0)}
+                  </p>
+                  <p className="text-sm text-gray-600">Knowledge Items</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Last Updated</p>
+                  <p className="text-xs text-gray-500">
+                    {knowledgeBase.stats?.lastUpdated ? new Date(knowledgeBase.stats.lastUpdated).toLocaleString() : 'Never'}
+                  </p>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -1386,116 +1655,111 @@ function AdminProjectPageContent() {
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
                           </div>
                         ) : applets.length > 0 ? (
-                          <div className="space-y-2">
+                          <div className="space-y-0">
+                            {/* Drop zone at the beginning */}
+                            {isDraggingApplet && (
+                              <div
+                                className={`h-1 transition-all ${
+                                  dropTargetProjectletId === projectlet.id && dropTargetIndex === 0
+                                    ? 'bg-blue-500 h-12 border-2 border-dashed border-blue-500 rounded mb-2'
+                                    : ''
+                                }`}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDropTargetProjectletId(projectlet.id);
+                                  setDropTargetIndex(0);
+                                }}
+                                onDragLeave={(e) => {
+                                  e.stopPropagation();
+                                  if (dropTargetIndex === 0) {
+                                    setDropTargetIndex(null);
+                                    setDropTargetProjectletId(null);
+                                  }
+                                }}
+                                onDrop={async (e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDropTargetIndex(null);
+                                  setDropTargetProjectletId(null);
+
+                                  const isApplet = e.dataTransfer.getData('isApplet');
+                                  if (!isApplet) return;
+
+                                  const draggedAppletId = e.dataTransfer.getData('appletId');
+                                  const sourceProjectletId = e.dataTransfer.getData('projectletId');
+
+                                  // Handle drop at beginning
+                                  await handleAppletDrop(draggedAppletId, sourceProjectletId, projectlet.id, 0);
+                                }}
+                              />
+                            )}
+
                             {applets.map((applet, appletIndex) => {
+                              console.log('Rendering applet:', applet.name, 'totalStakeholders:', applet.totalStakeholders, 'completedCount:', applet.completedCount);
                               const Icon = APPLET_ICONS[applet.type] || FileText;
                               const formId = applet.form_id || applet.config?.form_id;
                               const form = formId ? availableForms.find(f => f.id === formId) : null;
                               const isFormLocked = form?.status === 'closed';
-                              
+
                               return (
-                                <div 
-                                  key={applet.id} 
-                                  className={`p-2 rounded cursor-move transition-colors group border-2 ${
-                                    isFormLocked && applet.type === 'form' 
-                                      ? 'bg-red-50 border-red-300 hover:bg-red-100' 
-                                      : 'bg-white/50 border-transparent hover:bg-white/70'
-                                  }`}
-                                  draggable
-                                  onDragStart={(e) => {
-                                    e.stopPropagation(); // Prevent projectlet from being dragged
-                                    setIsDraggingApplet(true);
-                                    e.dataTransfer.effectAllowed = 'move';
-                                    e.dataTransfer.setData('appletId', applet.id);
-                                    e.dataTransfer.setData('appletIndex', appletIndex);
-                                    e.dataTransfer.setData('projectletId', projectlet.id);
-                                    e.dataTransfer.setData('isApplet', 'true'); // Mark as applet drag
-                                  }}
-                                  onDragEnd={() => {
-                                    setIsDraggingApplet(false);
-                                  }}
-                                  onDragOver={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    e.currentTarget.style.backgroundColor = '#DBEAFE';
-                                    e.currentTarget.style.borderColor = '#3B82F6';
-                                  }}
-                                  onDragLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '';
-                                    e.currentTarget.style.borderColor = '';
-                                  }}
-                                  onDrop={async (e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    e.currentTarget.style.backgroundColor = '';
-                                    e.currentTarget.style.borderColor = '';
-                                    
-                                    const isApplet = e.dataTransfer.getData('isApplet');
-                                    if (!isApplet) return; // Only handle applet drops
-                                    
-                                    const draggedAppletId = e.dataTransfer.getData('appletId');
-                                    const draggedIndex = parseInt(e.dataTransfer.getData('appletIndex'));
-                                    const sourceProjectletId = e.dataTransfer.getData('projectletId');
-                                    
-                                    if (sourceProjectletId === projectlet.id) {
-                                      // Reordering within same projectlet
-                                      if (draggedIndex !== appletIndex) {
-                                        const reorderedApplets = [...applets];
-                                        const [movedApplet] = reorderedApplets.splice(draggedIndex, 1);
-                                        reorderedApplets.splice(appletIndex, 0, movedApplet);
-                                        
-                                        // Update order in database
-                                        try {
-                                          await fetch(`/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/reorder`, {
-                                            method: 'PUT',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                              appletIds: reorderedApplets.map(a => a.id)
-                                            })
-                                          });
-                                          fetchProjectletApplets(projectlet.id);
-                                        } catch (error) {
-                                          console.error('Error reordering applets:', error);
-                                        }
-                                      }
-                                    } else {
-                                      // Moving between projectlets
-                                      try {
-                                        // Update the applet's projectlet_id
-                                        const response = await fetch(
-                                          `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${draggedAppletId}`,
-                                          {
-                                            method: 'PATCH',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                              projectlet_id: projectlet.id,
-                                              order_index: appletIndex
-                                            })
-                                          }
-                                        );
-                                        
-                                        if (response.ok) {
-                                          // Refresh both projectlets
-                                          fetchProjectletApplets(sourceProjectletId);
-                                          fetchProjectletApplets(projectlet.id);
-                                          toast.success('Applet moved successfully');
-                                        }
-                                      } catch (error) {
-                                        console.error('Error moving applet:', error);
-                                        toast.error('Failed to move applet');
-                                      }
-                                    }
-                                  }}
-                                >
+                                <React.Fragment key={applet.id}>
+                                  <div
+                                    className={`p-2 rounded cursor-move transition-colors group border-2 mb-2 ${
+                                      isFormLocked && applet.type === 'form'
+                                        ? 'bg-red-50 border-red-300 hover:bg-red-100'
+                                        : 'bg-white/50 border-transparent hover:bg-white/70'
+                                    }`}
+                                    draggable
+                                    onDragStart={(e) => {
+                                      e.stopPropagation(); // Prevent projectlet from being dragged
+                                      setIsDraggingApplet(true);
+                                      setDraggedAppletInfo({
+                                        id: applet.id,
+                                        index: appletIndex,
+                                        projectletId: projectlet.id
+                                      });
+                                      e.dataTransfer.effectAllowed = 'move';
+                                      e.dataTransfer.setData('appletId', applet.id);
+                                      e.dataTransfer.setData('appletIndex', appletIndex);
+                                      e.dataTransfer.setData('projectletId', projectlet.id);
+                                      e.dataTransfer.setData('isApplet', 'true'); // Mark as applet drag
+                                    }}
+                                    onDragEnd={() => {
+                                      setIsDraggingApplet(false);
+                                      setDraggedAppletInfo(null);
+                                      setDropTargetIndex(null);
+                                      setDropTargetProjectletId(null);
+                                    }}
+                                  >
                                   <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-2">
+                                    <div className="flex items-center space-x-2 flex-1">
                                       <GripVertical className="w-4 h-4 text-gray-400" />
                                       <Icon className="w-4 h-4 text-gray-600" />
                                       <span className="text-sm font-medium">{applet.name}</span>
-                                      {applet.status && (
-                                        <span className={`text-xs px-2 py-0.5 rounded ${getStatusColor(applet.status)}`}>
-                                          {applet.status}
-                                        </span>
+                                      {/* Always show progress - even if 0 stakeholders to show 0/0 */}
+                                      {(
+                                        <div className="flex items-center space-x-2">
+                                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                                            <div
+                                              className={`h-2 rounded-full transition-all duration-300 ${
+                                                applet.completion_percentage === 100 && applet.totalStakeholders > 0
+                                                  ? 'bg-green-600'
+                                                  : applet.completion_percentage > 0
+                                                  ? 'bg-yellow-500'
+                                                  : 'bg-gray-300'
+                                              }`}
+                                              style={{ width: `${applet.completion_percentage || 0}%` }}
+                                            />
+                                          </div>
+                                          <span className={`text-xs font-medium ${
+                                            applet.completion_percentage === 100 && applet.totalStakeholders > 0
+                                              ? 'text-green-600'
+                                              : 'text-gray-600'
+                                          }`}>
+                                            {applet.completedCount || 0}/{applet.totalStakeholders || 0}
+                                          </span>
+                                        </div>
                                       )}
                                       {isFormLocked && applet.type === 'form' && (
                                         <span className="text-xs px-2 py-0.5 bg-red-600 text-white rounded font-semibold uppercase">
@@ -1503,36 +1767,51 @@ function AdminProjectPageContent() {
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center space-x-2">
-                                      {applet.completion_percentage > 0 && (
-                                        <div className="flex items-center">
-                                          <div className="w-16 bg-gray-200 rounded-full h-1.5">
-                                            <div
-                                              className="bg-green-600 h-1.5 rounded-full"
-                                              style={{ width: `${applet.completion_percentage}%` }}
-                                            />
-                                          </div>
-                                          <span className="text-xs ml-2 text-gray-500">
-                                            {applet.completedCount}/{applet.totalStakeholders} ({applet.completion_percentage}%)
-                                          </span>
-                                        </div>
-                                      )}
+                                    <div className="flex items-center space-x-3">
                                       {/* Show avatars of users who completed this applet */}
                                       {applet.completions && applet.completions.length > 0 && (
-                                        <div className="flex -space-x-2">
-                                          {applet.completions.slice(0, 3).map((completion) => (
-                                            <UserAvatar
-                                              key={completion.user_id}
-                                              user={completion.user}
-                                              size="xs"
-                                              className="ring-2 ring-white"
-                                            />
-                                          ))}
-                                          {applet.completions.length > 3 && (
-                                            <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 ring-2 ring-white">
-                                              +{applet.completions.length - 3}
-                                            </div>
-                                          )}
+                                        <div className="flex items-center space-x-2">
+                                          <div className="flex -space-x-2">
+                                            {applet.completions.slice(0, 4).map((completion) => (
+                                              <div
+                                                key={completion.user_id}
+                                                className={`relative group ${applet.type === 'form' ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+                                                title={`${completion.user?.full_name || completion.user?.email || 'User'} - Reviewed ${
+                                                  completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
+                                                }${applet.type === 'form' ? '\nClick to view response' : ''}`}
+                                                onClick={() => {
+                                                  if (applet.type === 'form') {
+                                                    const formId = applet.form_id || applet.config?.form_id;
+                                                    const form = formId ? availableForms.find(f => f.id === formId) : null;
+                                                    setSelectedResponseData({
+                                                      formId: formId,
+                                                      userId: completion.user_id,
+                                                      userName: completion.user?.full_name || completion.user?.email || 'User',
+                                                      formName: form?.title || applet.name
+                                                    });
+                                                    setShowFormResponseModal(true);
+                                                  }
+                                                }}
+                                              >
+                                                {completion.user?.avatar_url ? (
+                                                  <img
+                                                    src={completion.user.avatar_url}
+                                                    alt={completion.user.full_name || ''}
+                                                    className="w-7 h-7 rounded-full ring-2 ring-white object-cover"
+                                                  />
+                                                ) : (
+                                                  <div className="w-7 h-7 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-medium ring-2 ring-white">
+                                                    {(completion.user?.full_name || completion.user?.email || '?')[0].toUpperCase()}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                            {applet.completions.length > 4 && (
+                                              <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 ring-2 ring-white">
+                                                +{applet.completions.length - 4}
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                       )}
                                       {/* Edit and Delete buttons */}
@@ -1736,138 +2015,56 @@ function AdminProjectPageContent() {
                                   )}
 
                                   {/* Inline file upload configuration */}
-                                  {expandedApplets[applet.id] && (applet.type === 'upload' || 
+                                  {expandedApplets[applet.id] && (applet.type === 'upload' ||
                                     applet.type === 'file_upload' ||
                                     applet.name?.includes('Upload') ||
                                     applet.description?.includes('upload')) && (
-                                    <FileUploadConfig
-                                      applet={applet}
-                                      projectId={params.projectId}
-                                      projectletId={projectlet.id}
-                                      onClose={() => setExpandedApplets(prev => ({ ...prev, [applet.id]: false }))}
-                                    />
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                      <FileUploadConfig
+                                        applet={applet}
+                                        projectId={params.projectId}
+                                        projectletId={projectlet.id}
+                                        onClose={() => setExpandedApplets(prev => ({ ...prev, [applet.id]: false }))}
+                                      />
+                                    </div>
                                   )}
                                 </div>
-                              );
-                            })}
-                            
-                            {/* Drop zone at the end of applets list */}
-                            <div
-                              className={`py-3 border-2 border-dashed rounded-lg transition-all ${
-                                isDraggingApplet 
-                                  ? 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50' 
-                                  : 'border-transparent'
-                              }`}
-                              onDragOver={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.currentTarget.style.borderColor = '#3B82F6';
-                                e.currentTarget.style.backgroundColor = '#DBEAFE';
-                              }}
-                              onDragLeave={(e) => {
-                                e.currentTarget.style.borderColor = '';
-                                e.currentTarget.style.backgroundColor = '';
-                              }}
-                              onDrop={async (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.currentTarget.style.borderColor = '';
-                                e.currentTarget.style.backgroundColor = '';
-                                
-                                const isApplet = e.dataTransfer.getData('isApplet');
-                                if (!isApplet) return; // Ignore if not an applet drag
-                                
-                                const draggedAppletId = e.dataTransfer.getData('appletId');
-                                const sourceProjectletId = e.dataTransfer.getData('projectletId');
-                                
-                                if (sourceProjectletId !== projectlet.id) {
-                                  // Moving from another projectlet
-                                  try {
-                                    const response = await fetch(
-                                      `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${draggedAppletId}`,
-                                      {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                          projectlet_id: projectlet.id,
-                                          order_index: applets.length // Add at the end
-                                        })
+                                {/* Drop zone after this applet */}
+                                {isDraggingApplet && draggedAppletInfo?.id !== applet.id && (
+                                  <div
+                                    className={`transition-all ${
+                                      dropTargetProjectletId === projectlet.id && dropTargetIndex === appletIndex + 1
+                                        ? 'h-12 border-2 border-dashed border-blue-500 bg-blue-50 rounded mb-2'
+                                        : 'h-1'
+                                    }`}
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setDropTargetProjectletId(projectlet.id);
+                                      setDropTargetIndex(appletIndex + 1);
+                                    }}
+                                    onDragLeave={(e) => {
+                                      e.stopPropagation();
+                                      if (dropTargetIndex === appletIndex + 1) {
+                                        setDropTargetIndex(null);
+                                        setDropTargetProjectletId(null);
                                       }
-                                    );
-                                    
-                                    if (response.ok) {
-                                      fetchProjectletApplets(sourceProjectletId);
-                                      fetchProjectletApplets(projectlet.id);
-                                      toast.success('Applet moved successfully');
-                                    }
-                                  } catch (error) {
-                                    console.error('Error moving applet:', error);
-                                    toast.error('Failed to move applet');
-                                  }
-                                }
-                              }}
-                            >
-                              {isDraggingApplet && (
-                                <p className="text-xs text-gray-500 text-center font-medium">Drop applet here</p>
-                              )}
-                            </div>
+                                    }}
+                                    onDrop={async (e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      await handleAppletDrop(draggedAppletInfo.id, draggedAppletInfo.projectletId, projectlet.id, appletIndex + 1);
+                                      setDropTargetIndex(null);
+                                      setDropTargetProjectletId(null);
+                                    }}
+                                  />
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
                           </div>
                         ) : (
-                          <div 
-                            className={`text-center border-2 border-dashed rounded-lg bg-white/30 transition-all ${
-                              isDraggingApplet
-                                ? 'py-6 border-gray-300 hover:border-blue-400'
-                                : 'py-4 border-gray-200'
-                            }`}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.currentTarget.style.borderColor = '#3B82F6';
-                              e.currentTarget.style.backgroundColor = '#DBEAFE';
-                            }}
-                            onDragLeave={(e) => {
-                              e.currentTarget.style.borderColor = '';
-                              e.currentTarget.style.backgroundColor = '';
-                            }}
-                            onDrop={async (e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.currentTarget.style.borderColor = '';
-                              e.currentTarget.style.backgroundColor = '';
-                              
-                              const isApplet = e.dataTransfer.getData('isApplet');
-                              if (!isApplet) return; // Ignore if not an applet drag
-                              
-                              const draggedAppletId = e.dataTransfer.getData('appletId');
-                              const sourceProjectletId = e.dataTransfer.getData('projectletId');
-                              
-                              if (sourceProjectletId) {
-                                // Moving from another projectlet
-                                try {
-                                  const response = await fetch(
-                                    `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/${draggedAppletId}`,
-                                    {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({
-                                        projectlet_id: projectlet.id,
-                                        order_index: 0 // First position
-                                      })
-                                    }
-                                  );
-                                  
-                                  if (response.ok) {
-                                    fetchProjectletApplets(sourceProjectletId);
-                                    fetchProjectletApplets(projectlet.id);
-                                    toast.success('Applet moved successfully');
-                                  }
-                                } catch (error) {
-                                  console.error('Error moving applet:', error);
-                                  toast.error('Failed to move applet');
-                                }
-                              }
-                            }}
-                          >
+                          <div className="text-center py-4 border-2 border-dashed border-gray-200 rounded-lg bg-white/30">
                             <p className="text-sm text-gray-500 mb-2">
                               {isDraggingApplet ? 'Drop applet here' : 'No applets added yet'}
                             </p>
@@ -1940,22 +2137,53 @@ function AdminProjectPageContent() {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold">Team Members</h3>
-                <button className="text-black hover:bg-gray-100 p-1 rounded">
+                <button
+                  onClick={() => setShowTeamMemberModal(true)}
+                  className="text-black hover:bg-gray-100 p-1 rounded"
+                >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
               <div className="space-y-3">
-                {teamMembers.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">{member.name || member.email}</div>
-                      <div className="text-xs text-gray-600 capitalize">{member.role}</div>
+                {teamMembers.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No team members assigned yet
+                  </p>
+                ) : (
+                  teamMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <UserAvatar
+                          user={{
+                            full_name: member.name,
+                            email: member.email,
+                            avatar_url: member.avatar_url
+                          }}
+                          size="sm"
+                        />
+                        <div>
+                          <div className="font-medium text-sm">{member.name || member.email}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-600 capitalize">
+                              {member.project_role || member.role}
+                            </span>
+                            {member.system_role && (
+                              <span className="text-xs px-1.5 py-0.5 bg-gray-100 rounded">
+                                {member.system_role}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveTeamMember(member.id)}
+                        className="text-gray-400 hover:text-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button className="text-gray-400 hover:text-red-600">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -2442,6 +2670,7 @@ function AdminProjectPageContent() {
                     >
                       <option value="">-- No User Account --</option>
                       <option value="create_new">✨ Create New User Account</option>
+<<<<<<< HEAD
                       {(availableUsers || []).map(user => (
                         <option key={user.id} value={user.id}>
                           {user.full_name} ({user.email})
@@ -2788,6 +3017,105 @@ function AdminProjectPageContent() {
         />
       )}
 
+      {/* Team Member Modal */}
+      {showTeamMemberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold">Add Team Member</h2>
+              <button
+                onClick={() => {
+                  setShowTeamMemberModal(false);
+                  setSelectedTeamUserId('');
+                  setSelectedProjectRole('team_member');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* User Selection */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Select User</label>
+                <select
+                  value={selectedTeamUserId}
+                  onChange={(e) => {
+                    setSelectedTeamUserId(e.target.value);
+                    // Auto-populate project role based on user's system role
+                    const selectedUser = availableUsers.find(u => u.id === e.target.value);
+                    if (selectedUser) {
+                      // Map system role to project role
+                      if (selectedUser.role === 'super_admin') {
+                        setSelectedProjectRole('super_admin');
+                      } else if (selectedUser.role === 'project_admin') {
+                        setSelectedProjectRole('project_admin');
+                      } else if (selectedUser.role === 'team_member') {
+                        setSelectedProjectRole('team_member');
+                      } else {
+                        setSelectedProjectRole('team_member'); // Default fallback
+                      }
+                    }
+                  }}
+                  className="w-full p-2 border rounded-lg"
+                >
+                  <option value="">Choose a user...</option>
+                  {availableUsers
+                    .filter(user => user.role !== 'client') // Filter out client users
+                    .filter(user => !teamMembers.some(m => m.user_id === user.id)) // Filter out already assigned users
+                    .map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.full_name || user.email} ({user.role})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Project Role Selection */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Project Role</label>
+                <select
+                  value={selectedProjectRole}
+                  onChange={(e) => setSelectedProjectRole(e.target.value)}
+                  className="w-full p-2 border rounded-lg"
+                >
+                  <option value="super_admin">Super Admin</option>
+                  <option value="project_admin">Project Admin</option>
+                  <option value="team_member">Team Member</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedProjectRole === 'super_admin' && 'Full system access and control over the project'}
+                  {selectedProjectRole === 'project_admin' && 'Can manage project settings, team, and content'}
+                  {selectedProjectRole === 'team_member' && 'Can work on project tasks and content'}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowTeamMemberModal(false);
+                    setSelectedTeamUserId('');
+                    setSelectedProjectRole('team_member');
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddTeamMember}
+                  disabled={!selectedTeamUserId}
+                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add Team Member
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* AI Form Builder Modal (deprecated - kept for backward compatibility) */}
       {showAIFormBuilder && selectedProjectletForApplet && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -2829,6 +3157,18 @@ function AdminProjectPageContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Form Response Modal */}
+      {showFormResponseModal && (
+        <FormResponseModal
+          isOpen={showFormResponseModal}
+          onClose={() => setShowFormResponseModal(false)}
+          formId={selectedResponseData.formId}
+          userId={selectedResponseData.userId}
+          userName={selectedResponseData.userName}
+          formName={selectedResponseData.formName}
+        />
       )}
     </div>
   );

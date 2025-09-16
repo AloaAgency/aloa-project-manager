@@ -32,7 +32,7 @@ export async function GET(request, { params }) {
         )
       `)
       .eq('project_id', projectId)
-      .order('sequence_order', { ascending: true });
+      .order('order_index', { ascending: true });
 
     if (projectletsError) {
       console.error('Error fetching projectlets:', projectletsError);

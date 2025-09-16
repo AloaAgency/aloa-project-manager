@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCircle, X, Clock, AlertCircle } from 'lucide-react';
 
 export default function AdminNotifications({ projectId }) {
@@ -8,6 +8,38 @@ export default function AdminNotifications({ projectId }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [lastCheck, setLastCheck] = useState(null);
+  const modalRef = useRef(null);
+  const buttonRef = useRef(null);
+
+  // Handle click outside and ESC key
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        modalRef.current &&
+        !modalRef.current.contains(event.target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target)
+      ) {
+        setShowNotifications(false);
+      }
+    };
+
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape') {
+        setShowNotifications(false);
+      }
+    };
+
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [showNotifications]);
 
   useEffect(() => {
     // Check for new notifications every 30 seconds
@@ -79,13 +111,101 @@ export default function AdminNotifications({ projectId }) {
       await fetch(`/api/aloa-projects/${projectId}/notifications/${notificationId}/read`, {
         method: 'POST'
       });
-      
-      setNotifications(notifications.map(n => 
+
+      setNotifications(notifications.map(n =>
         n.id === notificationId ? { ...n, read: true } : n
       ));
       setUnreadCount(Math.max(0, unreadCount - 1));
     } catch (error) {
       console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    console.log('Mark all as read clicked');
+    console.log('Current notifications:', notifications);
+    console.log('Project ID:', projectId);
+
+    try {
+      // Mark all unread notifications as read
+      const unreadNotifications = notifications.filter(n => !n.read);
+      console.log('Unread notifications to mark:', unreadNotifications);
+
+      if (unreadNotifications.length === 0) {
+        console.log('No unread notifications to mark');
+        return;
+      }
+
+      const responses = await Promise.all(
+        unreadNotifications.map(async (n) => {
+          const url = `/api/aloa-projects/${projectId}/notifications/${n.id}/read`;
+          console.log('Marking as read:', url);
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          console.log('Response status:', response.status);
+          return response;
+        })
+      );
+
+      // Check if all requests were successful
+      const allSuccessful = responses.every(r => r.ok);
+      if (allSuccessful) {
+        setNotifications(notifications.map(n => ({ ...n, read: true })));
+        setUnreadCount(0);
+        console.log('All notifications marked as read');
+      } else {
+        console.error('Some notifications failed to mark as read');
+        responses.forEach(async (r, i) => {
+          if (!r.ok) {
+            const error = await r.text();
+            console.error(`Failed for notification ${unreadNotifications[i].id}:`, error);
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
+  };
+
+  const clearAll = async () => {
+    console.log('Clear all clicked');
+    console.log('Project ID:', projectId);
+    console.log('Notifications to clear:', notifications);
+
+    try {
+      // Clear all notifications
+      const url = `/api/aloa-projects/${projectId}/notifications/clear`;
+      console.log('Clearing at URL:', url);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Clear response status:', response.status);
+
+      if (response.ok) {
+        setNotifications([]);
+        setUnreadCount(0);
+        console.log('All notifications cleared successfully');
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to clear notifications:', errorText);
+        try {
+          const error = JSON.parse(errorText);
+          console.error('Error details:', error);
+        } catch (e) {
+          console.error('Raw error:', errorText);
+        }
+      }
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
     }
   };
 
@@ -120,6 +240,7 @@ export default function AdminNotifications({ projectId }) {
     <div className="relative">
       {/* Notification Bell */}
       <button
+        ref={buttonRef}
         onClick={() => setShowNotifications(!showNotifications)}
         className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
       >
@@ -133,17 +254,46 @@ export default function AdminNotifications({ projectId }) {
 
       {/* Notifications Dropdown */}
       {showNotifications && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+        <div
+          ref={modalRef}
+          className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
           <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Notifications</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">Client Notifications</h3>
               <button
                 onClick={() => setShowNotifications(false)}
-                className="p-1 hover:bg-gray-100 rounded"
+                className="p-1 hover:bg-gray-100 rounded text-gray-600"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
+            {notifications.length > 0 && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    markAllAsRead();
+                  }}
+                  disabled={unreadCount === 0}
+                  className="flex-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Mark All As Read
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clearAll();
+                  }}
+                  className="flex-1 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                >
+                  Clear All
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="max-h-96 overflow-y-auto">

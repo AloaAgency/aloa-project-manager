@@ -9,27 +9,29 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url);
     const appletId = searchParams.get('appletId');
 
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    console.log('Applet completions GET request:', { projectId, appletId });
 
     if (appletId) {
-      // Get completion data for a specific applet
+      // Get completion data for a specific applet from aloa_applet_progress
       const { data: completions, error: completionsError } = await supabase
-        .from('aloa_applet_completions')
+        .from('aloa_applet_progress')
         .select(`
           id,
           user_id,
+          status,
+          completion_percentage,
           completed_at,
-          metadata,
-          user:auth.users (
-            id,
-            email
-          )
+          started_at,
+          form_progress
         `)
-        .eq('applet_id', appletId);
+        .eq('applet_id', appletId)
+        .eq('status', 'completed');
+
+      console.log('Fetched completions from aloa_applet_progress:', {
+        appletId,
+        count: completions?.length || 0,
+        completions
+      });
 
       if (completionsError) {
         console.error('Error fetching completions:', completionsError);
@@ -39,8 +41,8 @@ export async function GET(request, { params }) {
       // Get user profiles for the completions
       const userIds = completions.map(c => c.user_id);
       const { data: profiles, error: profilesError } = await supabase
-        .from('user_profiles')
-        .select('id, full_name, avatar_url')
+        .from('aloa_user_profiles')
+        .select('id, full_name, email, avatar_url')
         .in('id', userIds);
 
       if (profilesError) {
@@ -53,25 +55,34 @@ export async function GET(request, { params }) {
         return {
           ...completion,
           user: {
-            ...completion.user,
+            id: completion.user_id,
+            email: profile.email,
             full_name: profile.full_name,
             avatar_url: profile.avatar_url
           }
         };
       });
 
-      // Calculate completion percentage
+      // Get client stakeholders for completion tracking
       const { data: stakeholders, error: stakeholdersError } = await supabase
         .from('aloa_client_stakeholders')
-        .select('user_id')
-        .eq('project_id', projectId)
-        .not('user_id', 'is', null);
+        .select('*')
+        .eq('project_id', projectId);
 
+      // Count unique stakeholders
       const totalStakeholders = stakeholders?.length || 0;
       const completedCount = completions?.length || 0;
-      const percentage = totalStakeholders > 0 
-        ? Math.round((completedCount / totalStakeholders) * 100) 
+      const percentage = totalStakeholders > 0
+        ? Math.round((completedCount / totalStakeholders) * 100)
         : 0;
+
+      console.log('Completion calculation:', {
+        appletId,
+        totalStakeholders,
+        completedCount,
+        percentage,
+        stakeholderCount: stakeholders?.length || 0
+      });
 
       return NextResponse.json({
         completions: completionsWithProfiles,

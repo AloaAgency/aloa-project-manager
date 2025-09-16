@@ -5,10 +5,10 @@
       "static/chunks/main-app.js",
       "static/chunks/app/global-error.js"
     ],
-    "/admin/users/page": [
+    "/auth/login/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/users/page.js"
+      "static/chunks/app/auth/login/page.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -26,10 +26,20 @@
       "static/chunks/main-app.js",
       "static/chunks/app/admin/projects/page.js"
     ],
-    "/auth/login/page": [
+    "/admin/project/[projectId]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/auth/login/page.js"
+      "static/chunks/app/admin/project/[projectId]/page.js"
+    ],
+    "/project/[projectId]/dashboard/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/project/[projectId]/dashboard/page.js"
+    ],
+    "/dashboard/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/page.js"
     ]
   }
 }
