@@ -8,16 +8,53 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY // Using service key to bypass RLS
 );
 
-// POST - Create new project file record or upload file
+// POST - Create new project file record, upload file, or create folder
 export async function POST(request) {
   try {
     const contentType = request.headers.get('content-type');
+
+    // Handle folder creation with JSON
+    if (contentType?.includes('application/json')) {
+      const { project_id, file_name, is_folder, parent_folder_id, uploaded_by } = await request.json();
+
+      if (!project_id || !file_name) {
+        return NextResponse.json({ error: 'Project ID and name are required' }, { status: 400 });
+      }
+
+      if (is_folder) {
+        // Create folder record
+        const { data: folderRecord, error: folderError } = await supabase
+          .from('aloa_project_files')
+          .insert([{
+            project_id,
+            file_name,
+            is_folder: true,
+            parent_folder_id: parent_folder_id || null,
+            uploaded_by: uploaded_by || 'admin',
+            folder_path: '/',
+            is_visible: true
+          }])
+          .select()
+          .single();
+
+        if (folderError) {
+          console.error('Error creating folder:', folderError);
+          return NextResponse.json({ error: 'Failed to create folder' }, { status: 500 });
+        }
+
+        return NextResponse.json({ folder: folderRecord });
+      }
+
+      // Handle regular file creation (legacy JSON path)
+      return NextResponse.json({ error: 'Use FormData for file uploads' }, { status: 400 });
+    }
 
     // Handle file upload with FormData
     if (contentType?.includes('multipart/form-data')) {
       const formData = await request.formData();
       const file = formData.get('file');
-      const projectId = formData.get('projectId');
+      const projectId = formData.get('project_id') || formData.get('projectId');
+      const parentFolderId = formData.get('parent_folder_id');
       const category = formData.get('category') || 'general';
       const description = formData.get('description') || '';
       const tags = formData.get('tags') ? JSON.parse(formData.get('tags')) : [];
@@ -38,6 +75,10 @@ export async function POST(request) {
 
       // Upload file to Supabase Storage
       const fileBuffer = await file.arrayBuffer();
+      console.log('Uploading file to storage path:', storagePath);
+      console.log('File size:', file.size, 'bytes');
+      console.log('File type:', file.type);
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('project-files')
         .upload(storagePath, fileBuffer, {
@@ -47,13 +88,39 @@ export async function POST(request) {
 
       if (uploadError) {
         console.error('Error uploading file to storage:', uploadError);
-        return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+        console.error('Storage path attempted:', storagePath);
+        console.error('Full error object:', JSON.stringify(uploadError, null, 2));
+        return NextResponse.json({ error: 'Failed to upload file', details: uploadError.message }, { status: 500 });
+      }
+
+      // Check if upload actually succeeded
+      if (!uploadData || !uploadData.path) {
+        console.error('Upload returned no data, likely failed silently');
+        return NextResponse.json({ error: 'Upload failed - no data returned' }, { status: 500 });
+      }
+
+      console.log('File uploaded successfully:', JSON.stringify(uploadData, null, 2));
+
+      // Verify the file actually exists in storage
+      const { data: existsData, error: existsError } = await supabase.storage
+        .from('project-files')
+        .list(projectId, {
+          limit: 1,
+          search: sanitizedName
+        });
+
+      console.log('File exists check:', existsData ? 'Files found: ' + existsData.length : 'No files found');
+      if (existsError) {
+        console.error('Error checking if file exists:', existsError);
       }
 
       // Get public URL for the file
       const { data: { publicUrl } } = supabase.storage
         .from('project-files')
         .getPublicUrl(storagePath);
+
+      console.log('Generated public URL:', publicUrl);
+      console.log('Storage path:', storagePath);
 
       // Create database record
       const { data: fileRecord, error: dbError } = await supabase
@@ -75,7 +142,9 @@ export async function POST(request) {
           url: publicUrl,
           download_count: 0,
           is_visible: true,
-          is_latest: true
+          is_latest: true,
+          is_folder: false,
+          parent_folder_id: parentFolderId || null
         }])
         .select()
         .single();
@@ -210,12 +279,13 @@ export async function POST(request) {
   }
 }
 
-// GET - Get project files
+// GET - Get project files and folders
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('project_id');
     const category = searchParams.get('category');
+    const parentFolderId = searchParams.get('parent_folder_id');
 
     let query = supabase
       .from('aloa_project_files')
@@ -231,14 +301,25 @@ export async function GET(request) {
       query = query.eq('category', category);
     }
 
-    const { data: files, error } = await query;
+    // Filter by parent folder
+    if (parentFolderId) {
+      query = query.eq('parent_folder_id', parentFolderId);
+    } else {
+      // If no parent_folder_id provided, get root level items
+      query = query.is('parent_folder_id', null);
+    }
+
+    // Order folders first, then files
+    const { data: files, error } = await query
+      .order('is_folder', { ascending: false })
+      .order('file_name', { ascending: true });
 
     if (error) {
       console.error('Error fetching project files:', error);
       return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 });
     }
 
-    return NextResponse.json({ files: files || [] });
+    return NextResponse.json(files || []);
   } catch (error) {
     console.error('Error in project files route:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

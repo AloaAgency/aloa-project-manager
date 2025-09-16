@@ -27,7 +27,7 @@ export async function GET(request, { params }) {
       .from('aloa_projectlets')
       .select(`
         *,
-        applets:aloa_projectlet_applets(
+        applets:aloa_applets(
           *
         )
       `)

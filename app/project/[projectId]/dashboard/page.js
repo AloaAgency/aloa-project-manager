@@ -33,7 +33,7 @@ import { createClient } from '@/lib/supabase-browser';
 
 // Dynamic imports for heavy components
 const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), { ssr: false });
-const ClientFileRepository = dynamic(() => import('@/components/ClientFileRepository'), { ssr: false });
+const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRepository'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -769,10 +769,11 @@ function ClientDashboard() {
         ) : activeTab === 'files' ? (
           /* File Repository */
           <div className="bg-white rounded-xl shadow-sm p-6">
-            <ClientFileRepository
+            <EnhancedFileRepository
               projectId={params.projectId}
               canUpload={true}
               canDelete={true}
+              canCreateFolders={true}
             />
           </div>
         ) : null}
