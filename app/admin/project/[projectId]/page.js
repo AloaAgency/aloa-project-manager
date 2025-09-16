@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import AuthGuard from '@/components/AuthGuard';
 import useEscapeKey from '@/hooks/useEscapeKey';
 import UserAvatar from '@/components/UserAvatar';
+import FormResponseModal from '@/components/FormResponseModal';
 import { 
   ArrowLeft,
   Edit,
@@ -142,6 +143,13 @@ function AdminProjectPageContent() {
     is_primary: false
   });
   const [projectFileCount, setProjectFileCount] = useState(0);
+  const [showFormResponseModal, setShowFormResponseModal] = useState(false);
+  const [selectedResponseData, setSelectedResponseData] = useState({
+    formId: null,
+    userId: null,
+    userName: null,
+    formName: null
+  });
 
   // ESC key handlers for modals
   useEscapeKey(() => {
@@ -1726,10 +1734,23 @@ function AdminProjectPageContent() {
                                             {applet.completions.slice(0, 4).map((completion) => (
                                               <div
                                                 key={completion.user_id}
-                                                className="relative group"
+                                                className={`relative group ${applet.type === 'form' ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
                                                 title={`${completion.user?.full_name || completion.user?.email || 'User'} - Reviewed ${
                                                   completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
-                                                }`}
+                                                }${applet.type === 'form' ? '\nClick to view response' : ''}`}
+                                                onClick={() => {
+                                                  if (applet.type === 'form') {
+                                                    const formId = applet.form_id || applet.config?.form_id;
+                                                    const form = formId ? availableForms.find(f => f.id === formId) : null;
+                                                    setSelectedResponseData({
+                                                      formId: formId,
+                                                      userId: completion.user_id,
+                                                      userName: completion.user?.full_name || completion.user?.email || 'User',
+                                                      formName: form?.title || applet.name
+                                                    });
+                                                    setShowFormResponseModal(true);
+                                                  }
+                                                }}
                                               >
                                                 {completion.user?.avatar_url ? (
                                                   <img
@@ -3093,6 +3114,18 @@ function AdminProjectPageContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Form Response Modal */}
+      {showFormResponseModal && (
+        <FormResponseModal
+          isOpen={showFormResponseModal}
+          onClose={() => setShowFormResponseModal(false)}
+          formId={selectedResponseData.formId}
+          userId={selectedResponseData.userId}
+          userName={selectedResponseData.userName}
+          formName={selectedResponseData.formName}
+        />
       )}
     </div>
   );

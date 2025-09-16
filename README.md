@@ -30,6 +30,16 @@ A gamified project management system specifically designed for Aloa web design p
 - **Quick Actions**: Add projectlets and applets without leaving the management view
 - **Applet Library**: Pre-built applet templates for common tasks
 
+### Enhanced File Repository
+- **Hierarchical Folder Structure**: Create nested folders to organize project files
+- **Drag & Drop File Management**: Move files between folders with intuitive drag and drop
+- **Image Previews**: Visual grid view with thumbnails for image files
+- **Right-Click Context Menu**: Quick access to rename files and folders
+- **Multiple Navigation Methods**: Breadcrumbs, folder clicks, and parent folder drops
+- **Real-time File Counting**: Automatic updates to file counts in Knowledge Base
+- **Selective File Presentation**: Attach specific files to upload applets for client viewing
+- **Public Storage Configuration**: Properly configured Supabase storage with RLS policies
+
 ### Smart Forms & Content Collection
 - **AI-Powered Form Builder**: Create forms with project-specific context
 - **Project Knowledge Base**: AI learns from project documents and insights
@@ -122,6 +132,13 @@ supabase/create_aloa_project_stakeholders_table.sql
 
 -- 9. CRITICAL FIX: Disable RLS on user profiles to prevent infinite recursion
 supabase/completely_fix_aloa_user_profiles.sql
+
+-- 10. File Repository: Add folder support and enhanced file management
+supabase/add_folder_support_to_files.sql
+
+-- 11. Storage Configuration: Create and configure public storage bucket
+supabase/create_storage_bucket.sql
+supabase/fix_storage_bucket.sql
 ```
 
 **IMPORTANT**: Only use tables with `aloa_` prefix. Never reference or create tables without this prefix.
@@ -221,6 +238,7 @@ The system guides projects through these phases:
 - `aloa_project_team` - Team members
 - `aloa_project_stakeholders` - Client-project associations
 - `aloa_project_documents` - Project files and deliverables
+- `aloa_project_files` - Enhanced file repository with folder support
 - `aloa_project_knowledge` - AI knowledge base
 - `aloa_project_insights` - AI-generated insights
 - `aloa_user_profiles` - User profiles and roles (⚠️ RLS disabled)
@@ -257,6 +275,13 @@ The system guides projects through these phases:
 - `GET /api/aloa-projects/[projectId]/projectlets` - Get projectlets
 - `PATCH /api/aloa-projects/[projectId]/projectlets` - Update status
 
+### File Repository
+- `GET /api/project-files` - List files and folders
+- `POST /api/project-files` - Upload files or create folders
+- `PATCH /api/project-files` - Rename files or folders
+- `DELETE /api/project-files` - Delete files or folders
+- `PUT /api/project-files` - Move files between folders
+
 ### Form Management APIs (ALWAYS USE ALOA_ ENDPOINTS)
 - `/api/aloa-forms/*` - Form CRUD operations (uses aloa_forms table)
 - `/api/aloa-responses/*` - Form response management (uses aloa_form_responses table)
@@ -284,6 +309,17 @@ Optimized for Vercel:
 4. Deploy
 
 ## Recent Updates (January 2025)
+
+### 📁 Enhanced File Repository System
+- **Hierarchical Folder Structure**: Create and manage nested folders for better file organization
+- **Drag & Drop File Management**: Intuitive drag and drop to move files between folders
+- **Image Preview Support**: Visual grid view with thumbnails for all image files
+- **Right-Click Context Menu**: Quick rename functionality for files and folders
+- **Real-time File Counting**: Automatic updates to file counts in Knowledge Base section
+- **Selective File Presentation**: Attach specific files to upload applets for client viewing
+- **Storage Configuration**: Properly configured Supabase storage bucket with public access and RLS policies
+- **Multiple Navigation**: Breadcrumb navigation, folder clicks, and parent folder drops
+- **File Upload Applet Integration**: Restored ability to select specific files for presentation
 
 ### 🔒 Authentication & User Management System
 - **Controlled User Access**: Removed open signup - all users must be provisioned by admins
@@ -323,6 +359,9 @@ Optimized for Vercel:
 - **Fixed response viewer to use aloa_form_fields structure**
 - **Fixed form submission to include project ID linkage**
 - **Added user-specific progress tracking for multi-client support**
+- **Fixed client dashboard project journey display (corrected table reference)**
+- **Fixed image preview URLs with proper Supabase storage configuration**
+- **Fixed file upload applet to allow selective file attachment**
 
 ## Previous Updates (December 2024)
 
@@ -358,7 +397,11 @@ aloa-project-manager/
 │   └── page.js                # Home page
 ├── components/
 │   ├── ProjectletAppletsManager.js  # Applet management
-│   └── AIChatFormBuilder.js         # AI form creation
+│   ├── AIChatFormBuilder.js         # AI form creation
+│   ├── EnhancedFileRepository.js    # File repository with folders
+│   ├── ClientFileRepository.js      # Client-side file viewer
+│   ├── FileUploadConfigWithSelector.js # File selection for applets
+│   └── FileUploadConfigStorage.js   # File upload configuration
 ├── lib/
 │   └── supabase.js           # Database client
 └── migrations/                # SQL schemas
