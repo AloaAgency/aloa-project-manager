@@ -1320,18 +1320,9 @@ function AdminProjectPageContent() {
                           )}
                         </div>
                         <h3 className="font-bold text-lg">{stakeholder.name}</h3>
-                        {/* Show role for client users instead of title */}
-                        {stakeholder.user?.role ? (
-                          <p className="text-sm text-gray-600">
-                            {stakeholder.user.role === 'client_admin' ? 'Client Admin' :
-                             stakeholder.user.role === 'client_participant' ? 'Client Participant' :
-                             stakeholder.user.role === 'client' ? 'Client' :
-                             stakeholder.title || ''}
-                          </p>
-                        ) : (
-                          stakeholder.title && (
-                            <p className="text-sm text-gray-600">{stakeholder.title}</p>
-                          )
+                        {/* Show title if available */}
+                        {stakeholder.title && (
+                          <p className="text-sm text-gray-600">{stakeholder.title}</p>
                         )}
                       </div>
                     </div>
@@ -1369,10 +1360,13 @@ function AdminProjectPageContent() {
                   </div>
                   
                   {stakeholder.email && (
-                    <p className="text-sm text-gray-600 mb-1">
+                    <a
+                      href={`mailto:${stakeholder.email}`}
+                      className="text-sm text-gray-600 hover:text-purple-600 mb-1 flex items-center"
+                    >
                       <Mail className="inline w-3 h-3 mr-1" />
                       {stakeholder.email}
-                    </p>
+                    </a>
                   )}
                   
                   {stakeholder.bio && (

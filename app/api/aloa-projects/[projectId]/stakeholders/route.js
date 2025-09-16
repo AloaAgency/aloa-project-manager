@@ -6,19 +6,16 @@ export async function GET(request, { params }) {
   try {
     const { projectId } = params;
 
+    // Log Supabase client status
+    console.log('Supabase client status:', {
+      hasClient: !!supabase,
+      projectId: projectId
+    });
+
     // First, get stakeholders from the stakeholders table
     const { data: stakeholders, error: stakeholdersError } = await supabase
       .from('aloa_client_stakeholders')
-      .select(`
-        *,
-        user:aloa_user_profiles(
-          id,
-          email,
-          full_name,
-          role,
-          avatar_url
-        )
-      `)
+      .select('*')
       .eq('project_id', projectId)
       .order('importance', { ascending: false })
       .order('is_primary', { ascending: false })
@@ -26,58 +23,49 @@ export async function GET(request, { params }) {
 
     if (stakeholdersError) {
       console.error('Error fetching stakeholders:', stakeholdersError);
+      throw stakeholdersError;
     }
 
-    // Also get client members from project members table
-    const { data: clientMembers, error: membersError } = await supabase
-      .from('aloa_project_members')
-      .select(`
-        *,
-        user:aloa_user_profiles(
-          id,
-          email,
-          full_name,
-          role,
-          avatar_url
-        )
-      `)
-      .eq('project_id', projectId)
-      .eq('project_role', 'viewer') // Clients are stored as viewers
-      .order('joined_at', { ascending: true });
+    console.log('Stakeholders fetched:', stakeholders?.length || 0, 'records');
 
-    if (membersError) {
-      console.error('Error fetching client members:', membersError);
+    // Fetch user profiles for stakeholders that have user_id
+    const userIds = stakeholders
+      ?.filter(s => s.user_id)
+      .map(s => s.user_id) || [];
+
+    let userProfiles = [];
+    if (userIds.length > 0) {
+      const { data: profiles, error: profilesError } = await supabase
+        .from('aloa_user_profiles')
+        .select('id, email, full_name, role, avatar_url')
+        .in('id', userIds);
+
+      if (profilesError) {
+        console.error('Error fetching user profiles:', profilesError);
+      } else {
+        userProfiles = profiles || [];
+      }
     }
 
-    // Convert client members to stakeholder format
-    const clientStakeholders = (clientMembers || [])
-      .filter(member => member.user &&
-        (member.user.role === 'client' ||
-         member.user.role === 'client_admin' ||
-         member.user.role === 'client_participant'))
-      .map(member => ({
-        id: `member-${member.id}`,
-        project_id: projectId,
-        user_id: member.user_id,
-        name: member.user.full_name || member.user.email,
-        email: member.user.email,
-        title: '', // No title for auto-imported members
-        role: member.user.role,
-        importance: 5,
-        is_primary: false,
-        user: member.user
-      }));
+    console.log('User profiles fetched:', userProfiles.length, 'records');
 
-    // Combine both lists, avoiding duplicates
-    const existingUserIds = new Set((stakeholders || []).map(s => s.user_id).filter(Boolean));
-    const combinedStakeholders = [
-      ...(stakeholders || []),
-      ...clientStakeholders.filter(cs => !existingUserIds.has(cs.user_id))
-    ];
+    // Map user profiles to stakeholders
+    const stakeholdersWithUsers = stakeholders?.map(stakeholder => {
+      if (stakeholder.user_id) {
+        const userProfile = userProfiles.find(u => u.id === stakeholder.user_id);
+        return {
+          ...stakeholder,
+          user: userProfile || null
+        };
+      }
+      return stakeholder;
+    }) || [];
+
+    console.log('Returning stakeholders:', stakeholdersWithUsers.length);
 
     return NextResponse.json({
-      stakeholders: combinedStakeholders,
-      count: combinedStakeholders.length
+      stakeholders: stakeholdersWithUsers,
+      count: stakeholdersWithUsers.length
     });
 
   } catch (error) {
