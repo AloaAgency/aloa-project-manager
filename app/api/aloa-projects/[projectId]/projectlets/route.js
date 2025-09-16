@@ -21,7 +21,7 @@ export async function GET(request, { params }) {
         )
       `)
       .eq('project_id', projectId)
-      .order('order_index', { ascending: true });
+      .order('sequence_order', { ascending: true });
 
     if (error) {
       console.error('Error fetching projectlets:', error);
@@ -65,27 +65,27 @@ export async function POST(request, { params }) {
     const { projectId } = params;
     const { name, description, type } = await request.json();
 
-    // Get the max order index for this project
-    const { data: maxOrder } = await supabase
+    // Get the max sequence order for this project
+    const { data: maxSeq } = await supabase
       .from('aloa_projectlets')
-      .select('order_index')
+      .select('sequence_order')
       .eq('project_id', projectId)
-      .order('order_index', { ascending: false })
+      .order('sequence_order', { ascending: false })
       .limit(1)
       .single();
 
-    const newOrderIndex = maxOrder ? maxOrder.order_index + 1 : 0;
+    const newSequenceOrder = maxSeq ? maxSeq.sequence_order + 1 : 0;
 
     // Create the new projectlet
     const { data: newProjectlet, error } = await supabase
       .from('aloa_projectlets')
       .insert([{
         project_id: projectId,
-        name: name || `New Projectlet ${newOrderIndex + 1}`,
+        name: name || `New Projectlet ${newSequenceOrder + 1}`,
         description: description || 'Click to edit description',
         type: type || 'design',
         status: 'available',
-        order_index: newOrderIndex,
+        sequence_order: newSequenceOrder,
         metadata: {}
       }])
       .select()
