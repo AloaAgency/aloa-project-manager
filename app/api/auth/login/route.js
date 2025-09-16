@@ -155,10 +155,11 @@ export async function POST(request) {
     });
     console.log('User role determined:', userRole);
 
-    // If user is a client, get their project
+    // If user is any type of client role, get their project
     let clientProject = null;
-    if (userRole === 'client') {
-      console.log('Fetching project for client:', data.user.id);
+    const clientRoles = ['client', 'client_admin', 'client_participant'];
+    if (clientRoles.includes(userRole)) {
+      console.log('Fetching project for client role:', userRole, 'user:', data.user.id);
       
       // Use service role to bypass RLS - must be available if we're here
       if (!serviceSupabase) {

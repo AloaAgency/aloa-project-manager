@@ -166,9 +166,28 @@ export default function AuthGuard({
             </button>
             
             <button
-              onClick={() => {
-                // Use window.location for more reliable redirect when session is lost
-                window.location.href = '/auth/login';
+              onClick={async () => {
+                // Call logout API to properly clear session
+                try {
+                  await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                  });
+
+                  // Clear all cookies on client side as well
+                  document.cookie.split(";").forEach((c) => {
+                    document.cookie = c
+                      .replace(/^ +/, "")
+                      .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                  });
+
+                  // Force a full page refresh to clear any cached state
+                  window.location.href = '/auth/login';
+                } catch (error) {
+                  console.error('Error during logout:', error);
+                  // Still redirect even if logout fails
+                  window.location.href = '/auth/login';
+                }
               }}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >

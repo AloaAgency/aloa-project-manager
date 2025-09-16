@@ -26,6 +26,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import UserAvatar from '@/components/UserAvatar';
 import FormResponseModal from '@/components/FormResponseModal';
+import PaletteResultsModal from '@/components/PaletteResultsModal';
 import { 
   ArrowLeft,
   Edit,
@@ -157,7 +158,7 @@ function AdminProjectPageContent() {
     name: '',
     email: '',
     title: '',
-    role: 'decision_maker',
+    role: 'client_admin',
     phone: '',
     bio: '',
     responsibilities: '',
@@ -174,6 +175,11 @@ function AdminProjectPageContent() {
     userName: null,
     formName: null
   });
+  const [showPaletteResultsModal, setShowPaletteResultsModal] = useState(false);
+  const [selectedPaletteData, setSelectedPaletteData] = useState({
+    userName: null,
+    responseData: null
+  });
 
   // ESC key handlers for modals
   useEscapeKey(() => {
@@ -189,7 +195,7 @@ function AdminProjectPageContent() {
       name: '',
       email: '',
       title: '',
-      role: 'decision_maker',
+      role: 'client_admin',
       phone: '',
       bio: '',
       responsibilities: '',
@@ -406,7 +412,7 @@ function AdminProjectPageContent() {
           name: '',
           email: '',
           title: '',
-          role: 'decision_maker',
+          role: 'client_admin',
           phone: '',
           bio: '',
           responsibilities: '',
@@ -1291,7 +1297,7 @@ function AdminProjectPageContent() {
                   name: '',
                   email: '',
                   title: '',
-                  role: 'decision_maker',
+                  role: 'client_admin',
                   phone: '',
                   bio: '',
                   responsibilities: '',
@@ -1357,7 +1363,7 @@ function AdminProjectPageContent() {
                             name: stakeholder.name || '',
                             email: stakeholder.email || '',
                             title: stakeholder.title || '',
-                            role: stakeholder.role || 'decision_maker',
+                            role: stakeholder.role || 'client_admin',
                             phone: stakeholder.phone || '',
                             bio: stakeholder.bio || '',
                             responsibilities: stakeholder.responsibilities || '',
@@ -1775,10 +1781,10 @@ function AdminProjectPageContent() {
                                             {applet.completions.slice(0, 4).map((completion) => (
                                               <div
                                                 key={completion.user_id}
-                                                className={`relative group ${applet.type === 'form' ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+                                                className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser') ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
                                                 title={`${completion.user?.full_name || completion.user?.email || 'User'} - Reviewed ${
                                                   completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
-                                                }${applet.type === 'form' ? '\nClick to view response' : ''}`}
+                                                }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'palette_cleanser' ? '\nClick to view palette preferences' : ''}`}
                                                 onClick={() => {
                                                   if (applet.type === 'form') {
                                                     const formId = applet.form_id || applet.config?.form_id;
@@ -1790,6 +1796,13 @@ function AdminProjectPageContent() {
                                                       formName: form?.title || applet.name
                                                     });
                                                     setShowFormResponseModal(true);
+                                                  } else if (applet.type === 'palette_cleanser') {
+                                                    // Show palette results modal
+                                                    setSelectedPaletteData({
+                                                      userName: completion.user?.full_name || completion.user?.email || 'User',
+                                                      responseData: completion.data || {}
+                                                    });
+                                                    setShowPaletteResultsModal(true);
                                                   }
                                                 }}
                                               >
@@ -2566,7 +2579,7 @@ function AdminProjectPageContent() {
                     name: '',
                     email: '',
                     title: '',
-                    role: 'decision_maker',
+                    role: 'client_admin',
                     phone: '',
                     bio: '',
                     responsibilities: '',
@@ -2762,15 +2775,11 @@ function AdminProjectPageContent() {
                   </label>
                   <select
                     name="role"
-                    defaultValue={editingStakeholder?.role || 'decision_maker'}
+                    defaultValue={editingStakeholder?.role || 'client_admin'}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
-                    <option value="decision_maker">Decision Maker</option>
-                    <option value="influencer">Influencer</option>
-                    <option value="end_user">End User</option>
-                    <option value="technical_lead">Technical Lead</option>
-                    <option value="sponsor">Sponsor</option>
-                    <option value="consultant">Consultant</option>
+                    <option value="client_admin">Client Admin</option>
+                    <option value="client_participant">Client Participant</option>
                   </select>
                 </div>
 
@@ -3167,6 +3176,18 @@ function AdminProjectPageContent() {
           userId={selectedResponseData.userId}
           userName={selectedResponseData.userName}
           formName={selectedResponseData.formName}
+        />
+      )}
+
+      {/* Palette Results Modal */}
+      {showPaletteResultsModal && selectedPaletteData && (
+        <PaletteResultsModal
+          userName={selectedPaletteData.userName}
+          responseData={selectedPaletteData.responseData}
+          onClose={() => {
+            setShowPaletteResultsModal(false);
+            setSelectedPaletteData(null);
+          }}
         />
       )}
     </div>

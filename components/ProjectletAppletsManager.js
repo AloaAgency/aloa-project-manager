@@ -68,7 +68,8 @@ const APPLET_ICONS = {
   sitemap_builder: Gamepad2,
   content_gather: MessageSquare,
   feedback_loop: MessageSquare,
-  link_submission: Link
+  link_submission: Link,
+  palette_cleanser: Palette
 };
 
 const APPLET_COLORS = {
@@ -80,7 +81,8 @@ const APPLET_COLORS = {
   sitemap_builder: 'bg-indigo-100 text-indigo-700 border-indigo-300',
   content_gather: 'bg-yellow-100 text-yellow-700 border-yellow-300',
   feedback_loop: 'bg-orange-100 text-orange-700 border-orange-300',
-  link_submission: 'bg-cyan-100 text-cyan-700 border-cyan-300'
+  link_submission: 'bg-cyan-100 text-cyan-700 border-cyan-300',
+  palette_cleanser: 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-purple-300'
 };
 
 export default function ProjectletAppletsManager({ 

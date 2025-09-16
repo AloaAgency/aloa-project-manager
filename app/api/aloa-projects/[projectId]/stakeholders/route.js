@@ -65,8 +65,9 @@ export async function POST(request, { params }) {
           const inviteData = await inviteResponse.json();
           userId = inviteData.user?.id;
           
-          // If it's a client, assign them to this project
-          if (body.user_role === 'client' || !body.user_role) {
+          // If it's a client-type role, assign them to this project
+          const clientRoles = ['client', 'client_admin', 'client_participant'];
+          if (clientRoles.includes(body.user_role) || !body.user_role) {
             const assignResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/assign-project`, {
               method: 'POST',
               headers: {
@@ -215,8 +216,9 @@ export async function PATCH(request, { params }) {
           const inviteData = await inviteResponse.json();
           userId = inviteData.user?.id;
           
-          // If it's a client, assign them to this project
-          if (body.user_role === 'client' || !body.user_role) {
+          // If it's a client-type role, assign them to this project
+          const clientRoles = ['client', 'client_admin', 'client_participant'];
+          if (clientRoles.includes(body.user_role) || !body.user_role) {
             const assignResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/assign-project`, {
               method: 'POST',
               headers: {

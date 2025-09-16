@@ -89,7 +89,7 @@ export async function POST(request) {
       .insert({
         project_id,
         user_id,
-        project_role: role === 'client' ? 'viewer' : role,
+        project_role: ['client', 'client_admin', 'client_participant'].includes(role) ? 'viewer' : role,
         can_edit: false,
         can_delete: false,
         can_invite: false,

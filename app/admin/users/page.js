@@ -267,6 +267,10 @@ export default function UsersManagementPage() {
         return 'bg-blue-100 text-blue-800';
       case 'client':
         return 'bg-green-100 text-green-800';
+      case 'client_admin':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'client_participant':
+        return 'bg-teal-100 text-teal-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -373,16 +377,23 @@ export default function UsersManagementPage() {
                         <option value="project_admin">Project Admin</option>
                         <option value="team_member">Team Member</option>
                         <option value="client">Client</option>
+                        <option value="client_admin">Client Admin</option>
+                        <option value="client_participant">Client Participant</option>
                       </select>
                     ) : (
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(userData.role)}`}>
                         <Shield className="h-3 w-3 mr-1" />
-                        {userData.role}
+                        {userData.role === 'super_admin' ? 'Super Admin' :
+                         userData.role === 'project_admin' ? 'Project Admin' :
+                         userData.role === 'team_member' ? 'Team Member' :
+                         userData.role === 'client_admin' ? 'Client Admin' :
+                         userData.role === 'client_participant' ? 'Client Participant' :
+                         userData.role === 'client' ? 'Client' : userData.role}
                       </span>
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    {userData.role === 'client' && (
+                    {['client', 'client_admin', 'client_participant'].includes(userData.role) && (
                       <div className="flex flex-wrap gap-1">
                         {userData.projects?.map(project => (
                           <span
@@ -577,13 +588,15 @@ export default function UsersManagementPage() {
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   >
                     <option value="client">Client</option>
+                    <option value="client_admin">Client Admin</option>
+                    <option value="client_participant">Client Participant</option>
                     <option value="team_member">Team Member</option>
                     <option value="project_admin">Project Admin</option>
                     <option value="super_admin">Super Admin</option>
                   </select>
                 </div>
 
-                {formData.role === 'client' && (
+                {['client', 'client_admin', 'client_participant'].includes(formData.role) && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
                       Assign to Project (Optional)

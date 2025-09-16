@@ -34,6 +34,7 @@ import { createClient } from '@/lib/supabase-browser';
 // Dynamic imports for heavy components
 const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), { ssr: false });
 const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRepository'), { ssr: false });
+const PaletteCleanserModal = dynamic(() => import('@/components/PaletteCleanserModal'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -53,6 +54,7 @@ function ClientDashboard() {
   const [isFormViewOnly, setIsFormViewOnly] = useState(false); // Track if form is in view-only mode
   const [showLinkSubmissionModal, setShowLinkSubmissionModal] = useState(false); // Track link submission modal
   const [showFileUploadModal, setShowFileUploadModal] = useState(false); // Track file upload modal
+  const [showPaletteCleanserModal, setShowPaletteCleanserModal] = useState(false); // Track palette cleanser modal
   const [activeTab, setActiveTab] = useState('journey'); // Track active tab
 
   // ESC key handlers for modals
@@ -68,6 +70,10 @@ function ClientDashboard() {
   useEscapeKey(() => {
     setShowFileUploadModal(false);
   }, showFileUploadModal);
+
+  useEscapeKey(() => {
+    setShowPaletteCleanserModal(false);
+  }, showPaletteCleanserModal);
 
   useEffect(() => {
     // Get authenticated user's ID
@@ -169,15 +175,16 @@ function ClientDashboard() {
     const isForm = applet.type === 'form';
     const isLinkSubmission = applet.type === 'link_submission';
     const isFileUpload = applet.type === 'upload' || applet.type === 'file_upload';
+    const isPaletteCleanser = applet.type === 'palette_cleanser';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
 
     // Block if:
-    // 1. Non-form, non-link-submission, non-file-upload applet that's already completed
+    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    // Link submissions and file uploads should always be viewable even after completion
-    if ((!isForm && !isLinkSubmission && !isFileUpload && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions, file uploads, and palette cleanser should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -310,6 +317,10 @@ function ClientDashboard() {
       // Handle file upload applet
       setSelectedApplet({ ...applet, projectlet });
       setShowFileUploadModal(true);
+    } else if (isPaletteCleanser) {
+      // Handle palette cleanser applet
+      setSelectedApplet({ ...applet, projectlet });
+      setShowPaletteCleanserModal(true);
     }
   };
 
@@ -1105,6 +1116,27 @@ function ClientDashboard() {
           </div>
         </div>
       )}
+
+      {/* Palette Cleanser Modal */}
+      {showPaletteCleanserModal && selectedApplet && (
+        <PaletteCleanserModal
+          applet={selectedApplet}
+          projectId={params.projectId}
+          userId={userId}
+          onClose={() => setShowPaletteCleanserModal(false)}
+          onComplete={async (data) => {
+            // Update local state to show completion
+            setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+
+            // Trigger confetti
+            setShowConfetti(true);
+            setTimeout(() => {
+              setShowConfetti(false);
+              setShowPaletteCleanserModal(false);
+            }, 3000);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1156,7 +1188,7 @@ export default function ClientDashboardPage() {
   return (
     <AuthGuard 
       requireAuth={true} 
-      allowedRoles={['client', 'super_admin', 'project_admin', 'team_member']}
+      allowedRoles={['client', 'client_admin', 'client_participant', 'super_admin', 'project_admin', 'team_member']}
       redirectTo="/auth/login"
     >
       <ClientDashboard />
