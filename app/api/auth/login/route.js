@@ -133,7 +133,7 @@ export async function POST(request) {
       console.error('Error fetching user profile:', profileError);
     }
 
-    const userRole = profile?.role || 'client';
+    const userRole = profile?.role || 'client_participant'; // Default to most restrictive
     console.log('User profile found:', {
       email: profile?.email,
       role: profile?.role,
@@ -141,10 +141,10 @@ export async function POST(request) {
     });
     console.log('User role determined:', userRole);
 
-    // If user is a client, get their project
+    // If user is any type of client, get their project
     let clientProject = null;
-    if (userRole === 'client') {
-      console.log('Fetching project for client:', data.user.id);
+    if (userRole === 'client' || userRole === 'client_admin' || userRole === 'client_participant') {
+      console.log('Fetching project for client user:', data.user.id, 'with role:', userRole);
       
       // Use service role to bypass RLS - must be available if we're here
       if (!serviceSupabase) {

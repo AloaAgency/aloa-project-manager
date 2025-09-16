@@ -34,7 +34,7 @@ export default function UsersManagementPage() {
     email: '',
     password: '',
     full_name: '',
-    role: 'client',
+    role: 'client_participant',
     project_id: ''
   });
   const [inviteMode, setInviteMode] = useState(false);
@@ -149,7 +149,7 @@ export default function UsersManagementPage() {
         email: '',
         password: '',
         full_name: '',
-        role: 'client',
+        role: 'client_participant',
         project_id: ''
       });
       setCustomMessage('');
@@ -209,15 +209,15 @@ export default function UsersManagementPage() {
     }
   };
 
-  const handleAssignProject = async (userId, projectId) => {
+  const handleAssignProject = async (userId, projectId, userRole) => {
     try {
       const response = await fetch('/api/auth/users/assign-project', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          user_id: userId, 
+        body: JSON.stringify({
+          user_id: userId,
           project_id: projectId,
-          role: 'client'
+          role: userRole // Use the actual user's role
         })
       });
 
@@ -265,6 +265,10 @@ export default function UsersManagementPage() {
         return 'bg-purple-100 text-purple-800';
       case 'team_member':
         return 'bg-blue-100 text-blue-800';
+      case 'client_admin':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'client_participant':
+        return 'bg-amber-100 text-amber-800';
       case 'client':
         return 'bg-green-100 text-green-800';
       default:
@@ -369,20 +373,28 @@ export default function UsersManagementPage() {
                         onChange={(e) => handleUpdateUser(userData.id, { role: e.target.value })}
                         className="text-sm border-gray-300 rounded-md"
                       >
-                        <option value="super_admin">Super Admin</option>
-                        <option value="project_admin">Project Admin</option>
-                        <option value="team_member">Team Member</option>
-                        <option value="client">Client</option>
+                        <optgroup label="Admin">
+                          <option value="super_admin">Super Admin</option>
+                          <option value="project_admin">Project Admin</option>
+                          <option value="team_member">Team Member</option>
+                        </optgroup>
+                        <optgroup label="Client">
+                          <option value="client_admin">Client Admin</option>
+                          <option value="client_participant">Client Participant</option>
+                          <option value="client">Client (Legacy)</option>
+                        </optgroup>
                       </select>
                     ) : (
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(userData.role)}`}>
                         <Shield className="h-3 w-3 mr-1" />
-                        {userData.role}
+                        {userData.role === 'client_admin' ? 'Client Admin' :
+                         userData.role === 'client_participant' ? 'Client Participant' :
+                         userData.role}
                       </span>
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    {userData.role === 'client' && (
+                    {(userData.role === 'client' || userData.role === 'client_admin' || userData.role === 'client_participant') && (
                       <div className="flex flex-wrap gap-1">
                         {userData.projects?.map(project => (
                           <span
@@ -404,7 +416,7 @@ export default function UsersManagementPage() {
                           <select
                             onChange={(e) => {
                               if (e.target.value) {
-                                handleAssignProject(userData.id, e.target.value);
+                                handleAssignProject(userData.id, e.target.value, userData.role);
                                 // Reset the select after selection
                                 setTimeout(() => {
                                   e.target.value = '';
@@ -576,14 +588,29 @@ export default function UsersManagementPage() {
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   >
-                    <option value="client">Client</option>
-                    <option value="team_member">Team Member</option>
-                    <option value="project_admin">Project Admin</option>
-                    <option value="super_admin">Super Admin</option>
+                    <optgroup label="Admin Roles">
+                      <option value="super_admin">Super Admin</option>
+                      <option value="project_admin">Project Admin</option>
+                      <option value="team_member">Team Member</option>
+                    </optgroup>
+                    <optgroup label="Client Roles">
+                      <option value="client_admin">Client Admin (Decision Maker)</option>
+                      <option value="client_participant">Client Participant (Limited Access)</option>
+                      <option value="client">Client (Legacy)</option>
+                    </optgroup>
                   </select>
+                  {/* Role Description */}
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formData.role === 'client_admin' && 'Can view all project content, make decisions, and manage other client users'}
+                    {formData.role === 'client_participant' && 'Limited access: can submit forms and provide feedback only'}
+                    {formData.role === 'super_admin' && 'Full system access, can manage all users and projects'}
+                    {formData.role === 'project_admin' && 'Can manage assigned projects and team members'}
+                    {formData.role === 'team_member' && 'Can work on assigned projects with edit permissions'}
+                    {formData.role === 'client' && 'Legacy role - consider using Client Admin or Client Participant'}
+                  </p>
                 </div>
 
-                {formData.role === 'client' && (
+                {(formData.role === 'client' || formData.role === 'client_admin' || formData.role === 'client_participant') && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
                       Assign to Project (Optional)

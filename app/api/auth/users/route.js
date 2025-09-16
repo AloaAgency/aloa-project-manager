@@ -69,8 +69,12 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 
-    // Get project assignments for client users
-    const clientIds = users.filter(u => u.role === 'client').map(u => u.id);
+    // Get project assignments for all client-type users
+    const clientIds = users.filter(u =>
+      u.role === 'client' ||
+      u.role === 'client_admin' ||
+      u.role === 'client_participant'
+    ).map(u => u.id);
     let projectAssignments = {};
     
     if (clientIds.length > 0) {
@@ -135,10 +139,10 @@ export async function POST(request) {
     }
 
     // Validate role
-    const validRoles = ['super_admin', 'project_admin', 'team_member', 'client'];
+    const validRoles = ['super_admin', 'project_admin', 'team_member', 'client', 'client_admin', 'client_participant'];
     if (!validRoles.includes(role)) {
-      return NextResponse.json({ 
-        error: 'Invalid role. Must be one of: ' + validRoles.join(', ') 
+      return NextResponse.json({
+        error: 'Invalid role. Must be one of: ' + validRoles.join(', ')
       }, { status: 400 });
     }
     
@@ -209,8 +213,8 @@ export async function POST(request) {
       }, { status: 500 });
     }
 
-    // If role is client and project_id is provided, add them as stakeholder
-    if (role === 'client' && project_id) {
+    // If role is any client type and project_id is provided, add them as stakeholder
+    if ((role === 'client' || role === 'client_admin' || role === 'client_participant') && project_id) {
       const { error: stakeholderError } = await supabase
         .from('aloa_project_stakeholders')
         .insert({
@@ -233,7 +237,7 @@ export async function POST(request) {
         email: newUser.user.email,
         full_name,
         role,
-        project_id: role === 'client' ? project_id : null
+        project_id: (role === 'client' || role === 'client_admin' || role === 'client_participant') ? project_id : null
       }
     });
 
