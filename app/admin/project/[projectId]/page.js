@@ -278,24 +278,25 @@ function AdminProjectPageContent() {
   const fetchAvailableUsers = async () => {
     try {
       const response = await fetch('/api/auth/users');
-      console.log('Users API response status:', response.status);
-      
+
       if (!response.ok) {
         console.error('Failed to fetch users:', response.status, response.statusText);
-        const errorData = await response.json();
-        console.error('Error details:', errorData);
         return;
       }
-      
+
       const data = await response.json();
-      console.log('Users API data:', data);
-      
-      // Filter for client users only
-      const clientUsers = data.users?.filter(user => user.role === 'client') || [];
-      console.log('Filtered client users:', clientUsers);
+
+      // Filter for client users only (including all client role types)
+      const clientUsers = data.users?.filter(user =>
+        user.role === 'client' ||
+        user.role === 'client_admin' ||
+        user.role === 'client_participant'
+      ) || [];
       setAvailableUsers(clientUsers);
     } catch (error) {
       console.error('Error fetching available users:', error);
+      // Ensure we always have an array, even on error
+      setAvailableUsers([]);
     }
   };
 
@@ -1051,6 +1052,8 @@ function AdminProjectPageContent() {
                       <button
                         onClick={() => {
                           setEditingStakeholder(stakeholder);
+                          // Set the selected user ID if the stakeholder is linked to a user
+                          setSelectedUserId(stakeholder.user_id || null);
                           // Initialize form data with stakeholder values for editing
                           setStakeholderFormData({
                             name: stakeholder.name || '',
@@ -2362,7 +2365,7 @@ function AdminProjectPageContent() {
                       {editingStakeholder ? 'Update User Connection' : 'Link to User Account'}
                     </label>
                     <select
-                      value={selectedUserId || editingStakeholder?.user_id || ''}
+                      value={selectedUserId !== null ? selectedUserId : (editingStakeholder?.user_id || '')}
                       onChange={(e) => {
                         const userId = e.target.value;
                         setSelectedUserId(userId || null);
@@ -2400,7 +2403,7 @@ function AdminProjectPageContent() {
                     >
                       <option value="">-- No User Account --</option>
                       <option value="create_new">✨ Create New User Account</option>
-                      {availableUsers.map(user => (
+                      {(availableUsers || []).map(user => (
                         <option key={user.id} value={user.id}>
                           {user.full_name} ({user.email})
                           {user.projects?.length > 0 && ` - ${user.projects.map(p => p.project_name).join(', ')}`}
