@@ -6,7 +6,8 @@ export async function GET(request, { params }) {
   try {
     const { projectId } = params;
 
-    const { data: stakeholders, error } = await supabase
+    // First, get stakeholders from the stakeholders table
+    const { data: stakeholders, error: stakeholdersError } = await supabase
       .from('aloa_client_stakeholders')
       .select(`
         *,
@@ -23,17 +24,60 @@ export async function GET(request, { params }) {
       .order('is_primary', { ascending: false })
       .order('name', { ascending: true });
 
-    if (error) {
-      console.error('Error fetching stakeholders:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch stakeholders' },
-        { status: 500 }
-      );
+    if (stakeholdersError) {
+      console.error('Error fetching stakeholders:', stakeholdersError);
     }
 
+    // Also get client members from project members table
+    const { data: clientMembers, error: membersError } = await supabase
+      .from('aloa_project_members')
+      .select(`
+        *,
+        user:aloa_user_profiles(
+          id,
+          email,
+          full_name,
+          role,
+          avatar_url
+        )
+      `)
+      .eq('project_id', projectId)
+      .eq('project_role', 'viewer') // Clients are stored as viewers
+      .order('joined_at', { ascending: true });
+
+    if (membersError) {
+      console.error('Error fetching client members:', membersError);
+    }
+
+    // Convert client members to stakeholder format
+    const clientStakeholders = (clientMembers || [])
+      .filter(member => member.user &&
+        (member.user.role === 'client' ||
+         member.user.role === 'client_admin' ||
+         member.user.role === 'client_participant'))
+      .map(member => ({
+        id: `member-${member.id}`,
+        project_id: projectId,
+        user_id: member.user_id,
+        name: member.user.full_name || member.user.email,
+        email: member.user.email,
+        title: '', // No title for auto-imported members
+        role: member.user.role,
+        importance: 5,
+        is_primary: false,
+        user: member.user
+      }));
+
+    // Combine both lists, avoiding duplicates
+    const existingUserIds = new Set((stakeholders || []).map(s => s.user_id).filter(Boolean));
+    const combinedStakeholders = [
+      ...(stakeholders || []),
+      ...clientStakeholders.filter(cs => !existingUserIds.has(cs.user_id))
+    ];
+
     return NextResponse.json({
-      stakeholders: stakeholders || [],
-      count: stakeholders?.length || 0
+      stakeholders: combinedStakeholders,
+      count: combinedStakeholders.length
     });
 
   } catch (error) {
