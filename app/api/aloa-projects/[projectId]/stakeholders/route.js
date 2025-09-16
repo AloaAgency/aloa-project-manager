@@ -8,7 +8,16 @@ export async function GET(request, { params }) {
 
     const { data: stakeholders, error } = await supabase
       .from('aloa_client_stakeholders')
-      .select('*')
+      .select(`
+        *,
+        user:aloa_user_profiles(
+          id,
+          email,
+          full_name,
+          role,
+          avatar_url
+        )
+      `)
       .eq('project_id', projectId)
       .order('importance', { ascending: false })
       .order('is_primary', { ascending: false })
@@ -56,7 +65,7 @@ export async function POST(request, { params }) {
           body: JSON.stringify({
             email: body.email,
             full_name: body.name,
-            role: body.user_role || 'client',
+            role: body.user_role || 'client_admin',
             send_email: true
           })
         });
@@ -65,8 +74,8 @@ export async function POST(request, { params }) {
           const inviteData = await inviteResponse.json();
           userId = inviteData.user?.id;
           
-          // If it's a client, assign them to this project
-          if (body.user_role === 'client' || !body.user_role) {
+          // If it's a client role, assign them to this project
+          if (body.user_role === 'client_admin' || body.user_role === 'client_participant' || !body.user_role) {
             const assignResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/assign-project`, {
               method: 'POST',
               headers: {
@@ -206,7 +215,7 @@ export async function PATCH(request, { params }) {
           body: JSON.stringify({
             email: body.email,
             full_name: body.name,
-            role: body.user_role || 'client',
+            role: body.user_role || 'client_admin',
             send_email: true
           })
         });
@@ -215,8 +224,8 @@ export async function PATCH(request, { params }) {
           const inviteData = await inviteResponse.json();
           userId = inviteData.user?.id;
           
-          // If it's a client, assign them to this project
-          if (body.user_role === 'client' || !body.user_role) {
+          // If it's a client role, assign them to this project
+          if (body.user_role === 'client_admin' || body.user_role === 'client_participant' || !body.user_role) {
             const assignResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/assign-project`, {
               method: 'POST',
               headers: {

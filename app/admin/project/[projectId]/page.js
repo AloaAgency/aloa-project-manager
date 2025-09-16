@@ -1298,19 +1298,30 @@ function AdminProjectPageContent() {
                         size="md"
                       />
                       <div className="flex-1">
-                        {stakeholder.is_primary && (
-                          <span className="inline-block px-2 py-1 text-xs font-semibold text-purple-800 bg-purple-100 rounded-full mb-2">
-                            Primary Contact
-                          </span>
-                        )}
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {stakeholder.is_primary && (
+                            <span className="inline-block px-2 py-1 text-xs font-semibold text-purple-800 bg-purple-100 rounded-full">
+                              Primary Contact
+                            </span>
+                          )}
+                          {/* Show user's actual role if they have a user account */}
+                          {stakeholder.user?.role && (
+                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
+                              stakeholder.user.role === 'client_admin'
+                                ? 'text-blue-800 bg-blue-100'
+                                : stakeholder.user.role === 'client_participant'
+                                ? 'text-green-800 bg-green-100'
+                                : 'text-gray-800 bg-gray-100'
+                            }`}>
+                              {stakeholder.user.role === 'client_admin' ? 'Client Admin' :
+                               stakeholder.user.role === 'client_participant' ? 'Client Participant' :
+                               stakeholder.user.role === 'client' ? 'Client' : ''}
+                            </span>
+                          )}
+                        </div>
                         <h3 className="font-bold text-lg">{stakeholder.name}</h3>
                         {stakeholder.title && (
                           <p className="text-sm text-gray-600">{stakeholder.title}</p>
-                        )}
-                        {stakeholder.role && (
-                          <p className="text-xs text-gray-500 capitalize mt-1">
-                            Role: {stakeholder.role.replace('_', ' ')}
-                          </p>
                         )}
                       </div>
                     </div>
@@ -2550,7 +2561,7 @@ function AdminProjectPageContent() {
                 
                 if (selectedUserId === 'create_new') {
                   shouldCreateUser = true;
-                  userRole = formData.get('user_role') || 'client';
+                  userRole = formData.get('user_role') || 'client_admin';
                 } else if (selectedUserId) {
                   actualUserId = selectedUserId;
                 } else if (editingStakeholder?.user_id) {
@@ -2650,12 +2661,11 @@ function AdminProjectPageContent() {
                       </label>
                       <select
                         name="user_role"
-                        defaultValue="client"
+                        defaultValue="client_admin"
                         className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       >
-                        <option value="client">Client (View-only access to their project)</option>
-                        <option value="project_admin">Project Admin (Can manage this project)</option>
-                        <option value="team_member">Team Member (Limited admin access)</option>
+                        <option value="client_admin">Client Admin (Decision maker, full project visibility)</option>
+                        <option value="client_participant">Client Participant (Limited access, can submit forms)</option>
                       </select>
                       <div className="mt-2 p-2 bg-blue-50 rounded">
                         <p className="text-xs text-blue-800">
@@ -2720,15 +2730,11 @@ function AdminProjectPageContent() {
                   </label>
                   <select
                     name="role"
-                    defaultValue={editingStakeholder?.role || 'decision_maker'}
+                    defaultValue={editingStakeholder?.user?.role || 'client_admin'}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
-                    <option value="decision_maker">Decision Maker</option>
-                    <option value="influencer">Influencer</option>
-                    <option value="end_user">End User</option>
-                    <option value="technical_lead">Technical Lead</option>
-                    <option value="sponsor">Sponsor</option>
-                    <option value="consultant">Consultant</option>
+                    <option value="client_admin">Client Admin (Decision Maker)</option>
+                    <option value="client_participant">Client Participant (Limited Access)</option>
                   </select>
                 </div>
 
