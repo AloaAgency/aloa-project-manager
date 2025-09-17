@@ -15,6 +15,14 @@ npm run start        # Start production server
 npm run lint         # Run Next.js linting
 ```
 
+### Important: Fresh Build After Merging
+**After merging to main, you often need to clear the Next.js cache and restart:**
+```bash
+rm -rf .next
+npm run dev
+```
+This resolves issues where functionality appears broken but is actually just a build cache problem.
+
 ## Architecture
 
 ### Tech Stack
