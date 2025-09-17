@@ -119,6 +119,8 @@ export default function PaletteCleanserModal({
   const [noneSelected, setNoneSelected] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditingPrevious, setIsEditingPrevious] = useState(false);
+  const [hasLoadedData, setHasLoadedData] = useState(false);
 
   const currentQuestion = PALETTE_COLLECTIONS[currentStep];
   const totalSteps = PALETTE_COLLECTIONS.length;
@@ -156,23 +158,33 @@ export default function PaletteCleanserModal({
 
           if (submissionResponse.ok) {
             const submissionData = await submissionResponse.json();
-            if (submissionData && submissionData.data) {
+            console.log('Submission response:', submissionData);
+
+            // The API returns { interactions: [...] } and we need the first item's data
+            if (submissionData && submissionData.interactions && submissionData.interactions.length > 0) {
               // Load the existing submission data
-              const savedData = submissionData.data;
+              const savedData = submissionData.interactions[0].data;
               setBackgroundPreference(savedData.backgroundPreference || null);
               setPaletteRatings(savedData.paletteRatings || {});
               setFinalSelections(savedData.finalSelections || []);
               setNotes(savedData.notes || '');
               setNoneSelected(savedData.noneSelected || false);
 
-              // If we're in edit mode (not view-only), start from the beginning to allow changes
+              // Mark that we're editing previous data
+              setIsEditingPrevious(true);
+              setHasLoadedData(true);
+
+              // If we're in edit mode (not view-only), go directly to final selection
+              // since the user has already completed all steps
               if (!isViewOnly) {
-                setCurrentStep(0);
-                setShowFinalSelection(false);
+                setCurrentStep(PALETTE_COLLECTIONS.length - 1);
+                setShowFinalSelection(true);
+                toast.success('Your previous selections have been loaded for editing');
               } else {
                 // In view-only mode, show the summary
-                setCurrentStep(savedData.currentStep || PALETTE_COLLECTIONS.length - 1);
+                setCurrentStep(PALETTE_COLLECTIONS.length - 1);
                 setShowFinalSelection(true);
+                setShowSummary(true);
               }
 
               console.log('Loaded existing palette data:', savedData);
@@ -314,6 +326,33 @@ export default function PaletteCleanserModal({
     return liked;
   };
 
+  const getDisplayPalettes = () => {
+    // When editing previous submission, show both previous selections and newly liked palettes
+    if (isEditingPrevious && finalSelections.length > 0) {
+      const likedPalettes = getLikedPalettes();
+
+      // If user started over and has new ratings, use those
+      if (Object.keys(paletteRatings).length > 0) {
+        const allPalettes = [...likedPalettes];
+
+        // Add previous selections that aren't in the new liked palettes
+        finalSelections.forEach(palette => {
+          if (!likedPalettes.some(p => p.id === palette.id)) {
+            allPalettes.push(palette);
+          }
+        });
+
+        return allPalettes;
+      }
+
+      // If no new ratings, show previous selections
+      return finalSelections;
+    }
+
+    // Otherwise just show liked palettes
+    return getLikedPalettes();
+  };
+
   const canProceed = () => {
     if (currentStep === 0) return backgroundPreference !== null;
     // For palette steps, must rate all palettes
@@ -418,6 +457,15 @@ export default function PaletteCleanserModal({
     setIsSubmitting(true);
 
     try {
+      console.log('Submitting palette preferences:', {
+        backgroundPreference,
+        finalSelections,
+        paletteRatings,
+        noneSelected,
+        isEditingPrevious,
+        userId
+      });
+
       const responseData = {
         backgroundPreference,
         finalSelections,
@@ -438,7 +486,26 @@ export default function PaletteCleanserModal({
         completedAt: new Date().toISOString()
       };
 
-      const response = await fetch(`/api/aloa-projects/${projectId}/client-view`, {
+      // Save to applet-interactions endpoint for proper retrieval
+      const response = await fetch(`/api/aloa-projects/${projectId}/applet-interactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appletId: applet.id,
+          userId,
+          type: 'submission',
+          data: responseData
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to save to applet-interactions:', errorData);
+        throw new Error(errorData.error || 'Failed to save preferences');
+      }
+
+      // Also update progress tracking
+      const progressResponse = await fetch(`/api/aloa-projects/${projectId}/client-view`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -450,10 +517,8 @@ export default function PaletteCleanserModal({
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('API response error:', errorData);
-        throw new Error(errorData.error || 'Failed to save preferences');
+      if (!progressResponse.ok) {
+        console.error('Failed to update progress, but preferences were saved');
       }
 
       toast.success('Your color preferences have been saved!');
@@ -545,7 +610,7 @@ export default function PaletteCleanserModal({
         isDark ? 'bg-gray-800' : 'bg-white'
       }`}>
         {/* Header */}
-        <div className={`sticky top-0 border-b p-6 z-10 ${
+        <div className={`sticky top-0 border-b p-6 z-20 ${
           isDark ? 'bg-gray-800 border-gray-700' : 'bg-white'
         }`}>
           <div className="flex justify-between items-start">
@@ -610,22 +675,40 @@ export default function PaletteCleanserModal({
           {/* Show final selection screen */}
           {showFinalSelection && !showSummary ? (
             <div className="space-y-6">
+              {/* Show editing indicator if loading previous data */}
+              {isEditingPrevious && !isViewOnly && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Info className="w-5 h-5 text-blue-600" />
+                    <p className="text-sm text-blue-800">
+                      You're editing your previous submission. You can update your selections or add notes below.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="text-center mb-6">
                 <h3 className={`text-2xl font-bold mb-2 ${isDark ? 'text-white' : ''}`}>
-                  {getLikedPalettes().length > 0 ? 'Select Your Top Palettes' : 'No Palettes Matched Your Taste'}
+                  {isEditingPrevious
+                    ? 'Review and Update Your Palette Selections'
+                    : getDisplayPalettes().length > 0
+                      ? 'Select Your Top Palettes'
+                      : 'No Palettes Matched Your Taste'}
                 </h3>
                 <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  {getLikedPalettes().length > 0
-                    ? 'Choose up to 3 palettes that best represent your vision (or none if they don\'t work)'
-                    : 'None of the palettes seemed to match what you\'re looking for'}
+                  {isEditingPrevious
+                    ? 'Your previous selections are shown below. You can modify them if needed.'
+                    : getDisplayPalettes().length > 0
+                      ? 'Choose up to 3 palettes that best represent your vision (or none if they don\'t work)'
+                      : 'None of the palettes seemed to match what you\'re looking for'}
                 </p>
               </div>
 
-              {getLikedPalettes().length > 0 ? (
+              {(getDisplayPalettes().length > 0 || (isEditingPrevious && finalSelections.length > 0)) ? (
                 <>
                   {/* Show liked palettes for final selection */}
                   <div className="grid md:grid-cols-2 gap-4">
-                    {getLikedPalettes().map(palette => (
+                    {getDisplayPalettes().map(palette => (
                       <button
                         key={palette.id}
                         onClick={() => handleFinalPaletteToggle(palette)}
@@ -653,9 +736,16 @@ export default function PaletteCleanserModal({
                           ))}
                         </div>
                         <p className={`text-sm font-medium ${isDark ? 'text-white' : ''}`}>{palette.mood}</p>
-                        <p className="text-xs text-purple-600 mt-1">
-                          You {paletteRatings[palette.id]}d this
-                        </p>
+                        {paletteRatings[palette.id] && (
+                          <p className="text-xs text-purple-600 mt-1">
+                            You {paletteRatings[palette.id] === 'love' ? 'loved' : paletteRatings[palette.id] === 'like' ? 'liked' : 'passed on'} this
+                          </p>
+                        )}
+                        {isEditingPrevious && !paletteRatings[palette.id] && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Previously selected
+                          </p>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -725,14 +815,31 @@ export default function PaletteCleanserModal({
 
               {/* Action buttons */}
               <div className="flex justify-between items-center pt-4 border-t">
-                <button
-                  onClick={() => setShowFinalSelection(false)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                    isDark ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
-                  }`}>
-                  <ChevronLeft className="w-5 h-5" />
-                  Back
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (isEditingPrevious) {
+                        // Reset everything to start fresh
+                        setCurrentStep(0);
+                        setBackgroundPreference(null);
+                        setPaletteRatings({});
+                        setFinalSelections([]);
+                        setNotes('');
+                        setNoneSelected(false);
+                        setShowFinalSelection(false);
+                        setIsEditingPrevious(false);
+                        toast.success('Starting fresh palette selection');
+                      } else {
+                        setShowFinalSelection(false);
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      isDark ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                    }`}>
+                    <ChevronLeft className="w-5 h-5" />
+                    {isEditingPrevious ? 'Start Over' : 'Back'}
+                  </button>
+                </div>
                 <button
                   onClick={() => setShowSummary(true)}
                   disabled={!canComplete()}

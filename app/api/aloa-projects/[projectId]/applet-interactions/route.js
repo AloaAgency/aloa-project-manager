@@ -42,12 +42,12 @@ export async function POST(request, { params }) {
 
     if (existing) {
       // Update existing interaction
+      const updateData = { data: data };
+      // Only include updated_at if the column exists (for backward compatibility)
+      // The database trigger will handle it automatically if the column exists
       const result = await supabase
         .from('aloa_applet_interactions')
-        .update({
-          data: data,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', existing.id)
         .select()
         .single();
