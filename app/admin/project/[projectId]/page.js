@@ -65,7 +65,8 @@ import {
   ExternalLink,
   BarChart,
   Edit2,
-  Star
+  Star,
+  Map
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -111,6 +112,11 @@ const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRe
 
 // Dynamically import SortableProjectlet
 const SortableProjectlet = dynamic(() => import('@/components/SortableProjectlet'), {
+  ssr: false
+});
+
+// Dynamically import SitemapBuilder for viewing user submissions
+const SitemapBuilder = dynamic(() => import('@/components/SitemapBuilderV2'), {
   ssr: false
 });
 
@@ -179,6 +185,27 @@ function AdminProjectPageContent() {
   const [selectedPaletteData, setSelectedPaletteData] = useState({
     userName: null,
     responseData: null
+  });
+  const [showSitemapViewerModal, setShowSitemapViewerModal] = useState(false);
+  const [selectedSitemapData, setSelectedSitemapData] = useState({
+    userName: null,
+    userEmail: null,
+    sitemapData: null,
+    submittedAt: null,
+    appletName: null,
+    projectScope: null,
+    websiteUrl: null,
+    appletId: null
+  });
+  const [editingProjectInfo, setEditingProjectInfo] = useState(false);
+  const [tempProjectInfo, setTempProjectInfo] = useState({
+    project_type: '',
+    website_url: '',
+    scope: {
+      main_pages: 5,
+      aux_pages: 5,
+      description: ''
+    }
   });
 
   // ESC key handlers for modals
@@ -723,6 +750,18 @@ function AdminProjectPageContent() {
       const projectData = await projectRes.json();
       setProject(projectData);
 
+      // Initialize project info from metadata
+      if (projectData?.metadata) {
+        setTempProjectInfo({
+          project_type: projectData.metadata.project_type || 'Website Design',
+          scope: {
+            main_pages: projectData.metadata.scope?.main_pages || projectData.rules?.main_pages || 5,
+            aux_pages: projectData.metadata.scope?.aux_pages || projectData.rules?.aux_pages || 5,
+            description: projectData.metadata.scope?.description || 'Standard website package'
+          }
+        });
+      }
+
       // Fetch projectlets
       const projectletsRes = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`);
       const projectletsData = await projectletsRes.json();
@@ -950,6 +989,48 @@ function AdminProjectPageContent() {
       console.error('Error deleting projectlet:', error);
       toast.error('Failed to delete projectlet');
     }
+  };
+
+  const saveProjectInfo = async () => {
+    try {
+      const updatedMetadata = {
+        ...project.metadata,
+        project_type: tempProjectInfo.project_type,
+        website_url: tempProjectInfo.website_url,
+        scope: tempProjectInfo.scope
+      };
+
+      const response = await fetch(`/api/aloa-projects/${params.projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ metadata: updatedMetadata })
+      });
+
+      if (response.ok) {
+        const updatedProject = await response.json();
+        setProject(updatedProject);
+        setEditingProjectInfo(false);
+        toast.success('Project information updated');
+      } else {
+        toast.error('Failed to update project information');
+      }
+    } catch (error) {
+      console.error('Error updating project info:', error);
+      toast.error('Failed to update project information');
+    }
+  };
+
+  const startEditingProjectInfo = () => {
+    setTempProjectInfo({
+      project_type: project?.metadata?.project_type || 'Website Design',
+      website_url: project?.metadata?.website_url || '',
+      scope: {
+        main_pages: project?.metadata?.scope?.main_pages || project?.rules?.main_pages || 5,
+        aux_pages: project?.metadata?.scope?.aux_pages || project?.rules?.aux_pages || 5,
+        description: project?.metadata?.scope?.description || 'Standard website package'
+      }
+    });
+    setEditingProjectInfo(true);
   };
 
   const duplicateProjectlet = async (projectlet) => {
@@ -1516,7 +1597,10 @@ function AdminProjectPageContent() {
                         upload: Upload,
                         signoff: CheckCircle,
                         moodboard: Palette,
-                        content_gather: MessageSquare
+                        content_gather: MessageSquare,
+                        sitemap: Map,
+                        palette_cleanser: Palette,
+                        link_submission: Link
                       };
 
                       return (
@@ -1810,13 +1894,13 @@ function AdminProjectPageContent() {
                                               return (
                                                 <div
                                                   key={completion.user_id}
-                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
                                                   title={`${completion.user?.full_name || completion.user?.email || 'User'} - ${
                                                     isInProgress ? 'In Progress' : `Reviewed ${
                                                       completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
                                                     }`
-                                                  }${applet.type === 'form' ? '\nClick to view response' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
-                                                onClick={() => {
+                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
+                                                onClick={async () => {
                                                   if (applet.type === 'form') {
                                                     const formId = applet.form_id || applet.config?.form_id;
                                                     const form = formId ? availableForms.find(f => f.id === formId) : null;
@@ -1827,6 +1911,60 @@ function AdminProjectPageContent() {
                                                       formName: form?.title || applet.name
                                                     });
                                                     setShowFormResponseModal(true);
+                                                  } else if (applet.type === 'sitemap') {
+                                                    // Fetch the user's sitemap data
+                                                    console.log('Sitemap avatar clicked:', completion);
+                                                    try {
+                                                      const userEmail = completion.user?.email || completion.user_id;
+                                                      const response = await fetch(
+                                                        `/api/aloa-projects/${params.projectId}/applet-interactions?appletId=${applet.id}&userEmail=${userEmail}&type=sitemap_save`
+                                                      );
+
+                                                      if (response.ok) {
+                                                        const data = await response.json();
+                                                        const userSitemapData = data.interactions?.[0]?.data?.sitemap_data || applet.config?.sitemap_data;
+
+                                                        setSelectedSitemapData({
+                                                          userName: completion.user?.full_name || completion.user?.email || 'Unknown User',
+                                                          userEmail: userEmail,
+                                                          sitemapData: userSitemapData,
+                                                          submittedAt: completion.completed_at || completion.started_at,
+                                                          appletName: applet.name,
+                                                          projectScope: project?.metadata?.scope || { main_pages: 5, aux_pages: 5 },
+                                                          websiteUrl: project?.metadata?.website_url,
+                                                          appletId: applet.id
+                                                        });
+                                                        setShowSitemapViewerModal(true);
+                                                      } else {
+                                                        console.error('Response not ok:', response.status);
+                                                        // Fallback to showing current applet config
+                                                        setSelectedSitemapData({
+                                                          userName: completion.user?.full_name || completion.user?.email || 'Unknown User',
+                                                          userEmail: completion.user?.email || completion.user_id,
+                                                          sitemapData: applet.config?.sitemap_data,
+                                                          submittedAt: completion.completed_at || completion.started_at,
+                                                          appletName: applet.name,
+                                                          projectScope: project?.metadata?.scope || { main_pages: 5, aux_pages: 5 },
+                                                          websiteUrl: project?.metadata?.website_url,
+                                                          appletId: applet.id
+                                                        });
+                                                        setShowSitemapViewerModal(true);
+                                                      }
+                                                    } catch (error) {
+                                                      console.error('Error fetching user sitemap data:', error);
+                                                      // Fallback to showing the current applet config
+                                                      setSelectedSitemapData({
+                                                        userName: completion.user?.full_name || completion.user?.email || 'Unknown User',
+                                                        userEmail: completion.user?.email || completion.user_id,
+                                                        sitemapData: applet.config?.sitemap_data,
+                                                        submittedAt: completion.completed_at || completion.started_at,
+                                                        appletName: applet.name,
+                                                        projectScope: project?.metadata?.scope || { main_pages: 5, aux_pages: 5 },
+                                                        websiteUrl: project?.metadata?.website_url,
+                                                        appletId: applet.id
+                                                      });
+                                                      setShowSitemapViewerModal(true);
+                                                    }
                                                   } else if (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) {
                                                     // Show palette results modal
                                                     console.log('Admin clicking palette avatar - completion:', completion);
@@ -1911,7 +2049,105 @@ function AdminProjectPageContent() {
                                       </button>
                                     </div>
                                   </div>
-                                  
+
+                                  {/* Inline sitemap configuration for sitemap applets */}
+                                  {expandedApplets[applet.id] && applet.type === 'sitemap' && (
+                                    <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-lg">
+                                      <div className="text-sm font-medium text-gray-700">Sitemap Configuration</div>
+
+                                      {/* Display project scope information */}
+                                      <div className="text-xs text-gray-600">
+                                        <div>Project Type: {project?.metadata?.project_type || 'Website Design'}</div>
+                                        <div>
+                                          Scope: {project?.metadata?.scope?.main_pages || 5} main pages, {' '}
+                                          {project?.metadata?.scope?.aux_pages || 5} auxiliary pages
+                                        </div>
+                                      </div>
+
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-sm">
+                                          {applet.config?.locked ? 'Locked (View Only)' : 'Unlocked (Editable)'}
+                                        </span>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: !applet.config?.locked
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success(applet.config?.locked ? 'Sitemap unlocked' : 'Sitemap locked');
+                                              }
+                                            } catch (error) {
+                                              console.error('Error toggling lock:', error);
+                                              toast.error('Failed to update lock status');
+                                            }
+                                          }}
+                                          className={`px-3 py-1 rounded text-sm font-medium ${
+                                            applet.config?.locked
+                                              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? (
+                                            <>
+                                              <Lock className="w-3 h-3 inline mr-1" />
+                                              Unlock
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Unlock className="w-3 h-3 inline mr-1" />
+                                              Lock
+                                            </>
+                                          )}
+                                        </button>
+                                      </div>
+
+                                      {/* Instructions */}
+                                      <div>
+                                        <label className="text-xs text-gray-500">Instructions for clients:</label>
+                                        <textarea
+                                          value={applet.config?.instructions || 'Build your website sitemap by organizing pages and their relationships'}
+                                          onChange={async (e) => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      instructions: e.target.value
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating instructions:', error);
+                                            }
+                                          }}
+                                          className="w-full mt-1 px-2 py-1 border rounded text-sm"
+                                          rows="2"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {/* Inline form selector for form applets */}
                                   {expandedApplets[applet.id] && applet.type === 'form' && (
                                     <div className="mt-2">
@@ -2226,19 +2462,97 @@ function AdminProjectPageContent() {
           <div className="space-y-6">
             {/* Project Info */}
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="font-bold mb-4">Project Information</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold">Project Information</h3>
+                {!editingProjectInfo ? (
+                  <button
+                    onClick={startEditingProjectInfo}
+                    className="text-black hover:bg-gray-100 p-1 rounded"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveProjectInfo}
+                      className="text-green-600 hover:bg-green-50 p-1 rounded"
+                    >
+                      <Save className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingProjectInfo(false);
+                        setTempProjectInfo({
+                          project_type: project?.metadata?.project_type || 'Website Design',
+                          scope: {
+                            main_pages: project?.metadata?.scope?.main_pages || project?.rules?.main_pages || 5,
+                            aux_pages: project?.metadata?.scope?.aux_pages || project?.rules?.aux_pages || 5,
+                            description: project?.metadata?.scope?.description || 'Standard website package'
+                          }
+                        });
+                      }}
+                      className="text-red-600 hover:bg-red-50 p-1 rounded"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-3 text-sm">
                 <div>
                   <span className="text-gray-600">Client:</span>
                   <div className="font-medium">{project?.client_name}</div>
                   <div className="text-gray-600">{project?.client_email}</div>
                 </div>
+
+                <div>
+                  <span className="text-gray-600">Project Type:</span>
+                  {editingProjectInfo ? (
+                    <select
+                      value={tempProjectInfo.project_type}
+                      onChange={(e) => setTempProjectInfo(prev => ({ ...prev, project_type: e.target.value }))}
+                      className="w-full mt-1 px-2 py-1 border rounded"
+                    >
+                      <option value="Website Design">Website Design</option>
+                      <option value="Web Application">Web Application</option>
+                      <option value="E-commerce">E-commerce</option>
+                      <option value="Landing Page">Landing Page</option>
+                      <option value="Blog/CMS">Blog/CMS</option>
+                      <option value="Portfolio">Portfolio</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  ) : (
+                    <div className="font-medium">
+                      {project?.metadata?.project_type || 'Website Design'}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-gray-600">Website URL:</span>
+                  {editingProjectInfo ? (
+                    <input
+                      type="url"
+                      value={tempProjectInfo.website_url}
+                      onChange={(e) => setTempProjectInfo(prev => ({ ...prev, website_url: e.target.value }))}
+                      placeholder="https://example.com"
+                      className="w-full mt-1 px-2 py-1 border rounded"
+                    />
+                  ) : (
+                    <div className="font-medium">
+                      {project?.metadata?.website_url || 'Not set'}
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <span className="text-gray-600">Status:</span>
                   <div className="font-medium capitalize">
                     {project?.status.replace(/_/g, ' ')}
                   </div>
                 </div>
+
                 <div>
                   <span className="text-gray-600">Timeline:</span>
                   <div className="font-medium">
@@ -2247,11 +2561,64 @@ function AdminProjectPageContent() {
                     {project?.estimated_completion_date && new Date(project.estimated_completion_date).toLocaleDateString()}
                   </div>
                 </div>
+
                 <div>
                   <span className="text-gray-600">Scope:</span>
-                  <div className="font-medium">
-                    {project?.rules?.main_pages} main pages, {project?.rules?.aux_pages} aux pages
-                  </div>
+                  {editingProjectInfo ? (
+                    <div className="space-y-2 mt-1">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-500 w-20">Main Pages:</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={tempProjectInfo.scope.main_pages}
+                          onChange={(e) => setTempProjectInfo(prev => ({
+                            ...prev,
+                            scope: { ...prev.scope, main_pages: parseInt(e.target.value) || 1 }
+                          }))}
+                          className="w-16 px-2 py-1 border rounded"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-500 w-20">Aux Pages:</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={tempProjectInfo.scope.aux_pages}
+                          onChange={(e) => setTempProjectInfo(prev => ({
+                            ...prev,
+                            scope: { ...prev.scope, aux_pages: parseInt(e.target.value) || 0 }
+                          }))}
+                          className="w-16 px-2 py-1 border rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Description:</label>
+                        <input
+                          type="text"
+                          value={tempProjectInfo.scope.description}
+                          onChange={(e) => setTempProjectInfo(prev => ({
+                            ...prev,
+                            scope: { ...prev.scope, description: e.target.value }
+                          }))}
+                          placeholder="e.g., Standard website package"
+                          className="w-full mt-1 px-2 py-1 border rounded"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="font-medium">
+                        {project?.metadata?.scope?.main_pages || project?.rules?.main_pages || 5} main pages,{' '}
+                        {project?.metadata?.scope?.aux_pages || project?.rules?.aux_pages || 5} aux pages
+                      </div>
+                      {project?.metadata?.scope?.description && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {project.metadata.scope.description}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -3300,6 +3667,96 @@ function AdminProjectPageContent() {
             setSelectedPaletteData(null);
           }}
         />
+      )}
+
+      {/* Sitemap Viewer Modal */}
+      {showSitemapViewerModal && selectedSitemapData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {selectedSitemapData.userName}'s Sitemap
+                </h2>
+                {selectedSitemapData.submittedAt && (
+                  <p className="text-sm text-gray-500">
+                    Submitted: {new Date(selectedSitemapData.submittedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setShowSitemapViewerModal(false);
+                  setSelectedSitemapData(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {selectedSitemapData.sitemapData ? (
+                <SitemapBuilder
+                  config={{}}
+                  projectScope={selectedSitemapData.projectScope}
+                  isLocked={true} // View-only mode
+                  initialData={selectedSitemapData.sitemapData}
+                  appletId={selectedSitemapData.appletId}
+                  projectId={params.projectId}
+                  userId={selectedSitemapData.userEmail}
+                  websiteUrl={selectedSitemapData.websiteUrl}
+                  onAutoSave={() => {}} // Disabled in view mode
+                  onSave={() => {}} // Disabled in view mode
+                />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Map className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No sitemap data available for this user.</p>
+                  {selectedSitemapData.allCompletions && selectedSitemapData.allCompletions.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm mb-2">Select a user to view their sitemap:</p>
+                      <div className="flex justify-center space-x-2">
+                        {selectedSitemapData.allCompletions.map((completion, idx) => (
+                          <button
+                            key={completion.id || idx}
+                            onClick={async () => {
+                              // Fetch and display this user's sitemap
+                              const userEmail = completion.user?.email || completion.user_id;
+                              const response = await fetch(
+                                `/api/aloa-projects/${params.projectId}/applet-interactions?appletId=${selectedSitemapData.appletId}&userEmail=${userEmail}&type=sitemap_save`
+                              );
+                              if (response.ok) {
+                                const data = await response.json();
+                                const userSitemapData = data.interactions?.[0]?.data?.sitemap_data;
+                                if (userSitemapData) {
+                                  setSelectedSitemapData(prev => ({
+                                    ...prev,
+                                    userName: completion.user?.full_name || completion.user?.email || 'Unknown User',
+                                    userEmail: userEmail,
+                                    sitemapData: userSitemapData,
+                                    submittedAt: completion.completed_at || completion.started_at
+                                  }));
+                                }
+                              }
+                            }}
+                            className="p-1 hover:opacity-80 transition-opacity"
+                            title={`View ${completion.user?.full_name || completion.user?.email || 'User'}'s sitemap`}
+                          >
+                            <UserAvatar
+                              user={completion.user || { email: completion.user_id }}
+                              size="sm"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
