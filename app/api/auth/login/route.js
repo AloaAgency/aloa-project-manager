@@ -69,7 +69,13 @@ export async function POST(request) {
       }
     );
 
-    // Attempt to sign in
+    // Sign out any existing session first to ensure clean state
+    await supabase.auth.signOut();
+
+    // Small delay to ensure cookies are cleared
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Attempt to sign in with fresh session
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password

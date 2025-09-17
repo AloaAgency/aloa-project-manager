@@ -102,6 +102,7 @@ export default function PaletteCleanserModal({
   applet,
   projectId,
   userId,
+  isViewOnly = false,
   onClose,
   onComplete
 }) {
@@ -126,10 +127,61 @@ export default function PaletteCleanserModal({
   // Use background preference for display
   const isDark = backgroundPreference === 'dark';
 
+  // Helper function to get user email
+  const getUserEmail = async () => {
+    try {
+      const response = await fetch('/api/auth/profile');
+      if (response.ok) {
+        const data = await response.json();
+        return data.email;
+      }
+    } catch (error) {
+      console.error('Error fetching user email:', error);
+    }
+    return null;
+  };
+
   // Load saved progress on mount
   useEffect(() => {
     const loadProgress = async () => {
       try {
+        // First check if user has completed this palette cleanser before
+        const userEmail = userId === 'anonymous' ? null : await getUserEmail();
+
+        if (userEmail || userId !== 'anonymous') {
+          // Try to fetch existing submission data
+          const submissionResponse = await fetch(
+            `/api/aloa-projects/${projectId}/applet-interactions?appletId=${applet.id}&userEmail=${userEmail || ''}&userId=${userId}&type=submission`
+          );
+
+          if (submissionResponse.ok) {
+            const submissionData = await submissionResponse.json();
+            if (submissionData && submissionData.data) {
+              // Load the existing submission data
+              const savedData = submissionData.data;
+              setBackgroundPreference(savedData.backgroundPreference || null);
+              setPaletteRatings(savedData.paletteRatings || {});
+              setFinalSelections(savedData.finalSelections || []);
+              setNotes(savedData.notes || '');
+              setNoneSelected(savedData.noneSelected || false);
+
+              // If we're in edit mode (not view-only), start from the beginning to allow changes
+              if (!isViewOnly) {
+                setCurrentStep(0);
+                setShowFinalSelection(false);
+              } else {
+                // In view-only mode, show the summary
+                setCurrentStep(savedData.currentStep || PALETTE_COLLECTIONS.length - 1);
+                setShowFinalSelection(true);
+              }
+
+              console.log('Loaded existing palette data:', savedData);
+              return;
+            }
+          }
+        }
+
+        // If no existing data or anonymous user, check for in-progress data
         const response = await fetch(`/api/aloa-projects/${projectId}/client-view?appletId=${applet.id}&userId=${userId}`);
         if (response.ok) {
           const data = await response.json();
@@ -146,9 +198,9 @@ export default function PaletteCleanserModal({
             setNotes(savedData.notes || '');
             setNoneSelected(savedData.noneSelected || false);
             setShowFinalSelection(savedData.showFinalSelection || false);
-            setShowSummary(savedData.showSummary || false);
+            setShowSummary(isViewOnly ? true : savedData.showSummary || false);
 
-            if (savedData.currentStep > 0 || savedData.backgroundPreference) {
+            if (!isViewOnly && (savedData.currentStep > 0 || savedData.backgroundPreference)) {
               toast.success('Your previous progress has been restored');
             }
           }
@@ -159,7 +211,7 @@ export default function PaletteCleanserModal({
     };
 
     loadProgress();
-  }, [applet.id, projectId, userId]);
+  }, [applet.id, projectId, userId, isViewOnly]);
 
   // Auto-save progress function
   const saveProgress = async () => {
@@ -393,7 +445,7 @@ export default function PaletteCleanserModal({
           appletId: applet.id,
           userId,
           status: 'completed',
-          interactionType: 'palette_selection',
+          interactionType: 'submission',
           data: responseData
         })
       });
@@ -789,21 +841,34 @@ export default function PaletteCleanserModal({
 
               {/* Action Buttons */}
               <div className="flex justify-between items-center pt-4 border-t">
-                <button
-                  onClick={() => setShowSummary(false)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                    isDark ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
-                  }`}>
-                  <ChevronLeft className="w-5 h-5" />
-                  Back to Selection
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors">
-                  <FileText className="w-5 h-5" />
-                  {isSubmitting ? 'Saving Your Profile...' : 'Save My Color Profile'}
-                </button>
+                {!isViewOnly ? (
+                  <>
+                    <button
+                      onClick={() => setShowSummary(false)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                        isDark ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                      }`}>
+                      <ChevronLeft className="w-5 h-5" />
+                      Back to Selection
+                    </button>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+                      <FileText className="w-5 h-5" />
+                      {isSubmitting ? 'Saving Your Profile...' : 'Save My Color Profile'}
+                    </button>
+                  </>
+                ) : (
+                  <div className="w-full text-center">
+                    <p className="text-sm text-gray-500 mb-3">Viewing saved palette preferences</p>
+                    <button
+                      onClick={onClose}
+                      className="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors">
+                      Close
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ) : (

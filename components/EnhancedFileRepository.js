@@ -81,16 +81,19 @@ export default function EnhancedFileRepository({
       }
 
       const response = await fetch(`/api/project-files?${params}`);
-      const data = await response.json();
+      const result = await response.json();
 
-      if (data.error) {
-        console.error('Error fetching files:', data.error);
+      if (result.error) {
+        console.error('Error fetching files:', result.error);
         return;
       }
 
+      // Handle both response formats
+      const data = result.files || result;
+
       // Separate folders and files
-      const folderItems = data.filter(item => item.is_folder);
-      const fileItems = data.filter(item => !item.is_folder);
+      const folderItems = (Array.isArray(data) ? data : []).filter(item => item.is_folder);
+      const fileItems = (Array.isArray(data) ? data : []).filter(item => !item.is_folder);
 
       setFolders(folderItems);
       setFiles(fileItems);

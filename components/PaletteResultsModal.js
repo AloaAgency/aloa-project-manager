@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Heart, ThumbsUp, ThumbsDown, Download, Palette, Sun, Moon, Sparkles, AlertCircle, FileText, TrendingUp, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Heart, ThumbsUp, ThumbsDown, Download, Palette, Sun, Moon, Sparkles, AlertCircle, FileText, TrendingUp, CheckCircle, Brain, Users } from 'lucide-react';
 
 // Import the palette collections to recreate the visual palettes
 const PALETTE_COLLECTIONS = [
@@ -68,12 +68,249 @@ const PALETTE_COLLECTIONS = [
 export default function PaletteResultsModal({
   userName,
   responseData,
+  isAmalgamated = false,
   onClose
 }) {
   const [activeTab, setActiveTab] = useState('overview');
 
+  // Add ESC key functionality
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [onClose]);
+
+  // Debug logging
+  console.log('PaletteResultsModal - responseData:', responseData);
+  console.log('PaletteResultsModal - typeof responseData:', typeof responseData);
+  console.log('PaletteResultsModal - responseData keys:', responseData ? Object.keys(responseData) : 'null');
+
   if (!responseData) return null;
 
+  // Handle amalgamated view for multiple participants
+  if (isAmalgamated && responseData.isAmalgamated) {
+    const { participants = [] } = responseData;
+
+    // Aggregate data from all participants
+    const allRatings = {};
+    const allFinalSelections = [];
+    const allPreferences = {};
+    const participantNotes = [];
+    let darkModeCount = 0;
+    let lightModeCount = 0;
+
+    participants.forEach(participant => {
+      if (!participant.data) return;
+
+      // Count background preferences
+      if (participant.data.backgroundPreference === 'dark') darkModeCount++;
+      else if (participant.data.backgroundPreference === 'light') lightModeCount++;
+
+      // Aggregate palette ratings
+      Object.entries(participant.data.paletteRatings || {}).forEach(([paletteId, rating]) => {
+        if (!allRatings[paletteId]) {
+          allRatings[paletteId] = { love: 0, like: 0, dislike: 0 };
+        }
+        allRatings[paletteId][rating]++;
+      });
+
+      // Collect final selections
+      (participant.data.finalSelections || []).forEach(selection => {
+        allFinalSelections.push({ ...selection, participant: participant.name });
+      });
+
+      // Aggregate preferences
+      Object.entries(participant.data.preferences || {}).forEach(([key, value]) => {
+        if (!allPreferences[key]) allPreferences[key] = 0;
+        if (value) allPreferences[key]++;
+      });
+
+      // Collect notes
+      if (participant.data.notes) {
+        participantNotes.push({ name: participant.name, notes: participant.data.notes });
+      }
+    });
+
+    // Create amalgamated view content
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 text-white p-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2 mb-2">
+                  <Brain className="w-8 h-8" />
+                  AI Amalgamated Palette View
+                </h2>
+                <p className="text-purple-100 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Combined preferences from {participants.length} participants
+                </p>
+              </div>
+              <button onClick={onClose} className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Stats Bar */}
+            <div className="mt-4 grid grid-cols-3 gap-4">
+              <div className="bg-white/20 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold">{participants.length}</div>
+                <div className="text-xs text-purple-100">Participants</div>
+              </div>
+              <div className="bg-white/20 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold">
+                  {darkModeCount > lightModeCount ? <Moon className="w-6 h-6 mx-auto" /> : <Sun className="w-6 h-6 mx-auto" />}
+                </div>
+                <div className="text-xs text-purple-100">
+                  {darkModeCount} Dark / {lightModeCount} Light
+                </div>
+              </div>
+              <div className="bg-white/20 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold">{allFinalSelections.length}</div>
+                <div className="text-xs text-purple-100">Total Selections</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Consensus Palettes */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Heart className="w-5 h-5 text-pink-500" />
+                Most Loved Palettes (Consensus)
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {Object.entries(allRatings)
+                  .sort((a, b) => b[1].love - a[1].love)
+                  .slice(0, 6)
+                  .map(([paletteId, ratings]) => {
+                    const palette = PALETTE_COLLECTIONS
+                      .flatMap(c => c.palettes || [])
+                      .find(p => p.id === paletteId);
+                    if (!palette) return null;
+
+                    return (
+                      <div key={paletteId} className="bg-white border-2 border-purple-200 rounded-lg p-4">
+                        <p className="font-medium text-sm mb-2">{palette.mood}</p>
+                        <div className="grid grid-cols-5 gap-1 mb-3">
+                          {palette.colors.map((color, i) => (
+                            <div
+                              key={i}
+                              className="aspect-square rounded"
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex gap-2 text-xs">
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-3 h-3 text-pink-500 fill-current" />
+                            {ratings.love}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <ThumbsUp className="w-3 h-3 text-blue-500 fill-current" />
+                            {ratings.like}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <ThumbsDown className="w-3 h-3 text-gray-500 fill-current" />
+                            {ratings.dislike}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }).filter(Boolean)}
+              </div>
+            </div>
+
+            {/* Participant Selections */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Individual Final Selections</h3>
+              <div className="space-y-3">
+                {participants.map((participant, idx) => {
+                  const selections = participant.data?.finalSelections || [];
+                  if (selections.length === 0) return null;
+
+                  return (
+                    <div key={idx} className="bg-gray-50 rounded-lg p-4">
+                      <p className="font-medium text-sm mb-2">{participant.name}</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {selections.map((selection, sIdx) => {
+                          const palette = PALETTE_COLLECTIONS
+                            .flatMap(c => c.palettes || [])
+                            .find(p => p.id === selection.id) || selection;
+
+                          return (
+                            <div key={sIdx} className="bg-white rounded p-2">
+                              <p className="text-xs text-gray-600 mb-1 truncate">{palette.mood}</p>
+                              <div className="grid grid-cols-5 gap-0.5">
+                                {palette.colors?.map((color, i) => (
+                                  <div
+                                    key={i}
+                                    className="aspect-square rounded-sm"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }).filter(Boolean)}
+              </div>
+            </div>
+
+            {/* Preference Trends */}
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4">
+              <h3 className="font-semibold mb-3">Preference Trends</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.entries(allPreferences)
+                  .filter(([_, count]) => count > 0)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([key, count]) => {
+                    const label = key.replace('prefers', '').replace(/([A-Z])/g, ' $1').trim();
+                    const percentage = Math.round((count / participants.length) * 100);
+                    return (
+                      <div key={key} className="bg-white rounded-lg p-3">
+                        <p className="text-sm font-medium">{label}</p>
+                        <p className="text-xs text-gray-600">{percentage}% prefer</p>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Combined Notes */}
+            {participantNotes.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-3">Participant Notes</h3>
+                <div className="space-y-2">
+                  {participantNotes.map((note, idx) => (
+                    <div key={idx} className="bg-gray-50 rounded-lg p-3">
+                      <p className="font-medium text-sm mb-1">{note.name}</p>
+                      <p className="text-sm text-gray-700">{note.notes}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Original single participant view
   const {
     backgroundPreference,
     finalSelections = [],

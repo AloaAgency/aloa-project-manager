@@ -55,6 +55,7 @@ function ClientDashboard() {
   const [showLinkSubmissionModal, setShowLinkSubmissionModal] = useState(false); // Track link submission modal
   const [showFileUploadModal, setShowFileUploadModal] = useState(false); // Track file upload modal
   const [showPaletteCleanserModal, setShowPaletteCleanserModal] = useState(false); // Track palette cleanser modal
+  const [isPaletteCleanserViewOnly, setIsPaletteCleanserViewOnly] = useState(false); // Track if palette cleanser is view-only
   const [activeTab, setActiveTab] = useState('journey'); // Track active tab
 
   // ESC key handlers for modals
@@ -178,6 +179,7 @@ function ClientDashboard() {
     const isPaletteCleanser = applet.type === 'palette_cleanser';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
+    const paletteIsLocked = isPaletteCleanser && applet.config?.locked === true;
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
 
     // Block if:
@@ -315,11 +317,120 @@ function ClientDashboard() {
       setShowLinkSubmissionModal(true);
     } else if (isFileUpload) {
       // Handle file upload applet
-      setSelectedApplet({ ...applet, projectlet });
-      setShowFileUploadModal(true);
+      console.log('Debug - File Upload Click:', {
+        appletId: applet.id,
+        appletName: applet.name,
+        appletType: applet.type,
+        appletConfig: applet.config,
+        configFiles: applet.config?.files,
+        configFilesType: typeof applet.config?.files
+      });
+
+      // Files can be in two places: config.files or aloa_project_files table
+      const fetchFiles = async () => {
+        try {
+          // Start with files from config - handle string, array, or object formats
+          // Note: Files can be in config.files OR config.attached_files
+          let configFiles = [];
+          const filesField = applet.config?.files || applet.config?.attached_files;
+
+          if (filesField) {
+            if (typeof filesField === 'string') {
+              try {
+                configFiles = JSON.parse(filesField);
+                console.log('Debug - Parsed files from string config:', configFiles);
+              } catch (e) {
+                console.error('Failed to parse files string:', e, 'Raw string:', filesField);
+                configFiles = [];
+              }
+            } else if (Array.isArray(filesField)) {
+              configFiles = filesField;
+              console.log('Debug - Files already array in config:', configFiles);
+            } else if (typeof filesField === 'object') {
+              // Handle object format - might be a single file or an object with array property
+              console.log('Debug - Files is an object:', filesField);
+              // Check if it's an object with a files array inside
+              if (filesField.files && Array.isArray(filesField.files)) {
+                configFiles = filesField.files;
+              } else if (filesField.data && Array.isArray(filesField.data)) {
+                configFiles = filesField.data;
+              } else {
+                // Try to extract values from object
+                configFiles = Object.values(filesField);
+              }
+              console.log('Debug - Extracted from object:', configFiles);
+            } else {
+              console.log('Debug - Config files is unknown type:', typeof filesField, filesField);
+            }
+          } else {
+            console.log('Debug - No files in applet config (checked both files and attached_files)');
+          }
+          console.log('Debug - Final config files:', configFiles);
+
+          // Also fetch from aloa_project_files table
+          const response = await fetch(`/api/project-files?applet_id=${applet.id}`);
+          let apiFiles = [];
+
+          if (response.ok) {
+            const data = await response.json();
+            apiFiles = data.files || [];
+            console.log('Debug - Files from API:', apiFiles);
+          }
+
+          // Merge both sources
+          const allFiles = [...configFiles];
+
+          // Add files from API that aren't already in config
+          apiFiles.forEach(file => {
+            if (!allFiles.some(f => f.id === file.id || f.name === file.file_name)) {
+              allFiles.push({
+                id: file.id,
+                name: file.file_name,
+                size: file.file_size,
+                type: file.file_type,
+                url: file.url,
+                category: file.category,
+                storage_type: file.storage_type,
+                uploaded_at: file.created_at || file.uploaded_at
+              });
+            }
+          });
+
+          console.log('Debug - Total files combined:', allFiles);
+
+          // Update the applet with all files
+          const updatedApplet = {
+            ...applet,
+            projectlet,
+            config: {
+              ...applet.config,
+              files: allFiles
+            }
+          };
+
+          console.log('Debug - Updated applet before setting:', {
+            id: updatedApplet.id,
+            name: updatedApplet.name,
+            configFiles: updatedApplet.config?.files,
+            filesCount: updatedApplet.config?.files?.length
+          });
+
+          setSelectedApplet(updatedApplet);
+          setShowFileUploadModal(true);
+        } catch (error) {
+          console.error('Error fetching files:', error);
+          // Still show modal with config files if fetch fails
+          setSelectedApplet({ ...applet, projectlet });
+          setShowFileUploadModal(true);
+        }
+      };
+
+      fetchFiles();
     } else if (isPaletteCleanser) {
       // Handle palette cleanser applet
+      const userAlreadyCompleted = completedApplets.has(applet.id);
       setSelectedApplet({ ...applet, projectlet });
+      setIsPaletteCleanserViewOnly(paletteIsLocked && userAlreadyCompleted);
       setShowPaletteCleanserModal(true);
     }
   };
@@ -642,6 +753,9 @@ function ClientDashboard() {
                         let buttonState = 'available';
                         let statusMessage = null;
 
+                        // Check if applet is in progress (started but not completed)
+                        const isInProgress = applet.user_started_at && !applet.user_completed_at;
+
                         // Get completion date if available
                         const completionDate = applet.user_completed_at ?
                           new Date(applet.user_completed_at).toLocaleDateString('en-US', {
@@ -687,22 +801,63 @@ function ClientDashboard() {
                           statusMessage = completionDate ?
                             `Files reviewed on ${completionDate}` :
                             'Files reviewed - click to view again';
+                        } else if (applet.type === 'palette_cleanser') {
+                          const paletteIsLocked = applet.config?.locked === true;
+
+                          // Debug logging for palette cleanser
+                          console.log('Debug - Palette Cleanser State:', {
+                            appletId: applet.id,
+                            name: applet.name,
+                            user_started_at: applet.user_started_at,
+                            user_completed_at: applet.user_completed_at,
+                            isInProgress,
+                            isAppletCompleted,
+                            paletteIsLocked,
+                            buttonStateWillBe: isAppletCompleted && paletteIsLocked ? 'completed-locked' :
+                                               isAppletCompleted && !paletteIsLocked ? 'user-complete-editable' :
+                                               isInProgress && !paletteIsLocked ? 'in-progress-editing' :
+                                               paletteIsLocked ? 'locked' : 'available'
+                          });
+
+                          if (isAppletCompleted && paletteIsLocked) {
+                            buttonState = 'completed-locked';
+                            statusMessage = completionDate ?
+                              `Palette submitted on ${completionDate} • Locked` :
+                              'Palette preferences submitted & locked. No longer accepting changes.';
+                          } else if (isAppletCompleted && !paletteIsLocked) {
+                            buttonState = 'user-complete-editable';
+                            statusMessage = completionDate ?
+                              `Submitted on ${completionDate} • Click to edit` :
+                              'Palette preferences submitted! We are still gathering other inputs. Want to make a change? Click the pencil icon.';
+                          } else if (isInProgress && !paletteIsLocked) {
+                            buttonState = 'in-progress-editing';
+                            statusMessage = 'Continue editing your palette preferences';
+                          } else if (paletteIsLocked) {
+                            buttonState = 'locked';
+                            statusMessage = 'Palette discovery closed to new responses';
+                          }
                         } else if (isAppletCompleted) {
                           buttonState = 'completed';
                           statusMessage = completionDate ?
                             `Completed on ${completionDate}` : null;
+                        } else if (isInProgress) {
+                          // Generic in-progress state for any applet type that doesn't have specific handling
+                          buttonState = 'in-progress-editing';
+                          statusMessage = 'Resume where you left off';
                         }
-                        
+
                         return (
                           <button
                             key={applet.id}
                             onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
-                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload')}
+                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser')}
                             className={`w-full p-4 rounded-lg border-2 transition-all ${
                               buttonState === 'completed-locked'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'user-complete-editable'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
+                                : buttonState === 'in-progress-editing'
+                                ? 'bg-yellow-50 border-yellow-300 hover:border-yellow-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'link-completed'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'file-completed'
@@ -719,12 +874,15 @@ function ClientDashboard() {
                                 <div className={`p-2 rounded-lg ${
                                   buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'link-completed' ? 'bg-green-100' :
                                   buttonState === 'file-completed' ? 'bg-green-100' :
+                                  buttonState === 'in-progress-editing' ? 'bg-yellow-100' :
                                   buttonState === 'locked' ? 'bg-gray-100' :
-                                  buttonState === 'completed' ? 'bg-green-100' : 
+                                  buttonState === 'completed' ? 'bg-green-100' :
                                   'bg-purple-100'
                                 }`}>
                                   {buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' || buttonState === 'link-completed' || buttonState === 'file-completed' ? (
                                     <CheckCircle className="w-5 h-5 text-green-600" />
+                                  ) : buttonState === 'in-progress-editing' ? (
+                                    <Edit2 className="w-5 h-5 text-yellow-600" />
                                   ) : buttonState === 'locked' ? (
                                     <Lock className="w-5 h-5 text-gray-600" />
                                   ) : (
@@ -761,9 +919,20 @@ function ClientDashboard() {
                                 <Eye className="w-5 h-5 text-green-600" />
                               ) : buttonState === 'completed' ? (
                                 <CheckCircle className="w-6 h-6 text-green-600" />
+                              ) : buttonState === 'in-progress-editing' ? (
+                                <div className="text-purple-600">
+                                  Resume →
+                                </div>
                               ) : (
                                 <div className="text-purple-600">
-                                  {(applet.type === 'upload' || applet.type === 'file_upload') ? 'Review Files →' : 'Start →'}
+                                  {(() => {
+                                    console.log(`Final button text for ${applet.name}:`, {
+                                      buttonState,
+                                      type: applet.type,
+                                      isInProgress: applet.user_started_at && !applet.user_completed_at
+                                    });
+                                    return (applet.type === 'upload' || applet.type === 'file_upload') ? 'Review Files →' : 'Start →';
+                                  })()}
                                 </div>
                               )}
                             </div>
@@ -932,16 +1101,50 @@ function ClientDashboard() {
                 <p className="mt-2 text-gray-600">{selectedApplet.config.description}</p>
               )}
             </div>
-            
+
             <div className="p-6">
-              {selectedApplet.config?.files && selectedApplet.config.files.length > 0 ? (
+              {(() => {
+                // Parse files array from config if it's a string
+                // Note: Files can be in config.files OR config.attached_files
+                let filesArray = [];
+                const filesField = selectedApplet?.config?.files || selectedApplet?.config?.attached_files;
+
+                if (filesField) {
+                  if (typeof filesField === 'string') {
+                    try {
+                      filesArray = JSON.parse(filesField);
+                    } catch (e) {
+                      console.error('Failed to parse files:', e);
+                    }
+                  } else if (Array.isArray(filesField)) {
+                    filesArray = filesField;
+                  }
+                }
+
+                console.log('Debug - File Upload Modal Data:', {
+                  appletId: selectedApplet?.id,
+                  appletName: selectedApplet?.name,
+                  config: selectedApplet?.config,
+                  rawFiles: selectedApplet?.config?.files,
+                  parsedFiles: filesArray,
+                  filesLength: filesArray?.length,
+                  filesType: typeof selectedApplet?.config?.files
+                });
+
+                return filesArray && filesArray.length > 0 ? (
                 <div className="space-y-3">
-                  {selectedApplet.config.files.map((file, idx) => {
+                  {filesArray.map((file, idx) => {
+                    // Handle different file structures
+                    if (!file || typeof file !== 'object') {
+                      console.log('Debug - Invalid file object:', file);
+                      return null;
+                    }
                     const getFileIcon = (fileName) => {
+                      if (!fileName || typeof fileName !== 'string') return '📎';
                       const ext = fileName.split('.').pop().toLowerCase();
                       const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
                       const docExts = ['pdf', 'doc', 'docx', 'txt'];
-                      
+
                       if (imageExts.includes(ext)) return '🖼️';
                       if (docExts.includes(ext)) return '📄';
                       if (ext === 'zip' || ext === 'rar') return '📦';
@@ -960,16 +1163,16 @@ function ClientDashboard() {
                       <div key={idx} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
-                            <span className="text-2xl">{getFileIcon(file.name)}</span>
+                            <span className="text-2xl">{getFileIcon(file.file_name || file.name)}</span>
                             <div>
                               <p className="font-medium text-gray-900">
-                                {file.name}
+                                {file.file_name || file.name || 'Unnamed File'}
                                 {file.category === 'final-deliverables' && (
                                   <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Final</span>
                                 )}
                               </p>
                               <p className="text-sm text-gray-500">
-                                {formatFileSize(file.size)} • Uploaded {new Date(file.uploaded_at).toLocaleDateString()}
+                                {formatFileSize(file.file_size || file.size)} • Uploaded {new Date(file.uploaded_at).toLocaleDateString()}
                                 {file.storage_type === 'supabase' && (
                                   <span className="ml-2 text-blue-600">☁️ Cloud</span>
                                 )}
@@ -1084,7 +1287,8 @@ function ClientDashboard() {
                   <p>No files available yet</p>
                   <p className="text-sm mt-1">Check back later for project files</p>
                 </div>
-              )}
+              );
+              })()}
               
               {/* Allow client upload if enabled */}
               {selectedApplet.config?.allow_client_upload && (
@@ -1123,7 +1327,11 @@ function ClientDashboard() {
           applet={selectedApplet}
           projectId={params.projectId}
           userId={userId}
-          onClose={() => setShowPaletteCleanserModal(false)}
+          isViewOnly={isPaletteCleanserViewOnly}
+          onClose={() => {
+            setShowPaletteCleanserModal(false);
+            setIsPaletteCleanserViewOnly(false);
+          }}
           onComplete={async (data) => {
             // Update local state to show completion
             setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
@@ -1133,6 +1341,7 @@ function ClientDashboard() {
             setTimeout(() => {
               setShowConfetti(false);
               setShowPaletteCleanserModal(false);
+              setIsPaletteCleanserViewOnly(false);
             }, 3000);
           }}
         />
