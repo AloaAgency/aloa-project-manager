@@ -286,12 +286,17 @@ export async function GET(request) {
     const projectId = searchParams.get('project_id');
     const category = searchParams.get('category');
     const parentFolderId = searchParams.get('parent_folder_id');
+    const appletId = searchParams.get('applet_id');
 
     let query = supabase
       .from('aloa_project_files')
       .select('*')
       .eq('is_visible', true)
       .order('uploaded_at', { ascending: false });
+
+    if (appletId) {
+      query = query.eq('applet_id', appletId);
+    }
 
     if (projectId) {
       query = query.eq('project_id', projectId);
@@ -301,12 +306,14 @@ export async function GET(request) {
       query = query.eq('category', category);
     }
 
-    // Filter by parent folder
-    if (parentFolderId) {
-      query = query.eq('parent_folder_id', parentFolderId);
-    } else {
-      // If no parent_folder_id provided, get root level items
-      query = query.is('parent_folder_id', null);
+    // Filter by parent folder only if applet_id is not specified
+    if (!appletId) {
+      if (parentFolderId) {
+        query = query.eq('parent_folder_id', parentFolderId);
+      } else {
+        // If no parent_folder_id provided, get root level items
+        query = query.is('parent_folder_id', null);
+      }
     }
 
     // Order folders first, then files
@@ -319,7 +326,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 });
     }
 
-    return NextResponse.json(files || []);
+    return NextResponse.json({ files: files || [] });
   } catch (error) {
     console.error('Error in project files route:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

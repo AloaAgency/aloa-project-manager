@@ -83,9 +83,12 @@ export default function FileUploadConfigWithSelector({
 
       const data = await response.json();
 
+      // The API returns { files: [...] } not just an array
+      const filesArray = data.files || data || [];
+
       // Separate folders and files
-      const folderItems = data.filter(item => item.is_folder);
-      const fileItems = data.filter(item => !item.is_folder);
+      const folderItems = filesArray.filter(item => item.is_folder);
+      const fileItems = filesArray.filter(item => !item.is_folder);
 
       setFolders(folderItems);
       setAvailableFiles(fileItems);

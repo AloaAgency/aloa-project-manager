@@ -28,7 +28,33 @@ export async function GET(request, { params }) {
       .select(`
         *,
         applets:aloa_applets(
-          *
+          id,
+          projectlet_id,
+          library_applet_id,
+          name,
+          description,
+          type,
+          order_index,
+          config,
+          form_id,
+          upload_url,
+          upload_file_urls,
+          status,
+          completion_percentage,
+          requires_approval,
+          approved_by,
+          approved_at,
+          revision_count,
+          revision_notes,
+          client_can_skip,
+          client_instructions,
+          internal_notes,
+          completion_criteria,
+          dependencies,
+          started_at,
+          completed_at,
+          created_at,
+          updated_at
         )
       `)
       .eq('project_id', projectId)
@@ -42,7 +68,20 @@ export async function GET(request, { params }) {
     // Sort applets within each projectlet by order_index
     const sortedProjectlets = projectlets?.map(projectlet => ({
       ...projectlet,
-      applets: projectlet.applets?.sort((a, b) => a.order_index - b.order_index) || []
+      applets: projectlet.applets?.sort((a, b) => a.order_index - b.order_index).map(applet => {
+        // Debug log for Pig applet
+        if (applet.name?.toLowerCase().includes('pig')) {
+          console.log('Server - Pig applet config:', {
+            id: applet.id,
+            name: applet.name,
+            config: applet.config,
+            configType: typeof applet.config,
+            configFiles: applet.config?.files,
+            configFilesType: typeof applet.config?.files
+          });
+        }
+        return applet;
+      }) || []
     })) || [];
 
     // Fetch user-specific progress for each applet

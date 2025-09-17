@@ -61,24 +61,39 @@ export default function LoginPage() {
         
         // Role-based redirection
         const userRole = result.user?.role;
-        
+
+        console.log('Determining redirect for user:', {
+          email: result.user?.email,
+          role: userRole,
+          hasClientProject: !!result.clientProject,
+          clientProjectId: result.clientProject?.id
+        });
+
         // Use window.location.href for a full page refresh to ensure cookies are properly set
         if (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member') {
           // Admin users go to admin projects page
           console.log('Redirecting admin user to /admin/projects');
           window.location.href = '/admin/projects';
-        } else if (userRole === 'client' && result.clientProject) {
-          // Client users go to their project dashboard
-          console.log('Redirecting client to project dashboard:', result.clientProject.id);
-          window.location.href = `/project/${result.clientProject.id}/dashboard`;
-        } else if (userRole === 'client') {
-          // Client without a project goes to a waiting page
-          console.log('Client has no project, redirecting to dashboard');
-          window.location.href = '/dashboard';
+        } else if (['client', 'client_admin', 'client_participant'].includes(userRole)) {
+          // Client users - check for project
+          if (result.clientProject?.id) {
+            console.log('Redirecting client to project dashboard:', result.clientProject.id);
+            window.location.href = `/project/${result.clientProject.id}/dashboard`;
+          } else {
+            // Client without a project - should not have access to admin areas
+            console.error('Client has no project assigned');
+            setError('No project assigned to your account. Please contact your administrator.');
+            setLoading(false);
+            return;
+          }
+        } else if (!userRole) {
+          // No role found - likely a new user or data issue
+          console.error('No user role found, defaulting to /admin/projects');
+          window.location.href = '/admin/projects';
         } else {
-          // Default fallback
-          console.log('Default redirect to dashboard');
-          window.location.href = '/dashboard';
+          // Unexpected role - log error but still redirect somewhere safe
+          console.error('Unexpected user role:', userRole, '- redirecting to /admin/projects');
+          window.location.href = '/admin/projects';
         }
       } else {
         console.error('Unexpected result:', result);

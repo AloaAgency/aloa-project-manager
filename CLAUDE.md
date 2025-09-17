@@ -93,12 +93,14 @@ Max: 100                  # Max value/length
 ## Authentication System
 
 ### Role-Based Access Control
-The system implements a hierarchical role-based access control with four user roles:
+The system implements a hierarchical role-based access control with six user roles:
 
 1. **super_admin** - Full system access, can manage users and all projects
 2. **project_admin** - Can manage specific projects and team members
 3. **team_member** - Can work on assigned projects with edit permissions
-4. **client** - Read-only access to their assigned project dashboard
+4. **client** - Standard client access to their assigned project dashboard
+5. **client_admin** - Client decision-makers who can approve/reject/request revisions on deliverables. They have the final say on client-side decisions
+6. **client_participant** - Client team members who can provide opinions (like/dislike work) and fill out forms, but cannot make final decisions. They contribute feedback but don't have approval authority
 
 ### Authentication Flow
 - Login endpoint: `/api/auth/login`
@@ -107,8 +109,11 @@ The system implements a hierarchical role-based access control with four user ro
 - Non-client users are redirected to the main dashboard
 
 ### Client Access
-- Clients are assigned to projects via the `aloa_project_members` table with `project_role='viewer'`
+- All client-type users (client, client_admin, client_participant) are assigned to projects via the `aloa_project_members` table with `project_role='viewer'`
 - Client dashboard at `/project/[projectId]/dashboard` shows project progress and allows form submissions
+- Client roles have different permission levels:
+  - **Client Admin**: Can approve/reject deliverables, request revisions, make final decisions
+  - **Client Participant**: Can provide feedback, like/dislike work, fill out forms, but cannot make approval decisions
 - Clients cannot access admin areas (`/dashboard`, `/admin/*`)
 
 ### User Management
@@ -232,6 +237,58 @@ Optimized for Vercel deployment:
   </div>
 )}
 ```
+
+### Applet Progress Tracking Standards
+
+**CRITICAL: ALL applets MUST use the standardized progress tracking system via `aloa_applet_progress` table.**
+
+#### Core Progress Fields (Required for ALL Applet Types)
+- `started_at` - Timestamp when user first interacts with applet
+- `completed_at` - Timestamp when user completes the applet
+- `status` - Current state: 'not_started', 'in_progress', 'completed', 'approved'
+- `completion_percentage` - 0-100 scale (0=not started, 50=in progress, 100=completed)
+
+#### Progress Tracking Implementation
+1. **Use the `update_applet_progress` stored procedure** - Never directly update the table
+2. **Call the procedure via `/api/aloa-projects/[projectId]/client-view` POST endpoint**
+3. **Status transitions:**
+   - `not_started` → `in_progress` (sets `started_at` if null)
+   - `in_progress` → `completed` (sets `completed_at`)
+   - `completed` → `in_progress` (clears `completed_at` for re-editing)
+
+#### Client Dashboard Button States
+The client dashboard automatically displays appropriate button states based on progress:
+- **No progress record** → "Start →"
+- **`started_at` set, no `completed_at`** → "Resume →"
+- **`completed_at` set, unlocked** → Shows pencil icon for editing
+- **`completed_at` set, locked** → Shows eye icon for viewing only
+
+#### Avatar Display States
+- **Completed** - Solid border ring around avatar
+- **In Progress** - Dotted/dashed border ring around avatar (opacity 80%)
+- **Not Started** - No avatar shown
+
+### Applet Locking Mechanism
+
+Many applet types support a locking feature that controls client interaction:
+
+**When Unlocked:**
+- Clients can submit new responses or edit existing ones
+- Clicking the pencil icon loads their previous response pre-populated
+- Saving overwrites the previous entry (no duplicate submissions from same user)
+- Forms display with interactive fields and submit buttons
+
+**When Locked:**
+- Clients can only view their submitted responses
+- No editing or new submissions allowed
+- Forms display in read-only mode without action buttons
+- Useful for finalizing data collection phases
+
+**Implementation Pattern:**
+- Lock status stored in `applet.config.locked` (boolean)
+- Admin controls lock/unlock via toggle in `/admin/project/[projectId]/page.js`
+- Client view checks lock status to determine interaction mode
+- Standard functionality across form, palette_cleanser, and future applet types
 
 ## Common Development Tasks
 

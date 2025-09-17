@@ -57,9 +57,9 @@ export async function GET(request) {
       `)
       .order('created_at', { ascending: false });
 
-    // If project_admin, only show client users
+    // If project_admin, only show client-type users
     if (profile?.role === 'project_admin') {
-      query = query.eq('role', 'client');
+      query = query.in('role', ['client', 'client_admin', 'client_participant']);
     }
 
     const { data: users, error: usersError } = await query;
@@ -69,8 +69,9 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 
-    // Get project assignments for client users
-    const clientIds = users.filter(u => u.role === 'client').map(u => u.id);
+    // Get project assignments for all client-type users
+    const clientRoles = ['client', 'client_admin', 'client_participant'];
+    const clientIds = users.filter(u => clientRoles.includes(u.role)).map(u => u.id);
     let projectAssignments = {};
     
     if (clientIds.length > 0) {

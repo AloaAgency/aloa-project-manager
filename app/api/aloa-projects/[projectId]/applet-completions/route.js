@@ -13,6 +13,7 @@ export async function GET(request, { params }) {
 
     if (appletId) {
       // Get completion data for a specific applet from aloa_applet_progress
+      // Include both completed AND in_progress to show dotted avatars
       const { data: completions, error: completionsError } = await supabase
         .from('aloa_applet_progress')
         .select(`
@@ -25,7 +26,7 @@ export async function GET(request, { params }) {
           form_progress
         `)
         .eq('applet_id', appletId)
-        .eq('status', 'completed');
+        .in('status', ['completed', 'in_progress']);
 
       console.log('Fetched completions from aloa_applet_progress:', {
         appletId,
@@ -39,29 +40,125 @@ export async function GET(request, { params }) {
       }
 
       // Get user profiles for the completions
+      // user_id can be either a UUID or an email, so we need to handle both
       const userIds = completions.map(c => c.user_id);
-      const { data: profiles, error: profilesError } = await supabase
-        .from('aloa_user_profiles')
-        .select('id, full_name, email, avatar_url')
-        .in('id', userIds);
 
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
+      // Separate UUIDs and emails
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const uuids = userIds.filter(id => uuidPattern.test(id));
+      const emails = userIds.filter(id => !uuidPattern.test(id) && id.includes('@'));
+
+      // Fetch profiles by ID and by email
+      let profiles = [];
+
+      if (uuids.length > 0) {
+        const { data: profilesByIds, error: idError } = await supabase
+          .from('aloa_user_profiles')
+          .select('id, full_name, email, avatar_url')
+          .in('id', uuids);
+
+        if (!idError && profilesByIds) {
+          profiles = [...profiles, ...profilesByIds];
+        }
       }
 
-      // Merge profile data with completions
-      const completionsWithProfiles = completions.map(completion => {
-        const profile = profiles?.find(p => p.id === completion.user_id) || {};
-        return {
-          ...completion,
-          user: {
-            id: completion.user_id,
-            email: profile.email,
-            full_name: profile.full_name,
-            avatar_url: profile.avatar_url
-          }
-        };
+      if (emails.length > 0) {
+        const { data: profilesByEmails, error: emailError } = await supabase
+          .from('aloa_user_profiles')
+          .select('id, full_name, email, avatar_url')
+          .in('email', emails);
+
+        if (!emailError && profilesByEmails) {
+          profiles = [...profiles, ...profilesByEmails];
+        }
+      }
+
+
+      // For palette cleanser applets, fetch the interaction data
+      let completionsWithProfiles = [];
+
+      // Check if this is a palette cleanser applet
+      const { data: appletData, error: appletError } = await supabase
+        .from('aloa_applets')
+        .select('type, name')
+        .eq('id', appletId)
+        .single();
+
+      console.log('Checking applet type for palette data:', {
+        appletId,
+        appletType: appletData?.type,
+        appletName: appletData?.name,
+        isPaletteCleanser: appletData?.type === 'palette_cleanser',
+        nameContainsPalette: appletData?.name?.toLowerCase().includes('palette'),
+        appletError
       });
+
+      // Check both type and name for palette cleanser identification
+      const isPaletteCleanser = appletData?.type === 'palette_cleanser' ||
+                                appletData?.name?.toLowerCase().includes('palette');
+
+      if (isPaletteCleanser) {
+        // Fetch palette interaction data for each completion
+        completionsWithProfiles = await Promise.all(completions.map(async (completion) => {
+          // Find profile by ID or email
+          const profile = profiles?.find(p =>
+            p.id === completion.user_id || p.email === completion.user_id
+          ) || {};
+
+          // Fetch the palette interaction data
+          // Note: The table uses user_email, not user_id, so we need to match by email
+          // If user_id is already an email, use that; otherwise use profile.email
+          const userEmail = completion.user_id.includes('@') ? completion.user_id : profile.email;
+          const { data: interactions, error: interactionError } = await supabase
+            .from('aloa_applet_interactions')
+            .select('*')
+            .eq('user_email', userEmail)
+            .eq('applet_id', appletId)
+            .eq('interaction_type', 'submission')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (interactionError) {
+            console.error('Error fetching palette interaction:', interactionError);
+          }
+
+          const paletteData = interactions?.[0]?.data || {};
+          console.log(`Palette data for user ${profile.full_name || profile.email}:`, {
+            hasData: !!interactions?.[0],
+            dataKeys: Object.keys(paletteData),
+            paletteRatings: paletteData.paletteRatings,
+            finalSelections: paletteData.finalSelections
+          });
+
+          return {
+            ...completion,
+            data: paletteData,
+            user: {
+              id: completion.user_id,
+              email: profile.email || completion.user_id,
+              full_name: profile.full_name || 'Unknown User',
+              avatar_url: profile.avatar_url
+            }
+          };
+        }));
+      } else {
+        // For other applet types, merge profile data normally
+        completionsWithProfiles = completions.map(completion => {
+          // Find profile by ID or email
+          const profile = profiles?.find(p =>
+            p.id === completion.user_id || p.email === completion.user_id
+          ) || {};
+          return {
+            ...completion,
+            user: {
+              id: completion.user_id,
+              email: profile.email || completion.user_id,
+              full_name: profile.full_name || 'Unknown User',
+              avatar_url: profile.avatar_url
+            }
+          };
+        });
+      }
 
       // Get client stakeholders for completion tracking
       const { data: stakeholders, error: stakeholdersError } = await supabase
@@ -71,7 +168,8 @@ export async function GET(request, { params }) {
 
       // Count unique stakeholders
       const totalStakeholders = stakeholders?.length || 0;
-      const completedCount = completions?.length || 0;
+      // Only count completed ones for the percentage, not in_progress
+      const completedCount = completions?.filter(c => c.status === 'completed').length || 0;
       const percentage = totalStakeholders > 0
         ? Math.round((completedCount / totalStakeholders) * 100)
         : 0;

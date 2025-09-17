@@ -26,6 +26,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import UserAvatar from '@/components/UserAvatar';
 import FormResponseModal from '@/components/FormResponseModal';
+import PaletteResultsModal from '@/components/PaletteResultsModal';
 import { 
   ArrowLeft,
   Edit,
@@ -157,7 +158,7 @@ function AdminProjectPageContent() {
     name: '',
     email: '',
     title: '',
-    role: 'decision_maker',
+    role: 'client_admin',
     phone: '',
     bio: '',
     responsibilities: '',
@@ -174,6 +175,11 @@ function AdminProjectPageContent() {
     userName: null,
     formName: null
   });
+  const [showPaletteResultsModal, setShowPaletteResultsModal] = useState(false);
+  const [selectedPaletteData, setSelectedPaletteData] = useState({
+    userName: null,
+    responseData: null
+  });
 
   // ESC key handlers for modals
   useEscapeKey(() => {
@@ -189,7 +195,7 @@ function AdminProjectPageContent() {
       name: '',
       email: '',
       title: '',
-      role: 'decision_maker',
+      role: 'client_admin',
       phone: '',
       bio: '',
       responsibilities: '',
@@ -406,7 +412,7 @@ function AdminProjectPageContent() {
           name: '',
           email: '',
           title: '',
-          role: 'decision_maker',
+          role: 'client_admin',
           phone: '',
           bio: '',
           responsibilities: '',
@@ -1291,7 +1297,7 @@ function AdminProjectPageContent() {
                   name: '',
                   email: '',
                   title: '',
-                  role: 'decision_maker',
+                  role: 'client_admin',
                   phone: '',
                   bio: '',
                   responsibilities: '',
@@ -1357,7 +1363,7 @@ function AdminProjectPageContent() {
                             name: stakeholder.name || '',
                             email: stakeholder.email || '',
                             title: stakeholder.title || '',
-                            role: stakeholder.role || 'decision_maker',
+                            role: stakeholder.role || 'client_admin',
                             phone: stakeholder.phone || '',
                             bio: stakeholder.bio || '',
                             responsibilities: stakeholder.responsibilities || '',
@@ -1772,13 +1778,44 @@ function AdminProjectPageContent() {
                                       {applet.completions && applet.completions.length > 0 && (
                                         <div className="flex items-center space-x-2">
                                           <div className="flex -space-x-2">
-                                            {applet.completions.slice(0, 4).map((completion) => (
+                                            {/* AI amalgamated view avatar for palette cleanser */}
+                                            {(applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) && applet.completions.length > 1 && (
                                               <div
-                                                key={completion.user_id}
-                                                className={`relative group ${applet.type === 'form' ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
-                                                title={`${completion.user?.full_name || completion.user?.email || 'User'} - Reviewed ${
-                                                  completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
-                                                }${applet.type === 'form' ? '\nClick to view response' : ''}`}
+                                                className="relative group cursor-pointer hover:scale-110 transition-transform"
+                                                title="AI Amalgamated View - Click to see combined palette preferences"
+                                                onClick={() => {
+                                                  // Prepare amalgamated data from all completions
+                                                  const amalgamatedData = {
+                                                    participants: applet.completions.map(c => ({
+                                                      name: c.user?.full_name || c.user?.email || 'User',
+                                                      data: c.data
+                                                    })),
+                                                    isAmalgamated: true
+                                                  };
+                                                  setSelectedPaletteData({
+                                                    userName: 'AI Amalgamated View',
+                                                    responseData: amalgamatedData,
+                                                    isAmalgamated: true
+                                                  });
+                                                  setShowPaletteResultsModal(true);
+                                                }}
+                                              >
+                                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center ring-2 ring-white">
+                                                  <Brain className="w-4 h-4 text-white" />
+                                                </div>
+                                              </div>
+                                            )}
+                                            {applet.completions.slice(0, 4).map((completion) => {
+                                              const isInProgress = completion.status === 'in_progress';
+                                              return (
+                                                <div
+                                                  key={completion.user_id}
+                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+                                                  title={`${completion.user?.full_name || completion.user?.email || 'User'} - ${
+                                                    isInProgress ? 'In Progress' : `Reviewed ${
+                                                      completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
+                                                    }`
+                                                  }${applet.type === 'form' ? '\nClick to view response' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
                                                 onClick={() => {
                                                   if (applet.type === 'form') {
                                                     const formId = applet.form_id || applet.config?.form_id;
@@ -1790,22 +1827,37 @@ function AdminProjectPageContent() {
                                                       formName: form?.title || applet.name
                                                     });
                                                     setShowFormResponseModal(true);
+                                                  } else if (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) {
+                                                    // Show palette results modal
+                                                    console.log('Admin clicking palette avatar - completion:', completion);
+                                                    console.log('Admin clicking palette avatar - completion.data:', completion.data);
+                                                    console.log('Admin clicking palette avatar - data keys:', completion.data ? Object.keys(completion.data) : 'no data');
+                                                    setSelectedPaletteData({
+                                                      userName: completion.user?.full_name || completion.user?.email || 'User',
+                                                      responseData: completion.data || {}
+                                                    });
+                                                    setShowPaletteResultsModal(true);
                                                   }
                                                 }}
                                               >
-                                                {completion.user?.avatar_url ? (
-                                                  <img
-                                                    src={completion.user.avatar_url}
-                                                    alt={completion.user.full_name || ''}
-                                                    className="w-7 h-7 rounded-full ring-2 ring-white object-cover"
-                                                  />
-                                                ) : (
-                                                  <div className="w-7 h-7 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-medium ring-2 ring-white">
-                                                    {(completion.user?.full_name || completion.user?.email || '?')[0].toUpperCase()}
-                                                  </div>
-                                                )}
+                                                  {completion.user?.avatar_url ? (
+                                                    <img
+                                                      src={completion.user.avatar_url}
+                                                      alt={completion.user.full_name || ''}
+                                                      className={`w-7 h-7 rounded-full object-cover ring-2 ${
+                                                        isInProgress ? 'ring-gray-400 ring-dashed opacity-80' : 'ring-white'
+                                                      }`}
+                                                    />
+                                                  ) : (
+                                                    <div className={`w-7 h-7 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-medium ring-2 ${
+                                                      isInProgress ? 'ring-gray-400 ring-dashed opacity-80' : 'ring-white'
+                                                    }`}>
+                                                      {(completion.user?.full_name || completion.user?.email || '?')[0].toUpperCase()}
+                                                    </div>
+                                                  )}
                                               </div>
-                                            ))}
+                                              );
+                                            })}
                                             {applet.completions.length > 4 && (
                                               <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 ring-2 ring-white">
                                                 +{applet.completions.length - 4}
@@ -2026,6 +2078,77 @@ function AdminProjectPageContent() {
                                         projectletId={projectlet.id}
                                         onClose={() => setExpandedApplets(prev => ({ ...prev, [applet.id]: false }))}
                                       />
+                                    </div>
+                                  )}
+
+                                  {/* Inline palette cleanser configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'palette_cleanser' && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                          {applet.config?.locked ? (
+                                            <Lock className="w-4 h-4 text-red-600" />
+                                          ) : (
+                                            <Unlock className="w-4 h-4 text-green-600" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {applet.config?.locked ? 'Palette Locked' : 'Palette Unlocked'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const newLockedState = !applet.config?.locked;
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: newLockedState
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating palette lock status:', error);
+                                            }
+                                          }}
+                                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                            applet.config?.locked
+                                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                              : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? 'Unlock Palette' : 'Lock Palette'}
+                                        </button>
+                                      </div>
+
+                                      {/* Lock status explanation */}
+                                      <div className="text-xs text-gray-600 p-2 bg-white rounded border">
+                                        {applet.config?.locked ? (
+                                          <>
+                                            <strong>Locked:</strong> Participants can view their submitted palette preferences but cannot make changes.
+                                          </>
+                                        ) : (
+                                          <>
+                                            <strong>Unlocked:</strong> Participants can submit new preferences or edit their existing palette selections.
+                                          </>
+                                        )}
+                                      </div>
+
+                                      {/* Completion statistics */}
+                                      {applet.completions && applet.completions.length > 0 && (
+                                        <div className="text-xs text-gray-600">
+                                          <strong>{applet.completions.length}</strong> participant{applet.completions.length !== 1 ? 's have' : ' has'} completed the palette cleanser
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -2566,7 +2689,7 @@ function AdminProjectPageContent() {
                     name: '',
                     email: '',
                     title: '',
-                    role: 'decision_maker',
+                    role: 'client_admin',
                     phone: '',
                     bio: '',
                     responsibilities: '',
@@ -2762,15 +2885,11 @@ function AdminProjectPageContent() {
                   </label>
                   <select
                     name="role"
-                    defaultValue={editingStakeholder?.role || 'decision_maker'}
+                    defaultValue={editingStakeholder?.role || 'client_admin'}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
-                    <option value="decision_maker">Decision Maker</option>
-                    <option value="influencer">Influencer</option>
-                    <option value="end_user">End User</option>
-                    <option value="technical_lead">Technical Lead</option>
-                    <option value="sponsor">Sponsor</option>
-                    <option value="consultant">Consultant</option>
+                    <option value="client_admin">Client Admin</option>
+                    <option value="client_participant">Client Participant</option>
                   </select>
                 </div>
 
@@ -3167,6 +3286,19 @@ function AdminProjectPageContent() {
           userId={selectedResponseData.userId}
           userName={selectedResponseData.userName}
           formName={selectedResponseData.formName}
+        />
+      )}
+
+      {/* Palette Results Modal */}
+      {showPaletteResultsModal && selectedPaletteData && (
+        <PaletteResultsModal
+          userName={selectedPaletteData.userName}
+          responseData={selectedPaletteData.responseData}
+          isAmalgamated={selectedPaletteData.isAmalgamated}
+          onClose={() => {
+            setShowPaletteResultsModal(false);
+            setSelectedPaletteData(null);
+          }}
         />
       )}
     </div>
