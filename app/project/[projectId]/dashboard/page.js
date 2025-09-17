@@ -37,6 +37,7 @@ const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebrati
 const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRepository'), { ssr: false });
 const PaletteCleanserModal = dynamic(() => import('@/components/PaletteCleanserModal'), { ssr: false });
 const SitemapBuilder = dynamic(() => import('@/components/SitemapBuilderV2'), { ssr: false });
+const ToneOfVoiceSelector = dynamic(() => import('@/components/ToneOfVoiceSelector'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -60,6 +61,9 @@ function ClientDashboard() {
   const [isPaletteCleanserViewOnly, setIsPaletteCleanserViewOnly] = useState(false); // Track if palette cleanser is view-only
   const [showSitemapModal, setShowSitemapModal] = useState(false); // Track sitemap modal
   const [isSitemapViewOnly, setIsSitemapViewOnly] = useState(false); // Track if sitemap is view-only
+  const [showToneOfVoiceModal, setShowToneOfVoiceModal] = useState(false); // Track tone of voice modal
+  const [isToneOfVoiceViewOnly, setIsToneOfVoiceViewOnly] = useState(false); // Track if tone of voice is view-only
+  const [selectedToneOfVoiceApplet, setSelectedToneOfVoiceApplet] = useState(null); // Track selected tone applet
   const [activeTab, setActiveTab] = useState('journey'); // Track active tab
 
   // ESC key handlers for modals
@@ -114,6 +118,30 @@ function ClientDashboard() {
       fetchProjectData();
     }
   }, [params.projectId, userId]);
+
+  // Handle ESC key to close all modals
+  useEffect(() => {
+    const handleEscKey = (e) => {
+      if (e.key === 'Escape' || e.keyCode === 27) {
+        // Close all modals when ESC is pressed
+        setShowFormModal(false);
+        setShowLinkSubmissionModal(false);
+        setShowFileUploadModal(false);
+        setShowPaletteCleanserModal(false);
+        setShowSitemapModal(false);
+        setShowToneOfVoiceModal(false);
+        setSelectedFormId(null);
+        setSelectedForm(null);
+        setSelectedLinkSubmission(null);
+        setSelectedPaletteApplet(null);
+        setSelectedSitemapApplet(null);
+        setSelectedToneOfVoiceApplet(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => document.removeEventListener('keydown', handleEscKey);
+  }, []);
 
   const fetchProjectData = async () => {
     try {
@@ -186,17 +214,19 @@ function ClientDashboard() {
     const isFileUpload = applet.type === 'upload' || applet.type === 'file_upload';
     const isPaletteCleanser = applet.type === 'palette_cleanser';
     const isSitemap = applet.type === 'sitemap';
+    const isToneOfVoice = applet.type === 'tone_of_voice';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const paletteIsLocked = isPaletteCleanser && applet.config?.locked === true;
     const sitemapIsLocked = isSitemap && applet.config?.locked === true;
+    const toneOfVoiceIsLocked = isToneOfVoice && applet.config?.locked === true;
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
 
     // Block if:
-    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap applet that's already completed
+    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    // Link submissions, file uploads, palette cleanser, and sitemap should always be viewable even after completion
-    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions, file uploads, palette cleanser, sitemap, and tone of voice should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -449,6 +479,13 @@ function ClientDashboard() {
       // Only lock if the applet itself is locked - completion doesn't lock it
       setIsSitemapViewOnly(sitemapIsLocked);
       setShowSitemapModal(true);
+    } else if (isToneOfVoice) {
+      // Handle tone of voice applet
+      const userAlreadyCompleted = completedApplets.has(applet.id);
+      setSelectedApplet({ ...applet, projectlet });
+      setIsToneOfVoiceViewOnly(toneOfVoiceIsLocked && userAlreadyCompleted);
+      setSelectedToneOfVoiceApplet({ ...applet, projectlet });
+      setShowToneOfVoiceModal(true);
     }
   };
 
@@ -838,6 +875,26 @@ function ClientDashboard() {
                             buttonState = 'locked';
                             statusMessage = 'Sitemap locked - no longer accepting changes';
                           }
+                        } else if (applet.type === 'tone_of_voice') {
+                          const toneIsLocked = applet.config?.locked === true;
+
+                          if (isAppletCompleted && toneIsLocked) {
+                            buttonState = 'completed-locked';
+                            statusMessage = completionDate ?
+                              `Tone selected on ${completionDate} • Locked` :
+                              'Tone selected & locked. No longer accepting changes.';
+                          } else if (isAppletCompleted && !toneIsLocked) {
+                            buttonState = 'user-complete-editable';
+                            statusMessage = completionDate ?
+                              `Selected on ${completionDate} • Click to change` :
+                              'Tone selected! Click the pencil icon to change your selection.';
+                          } else if (isInProgress && !toneIsLocked) {
+                            buttonState = 'in-progress-editing';
+                            statusMessage = 'Continue selecting your tone of voice';
+                          } else if (toneIsLocked) {
+                            buttonState = 'locked';
+                            statusMessage = 'Tone selection locked - no longer accepting changes';
+                          }
                         } else if (applet.type === 'palette_cleanser') {
                           const paletteIsLocked = applet.config?.locked === true;
 
@@ -887,7 +944,7 @@ function ClientDashboard() {
                           <button
                             key={applet.id}
                             onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
-                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser')}
+                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser' && applet.type !== 'tone_of_voice')}
                             className={`w-full p-4 rounded-lg border-2 transition-all ${
                               buttonState === 'completed-locked'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
@@ -1507,6 +1564,22 @@ function ClientDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tone of Voice Modal */}
+      {showToneOfVoiceModal && selectedApplet && (
+        <ToneOfVoiceSelector
+          applet={selectedApplet}
+          projectId={params.projectId}
+          userId={userId}
+          isViewOnly={isToneOfVoiceViewOnly}
+          onClose={() => {
+            setShowToneOfVoiceModal(false);
+            setIsToneOfVoiceViewOnly(false);
+            // Refresh to show updated state
+            fetchProjectData();
+          }}
+        />
       )}
     </div>
   );

@@ -204,20 +204,80 @@ Optimized for Vercel deployment:
 
 ### When Adding New Applets
 
-1. **Start with the Admin View** (`/admin/project/[projectId]/page.js`)
+1. **REQUIRED SQL Migrations** (Create these files in `/supabase/` folder):
+   - **Add to enum type**: Create `add_[applet_name]_applet_type.sql`
+     ```sql
+     -- Add applet type to enum if it doesn't exist
+     DO $$
+     BEGIN
+         IF NOT EXISTS (
+             SELECT 1 FROM pg_enum
+             WHERE enumlabel = 'your_applet_type'
+             AND enumtypid = 'applet_type'::regtype
+         ) THEN
+             ALTER TYPE applet_type ADD VALUE 'your_applet_type';
+         END IF;
+     END $$;
+     ```
+
+   - **Add to library**: Create `add_[applet_name]_library_item.sql`
+     ```sql
+     -- Add applet to the library (required for it to appear in the Add Applet modal)
+     DO $$
+     BEGIN
+         IF NOT EXISTS (
+             SELECT 1 FROM aloa_applet_library
+             WHERE type = 'your_applet_type'
+             AND name = 'Your Applet Name'
+         ) THEN
+             INSERT INTO aloa_applet_library (
+                 type, name, description, default_config,
+                 is_active, category, client_instructions,
+                 requires_approval, created_at, updated_at
+             ) VALUES (
+                 'your_applet_type',
+                 'Your Applet Name',
+                 'Description of what this applet does',
+                 '{"description": "Default config", "locked": false}'::jsonb,
+                 true,
+                 'content', -- or 'form', 'media', 'collaboration', etc.
+                 'Instructions for clients using this applet',
+                 false,
+                 NOW(), NOW()
+             );
+         END IF;
+     END $$;
+     ```
+
+2. **Update Component Icons and Colors** (`/components/ProjectletAppletsManager.js`):
+   ```javascript
+   const APPLET_ICONS = {
+     // ... existing icons
+     your_applet_type: YourIcon // Import from lucide-react
+   };
+
+   const APPLET_COLORS = {
+     // ... existing colors
+     your_applet_type: 'bg-gradient-to-r from-color-100 to-color-100 text-color-700 border-color-300'
+   };
+   ```
+
+3. **Implement Admin View** (`/admin/project/[projectId]/page.js`)
    - Add type-specific inline configuration after line ~1443
    - Include all editable fields directly in the projectlet card
    - Use PATCH requests to update applet config in real-time
    - Follow the pattern of existing applets (form, link_submission)
 
-2. **Then implement Client View** (`/project/[projectId]/page.js`)
+4. **Implement Client View** (`/project/[projectId]/dashboard/page.js`)
    - Add client-side rendering for the new applet type
-   - Ensure proper read-only display
-   - Handle any client interactions
+   - Handle modal states and view/edit modes
+   - Import and integrate your applet component
+   - Add to handleAppletClick function for interaction handling
 
-3. **Update ProjectletAppletsManager** (if needed for modal views)
-   - This component is used in modals for more detailed configuration
-   - Not the primary editing interface - admin page inline editing is primary
+5. **Create the Applet Component** (`/components/YourAppletName.js`)
+   - Support both view and edit modes based on lock status
+   - Implement progress tracking via API calls
+   - Handle data submission and retrieval
 
 ### Applet Configuration Pattern
 
@@ -236,6 +296,72 @@ Optimized for Vercel deployment:
     {/* Client-appropriate display */}
   </div>
 )}
+```
+
+### Established UI/UX Conventions
+
+**IMPORTANT: Use these existing conventions instead of creating new systems:**
+
+#### 1. Progress Tracking
+- **ALWAYS use `aloa_applet_progress` table** - Never create new tracking tables
+- **Use standardized endpoint**: `/api/aloa-projects/[projectId]/client-view` POST
+- **Store custom data in `form_progress` field** as JSON
+
+#### 2. Confetti Celebration
+- **Trigger on successful completion** of any applet
+- **Implementation pattern**:
+```javascript
+onComplete={() => {
+  triggerConfetti();
+  setTimeout(() => {
+    closeModal();
+    fetchProjectData(); // Refresh
+  }, 1500);
+}}
+```
+
+#### 3. Modal Behavior
+- **ALL modals MUST support ESC key** to close
+- **Use consistent z-index**: 50 for modals, 10 for sticky headers
+- **Auto-close after success** with 1.5s delay to see confetti
+
+#### 4. Data Persistence Pattern
+```javascript
+// Saving data - use standardized endpoint
+await fetch(`/api/aloa-projects/${projectId}/client-view`, {
+  method: 'POST',
+  body: JSON.stringify({
+    appletId,
+    status: 'completed',
+    interactionType: 'your_interaction_type',
+    userId,
+    data: {
+      form_progress: {
+        // Your applet-specific data here
+      }
+    }
+  })
+});
+
+// Loading data - comes from applet.form_progress
+useEffect(() => {
+  if (applet.form_progress) {
+    // Restore your applet state from applet.form_progress
+  }
+}, [applet]);
+```
+
+#### 5. Component Props Pattern
+All applet components should accept:
+```javascript
+{
+  applet,          // The applet data with form_progress
+  isViewOnly,      // Boolean for locked/view-only state
+  onClose,         // Function to close the modal
+  onComplete,      // Function to trigger confetti and refresh
+  projectId,       // Project ID
+  userId           // User ID
+}
 ```
 
 ### Applet Progress Tracking Standards

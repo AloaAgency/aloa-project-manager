@@ -197,6 +197,12 @@ function AdminProjectPageContent() {
     websiteUrl: null,
     appletId: null
   });
+  const [showToneOfVoiceModal, setShowToneOfVoiceModal] = useState(false);
+  const [selectedToneData, setSelectedToneData] = useState({
+    userName: null,
+    selectedTone: null,
+    submittedAt: null
+  });
   const [editingProjectInfo, setEditingProjectInfo] = useState(false);
   const [tempProjectInfo, setTempProjectInfo] = useState({
     project_type: '',
@@ -273,6 +279,28 @@ function AdminProjectPageContent() {
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Handle ESC key to close all modals
+  useEffect(() => {
+    const handleEscKey = (e) => {
+      if (e.key === 'Escape' || e.keyCode === 27) {
+        // Close all modals when ESC is pressed
+        setShowFormBuilderModal(false);
+        setShowTeamMemberModal(false);
+        setShowFormResponseModal(false);
+        setShowPaletteResultsModal(false);
+        setShowSitemapViewerModal(false);
+        setShowToneOfVoiceModal(false);
+        setSelectedResponseData(null);
+        setSelectedPaletteData(null);
+        setSelectedSitemapData(null);
+        setSelectedToneData(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => document.removeEventListener('keydown', handleEscKey);
   }, []);
 
   const fetchProjectFileCount = async () => {
@@ -1894,12 +1922,12 @@ function AdminProjectPageContent() {
                                               return (
                                                 <div
                                                   key={completion.user_id}
-                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.type === 'tone_of_voice' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
                                                   title={`${completion.user?.full_name || completion.user?.email || 'User'} - ${
                                                     isInProgress ? 'In Progress' : `Reviewed ${
                                                       completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
                                                     }`
-                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
+                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : applet.type === 'tone_of_voice' ? '\nClick to view tone selection' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
                                                 onClick={async () => {
                                                   if (applet.type === 'form') {
                                                     const formId = applet.form_id || applet.config?.form_id;
@@ -1975,6 +2003,17 @@ function AdminProjectPageContent() {
                                                       responseData: completion.data || {}
                                                     });
                                                     setShowPaletteResultsModal(true);
+                                                  } else if (applet.type === 'tone_of_voice') {
+                                                    // Show tone of voice selection modal
+                                                    // Check both form_progress (standardized) and data (legacy) fields
+                                                    const toneData = completion.form_progress || completion.data || {};
+                                                    setSelectedToneData({
+                                                      userName: completion.user?.full_name || completion.user?.email || 'User',
+                                                      selectedTone: toneData.selectedTone || toneData.tone || null,
+                                                      educationLevel: toneData.educationLevel || null,
+                                                      submittedAt: completion.completed_at || completion.started_at
+                                                    });
+                                                    setShowToneOfVoiceModal(true);
                                                   }
                                                 }}
                                               >
@@ -2383,6 +2422,87 @@ function AdminProjectPageContent() {
                                       {applet.completions && applet.completions.length > 0 && (
                                         <div className="text-xs text-gray-600">
                                           <strong>{applet.completions.length}</strong> participant{applet.completions.length !== 1 ? 's have' : ' has'} completed the palette cleanser
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Inline tone of voice configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'tone_of_voice' && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                          {applet.config?.locked ? (
+                                            <Lock className="w-4 h-4 text-red-600" />
+                                          ) : (
+                                            <Unlock className="w-4 h-4 text-green-600" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {applet.config?.locked ? 'Tone Selection Locked' : 'Tone Selection Unlocked'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const newLockedState = !applet.config?.locked;
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: newLockedState
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating tone lock status:', error);
+                                            }
+                                          }}
+                                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                            applet.config?.locked
+                                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                              : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? 'Unlock Selection' : 'Lock Selection'}
+                                        </button>
+                                      </div>
+
+                                      {/* Lock status explanation */}
+                                      <div className="text-xs text-gray-600 p-2 bg-white rounded border">
+                                        {applet.config?.locked ? (
+                                          <>
+                                            <strong>Locked:</strong> Participants can view their selected tone of voice but cannot change it.
+                                          </>
+                                        ) : (
+                                          <>
+                                            <strong>Unlocked:</strong> Participants can select or change their brand tone of voice.
+                                          </>
+                                        )}
+                                      </div>
+
+                                      {/* Available tone options preview */}
+                                      <div className="text-xs text-gray-600">
+                                        <div className="font-medium mb-1">Available Tone Options:</div>
+                                        <div className="flex flex-wrap gap-1">
+                                          {['Professional', 'Casual', 'Bold', 'Minimalist', 'Technical', 'Inspirational', 'Playful', 'Luxurious', 'Empathetic', 'Authoritative'].map(tone => (
+                                            <span key={tone} className="px-2 py-1 bg-white rounded text-xs">{tone}</span>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      {/* Completion statistics */}
+                                      {applet.completions && applet.completions.length > 0 && (
+                                        <div className="text-xs text-gray-600">
+                                          <strong>{applet.completions.length}</strong> participant{applet.completions.length !== 1 ? 's have' : ' has'} selected their tone of voice
                                         </div>
                                       )}
                                     </div>
@@ -3752,6 +3872,126 @@ function AdminProjectPageContent() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tone of Voice Modal */}
+      {showToneOfVoiceModal && selectedToneData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {selectedToneData.userName}'s Tone of Voice Selection
+                </h2>
+                {selectedToneData.submittedAt && (
+                  <p className="text-sm text-gray-500">
+                    Submitted: {new Date(selectedToneData.submittedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setShowToneOfVoiceModal(false);
+                  setSelectedToneData(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {selectedToneData.selectedTone ? (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 mb-3">Selected Tone of Voice:</p>
+                    <div className="inline-flex items-center justify-center px-8 py-4 bg-black text-white rounded-lg">
+                      <span className="text-2xl font-semibold">{selectedToneData.selectedTone}</span>
+                    </div>
+                  </div>
+
+                  {/* Show education level if available */}
+                  {selectedToneData.educationLevel && (
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500 mb-2">Target Reading Level:</p>
+                      <div className="inline-flex items-center justify-center px-6 py-2 bg-gray-100 text-gray-700 rounded-lg">
+                        <span className="font-medium">
+                          {selectedToneData.educationLevel === 'elementary' && 'Elementary (Grade School)'}
+                          {selectedToneData.educationLevel === 'middle' && 'Middle School'}
+                          {selectedToneData.educationLevel === 'high' && 'High School'}
+                          {selectedToneData.educationLevel === 'college' && 'College/University'}
+                          {selectedToneData.educationLevel === 'graduate' && 'Graduate/Professional'}
+                          {selectedToneData.educationLevel === 'phd' && 'PhD/Expert'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show sample paragraph */}
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-xs font-semibold text-gray-500 mb-3">SAMPLE PARAGRAPH:</p>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      {selectedToneData.selectedTone === 'Professional' && 'At our company, we deliver comprehensive solutions tailored to meet the evolving needs of modern enterprises. Our team of industry experts brings decades of combined experience to every project, ensuring that your business objectives are met with precision and professionalism. We maintain the highest standards of quality throughout our engagement, providing transparent communication and measurable results that drive sustainable growth for your organization.'}
+                      {selectedToneData.selectedTone === 'Casual & Friendly' && 'Hey there! We\'re super excited to work with you on this project. We know that finding the right partner can be tough, but don\'t worry – we\'ve got your back. Our team loves what we do, and we\'re here to make sure you have a great experience from start to finish. Let\'s grab a coffee (virtual or real!) and chat about how we can help bring your ideas to life.'}
+                      {selectedToneData.selectedTone === 'Bold & Direct' && 'Stop settling for mediocrity. Your competition isn\'t waiting, and neither should you. We don\'t just deliver solutions – we demolish obstacles and obliterate limitations. Every day you delay is a day your rivals get ahead. It\'s time to make a decision that actually matters. Choose dominance. Choose excellence. Choose to win.'}
+                      {selectedToneData.selectedTone === 'Minimalist' && 'We build websites. Fast loading. Mobile responsive. SEO optimized. Clear navigation. Secure hosting. Regular updates. Fixed pricing. No hidden fees. Two week delivery. One revision round included. Support available.'}
+                      {selectedToneData.selectedTone === 'Technical & Data-Driven' && 'Our platform leverages a microservices architecture deployed on Kubernetes, ensuring 99.99% uptime through automated failover and load balancing. The API processes 10,000 requests per second with sub-100ms latency, utilizing Redis caching and PostgreSQL with read replicas. Our CI/CD pipeline implements automated testing with 95% code coverage, deploying to production through blue-green deployments to minimize downtime.'}
+                      {selectedToneData.selectedTone === 'Inspirational' && 'Every great journey begins with a single step, and today, you\'re taking yours. Imagine a world where your vision becomes reality, where boundaries dissolve and possibilities emerge. Together, we\'ll transform challenges into opportunities, dreams into achievements. Your potential is limitless, and we\'re here to help you unlock it. The future you\'ve been dreaming of? It starts now.'}
+                      {selectedToneData.selectedTone === 'Playful & Humorous' && 'Okay, let\'s be real – most company websites are about as exciting as watching paint dry. (Sorry, paint-watching enthusiasts!) But here\'s the thing: who says business has to be boring? We\'re a bunch of creative weirdos who happen to be really, really good at what we do. We\'ll make you look awesome online, have some laughs along the way, and maybe even become friends. Warning: side effects may include actually enjoying the process!'}
+                      {selectedToneData.selectedTone === 'Luxurious & Premium' && 'Experience the pinnacle of digital craftsmanship, where every pixel is meticulously placed and every interaction thoughtfully orchestrated. Our bespoke solutions are reserved for those who demand nothing less than perfection. From conception to completion, we curate an unparalleled journey that reflects the sophistication of your brand. This is not merely web design; this is digital artistry at its finest.'}
+                      {selectedToneData.selectedTone === 'Empathetic & Caring' && 'We know that choosing the right partner for your project can feel overwhelming, and we genuinely understand the weight of this decision. You\'re not just investing money; you\'re investing trust, hope, and vision. That\'s why we take the time to truly listen to your concerns, understand your challenges, and support you through every uncertainty. Your success matters deeply to us, not just as a business outcome, but because we care about the people behind every project.'}
+                      {selectedToneData.selectedTone === 'Authoritative & Expert' && 'With over 15 years of industry leadership, we have consistently set the standards that others follow. Our methodologies, published in leading industry journals and adopted by Fortune 500 companies, have proven their effectiveness time and again. When you work with us, you\'re not just hiring a service provider; you\'re partnering with the recognized authorities in digital innovation. The results speak for themselves: 97% client retention, 200+ industry awards, and consistent recognition as the benchmark for excellence.'}
+                    </p>
+                  </div>
+
+                  {/* Show characteristics */}
+                  <div className="mt-4 p-4 bg-white border rounded-lg">
+                    <p className="text-xs font-semibold text-gray-500 mb-3">CHARACTERISTICS:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedToneData.selectedTone === 'Professional' && ['Formal language', 'Complex sentences', 'Industry terminology', 'Third-person perspective'].map((char) => (
+                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                      ))}
+                      {selectedToneData.selectedTone === 'Casual & Friendly' && ['Contractions', 'Simple sentences', 'Personal pronouns', 'Conversational tone'].map((char) => (
+                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                      ))}
+                      {selectedToneData.selectedTone === 'Bold & Direct' && ['Imperative mood', 'Short, punchy sentences', 'Strong action verbs', 'Direct commands'].map((char) => (
+                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                      ))}
+                      {selectedToneData.selectedTone === 'Minimalist' && ['Fragments acceptable', 'No adjectives', 'Lists and bullets', 'Essential info only'].map((char) => (
+                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                      ))}
+                      {selectedToneData.selectedTone === 'Technical & Data-Driven' && ['Technical jargon', 'Specific metrics', 'Detailed specifications', 'Acronyms and numbers'].map((char) => (
+                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                      ))}
+                      {selectedToneData.selectedTone === 'Inspirational' && ['Emotional language', 'Future-focused', 'Metaphorical', 'Second-person address'].map((char) => (
+                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                      ))}
+                      {selectedToneData.selectedTone === 'Playful & Humorous' && ['Humor and puns', 'Self-deprecating', 'Parenthetical asides', 'Casual punctuation'].map((char) => (
+                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                      ))}
+                      {selectedToneData.selectedTone === 'Luxurious & Premium' && ['Elevated vocabulary', 'Sensory language', 'Exclusivity emphasis', 'Refined tone'].map((char) => (
+                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                      ))}
+                      {selectedToneData.selectedTone === 'Empathetic & Caring' && ['Emotional validation', 'Active listening cues', 'Supportive language', 'Personal connection'].map((char) => (
+                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                      ))}
+                      {selectedToneData.selectedTone === 'Authoritative & Expert' && ['Credentials emphasized', 'Definitive statements', 'Evidence-based', 'Third-party validation'].map((char) => (
+                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-lg text-gray-500 mb-3">Selected Tone of Voice:</p>
+                  <div className="inline-flex items-center justify-center px-8 py-4 bg-black text-white rounded-lg">
+                    <span className="text-xl font-semibold">Not selected</span>
+                  </div>
                 </div>
               )}
             </div>

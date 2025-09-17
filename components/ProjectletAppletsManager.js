@@ -25,13 +25,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { 
-  Plus, 
-  Trash2, 
-  GripVertical, 
-  FileText, 
-  Eye, 
-  Upload, 
+import {
+  Plus,
+  Trash2,
+  GripVertical,
+  FileText,
+  Eye,
+  Upload,
   CheckCircle,
   Palette,
   MessageSquare,
@@ -45,7 +45,8 @@ import {
   Bot,
   ExternalLink,
   BarChart,
-  Edit2
+  Edit2,
+  Type
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -69,7 +70,8 @@ const APPLET_ICONS = {
   content_gather: MessageSquare,
   feedback_loop: MessageSquare,
   link_submission: Link,
-  palette_cleanser: Palette
+  palette_cleanser: Palette,
+  tone_of_voice: Type
 };
 
 const APPLET_COLORS = {
@@ -82,7 +84,8 @@ const APPLET_COLORS = {
   content_gather: 'bg-yellow-100 text-yellow-700 border-yellow-300',
   feedback_loop: 'bg-orange-100 text-orange-700 border-orange-300',
   link_submission: 'bg-cyan-100 text-cyan-700 border-cyan-300',
-  palette_cleanser: 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-purple-300'
+  palette_cleanser: 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-purple-300',
+  tone_of_voice: 'bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 border-amber-300'
 };
 
 export default function ProjectletAppletsManager({ 
