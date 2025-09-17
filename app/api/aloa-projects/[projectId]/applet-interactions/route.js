@@ -42,7 +42,7 @@ export async function GET(request, { params }) {
       }
     }
 
-    const { data, error } = await query.single();
+    const { data, error } = await query;
 
     if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
       console.error('Error fetching interaction:', error);
@@ -51,7 +51,8 @@ export async function GET(request, { params }) {
 
     console.log('Found interaction data:', data);
 
-    return NextResponse.json(data || null);
+    // Return in the format expected by the frontend
+    return NextResponse.json({ interactions: data || [] });
   } catch (error) {
     console.error('Error in applet-interactions GET:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

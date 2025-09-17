@@ -30,6 +30,18 @@ A gamified project management system specifically designed for Aloa web design p
 - **Quick Actions**: Add projectlets and applets without leaving the management view
 - **Applet Library**: Pre-built applet templates for common tasks
 
+### Applet System & Admin Interface
+- **Collapsed View Display**: All applets display completion avatars in the collapsed view (right side, next to trash icon)
+- **Clickable Avatars**: Standard behavior - clicking any completion avatar opens a modal showing that user's submitted data
+  - Form applets: Shows the user's form responses
+  - Palette Cleanser applets: Shows the user's palette preferences
+  - Sitemap applets: Shows the user's submitted sitemap structure
+- **Visual Status Indicators**:
+  - Solid ring: Completed submission
+  - Dashed ring: In-progress submission
+- **Clean Interface**: Applets remain collapsed with inline configuration when expanded
+- **Consistent UX**: All applet types follow the same interaction pattern for viewing user submissions
+
 ### Enhanced File Repository
 - **Hierarchical Folder Structure**: Create nested folders to organize project files
 - **Drag & Drop File Management**: Move files between folders with intuitive drag and drop
@@ -291,7 +303,40 @@ The system guides projects through these phases:
 - ❌ `/api/forms/*` - Old form system, do not use
 - ❌ `/api/responses/*` - Old response system, do not use
 
-## Development
+## Development Best Practices
+
+### ⚠️ Preventing Regressions When Adding New Applets
+
+When developing new applet types, follow these guidelines to avoid breaking existing functionality:
+
+#### 1. File Handling Standards
+- **Always use underscored property names**: `file_name`, `file_size`, `file_url` (NOT `fileName`, `size`, `url`)
+- **Check multiple storage locations**: Files can be in `config.files`, `config.attached_files`, or `aloa_project_files` table
+- **Add null checks**: Always check if properties exist before using methods like `.split()` or `.toLowerCase()`
+- **Handle API response formats**: Support both array responses and `{ files: [...] }` object responses
+
+#### 2. Progress Tracking Standards
+- **Use standardized progress system**: All applets MUST use `aloa_applet_progress` table
+- **Update via stored procedure**: Call `update_applet_progress` through `/api/aloa-projects/[projectId]/client-view`
+- **Track key timestamps**: Always set `started_at` and `completed_at` appropriately
+- **Button state logic**: "Start" → "Resume" → "Edit/View" based on progress timestamps
+
+#### 3. Testing Checklist Before Committing
+Before pushing any new applet work:
+- [ ] Test File Repository still loads without errors
+- [ ] Test existing upload applets (Pig/Agency Upload) still display files
+- [ ] Test Palette Cleanser shows correct button states
+- [ ] Test file sizes display correctly (not 0 bytes)
+- [ ] Test both admin and client dashboards for runtime errors
+- [ ] Check browser console for any JavaScript errors
+
+#### 4. Common Pitfalls to Avoid
+- Don't assume file properties exist - always use fallbacks
+- Don't hardcode property names - use consistent naming across components
+- Don't modify shared components without testing all usages
+- Don't change API response formats without updating all consumers
+
+### Development Commands
 
 ```bash
 npm run dev    # Start development server
@@ -308,7 +353,16 @@ Optimized for Vercel:
 3. Add environment variables
 4. Deploy
 
-## Recent Updates (January 2025)
+## Recent Updates (December 2024)
+
+### 🔧 File Handling Fixes & Improvements
+- **Fixed File Upload Applets**: Restored functionality for Pig/Agency Upload applets to display attached files correctly
+- **Fixed Palette Cleanser**: Now properly shows "Resume" button for in-progress users instead of "Start"
+- **Fixed File Repository**: Resolved "Failed to load files" error with proper API response handling
+- **Fixed File Size Display**: Files now show correct sizes instead of 0 bytes
+- **Unified File Property Access**: Standardized to use `file_name` and `file_size` (with underscores) across all components
+- **Improved Null Handling**: Added comprehensive null checks to prevent `fileName.split()` runtime errors
+- **API Response Flexibility**: Components now handle both array and object response formats from file APIs
 
 ### 📁 Enhanced File Repository System
 - **Hierarchical Folder Structure**: Create and manage nested folders for better file organization
@@ -319,7 +373,7 @@ Optimized for Vercel:
 - **Selective File Presentation**: Attach specific files to upload applets for client viewing
 - **Storage Configuration**: Properly configured Supabase storage bucket with public access and RLS policies
 - **Multiple Navigation**: Breadcrumb navigation, folder clicks, and parent folder drops
-- **File Upload Applet Integration**: Restored ability to select specific files for presentation
+- **File Upload Applet Integration**: Working ability to select and attach specific files for presentation
 
 ### 🔒 Authentication & User Management System
 - **Controlled User Access**: Removed open signup - all users must be provisioned by admins

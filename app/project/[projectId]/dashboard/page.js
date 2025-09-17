@@ -12,6 +12,7 @@ import {
   Eye,
   MessageSquare,
   Palette,
+  Map,
   Star,
   Trophy,
   Target,
@@ -35,6 +36,7 @@ import { createClient } from '@/lib/supabase-browser';
 const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), { ssr: false });
 const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRepository'), { ssr: false });
 const PaletteCleanserModal = dynamic(() => import('@/components/PaletteCleanserModal'), { ssr: false });
+const SitemapBuilder = dynamic(() => import('@/components/SitemapBuilderV2'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -56,6 +58,8 @@ function ClientDashboard() {
   const [showFileUploadModal, setShowFileUploadModal] = useState(false); // Track file upload modal
   const [showPaletteCleanserModal, setShowPaletteCleanserModal] = useState(false); // Track palette cleanser modal
   const [isPaletteCleanserViewOnly, setIsPaletteCleanserViewOnly] = useState(false); // Track if palette cleanser is view-only
+  const [showSitemapModal, setShowSitemapModal] = useState(false); // Track sitemap modal
+  const [isSitemapViewOnly, setIsSitemapViewOnly] = useState(false); // Track if sitemap is view-only
   const [activeTab, setActiveTab] = useState('journey'); // Track active tab
 
   // ESC key handlers for modals
@@ -75,6 +79,10 @@ function ClientDashboard() {
   useEscapeKey(() => {
     setShowPaletteCleanserModal(false);
   }, showPaletteCleanserModal);
+
+  useEscapeKey(() => {
+    setShowSitemapModal(false);
+  }, showSitemapModal);
 
   useEffect(() => {
     // Get authenticated user's ID
@@ -177,16 +185,18 @@ function ClientDashboard() {
     const isLinkSubmission = applet.type === 'link_submission';
     const isFileUpload = applet.type === 'upload' || applet.type === 'file_upload';
     const isPaletteCleanser = applet.type === 'palette_cleanser';
+    const isSitemap = applet.type === 'sitemap';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const paletteIsLocked = isPaletteCleanser && applet.config?.locked === true;
+    const sitemapIsLocked = isSitemap && applet.config?.locked === true;
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
 
     // Block if:
-    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser applet that's already completed
+    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    // Link submissions, file uploads, and palette cleanser should always be viewable even after completion
-    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions, file uploads, palette cleanser, and sitemap should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -432,6 +442,13 @@ function ClientDashboard() {
       setSelectedApplet({ ...applet, projectlet });
       setIsPaletteCleanserViewOnly(paletteIsLocked && userAlreadyCompleted);
       setShowPaletteCleanserModal(true);
+    } else if (isSitemap) {
+      // Handle sitemap applet
+      const userAlreadyCompleted = completedApplets.has(applet.id);
+      setSelectedApplet({ ...applet, projectlet });
+      // Only lock if the applet itself is locked - completion doesn't lock it
+      setIsSitemapViewOnly(sitemapIsLocked);
+      setShowSitemapModal(true);
     }
   };
 
@@ -521,7 +538,8 @@ function ClientDashboard() {
       upload: Upload,
       review: Eye,
       moodboard: Palette,
-      content_gather: MessageSquare
+      content_gather: MessageSquare,
+      sitemap: Map
     };
     return icons[type] || FileText;
   };
@@ -801,6 +819,25 @@ function ClientDashboard() {
                           statusMessage = completionDate ?
                             `Files reviewed on ${completionDate}` :
                             'Files reviewed - click to view again';
+                        } else if (applet.type === 'sitemap') {
+                          const sitemapIsLocked = applet.config?.locked === true;
+                          if (isAppletCompleted && sitemapIsLocked) {
+                            buttonState = 'completed-locked';
+                            statusMessage = completionDate ?
+                              `Sitemap submitted on ${completionDate} • Locked` :
+                              'Sitemap submitted & locked. No longer accepting changes.';
+                          } else if (isAppletCompleted && !sitemapIsLocked) {
+                            buttonState = 'user-complete-editable';
+                            statusMessage = completionDate ?
+                              `Submitted on ${completionDate} • Click to edit` :
+                              'Sitemap submitted! Click the pencil icon to make changes.';
+                          } else if (isInProgress && !sitemapIsLocked) {
+                            buttonState = 'in-progress-editing';
+                            statusMessage = 'Continue building your sitemap';
+                          } else if (sitemapIsLocked) {
+                            buttonState = 'locked';
+                            statusMessage = 'Sitemap locked - no longer accepting changes';
+                          }
                         } else if (applet.type === 'palette_cleanser') {
                           const paletteIsLocked = applet.config?.locked === true;
 
@@ -931,6 +968,11 @@ function ClientDashboard() {
                                       type: applet.type,
                                       isInProgress: applet.user_started_at && !applet.user_completed_at
                                     });
+                                    // Check if applet is in progress (started but not completed)
+                                    const isInProgress = applet.user_started_at && !applet.user_completed_at;
+                                    if (isInProgress) {
+                                      return 'Resume →';
+                                    }
                                     return (applet.type === 'upload' || applet.type === 'file_upload') ? 'Review Files →' : 'Start →';
                                   })()}
                                 </div>
@@ -1345,6 +1387,126 @@ function ClientDashboard() {
             }, 3000);
           }}
         />
+      )}
+
+      {/* Sitemap Modal */}
+      {showSitemapModal && selectedApplet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold">{selectedApplet.name || 'Sitemap Builder'}</h2>
+              <button
+                onClick={() => setShowSitemapModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <SitemapBuilder
+                key={selectedApplet.id + '-' + JSON.stringify(selectedApplet.config?.sitemap_data || {}).substring(0, 10)}
+                config={selectedApplet.config || {}}
+                projectScope={project?.metadata?.scope || { main_pages: 5, aux_pages: 5 }}
+                isLocked={isSitemapViewOnly}
+                initialData={selectedApplet.config?.sitemap_data}
+                appletId={selectedApplet.id}
+                projectId={params.projectId}
+                userId={userId}
+                websiteUrl={project?.metadata?.website_url}
+                onAutoSave={async (sitemapData) => {
+                  // Auto-save progress
+                  console.log('onAutoSave called with:', sitemapData);
+                  try {
+                    const response = await fetch(`/api/aloa-applets/${selectedApplet.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        config: {
+                          ...selectedApplet.config,
+                          sitemap_data: sitemapData
+                        }
+                      })
+                    });
+
+                    if (!response.ok) {
+                      console.error('Auto-save failed - API returned:', response.status);
+                      throw new Error(`API error: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('Auto-save API call successful, response:', result);
+
+                    // Update the selectedApplet with the new config
+                    if (result.applet) {
+                      setSelectedApplet(result.applet);
+                    }
+
+                    // Mark as in progress if not already
+                    if (!completedApplets.has(selectedApplet.id)) {
+                      await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          appletId: selectedApplet.id,
+                          status: 'in_progress',
+                          interactionType: 'sitemap_edit',
+                          data: { sitemap_data: sitemapData },
+                          userId: userId
+                        })
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Auto-save failed:', error);
+                  }
+                }}
+                onSave={async (sitemapData) => {
+                  try {
+                    // Save the sitemap data
+                    const response = await fetch(`/api/aloa-applets/${selectedApplet.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        config: {
+                          ...selectedApplet.config,
+                          sitemap_data: sitemapData
+                        }
+                      })
+                    });
+
+                    if (response.ok) {
+                      // Mark as completed
+                      await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          appletId: selectedApplet.id,
+                          status: 'completed',
+                          interactionType: 'sitemap_save',
+                          data: { sitemap_data: sitemapData },
+                          userId: userId
+                        })
+                      });
+
+                      // Update local state
+                      setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+
+                      // Show success with confetti
+                      setShowConfetti(true);
+                      setTimeout(() => {
+                        setShowConfetti(false);
+                        setShowSitemapModal(false);
+                      }, 3000);
+                    }
+                  } catch (error) {
+                    console.error('Error saving sitemap:', error);
+                    alert('Failed to save sitemap. Please try again.');
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
