@@ -130,12 +130,24 @@ function ClientDashboard() {
         setShowPaletteCleanserModal(false);
         setShowSitemapModal(false);
         setShowToneOfVoiceModal(false);
-        setSelectedFormId(null);
-        setSelectedForm(null);
-        setSelectedLinkSubmission(null);
-        setSelectedPaletteApplet(null);
-        setSelectedSitemapApplet(null);
-        setSelectedToneOfVoiceApplet(null);
+        // Only clear form-related state if form modal was open
+        if (showFormModal) {
+          setSelectedFormId(null);
+          setSelectedForm(null);
+        }
+        // Clear other modal-specific state
+        if (showLinkSubmissionModal) {
+          setSelectedLinkSubmission(null);
+        }
+        if (showPaletteCleanserModal) {
+          setSelectedPaletteApplet(null);
+        }
+        if (showSitemapModal || showFileUploadModal || showLinkSubmissionModal) {
+          setSelectedApplet(null);
+        }
+        if (showToneOfVoiceModal) {
+          setSelectedToneOfVoiceApplet(null);
+        }
       }
     };
 
@@ -1496,7 +1508,24 @@ function ClientDashboard() {
 
                     // Update the selectedApplet with the new config
                     if (result.applet) {
-                      setSelectedApplet(result.applet);
+                      console.log('Updating selectedApplet with new config:', result.applet.config);
+                      setSelectedApplet(prevApplet => ({
+                        ...prevApplet,
+                        config: {
+                          ...prevApplet.config,
+                          sitemap_data: sitemapData
+                        }
+                      }));
+
+                      // Also update in the projectlets array to ensure persistence
+                      setProjectlets(prev => prev.map(projectlet => ({
+                        ...projectlet,
+                        applets: projectlet.applets?.map(a =>
+                          a.id === selectedApplet.id
+                            ? { ...a, config: { ...a.config, sitemap_data: sitemapData } }
+                            : a
+                        ) || []
+                      })));
                     }
 
                     // Mark as in progress if not already

@@ -15,6 +15,7 @@ const SitemapBuilderV2 = ({
   userId = null,
   websiteUrl = null
 }) => {
+
   // Common page templates
   const pageTemplates = [
     { name: 'About', icon: Info, description: 'About us/company info', type: 'main' },
@@ -36,19 +37,15 @@ const SitemapBuilderV2 = ({
 
   // Initialize sitemap with navigation and footer sections
   const [sitemap, setSitemap] = useState(() => {
-    console.log('Initializing sitemap with data:', initialData);
-
     if (initialData) {
       // Handle old format (with children) and new format (with navigation/footer)
       if (initialData.navigation || initialData.footer) {
-        console.log('Loading saved sitemap data:', initialData);
         return {
           ...initialData,
           name: websiteUrl || initialData.name || 'Website'
         };
       } else if (initialData.children) {
         // Convert old format to new format
-        console.log('Converting old format to new format');
         const navPages = [];
         const footerPages = [];
 
@@ -68,7 +65,6 @@ const SitemapBuilderV2 = ({
       }
     }
 
-    console.log('No initial data, creating default sitemap');
     return {
       name: websiteUrl || 'Website',
       navigation: [
@@ -79,23 +75,47 @@ const SitemapBuilderV2 = ({
   });
 
   const [draggedItem, setDraggedItem] = useState(null);
-  const [dragOverSection, setDragOverSection] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [dragOverInfo, setDragOverInfo] = useState(null);
   const [pageCount, setPageCount] = useState({ main: 1, aux: 0 });
   const [lastSaved, setLastSaved] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editingPage, setEditingPage] = useState(null);
   const [editName, setEditName] = useState('');
-  const [isDragging, setIsDragging] = useState(false);
-  const justDraggedRef = useRef(false);
-  const isProcessingDrop = useRef(false);
+  const hasInitialized = useRef(false);
+  const prevSitemapRef = useRef(null);
+
+  // Update sitemap when initialData changes
+  useEffect(() => {
+    if (initialData && JSON.stringify(initialData) !== JSON.stringify(sitemap)) {
+      if (initialData.navigation || initialData.footer) {
+        setSitemap({
+          ...initialData,
+          name: websiteUrl || initialData.name || 'Website'
+        });
+      } else if (initialData.children) {
+        const navPages = [];
+        const footerPages = [];
+        initialData.children.forEach(page => {
+          if (page.location === 'footer' || ['Privacy Policy', 'Terms & Conditions', 'FAQ', 'Sitemap', 'Careers', 'Support'].includes(page.name)) {
+            footerPages.push(page);
+          } else {
+            navPages.push(page);
+          }
+        });
+        setSitemap({
+          name: websiteUrl || initialData.name || 'Website',
+          navigation: navPages,
+          footer: footerPages
+        });
+      }
+    }
+  }, [initialData]);
 
   // Count pages
   useEffect(() => {
     const countPages = (pages) => {
       let main = 0;
       let aux = 0;
-
       pages.forEach(page => {
         if (page.type === 'main') main++;
         else if (page.type === 'aux') aux++;
@@ -105,7 +125,6 @@ const SitemapBuilderV2 = ({
           aux += childCounts.aux;
         }
       });
-
       return { main, aux };
     };
 
@@ -118,24 +137,25 @@ const SitemapBuilderV2 = ({
   useEffect(() => {
     if (!onAutoSave || isLocked) return;
 
-    // Don't save on initial mount
-    if (sitemap === initialData) return;
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      prevSitemapRef.current = JSON.stringify(sitemap);
+      return;
+    }
 
-    console.log('Auto-save triggered, sitemap changed:', sitemap);
+    const currentSitemapStr = JSON.stringify(sitemap);
+    if (prevSitemapRef.current === currentSitemapStr) return;
 
-    const timer = setTimeout(() => {
-      console.log('Auto-saving sitemap...');
+    prevSitemapRef.current = currentSitemapStr;
+
+    const timer = setTimeout(async () => {
       setIsSaving(true);
-
-      // Call onAutoSave and handle any errors
       try {
-        onAutoSave(sitemap);
+        await onAutoSave(sitemap);
         setLastSaved(new Date());
-        console.log('Auto-save successful');
       } catch (error) {
         console.error('Auto-save failed:', error);
       }
-
       setTimeout(() => setIsSaving(false), 1000);
     }, 2000);
 
@@ -143,151 +163,132 @@ const SitemapBuilderV2 = ({
   }, [sitemap, onAutoSave, isLocked]);
 
   const handleDragStart = (e, item, fromSection) => {
-    // Prevent dragging Home page
-    if (isLocked || (item.name === 'Home' || item.id === '1')) return;
-    setDraggedItem({ ...item, fromSection });
-    setIsDragging(true);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, section, index = null) => {
-    e.preventDefault();
-    if (!draggedItem || isLocked) return;
-
-    // Don't show drop indicator above Home in navigation
-    if (section === 'navigation' && index === 0) {
+    if (item.name === 'Home' || item.id === '1' || isLocked) {
+      e.preventDefault();
       return;
     }
 
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverSection(section);
-    setDragOverIndex(index);
+    const dragData = { ...item, fromSection };
+    setDraggedItem(dragData);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.target.innerHTML);
   };
 
-  const handleDrop = (e, toSection, toIndex = null) => {
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, toSection, toIndex) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // Prevent duplicate processing
-    if (isProcessingDrop.current) return;
-    if (!draggedItem || isLocked) return;
-
-    isProcessingDrop.current = true;
+    if (!draggedItem || isLocked) {
+      setDraggedItem(null);
+      setDragOverInfo(null);
+      return;
+    }
 
     // Prevent dropping above Home in navigation
     if (toSection === 'navigation' && toIndex === 0) {
       setDraggedItem(null);
-      setDragOverSection(null);
-      setDragOverIndex(null);
-      isProcessingDrop.current = false;
+      setDragOverInfo(null);
       return;
     }
 
-    const newSitemap = { ...sitemap };
-
-    // If dragging from templates, create a new page
-    if (draggedItem.fromSection === 'templates') {
-      // Create more unique ID to prevent duplicates
-      const newPage = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: draggedItem.name,
-        type: draggedItem.type,
-        children: []
+    setSitemap(prev => {
+      // Create completely new objects
+      const newSitemap = {
+        ...prev,
+        navigation: [...prev.navigation],
+        footer: [...prev.footer]
       };
 
-      // Check if we have room for this page type
-      const isMain = draggedItem.type === 'main';
-      const limit = isMain ? projectScope.main_pages : projectScope.aux_pages;
-      const current = isMain ? pageCount.main : pageCount.aux;
+      // Handle adding from templates
+      if (draggedItem.fromSection === 'templates') {
+        const newPage = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: draggedItem.name,
+          type: draggedItem.type,
+          children: []
+        };
 
-      if (current >= limit) {
-        alert(`You have reached the maximum number of ${isMain ? 'main' : 'auxiliary'} pages in your plan.`);
-        setDraggedItem(null);
-        setDragOverSection(null);
-        setDragOverIndex(null);
-        return;
-      }
+        const isMain = draggedItem.type === 'main';
+        const limit = isMain ? projectScope.main_pages : projectScope.aux_pages;
+        const current = isMain ? pageCount.main : pageCount.aux;
 
-      // Add to target section
-      const targetArray = toSection === 'navigation' ? newSitemap.navigation : newSitemap.footer;
-      if (toIndex !== null && toIndex !== undefined) {
-        targetArray.splice(toIndex, 0, newPage);
+        if (current >= limit) {
+          alert(`You have reached the maximum number of ${isMain ? 'main' : 'auxiliary'} pages in your plan.`);
+          return prev;
+        }
+
+        if (toSection === 'navigation') {
+          newSitemap.navigation.splice(toIndex, 0, newPage);
+        } else {
+          newSitemap.footer.splice(toIndex, 0, newPage);
+        }
       } else {
-        targetArray.push(newPage);
-      }
-    } else {
-      // Remove from original section (for existing pages)
-      if (draggedItem.fromSection === 'navigation') {
-        newSitemap.navigation = newSitemap.navigation.filter(item => item.id !== draggedItem.id);
-      } else {
-        newSitemap.footer = newSitemap.footer.filter(item => item.id !== draggedItem.id);
+        // Handle moving existing items
+        const fromSection = draggedItem.fromSection;
+
+        // Remove from source
+        if (fromSection === 'navigation') {
+          const index = newSitemap.navigation.findIndex(item => item.id === draggedItem.id);
+          if (index !== -1) {
+            newSitemap.navigation.splice(index, 1);
+          }
+        } else if (fromSection === 'footer') {
+          const index = newSitemap.footer.findIndex(item => item.id === draggedItem.id);
+          if (index !== -1) {
+            newSitemap.footer.splice(index, 1);
+          }
+        }
+
+        // Add to destination
+        const itemToAdd = {
+          id: draggedItem.id,
+          name: draggedItem.name,
+          type: draggedItem.type,
+          children: draggedItem.children || []
+        };
+
+        if (toSection === 'navigation') {
+          // Adjust index if moving within same section and moving down
+          let adjustedIndex = toIndex;
+          if (fromSection === 'navigation') {
+            const originalIndex = prev.navigation.findIndex(item => item.id === draggedItem.id);
+            if (originalIndex < toIndex) {
+              adjustedIndex = Math.max(0, toIndex - 1);
+            }
+          }
+          newSitemap.navigation.splice(adjustedIndex, 0, itemToAdd);
+        } else {
+          // Adjust index if moving within same section and moving down
+          let adjustedIndex = toIndex;
+          if (fromSection === 'footer') {
+            const originalIndex = prev.footer.findIndex(item => item.id === draggedItem.id);
+            if (originalIndex < toIndex) {
+              adjustedIndex = Math.max(0, toIndex - 1);
+            }
+          }
+          newSitemap.footer.splice(adjustedIndex, 0, itemToAdd);
+        }
       }
 
-      // Add to new section
-      const targetArray = toSection === 'navigation' ? newSitemap.navigation : newSitemap.footer;
-      if (toIndex !== null && toIndex !== undefined) {
-        targetArray.splice(toIndex, 0, draggedItem);
-      } else {
-        targetArray.push(draggedItem);
-      }
-    }
+      return newSitemap;
+    });
 
-    setSitemap(newSitemap);
     setDraggedItem(null);
-    setDragOverSection(null);
-    setDragOverIndex(null);
-
-    // Reset processing flag after a delay
-    setTimeout(() => {
-      isProcessingDrop.current = false;
-    }, 100);
+    setDragOverInfo(null);
   };
 
   const handleDragEnd = () => {
     setDraggedItem(null);
-    setDragOverSection(null);
-    setDragOverIndex(null);
-    // Set flag to prevent click from firing
-    justDraggedRef.current = true;
-    setTimeout(() => {
-      setIsDragging(false);
-      justDraggedRef.current = false;
-    }, 200);
-  };
-
-  const addPage = (template, section) => {
-    if (isLocked) return;
-
-    const pageType = template.type || 'main';
-    const limit = pageType === 'main' ? projectScope.main_pages : projectScope.aux_pages;
-    const current = pageType === 'main' ? pageCount.main : pageCount.aux;
-
-    if (current >= limit) {
-      alert(`You have reached the maximum number of ${pageType === 'main' ? 'main' : 'auxiliary'} pages in your plan.`);
-      return;
-    }
-
-    const newPage = {
-      id: Date.now().toString(),
-      name: template.name,
-      type: pageType,
-      children: []
-    };
-
-    setSitemap(prev => ({
-      ...prev,
-      [section]: [...prev[section], newPage]
-    }));
+    setDragOverInfo(null);
   };
 
   const deletePage = (pageId, section) => {
-    // Only prevent deletion of Home page (id '1')
-    console.log('Attempting to delete page with ID:', pageId, 'Name:', sitemap[section].find(p => p.id === pageId)?.name);
-    if (isLocked || pageId === '1') {
-      console.log('Delete blocked - isLocked:', isLocked, 'pageId:', pageId);
-      return;
-    }
-
+    if (isLocked || pageId === '1') return;
     setSitemap(prev => ({
       ...prev,
       [section]: prev[section].filter(page => page.id !== pageId)
@@ -295,7 +296,6 @@ const SitemapBuilderV2 = ({
   };
 
   const startEdit = (page, section) => {
-    // Prevent editing Home page
     if (isLocked || page.name === 'Home' || page.id === '1') return;
     setEditingPage({ ...page, section });
     setEditName(page.name);
@@ -303,14 +303,12 @@ const SitemapBuilderV2 = ({
 
   const saveEdit = () => {
     if (!editingPage || !editName.trim()) return;
-
     setSitemap(prev => ({
       ...prev,
       [editingPage.section]: prev[editingPage.section].map(page =>
         page.id === editingPage.id ? { ...page, name: editName.trim() } : page
       )
     }));
-
     setEditingPage(null);
     setEditName('');
   };
@@ -321,42 +319,27 @@ const SitemapBuilderV2 = ({
   };
 
   const handleSave = () => {
-    if (isLocked) {
-      console.log('Cannot save - sitemap is locked');
-      return;
-    }
-
-    console.log('handleSave called');
-    console.log('Saving sitemap:', sitemap);
-    console.log('onSave function exists:', typeof onSave === 'function');
-
+    if (isLocked) return;
     if (typeof onSave === 'function') {
       onSave(sitemap);
-    } else {
-      console.error('onSave prop is not a function!');
     }
   };
 
   const renderPage = (page, section, index) => {
     const isHome = page.name === 'Home' || page.id === '1';
+    const isDraggable = !isLocked && !isHome;
 
     return (
       <div
         key={page.id}
-        draggable={!isLocked && !isHome}
-        onDragStart={(e) => handleDragStart(e, page, section)}
-        onDragOver={(e) => handleDragOver(e, section, index)}
-        onDrop={(e) => {
-          e.stopPropagation();
-          handleDrop(e, section, index);
-        }}
+        draggable={isDraggable}
+        onDragStart={(e) => isDraggable && handleDragStart(e, page, section)}
         onDragEnd={handleDragEnd}
         className={`
           group flex items-center gap-2 p-2 rounded-lg border transition-all
-          ${isHome ? 'bg-blue-50 border-blue-200' : 'bg-white hover:bg-gray-50'}
+          ${isHome ? 'bg-blue-50 border-blue-200' : 'bg-white hover:bg-gray-50 border-gray-200'}
           ${draggedItem?.id === page.id ? 'opacity-50' : ''}
-          ${dragOverSection === section && dragOverIndex === index ? 'border-blue-400 bg-blue-50' : 'border-gray-200'}
-          ${!isLocked && !isHome ? 'cursor-move' : ''}
+          ${isDraggable ? 'cursor-move' : ''}
         `}
       >
         {!isLocked && !isHome && (
@@ -374,39 +357,22 @@ const SitemapBuilderV2 = ({
         )}
 
         {editingPage?.id === page.id ? (
-          <div className="flex-1 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex-1 flex items-center gap-2">
             <input
               type="text"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  saveEdit();
-                } else if (e.key === 'Escape') {
-                  e.preventDefault();
-                  cancelEdit();
-                }
+                if (e.key === 'Enter') saveEdit();
+                else if (e.key === 'Escape') cancelEdit();
               }}
               className="px-2 py-1 border rounded text-sm flex-1"
               autoFocus
             />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                saveEdit();
-              }}
-              className="text-green-600 hover:text-green-700 p-1"
-            >
+            <button onClick={saveEdit} className="text-green-600 hover:text-green-700 p-1">
               <Check className="w-4 h-4" />
             </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                cancelEdit();
-              }}
-              className="text-gray-600 hover:text-gray-700 p-1"
-            >
+            <button onClick={cancelEdit} className="text-gray-600 hover:text-gray-700 p-1">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -420,20 +386,14 @@ const SitemapBuilderV2 = ({
             {!isLocked && !isHome && (
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    startEdit(page, section);
-                  }}
+                  onClick={() => startEdit(page, section)}
                   className="p-1 text-gray-600 hover:text-blue-600"
                   title="Edit page name"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deletePage(page.id, section);
-                  }}
+                  onClick={() => deletePage(page.id, section)}
                   className="p-1 text-gray-400 hover:text-red-600"
                   title="Delete page"
                 >
@@ -450,7 +410,6 @@ const SitemapBuilderV2 = ({
             )}
           </>
         )}
-
       </div>
     );
   };
@@ -467,23 +426,49 @@ const SitemapBuilderV2 = ({
           <span className="text-xs text-gray-500">({pages.length} pages)</span>
         </div>
 
-        <div
-          onDragOver={(e) => handleDragOver(e, sectionKey)}
-          onDrop={(e) => {
-            e.stopPropagation();
-            handleDrop(e, sectionKey, pages.length);
-          }}
-          className={`
-            space-y-2 min-h-[100px] p-2 rounded border-2 border-dashed
-            ${dragOverSection === sectionKey && dragOverIndex === null ? 'border-blue-400 bg-blue-50' : 'border-gray-200'}
-          `}
-        >
+        <div className="space-y-1 min-h-[100px] p-2 rounded border-2 border-dashed border-gray-200">
           {pages.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">
-              Drag pages here or add from templates
-            </p>
+            <div
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, sectionKey, 0)}
+              className={`py-8 text-center ${draggedItem ? 'bg-blue-50' : ''}`}
+            >
+              <p className="text-sm text-gray-400">Drag pages here</p>
+            </div>
           ) : (
-            pages.map((page, index) => renderPage(page, sectionKey, index))
+            <>
+              {pages.map((page, index) => (
+                <React.Fragment key={page.id}>
+                  {/* Drop zone above each item */}
+                  {!(sectionKey === 'navigation' && index === 0) && (
+                    <div
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, sectionKey, index)}
+                      className={`h-2 -my-1 ${
+                        draggedItem && dragOverInfo?.section === sectionKey && dragOverInfo?.index === index
+                          ? 'bg-blue-400 h-8'
+                          : ''
+                      }`}
+                      onDragEnter={() => setDragOverInfo({ section: sectionKey, index })}
+                      onDragLeave={() => setDragOverInfo(null)}
+                    />
+                  )}
+                  {renderPage(page, sectionKey, index)}
+                </React.Fragment>
+              ))}
+              {/* Drop zone at the end */}
+              <div
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, sectionKey, pages.length)}
+                className={`h-2 -my-1 ${
+                  draggedItem && dragOverInfo?.section === sectionKey && dragOverInfo?.index === pages.length
+                    ? 'bg-blue-400 h-8'
+                    : ''
+                }`}
+                onDragEnter={() => setDragOverInfo({ section: sectionKey, index: pages.length })}
+                onDragLeave={() => setDragOverInfo(null)}
+              />
+            </>
           )}
         </div>
       </div>
@@ -492,10 +477,8 @@ const SitemapBuilderV2 = ({
 
   return (
     <div className="flex h-full">
-      {/* Main Content */}
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
@@ -505,29 +488,19 @@ const SitemapBuilderV2 = ({
               {!isLocked && (
                 <button
                   onClick={handleSave}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
                 >
                   Complete & Save
                 </button>
               )}
             </div>
 
-            {/* Instructions */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
               <p className="text-sm text-blue-800">
                 Build your website's sitemap based on your project scope of <strong>{projectScope.main_pages} main pages</strong> and <strong>{projectScope.aux_pages} auxiliary pages</strong>.
               </p>
-              <p className="text-sm text-blue-800">
-                <strong>Main pages</strong> are your core content pages (About, Services, Blog, etc.).
-                <strong>Auxiliary pages</strong> are supporting pages (Contact, Privacy Policy, FAQ, etc.).
-              </p>
-              <p className="text-sm text-blue-800">
-                Organize pages by dragging them between Main Navigation and Footer sections.
-                Pages in <strong>Main Navigation</strong> will appear in your site's primary menu, while <strong>Footer</strong> pages will be links at the bottom of your site.
-              </p>
             </div>
 
-            {/* Page Count */}
             <div className="flex gap-4 mt-3">
               <div className="text-sm">
                 <span className="font-medium">Main Pages:</span> {pageCount.main} / {projectScope.main_pages}
@@ -538,13 +511,11 @@ const SitemapBuilderV2 = ({
             </div>
           </div>
 
-          {/* Two Sections */}
           <div className="space-y-6">
             {renderSection('Main Navigation', 'navigation', Navigation)}
             {renderSection('Footer Links', 'footer', Link)}
           </div>
 
-          {/* Save Status */}
           {lastSaved && (
             <div className="mt-4 text-xs text-gray-500 text-center">
               {isSaving ? 'Saving...' : `Auto-saved ${lastSaved.toLocaleTimeString()}`}
@@ -553,13 +524,10 @@ const SitemapBuilderV2 = ({
         </div>
       </div>
 
-      {/* Sidebar with Templates */}
       {!isLocked && (
         <div className="w-80 border-l bg-gray-50 p-4 overflow-y-auto">
           <h3 className="font-semibold text-gray-900 mb-4">Page Templates</h3>
-          <p className="text-xs text-gray-500 mb-4">
-            Drag templates to Main Navigation or Footer Links
-          </p>
+          <p className="text-xs text-gray-500 mb-4">Drag templates to add pages</p>
 
           <div className="space-y-2">
             {pageTemplates.map((template) => {
@@ -573,39 +541,23 @@ const SitemapBuilderV2 = ({
                 <div
                   key={template.name}
                   draggable={!disabled}
-                  onDragStart={(e) => {
-                    if (disabled) return;
-                    e.stopPropagation();
-                    const tempPage = {
-                      id: `template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                      name: template.name,
-                      type: template.type,
-                      children: [],
-                      isTemplate: true
-                    };
-                    handleDragStart(e, tempPage, 'templates');
-                  }}
+                  onDragStart={(e) => !disabled && handleDragStart(e, template, 'templates')}
                   onDragEnd={handleDragEnd}
+                  className={`
+                    flex items-center gap-3 p-2 border rounded-lg bg-white
+                    ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-50 cursor-move'}
+                  `}
                 >
-                  <div
-                    className={`
-                      w-full flex items-center gap-3 p-2 border rounded-lg text-left transition-colors bg-white
-                      ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:bg-blue-50 hover:border-blue-300 cursor-move'}
-                    `}
-                  >
-                    <Icon className={`w-4 h-4 ${isMain ? 'text-blue-600' : 'text-gray-600'}`} />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{template.name}</p>
-                        {isMain ? (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Main</span>
-                        ) : (
-                          <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">Aux</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500">{template.description}</p>
-                    </div>
+                  <Icon className={`w-4 h-4 ${isMain ? 'text-blue-600' : 'text-gray-600'}`} />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{template.name}</p>
+                    <p className="text-xs text-gray-500">{template.description}</p>
                   </div>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    isMain ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {isMain ? 'Main' : 'Aux'}
+                  </span>
                 </div>
               );
             })}

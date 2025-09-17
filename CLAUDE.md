@@ -15,6 +15,43 @@ npm run start        # Start production server
 npm run lint         # Run Next.js linting
 ```
 
+### Important: Fresh Build After Merging
+**After merging to main, you often need to clear the Next.js cache and restart:**
+```bash
+rm -rf .next
+npm run dev
+```
+This resolves issues where functionality appears broken but is actually just a build cache problem.
+
+## CRITICAL BUG: Sitemap Drag-and-Drop Issues
+
+**IMPORTANT: The sitemap builder drag-and-drop has persistent issues that recur after context compaction.**
+
+### Key Facts:
+- **The applet is NOT LOCKED** (isLocked=false confirmed, this is NOT the issue)
+- **Home page SHOULD be immovable** (this is correct behavior, not a bug)
+- **PROBLEM**: Footer items and sometimes navigation items won't drag
+- **SYMPTOM**: After one successful drag, subsequent drags fail completely
+- **LOCATION**: `/components/SitemapBuilderV2.js` accessed from client dashboard modal
+
+### What We Know:
+- Issue appears to be with drag state getting stuck after first drag
+- This is NOT a locking issue - the component is unlocked
+- The `isDragging` state may not be clearing properly
+- Event handlers might be getting detached or blocked
+
+### Attempted Fixes (that didn't fully work):
+- Added try-finally block in handleDrop to clear drag state
+- Added handleDragEnd to clear state
+- Added debug logging to track state
+- Added stale state cleanup in handleDragStart
+
+### Next Steps to Try:
+- Check if the draggable attribute is being properly set on elements
+- Investigate if React is re-rendering and losing event handlers
+- Consider using useCallback for event handlers to prevent recreation
+- May need to force re-render after drag completes
+
 ## Architecture
 
 ### Tech Stack
@@ -393,6 +430,14 @@ The client dashboard automatically displays appropriate button states based on p
 - **Completed** - Solid border ring around avatar
 - **In Progress** - Dotted/dashed border ring around avatar (opacity 80%)
 - **Not Started** - No avatar shown
+
+### Sitemap Builder Applet
+
+**Important Notes:**
+- The Home page is immutable - it cannot be moved, renamed, or deleted
+- Pages can be dragged and reordered within sections (Navigation/Footer)
+- Individual drop zones appear between items for precise placement
+- Auto-save triggers after changes with a 2-second debounce
 
 ### Applet Locking Mechanism
 
