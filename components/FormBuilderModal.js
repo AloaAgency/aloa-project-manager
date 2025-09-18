@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Brain, Wand2 } from 'lucide-react';
+import { X, Brain, Wand2, FileUp, Bot } from 'lucide-react';
 import AIChatFormBuilder from './AIChatFormBuilder';
 import toast from 'react-hot-toast';
 
@@ -16,6 +16,8 @@ export default function FormBuilderModal({
   onFormCreated
 }) {
   const [isCreating, setIsCreating] = useState(false);
+  const [mode, setMode] = useState(null); // null, 'ai', or 'markdown'
+  const [uploadingMarkdown, setUploadingMarkdown] = useState(false);
 
   // Add ESC key handler
   useEffect(() => {
@@ -110,6 +112,95 @@ export default function FormBuilderModal({
     }
   };
 
+  const handleMarkdownUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.md')) {
+      toast.error('Please upload a markdown file (.md)');
+      return;
+    }
+
+    setUploadingMarkdown(true);
+    try {
+      const content = await file.text();
+
+      // Parse the markdown to extract form details
+      const lines = content.split('\n');
+      const titleLine = lines.find(line => line.startsWith('#'));
+      const title = titleLine ? titleLine.replace(/^#+\s*/, '') : 'Untitled Form';
+
+      // Find description (first non-title, non-empty line)
+      const descriptionLine = lines.find(line =>
+        line.trim() && !line.startsWith('#') && !line.startsWith('##')
+      );
+      const description = descriptionLine || '';
+
+      // Create form in aloa_forms
+      const response = await fetch('/api/aloa-forms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description,
+          markdownContent: content,
+          projectId,
+          fields: parseMarkdownToFields(content)
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create form');
+      }
+
+      // If this form is being created for a projectlet, attach it as an applet
+      if (projectletId && data.id) {
+        try {
+          const attachResponse = await fetch(
+            `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: data.title || 'Form',
+                description: `Form uploaded from markdown: ${data.title}`,
+                type: 'form',
+                form_id: data.id,
+                config: {
+                  formTitle: data.title,
+                  formId: data.id
+                }
+              })
+            }
+          );
+
+          if (attachResponse.ok) {
+            toast.success('Form created and attached to projectlet!');
+            onFormCreated && onFormCreated(data);
+            onClose();
+            return;
+          }
+        } catch (attachError) {
+          console.error('Error attaching form to projectlet:', attachError);
+          // Continue even if attachment fails
+        }
+      }
+
+      toast.success('Form created successfully from markdown!');
+      onFormCreated && onFormCreated(data);
+      onClose();
+    } catch (error) {
+      console.error('Markdown upload error:', error);
+      toast.error(error.message || 'Failed to upload markdown file');
+    } finally {
+      setUploadingMarkdown(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
   const parseMarkdownToFields = (markdown) => {
     const fields = [];
     const lines = markdown.split('\n');
@@ -183,19 +274,22 @@ export default function FormBuilderModal({
             <div>
               <h2 className="text-2xl font-bold flex items-center">
                 <Brain className="w-6 h-6 mr-2" />
-                Create Form with AI
+                Create Form {mode === 'ai' ? 'with AI' : mode === 'markdown' ? 'from Markdown' : ''}
               </h2>
               <p className="text-purple-100 mt-1">
-                {projectletName 
+                {projectletName
                   ? `Creating form for "${projectletName}" in ${projectName}`
                   : `Creating form for ${projectName}`
                 }
               </p>
             </div>
             <button
-              onClick={onClose}
+              onClick={() => {
+                onClose();
+                setMode(null); // Reset mode when closing
+              }}
               className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-              disabled={isCreating}
+              disabled={isCreating || uploadingMarkdown}
             >
               <X className="w-6 h-6" />
             </button>
@@ -204,22 +298,112 @@ export default function FormBuilderModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {isCreating ? (
+          {isCreating || uploadingMarkdown ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
-              <p className="text-gray-600">Creating your form...</p>
+              <p className="text-gray-600">
+                {uploadingMarkdown ? 'Processing markdown file...' : 'Creating your form...'}
+              </p>
             </div>
-          ) : (
-            <div className="h-full">
-              <AIChatFormBuilder
-                onMarkdownGenerated={handleMarkdownGenerated}
-                projectKnowledge={projectKnowledge}
-                embedded={true}
-                projectName={projectName}
-                projectletName={projectletName}
-              />
+          ) : mode === null ? (
+            // Mode selection
+            <div className="h-full flex flex-col justify-center">
+              <div className="max-w-2xl mx-auto w-full">
+                <h3 className="text-lg font-semibold mb-6 text-center">
+                  Choose how you want to create your form
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* AI Option */}
+                  <button
+                    onClick={() => setMode('ai')}
+                    className="p-6 border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:shadow-lg transition-all group"
+                  >
+                    <Bot className="w-12 h-12 mx-auto mb-3 text-purple-600 group-hover:scale-110 transition-transform" />
+                    <h4 className="font-semibold text-lg mb-2">AI-Powered Form Builder</h4>
+                    <p className="text-sm text-gray-600">
+                      Chat with AI to create a form with project context and knowledge base
+                    </p>
+                  </button>
+
+                  {/* Markdown Upload Option */}
+                  <button
+                    onClick={() => setMode('markdown')}
+                    className="p-6 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:shadow-lg transition-all group"
+                  >
+                    <FileUp className="w-12 h-12 mx-auto mb-3 text-blue-600 group-hover:scale-110 transition-transform" />
+                    <h4 className="font-semibold text-lg mb-2">Upload Markdown File</h4>
+                    <p className="text-sm text-gray-600">
+                      Import an existing form from a markdown (.md) file
+                    </p>
+                  </button>
+                </div>
+              </div>
             </div>
-          )}
+          ) : mode === 'ai' ? (
+            // AI Form Builder
+            <div className="h-full flex flex-col">
+              <button
+                onClick={() => setMode(null)}
+                className="mb-4 text-gray-600 hover:text-black text-sm flex items-center"
+              >
+                ← Back to options
+              </button>
+              <div className="flex-1">
+                <AIChatFormBuilder
+                  onMarkdownGenerated={handleMarkdownGenerated}
+                  projectKnowledge={projectKnowledge}
+                  embedded={true}
+                  projectName={projectName}
+                  projectletName={projectletName}
+                />
+              </div>
+            </div>
+          ) : mode === 'markdown' ? (
+            // Markdown Upload
+            <div className="h-full flex flex-col justify-center">
+              <div className="max-w-md mx-auto w-full">
+                <div className="text-center mb-6">
+                  <FileUp className="w-16 h-16 mx-auto mb-4 text-blue-600" />
+                  <h3 className="text-lg font-semibold mb-2">Upload Markdown File</h3>
+                  <p className="text-sm text-gray-600">
+                    Select a .md file containing your form structure
+                  </p>
+                </div>
+
+                <label className="block">
+                  <input
+                    type="file"
+                    accept=".md"
+                    onChange={handleMarkdownUpload}
+                    disabled={uploadingMarkdown}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={(e) => e.currentTarget.parentElement.querySelector('input').click()}
+                    disabled={uploadingMarkdown}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center"
+                  >
+                    <FileUp className="w-5 h-5 mr-2" />
+                    Choose Markdown File
+                  </button>
+                </label>
+
+                <button
+                  onClick={() => setMode(null)}
+                  className="w-full mt-3 text-gray-600 hover:text-black text-sm"
+                >
+                  ← Back to options
+                </button>
+
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-600">
+                    <strong>Markdown format:</strong> Use sections (## Section:), field types (text, select, checkbox, etc.),
+                    and inline format: <code className="bg-gray-200 px-1 rounded">- type* | name | label | placeholder</code>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

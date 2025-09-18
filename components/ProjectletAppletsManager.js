@@ -46,7 +46,8 @@ import {
   ExternalLink,
   BarChart,
   Edit2,
-  Type
+  Type,
+  FileUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -110,6 +111,7 @@ export default function ProjectletAppletsManager({
   const [creatingForm, setCreatingForm] = useState(false);
   const [showAIFormBuilder, setShowAIFormBuilder] = useState(false);
   const [projectKnowledge, setProjectKnowledge] = useState(null);
+  const [uploadingMarkdown, setUploadingMarkdown] = useState(false);
 
   useEffect(() => {
     fetchApplets();
@@ -215,7 +217,7 @@ export default function ProjectletAppletsManager({
       const knowledgeResponse = await fetch(`/api/aloa-projects/${projectId}/knowledge`);
       const knowledgeData = await knowledgeResponse.json();
       setProjectKnowledge(knowledgeData);
-      
+
       // Show AI form builder modal instead of opening new window
       setShowFormConfig(false);
       setShowAIFormBuilder(true);
@@ -226,6 +228,111 @@ export default function ProjectletAppletsManager({
       setShowAIFormBuilder(true);
     } finally {
       setCreatingForm(false);
+    }
+  };
+
+  const handleMarkdownUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.md')) {
+      toast.error('Please upload a markdown file (.md)');
+      return;
+    }
+
+    setUploadingMarkdown(true);
+    try {
+      const content = await file.text();
+
+      // Create form from markdown
+      const response = await fetch('/api/forms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          markdown: content,
+          project_id: projectId
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create form');
+      }
+
+      const createdForm = await response.json();
+      toast.success('Form created from markdown successfully');
+
+      // Attach the created form to the applet
+      setSelectedFormId(createdForm.id);
+
+      // Auto-attach the form to the applet if we have one selected
+      if (selectedLibraryApplet) {
+        await attachFormToApplet(selectedLibraryApplet, createdForm.id);
+      } else {
+        // Close the modal
+        setShowFormConfig(false);
+        // Refresh forms list
+        if (onAppletsUpdated) {
+          onAppletsUpdated();
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading markdown:', error);
+      toast.error(error.message || 'Failed to upload markdown file');
+    } finally {
+      setUploadingMarkdown(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
+  const attachFormToApplet = async (applet, formId) => {
+    try {
+      // Check if this is an existing applet (has an id field) or a library applet
+      if (applet.id && !applet.library_applet_id) {
+        // This is an existing applet, update it
+        await updateApplet(applet.id, {
+          form_id: formId,
+          config: { ...applet.config, form_id: formId }
+        });
+        toast.success('Form attached to applet successfully');
+        fetchApplets();
+        setShowFormConfig(false);
+        setSelectedLibraryApplet(null);
+      } else {
+        // This is a new applet from library
+        const appletData = {
+          library_applet_id: applet.id,
+          name: applet.name,
+          description: applet.description,
+          type: applet.type,
+          config: { form_id: formId, required: true },
+          form_id: formId,
+          requires_approval: applet.requires_approval,
+          client_instructions: applet.client_instructions
+        };
+
+        const response = await fetch(
+          `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appletData)
+          }
+        );
+
+        if (response.ok) {
+          toast.success('Form attached to applet successfully');
+          fetchApplets();
+          setShowFormConfig(false);
+          setSelectedLibraryApplet(null);
+        } else {
+          throw new Error('Failed to attach form to applet');
+        }
+      }
+    } catch (error) {
+      console.error('Error attaching form to applet:', error);
+      toast.error('Failed to attach form to applet');
     }
   };
 
@@ -573,9 +680,10 @@ export default function ProjectletAppletsManager({
                               value={applet.form_id || ''}
                               onChange={(e) => {
                                 if (e.target.value === 'create_new') {
-                                  // Set this applet as selected and show AI form builder
+                                  // Set this applet as selected and show form config modal
                                   setSelectedLibraryApplet(applet);
-                                  setShowAIFormBuilder(true);
+                                  setShowFormConfig(true);
+                                  setFormConfigMode('create');
                                 } else if (e.target.value) {
                                   console.log('Updating applet form_id:', applet.id, 'to:', e.target.value);
                                   updateApplet(applet.id, { 
@@ -999,6 +1107,7 @@ export default function ProjectletAppletsManager({
                     setShowFormConfig(false);
                     setFormConfigMode('select');
                     setSelectedFormId(null);
+                    setSelectedLibraryApplet(null);
                   }}
                   className="p-2 hover:bg-gray-100 rounded-lg"
                 >
@@ -1050,35 +1159,84 @@ export default function ProjectletAppletsManager({
               {formConfigMode === 'create' && (
                 <div className="space-y-4">
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-900 mb-2">AI-Powered Form Builder</h4>
-                    <p className="text-sm text-blue-700 mb-3">
-                      The AI will have access to:
+                    <h4 className="font-semibold text-blue-900 mb-2">Create Your Form</h4>
+                    <p className="text-sm text-blue-700">
+                      Choose how you want to create your form:
                     </p>
-                    <ul className="text-sm text-blue-700 space-y-1 ml-4">
-                      <li>• Project details and requirements</li>
-                      <li>• Client information</li>
-                      <li>• Projectlet context: {projectletName}</li>
-                      <li>• Previously uploaded knowledge base</li>
-                    </ul>
                   </div>
 
-                  <button
-                    onClick={createFormWithAI}
-                    disabled={creatingForm}
-                    className="w-full bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center"
-                  >
-                    {creatingForm ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                        Opening Form Builder...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-5 h-5 mr-2" />
-                        Create Form with AI
-                      </>
-                    )}
-                  </button>
+                  {/* AI Form Builder Option */}
+                  <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                    <div className="flex items-start">
+                      <Bot className="w-5 h-5 text-purple-600 mr-2 mt-0.5" />
+                      <div className="flex-1">
+                        <h5 className="font-semibold">AI-Powered Form Builder</h5>
+                        <p className="text-sm text-gray-600 mt-1">
+                          The AI will have access to project details, client info, and knowledge base
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={createFormWithAI}
+                      disabled={creatingForm}
+                      className="w-full bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center"
+                    >
+                      {creatingForm ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                          Opening Form Builder...
+                        </>
+                      ) : (
+                        <>
+                          <Bot className="w-5 h-5 mr-2" />
+                          Create Form with AI
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Markdown Upload Option */}
+                  <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                    <div className="flex items-start">
+                      <FileUp className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
+                      <div className="flex-1">
+                        <h5 className="font-semibold">Upload Markdown File</h5>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Upload an existing form in markdown format (.md file)
+                        </p>
+                      </div>
+                    </div>
+                    <label className="block">
+                      <input
+                        type="file"
+                        accept=".md"
+                        onChange={handleMarkdownUpload}
+                        disabled={uploadingMarkdown}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={(e) => e.currentTarget.parentElement.querySelector('input').click()}
+                        disabled={uploadingMarkdown}
+                        className="w-full bg-white border-2 border-black text-black px-6 py-3 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center"
+                      >
+                        {uploadingMarkdown ? (
+                          <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black mr-2"></div>
+                            Processing Markdown...
+                          </>
+                        ) : (
+                          <>
+                            <FileUp className="w-5 h-5 mr-2" />
+                            Upload Markdown File
+                          </>
+                        )}
+                      </button>
+                    </label>
+                  </div>
+
+                  <div className="text-xs text-gray-500 text-center">
+                    Markdown format: Use sections, field types (text, select, checkbox, etc.), and options
+                  </div>
                 </div>
               )}
 
