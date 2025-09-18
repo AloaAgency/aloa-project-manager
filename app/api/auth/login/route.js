@@ -45,14 +45,17 @@ export async function POST(request) {
           },
           set(name, value, options) {
             // Ensure proper cookie settings for production
+            // For localhost development, use more permissive settings
+            const isProduction = process.env.NODE_ENV === 'production';
             const cookieOptions = {
               name,
               value,
               ...options,
-              sameSite: 'lax',
-              secure: process.env.NODE_ENV === 'production',
+              sameSite: isProduction ? 'lax' : 'lax', // Keep lax for localhost
+              secure: isProduction,
               httpOnly: true,
-              path: '/'
+              path: '/',
+              domain: undefined // Let browser handle domain
             };
             cookieStore.set(cookieOptions);
           },
@@ -73,7 +76,7 @@ export async function POST(request) {
     await supabase.auth.signOut();
 
     // Small delay to ensure cookies are cleared
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 200));
 
     // Attempt to sign in with fresh session
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -198,6 +201,9 @@ export async function POST(request) {
     }
 
     console.log('Login successful for:', email, 'with role:', userRole);
+
+    // Small delay to ensure session is fully established
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Create response with explicit headers
     const response = NextResponse.json({ 
