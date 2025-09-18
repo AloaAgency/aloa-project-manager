@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { sendProjectInvitationEmail } from '@/lib/email';
 
 // Define the standard Aloa project workflow
 const ALOA_PROJECT_WORKFLOW = [
@@ -155,14 +156,14 @@ export async function POST(request) {
       // Don't fail the whole operation, projectlets can be added later
     }
 
-    // Add the client as a team member
+    // Add the client as a team member with client_admin role
     const { error: teamError } = await supabase
       .from('aloa_project_team')
       .insert([{
         project_id: project.id,
         email: clientEmail,
         name: clientName,
-        role: 'client',
+        role: 'client_admin', // Changed from 'client' to 'client_admin'
         permissions: {
           can_fill_forms: true,
           can_approve: true,
@@ -210,10 +211,48 @@ export async function POST(request) {
         }
       }]);
 
+    // Also add client to aloa_project_members table for proper access
+    const { error: memberError } = await supabase
+      .from('aloa_project_members')
+      .insert([{
+        project_id: project.id,
+        user_email: clientEmail,
+        project_role: 'viewer',
+        added_by: 'system',
+        added_at: new Date().toISOString()
+      }]);
+
+    if (memberError) {
+      console.error('Error adding client to project members:', memberError);
+    }
+
+    // Send invitation email to client
+    let emailResult = { success: false, skipped: false };
+    try {
+      emailResult = await sendProjectInvitationEmail({
+        projectName,
+        clientName,
+        clientEmail,
+        projectId: project.id
+      });
+
+      if (emailResult.success && !emailResult.skipped) {
+        console.log(`Project invitation email sent to ${clientEmail}`);
+      } else if (emailResult.skipped) {
+        console.log('Email skipped - no RESEND_API_KEY configured');
+      } else {
+        console.error('Failed to send project invitation email:', emailResult.error);
+      }
+    } catch (error) {
+      console.error('Error sending invitation email:', error);
+    }
+
     return NextResponse.json({
       success: true,
       project: project,
-      message: 'Project initialized successfully'
+      message: 'Project initialized successfully',
+      emailSent: emailResult.success && !emailResult.skipped,
+      emailSkipped: emailResult.skipped
     });
 
   } catch (error) {
