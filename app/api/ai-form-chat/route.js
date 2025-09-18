@@ -1,9 +1,48 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { supabase } from '@/lib/supabase';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+async function getProjectContext(projectId) {
+  if (!projectId) return '';
+
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/project-knowledge/${projectId}/context?type=full_project`);
+
+    if (!response.ok) {
+      return '';
+    }
+
+    const data = await response.json();
+    const context = data.context;
+
+    if (!context) return '';
+
+    let formatted = '\n\n=== PROJECT CONTEXT ===\n';
+    formatted += `Project: ${context.project.name}\n`;
+    formatted += `Description: ${context.project.description || 'N/A'}\n\n`;
+
+    if (context.knowledge) {
+      for (const [category, items] of Object.entries(context.knowledge)) {
+        if (items && items.length > 0) {
+          formatted += `${category.replace(/_/g, ' ').toUpperCase()}:\n`;
+          items.slice(0, 3).forEach(item => {
+            formatted += `- ${item.summary || item.content}\n`;
+          });
+        }
+      }
+    }
+
+    formatted += '\n=== END PROJECT CONTEXT ===\n\n';
+    return formatted;
+  } catch (error) {
+    console.error('Error fetching project context:', error);
+    return '';
+  }
+}
 
 const SYSTEM_PROMPT = `You are an AI assistant specialized in creating form specifications in markdown format. Your task is to help users create, modify, and refine forms through conversation.
 
@@ -78,7 +117,10 @@ Remember: ALWAYS separate your conversational response from the form markdown by
 
 export async function POST(request) {
   try {
-    const { messages, currentMarkdown } = await request.json();
+    const { messages, currentMarkdown, projectId } = await request.json();
+
+    // Get project context if projectId is provided
+    const projectContext = await getProjectContext(projectId);
 
     // Prepare messages for Claude
     const claudeMessages = messages.map(msg => ({
@@ -94,11 +136,15 @@ export async function POST(request) {
       });
     }
 
+    // Create system prompt with project context
+    const systemPromptWithContext = SYSTEM_PROMPT + projectContext +
+      (projectContext ? '\nUse the project context above to make the form more relevant and specific to this project.\n' : '');
+
     const response = await anthropic.messages.create({
       model: 'claude-3-haiku-20240307',
       max_tokens: 2000,
       temperature: 0.7,
-      system: SYSTEM_PROMPT,
+      system: systemPromptWithContext,
       messages: claudeMessages,
     });
 

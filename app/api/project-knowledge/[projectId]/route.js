@@ -1,0 +1,180 @@
+import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
+
+export async function GET(request, { params }) {
+  try {
+    const { projectId } = params;
+    const { searchParams } = new URL(request.url);
+    const categories = searchParams.get('categories')?.split(',');
+    const search = searchParams.get('search');
+    const limit = parseInt(searchParams.get('limit') || '50');
+
+    let query = supabase
+      .from('aloa_project_knowledge')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('is_current', true)
+      .order('importance_score', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (categories && categories.length > 0) {
+      query = query.in('category', categories);
+    }
+
+    if (search) {
+      query = query.or(`content.ilike.%${search}%,content_summary.ilike.%${search}%,source_name.ilike.%${search}%`);
+    }
+
+    const { data: knowledge, error } = await query;
+
+    if (error) {
+      console.error('Error fetching knowledge:', error);
+      return NextResponse.json({ error: 'Failed to fetch knowledge' }, { status: 500 });
+    }
+
+    const categoryCounts = {};
+    knowledge.forEach(item => {
+      if (item.category) {
+        categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
+      }
+    });
+
+    return NextResponse.json({
+      knowledge,
+      stats: {
+        total: knowledge.length,
+        categoryCounts
+      }
+    });
+  } catch (error) {
+    console.error('Error in knowledge GET:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function POST(request, { params }) {
+  try {
+    const { projectId } = params;
+    const body = await request.json();
+    const { source_type, source_id, content, category, importance_score, tags } = body;
+
+    if (!source_type || !content) {
+      return NextResponse.json({
+        error: 'source_type and content are required'
+      }, { status: 400 });
+    }
+
+    const knowledgeItem = {
+      project_id: projectId,
+      source_type,
+      source_id: source_id || null,
+      source_name: body.source_name || source_type,
+      source_url: body.source_url || null,
+      content_type: body.content_type || 'text',
+      content,
+      content_summary: body.content_summary || content.substring(0, 200),
+      category: category || null,
+      tags: tags || [],
+      importance_score: importance_score || 5,
+      extracted_by: 'manual',
+      extraction_confidence: 1.0,
+      processed_at: new Date().toISOString(),
+      is_current: true
+    };
+
+    const { data, error } = await supabase
+      .from('aloa_project_knowledge')
+      .insert(knowledgeItem)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating knowledge:', error);
+      return NextResponse.json({ error: 'Failed to create knowledge' }, { status: 500 });
+    }
+
+    await supabase
+      .from('aloa_ai_context_cache')
+      .delete()
+      .eq('project_id', projectId);
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error in knowledge POST:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request, { params }) {
+  try {
+    const { projectId } = params;
+    const body = await request.json();
+    const { knowledgeId, ...updates } = body;
+
+    if (!knowledgeId) {
+      return NextResponse.json({
+        error: 'knowledgeId is required'
+      }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('aloa_project_knowledge')
+      .update(updates)
+      .eq('id', knowledgeId)
+      .eq('project_id', projectId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating knowledge:', error);
+      return NextResponse.json({ error: 'Failed to update knowledge' }, { status: 500 });
+    }
+
+    await supabase
+      .from('aloa_ai_context_cache')
+      .delete()
+      .eq('project_id', projectId);
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error in knowledge PATCH:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request, { params }) {
+  try {
+    const { projectId } = params;
+    const { searchParams } = new URL(request.url);
+    const knowledgeId = searchParams.get('id');
+
+    if (!knowledgeId) {
+      return NextResponse.json({
+        error: 'knowledge id is required'
+      }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from('aloa_project_knowledge')
+      .update({ is_current: false })
+      .eq('id', knowledgeId)
+      .eq('project_id', projectId);
+
+    if (error) {
+      console.error('Error deleting knowledge:', error);
+      return NextResponse.json({ error: 'Failed to delete knowledge' }, { status: 500 });
+    }
+
+    await supabase
+      .from('aloa_ai_context_cache')
+      .delete()
+      .eq('project_id', projectId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error in knowledge DELETE:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

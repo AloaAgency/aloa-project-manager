@@ -304,7 +304,7 @@ export async function POST(request, { params }) {
     }
 
     // Record the interaction
-    const { error: interactionError } = await supabase
+    const { data: interactionRecord, error: interactionError } = await supabase
       .from('aloa_applet_interactions')
       .insert([{
         applet_id: appletId,
@@ -312,11 +312,31 @@ export async function POST(request, { params }) {
         interaction_type: interactionType,
         user_role: 'client',
         data: data || {}
-      }]);
+      }])
+      .select()
+      .single();
 
     if (interactionError) {
       console.error('Error recording interaction:', interactionError);
       // Don't fail the request if interaction logging fails
+    } else if (interactionRecord) {
+      // Trigger knowledge extraction for completed interactions
+      if (status === 'completed' || interactionType === 'form_submit') {
+        try {
+          await fetch(`${request.nextUrl.origin}/api/project-knowledge/${projectId}/extract`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sourceType: 'applet_interaction',
+              sourceId: interactionRecord.id,
+              triggerType: 'applet_completion'
+            })
+          });
+        } catch (extractError) {
+          console.error('Error triggering knowledge extraction:', extractError);
+          // Don't fail the request if extraction fails
+        }
+      }
     }
 
     // If this was a completion, check if all applets in the projectlet are complete
