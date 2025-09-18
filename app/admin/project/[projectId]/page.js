@@ -2512,12 +2512,29 @@ function AdminProjectPageContent() {
                                         )}
                                       </div>
 
-                                      {/* Available tone options preview */}
+                                      {/* Available tone options with details */}
                                       <div className="text-xs text-gray-600">
-                                        <div className="font-medium mb-1">Available Tone Options:</div>
-                                        <div className="flex flex-wrap gap-1">
-                                          {['Professional', 'Casual', 'Bold', 'Minimalist', 'Technical', 'Inspirational', 'Playful', 'Luxurious', 'Empathetic', 'Authoritative'].map(tone => (
-                                            <span key={tone} className="px-2 py-1 bg-white rounded text-xs">{tone}</span>
+                                        <div className="font-medium mb-2">Available Tone Options:</div>
+                                        <div className="space-y-2">
+                                          {[
+                                            { name: 'Professional', desc: 'Clean, corporate, and authoritative', sample: 'At our company, we deliver comprehensive solutions...', chars: 'Formal language, Complex sentences' },
+                                            { name: 'Casual', desc: 'Friendly and conversational', sample: 'Hey there! We\'re super excited to work with you...', chars: 'Contractions, Simple sentences' },
+                                            { name: 'Bold', desc: 'Aggressive and direct', sample: 'Stop settling for mediocrity...', chars: 'Imperative mood, Strong action verbs' },
+                                            { name: 'Minimalist', desc: 'Just the facts', sample: 'We build websites. Fast loading. Mobile responsive...', chars: 'Fragments, No adjectives' },
+                                            { name: 'Technical', desc: 'Data-driven and precise', sample: 'Our platform leverages a microservices architecture...', chars: 'Technical jargon, Specific metrics' },
+                                            { name: 'Inspirational', desc: 'Motivational and uplifting', sample: 'Every great journey begins with a single step...', chars: 'Emotional language, Future-focused' },
+                                            { name: 'Playful', desc: 'Fun and humorous', sample: 'Okay, let\'s be real – most company websites...', chars: 'Humor and puns, Self-deprecating' },
+                                            { name: 'Luxurious', desc: 'Premium and exclusive', sample: 'Experience the pinnacle of digital craftsmanship...', chars: 'Elevated vocabulary, Sensory language' },
+                                            { name: 'Empathetic', desc: 'Caring and understanding', sample: 'We know that choosing the right partner...', chars: 'Emotional validation, Supportive language' },
+                                            { name: 'Authoritative', desc: 'Expert and commanding', sample: 'With over 15 years of industry leadership...', chars: 'Credentials emphasized, Evidence-based' }
+                                          ].map(tone => (
+                                            <details key={tone.name} className="bg-white rounded p-2">
+                                              <summary className="cursor-pointer font-medium hover:text-blue-600">{tone.name} - {tone.desc}</summary>
+                                              <div className="mt-2 pl-4 space-y-1 text-xs">
+                                                <div><strong>Sample:</strong> <em className="text-gray-500">{tone.sample}</em></div>
+                                                <div><strong>Characteristics:</strong> <span className="text-gray-500">{tone.chars}</span></div>
+                                              </div>
+                                            </details>
                                           ))}
                                         </div>
                                       </div>
