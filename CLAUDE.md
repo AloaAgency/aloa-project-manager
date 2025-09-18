@@ -466,6 +466,29 @@ Many applet types support a locking feature that controls client interaction:
 ### Overview
 The Project Knowledge System provides AI agents with complete context awareness by automatically extracting and categorizing information from all client interactions.
 
+### Project Insights Chat
+Agency admins can access an AI-powered insights chat on any project page (`/admin/project/[projectId]`) to query collected project knowledge:
+
+**Features:**
+- Floating chat button in bottom-right corner (purple-blue gradient with sparkles icon)
+- Real-time AI analysis of all project data
+- Suggested questions for quick insights
+- Source attribution for transparency
+- Graceful handling of projects with no data yet
+
+**Example Questions:**
+- "What are the client's color preferences?"
+- "What tone of voice should we use?"
+- "What functionality have they requested?"
+- "Are there any concerns to address?"
+- "What is a point of contention we need to address?"
+- "What areas need more data collection?"
+
+**API Endpoint:** `/api/project-knowledge/[projectId]/insights`
+- POST request with `{ question: "your question" }`
+- Returns AI-generated answer with sources
+- Uses Claude Haiku for fast response times
+
 ### Architecture
 
 **Database Tables:**

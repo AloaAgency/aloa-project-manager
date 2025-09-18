@@ -4,29 +4,34 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AuthGuard from '@/components/AuthGuard';
 import { createClient } from '@/lib/supabase-browser';
-import { 
-  Briefcase, 
-  Plus, 
-  Clock, 
-  CheckCircle, 
+import {
+  Briefcase,
+  Plus,
+  Clock,
+  CheckCircle,
   AlertCircle,
   Users,
   Calendar,
   TrendingUp,
-  Eye,
   Settings,
   ChevronRight,
   Zap,
   FileText,
   Upload,
   LogOut,
-  User
+  User,
+  Trash2,
+  X
 } from 'lucide-react';
 
 function AdminProjectsPageContent() {
   const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, project: null });
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -94,6 +99,54 @@ function AdminProjectsPageContent() {
       'on_hold': 0
     };
     return statusProgress[project.status] || 0;
+  };
+
+  const handleDeleteClick = (project) => {
+    setDeleteModal({ isOpen: true, project });
+    setDeleteConfirmation('');
+    setDeleteError('');
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deleteConfirmation !== 'DELETE') {
+      setDeleteError('Please type DELETE to confirm');
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError('');
+
+    try {
+      const response = await fetch(`/api/aloa-projects/${deleteModal.project.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete project');
+      }
+
+      // Successfully deleted, refresh the projects list
+      await fetchProjects();
+      setDeleteModal({ isOpen: false, project: null });
+      setDeleteConfirmation('');
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      setDeleteError(error.message || 'Failed to delete project');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCloseDeleteModal = () => {
+    if (!isDeleting) {
+      setDeleteModal({ isOpen: false, project: null });
+      setDeleteConfirmation('');
+      setDeleteError('');
+    }
   };
 
   if (loading) {
@@ -255,7 +308,7 @@ function AdminProjectsPageContent() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-3">
                           <button
                             onClick={() => router.push(`/admin/project/${project.id}`)}
                             className="text-black hover:text-gray-600 flex items-center"
@@ -265,12 +318,11 @@ function AdminProjectsPageContent() {
                             Manage
                           </button>
                           <button
-                            onClick={() => router.push(`/project/${project.id}/dashboard`)}
-                            className="text-blue-600 hover:text-blue-800 flex items-center"
-                            title="Client View"
+                            onClick={() => handleDeleteClick(project)}
+                            className="text-red-600 hover:text-red-800 flex items-center"
+                            title="Delete Project"
                           >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -327,6 +379,87 @@ function AdminProjectsPageContent() {
           </button>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900">Delete Project</h3>
+                <p className="text-red-600 font-semibold mt-2">This action cannot be undone!</p>
+              </div>
+              <button
+                onClick={handleCloseDeleteModal}
+                disabled={isDeleting}
+                className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700 mb-4">
+                You are about to permanently delete:
+              </p>
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <p className="font-semibold text-gray-900">{deleteModal.project?.project_name}</p>
+                <p className="text-sm text-gray-600 mt-1">Client: {deleteModal.project?.client_name}</p>
+                <p className="text-xs text-gray-500 mt-1">ID: {deleteModal.project?.id}</p>
+              </div>
+              <p className="text-gray-700 mb-4">
+                This will delete:
+              </p>
+              <ul className="text-sm text-gray-600 list-disc list-inside mb-4 space-y-1">
+                <li>All project data and settings</li>
+                <li>All projectlets and applets</li>
+                <li>All client responses and interactions</li>
+                <li>All uploaded files and documents</li>
+              </ul>
+              <p className="text-gray-700 font-semibold">
+                To confirm, type <span className="text-red-600 font-mono font-bold">DELETE</span> below:
+              </p>
+            </div>
+
+            <input
+              type="text"
+              value={deleteConfirmation}
+              onChange={(e) => setDeleteConfirmation(e.target.value)}
+              placeholder="Type DELETE to confirm"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
+              disabled={isDeleting}
+            />
+
+            {deleteError && (
+              <p className="text-red-600 text-sm mb-4">{deleteError}</p>
+            )}
+
+            <div className="flex space-x-4">
+              <button
+                onClick={handleCloseDeleteModal}
+                disabled={isDeleting}
+                className="flex-1 bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting || deleteConfirmation !== 'DELETE'}
+                className="flex-1 bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>Delete Project</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
