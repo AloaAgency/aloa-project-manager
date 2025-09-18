@@ -6,6 +6,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A gamified project management system specifically for Aloa web design projects. Built on Next.js 14, it guides clients through a structured workflow using forms, milestones, and projectlets with progress tracking and gamification elements. The system maintains backward compatibility with the original form builder while introducing project-specific features.
 
+## Development Workflow & Branching Strategy
+
+### Daily Branch Workflow
+**IMPORTANT: Follow this strict branching strategy:**
+
+1. **Create daily branch with date format**: `YYYY_MM_DD` (e.g., `2025_09_18` for September 18, 2025)
+2. **Never switch branches during the day** - All work stays on the daily branch
+3. **End of day**: User will create PR to merge daily branch to main
+4. **Next day**: Only create new branch AFTER user confirms PR is merged to main
+
+**CRITICAL RULES FOR CLAUDE CODE:**
+- **NEVER switch branches unless explicitly instructed by the user**
+- **NEVER create a PR unless explicitly requested by the user**
+- **NEVER merge to main - only the user handles merges**
+- **Only create a new dated branch when the user confirms the previous PR has been merged**
+- Stay on the current branch for all work unless specifically told to change branches
+
+Example workflow (user-driven):
+```bash
+# User says: "Create today's branch"
+git checkout -b 2025_09_18
+
+# Work all day on this branch...
+
+# User says: "Create a PR for today's work"
+# Claude creates PR via gh pr create
+
+# Next day - User says: "I've merged yesterday's PR, create today's branch"
+git checkout main
+git pull
+git checkout -b 2025_09_19
+```
+
+This workflow ensures clean daily snapshots with full user control over merges and deployments.
+
 ## Development Commands
 
 ```bash
