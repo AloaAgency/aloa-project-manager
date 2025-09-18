@@ -157,14 +157,10 @@ export default function ToneOfVoiceSelector({
       console.log('Response status:', response.status);
       if (response.ok) {
         console.log('Successfully saved tone selection');
-        // Trigger confetti celebration
+        // Trigger confetti celebration and let parent handle closing
         if (onComplete) {
           onComplete();
         }
-        // Close modal after short delay to see confetti
-        setTimeout(() => {
-          onClose();
-        }, 1500);
       } else {
         const errorData = await response.json();
         console.error('Save failed:', errorData);

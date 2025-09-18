@@ -10,6 +10,7 @@ dist/
 build/
 */dist/
 */build/
+.next/
 
 # Environment variables
 .env

@@ -1453,7 +1453,8 @@ function ClientDashboard() {
               setShowConfetti(false);
               setShowPaletteCleanserModal(false);
               setIsPaletteCleanserViewOnly(false);
-            }, 3000);
+              fetchProjectData(); // Refresh project data
+            }, 1500);
           }}
         />
       )}
@@ -1582,7 +1583,8 @@ function ClientDashboard() {
                       setTimeout(() => {
                         setShowConfetti(false);
                         setShowSitemapModal(false);
-                      }, 3000);
+                        fetchProjectData(); // Refresh project data
+                      }, 1500);
                     }
                   } catch (error) {
                     console.error('Error saving sitemap:', error);
@@ -1607,6 +1609,20 @@ function ClientDashboard() {
             setIsToneOfVoiceViewOnly(false);
             // Refresh to show updated state
             fetchProjectData();
+          }}
+          onComplete={() => {
+            // Update local state
+            setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+
+            // Trigger confetti celebration
+            setShowConfetti(true);
+            setTimeout(() => {
+              setShowConfetti(false);
+              setShowToneOfVoiceModal(false);
+              setIsToneOfVoiceViewOnly(false);
+              // Refresh to show updated state
+              fetchProjectData();
+            }, 1500);
           }}
         />
       )}

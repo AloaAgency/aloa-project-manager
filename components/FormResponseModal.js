@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, User, Calendar, FileText, CheckCircle } from 'lucide-react';
+import { X, User, Calendar, FileText, CheckCircle, Download } from 'lucide-react';
 
 export default function FormResponseModal({ isOpen, onClose, formId, userId, userName, formName }) {
   const [loading, setLoading] = useState(false);
@@ -69,6 +69,61 @@ export default function FormResponseModal({ isOpen, onClose, formId, userId, use
       return 'Not provided';
     }
     return value;
+  };
+
+  const exportToCSV = () => {
+    if (!response || !response.data) return;
+
+    // Prepare CSV content
+    const headers = ['Field', 'Value'];
+    const rows = [];
+
+    // Add metadata rows
+    rows.push(['User', userName || 'Unknown User']);
+    rows.push(['Form', formName || 'Form']);
+    rows.push(['Submitted', response.created_at ? new Date(response.created_at).toLocaleString() : 'Unknown date']);
+    rows.push(['', '']); // Empty row for separation
+
+    // Add form field data
+    Object.entries(response.data).forEach(([key, value]) => {
+      const fieldLabel = getFieldLabel(key);
+      const formattedValue = String(formatFieldValue(value)); // Convert to string
+      // Escape values that contain commas or quotes
+      const escapedValue = formattedValue.includes(',') || formattedValue.includes('"')
+        ? `"${formattedValue.replace(/"/g, '""')}"`
+        : formattedValue;
+      rows.push([fieldLabel, escapedValue]);
+    });
+
+    // Convert to CSV string
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => {
+        // Escape cells that contain commas or quotes
+        if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))) {
+          return `"${cell.replace(/"/g, '""')}"`;
+        }
+        return cell;
+      }).join(','))
+    ].join('\n');
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    // Format filename with user name and date
+    const sanitizedUserName = (userName || 'user').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const sanitizedFormName = (formName || 'form').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `${sanitizedFormName}_${sanitizedUserName}_${date}.csv`;
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (!isOpen) return null;
@@ -171,6 +226,16 @@ export default function FormResponseModal({ isOpen, onClose, formId, userId, use
             >
               Close
             </button>
+            {response && response.data && (
+              <button
+                type="button"
+                onClick={exportToCSV}
+                className="mt-3 w-full inline-flex justify-center items-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-purple-600 text-base font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export to CSV
+              </button>
+            )}
           </div>
         </div>
       </div>
