@@ -374,6 +374,15 @@ Optimized for Vercel:
 3. Add environment variables
 4. Deploy
 
+## Recent Updates (January 2025)
+
+### 🔐 Authentication Fix for Admin Routes
+- **Fixed AuthGuard Authentication Issue**: Resolved a critical issue where super_admin users couldn't access certain admin routes
+- **Server-Side Auth Priority**: AuthGuard now relies on server-side authentication via `/api/auth/profile` instead of unreliable client-side Supabase SDK
+- **Session Preservation**: Fixed session corruption that occurred when AuthGuard showed "Access Restricted" - no longer clears cookies unnecessarily
+- **Improved Role Detection**: Enhanced role detection to prioritize direct API role over nested profile role
+- **Known Issue**: Browser-side Supabase client may show null user even when properly authenticated - this is handled by using server-side checks
+
 ## Recent Updates (December 2024)
 
 ### 🔧 File Handling Fixes & Improvements

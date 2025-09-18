@@ -23,12 +23,28 @@ export default function AuthGuard({
 
   const checkAuth = async () => {
     try {
-      const supabase = createClient();
-      
-      // Check if user is authenticated
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
+      // Get profile from API (server-side auth is more reliable)
+      console.log('Checking authentication via API...');
+
+      const response = await fetch('/api/auth/profile', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      const data = await response.json();
+
+      console.log('Profile API response:', data);
+      console.log('Response structure:', {
+        hasUser: !!data.user,
+        hasRole: !!data.user?.role,
+        hasProfile: !!data.user?.profile,
+        profileRole: data.user?.profile?.role,
+        userRole: data.user?.role
+      });
+
+      // If API returns unauthorized, user is not authenticated
+      if (!response.ok || data.error === 'Not authenticated') {
         if (requireAuth) {
           console.log('No authenticated user, redirecting to login');
           router.push(`${redirectTo}?message=Please login to continue`);
@@ -39,33 +55,13 @@ export default function AuthGuard({
         return;
       }
 
-      // Get user profile with role using API endpoint to bypass RLS issues
-      console.log('Fetching profile for user:', user.id, user.email);
-      
-      const response = await fetch('/api/auth/profile', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-      const data = await response.json();
-      
-      console.log('Profile API response:', data);
-      console.log('Response structure:', {
-        hasUser: !!data.user,
-        hasRole: !!data.user?.role,
-        hasProfile: !!data.user?.profile,
-        profileRole: data.user?.profile?.role,
-        userRole: data.user?.role
-      });
-      
       if (!response.ok || data.error) {
         console.error('Error fetching user profile:', data.error);
         setError('Unable to verify user permissions: ' + (data.error || 'Unknown error'));
         setLoading(false);
         return;
       }
-      
+
       if (!data.user || !data.user.role) {
         console.error('No user role found in response');
         console.error('Full data structure:', JSON.stringify(data, null, 2));
@@ -73,15 +69,16 @@ export default function AuthGuard({
         setLoading(false);
         return;
       }
-      
-      const profile = data.user.profile || { role: data.user.role };
-      const actualRole = profile.role || data.user.role;
+
+      // Get the role - prioritize the direct user.role over profile.role
+      const actualRole = data.user.role || data.user.profile?.role;
       setUserRole(actualRole);
       console.log('User role determined:', {
-        profileRole: profile.role,
-        userRole: data.user.role,
+        directRole: data.user.role,
+        profileRole: data.user.profile?.role,
         actualRole: actualRole,
-        settingTo: actualRole
+        currentPath: window.location.pathname,
+        allowedRoles: allowedRoles
       });
 
       // Check if user role is allowed
@@ -166,28 +163,10 @@ export default function AuthGuard({
             </button>
             
             <button
-              onClick={async () => {
-                // Call logout API to properly clear session
-                try {
-                  await fetch('/api/auth/logout', {
-                    method: 'POST',
-                    credentials: 'include'
-                  });
-
-                  // Clear all cookies on client side as well
-                  document.cookie.split(";").forEach((c) => {
-                    document.cookie = c
-                      .replace(/^ +/, "")
-                      .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-                  });
-
-                  // Force a full page refresh to clear any cached state
-                  window.location.href = '/auth/login';
-                } catch (error) {
-                  console.error('Error during logout:', error);
-                  // Still redirect even if logout fails
-                  window.location.href = '/auth/login';
-                }
+              onClick={() => {
+                // Don't clear cookies here - just redirect to login
+                // The login page will handle proper authentication
+                router.push('/auth/login');
               }}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
