@@ -120,6 +120,11 @@ const SitemapBuilder = dynamic(() => import('@/components/SitemapBuilderV2'), {
   ssr: false
 });
 
+// Dynamically import Project Insights Chat
+const ProjectInsightsChat = dynamic(() => import('@/components/ProjectInsightsChat'), {
+  ssr: false
+});
+
 function AdminProjectPageContent() {
   const params = useParams();
   const router = useRouter();
@@ -3998,6 +4003,9 @@ function AdminProjectPageContent() {
           </div>
         </div>
       )}
+
+      {/* Project Insights Chat */}
+      <ProjectInsightsChat projectId={params.projectId} />
     </div>
   );
 }
