@@ -345,16 +345,44 @@ Optimized for Vercel deployment:
 - **Store custom data in `form_progress` field** as JSON
 
 #### 2. Confetti Celebration
-- **Trigger on successful completion** of any applet
-- **Implementation pattern**:
+- **ALWAYS trigger on successful completion** of any applet
+- **Standard behavior**: Every applet MUST show confetti when the user completes it
+- **Implementation in Client Dashboard** (`/app/project/[projectId]/dashboard/page.js`):
 ```javascript
-onComplete={() => {
-  triggerConfetti();
-  setTimeout(() => {
-    closeModal();
-    fetchProjectData(); // Refresh
-  }, 1500);
-}}
+// When rendering applet component, pass onComplete prop:
+<YourAppletComponent
+  applet={selectedApplet}
+  projectId={params.projectId}
+  userId={userId}
+  isViewOnly={isViewOnly}
+  onClose={() => {
+    setShowModal(false);
+    fetchProjectData();
+  }}
+  onComplete={() => {
+    // Update local state
+    setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+
+    // Trigger confetti celebration
+    setShowConfetti(true);
+    setTimeout(() => {
+      setShowConfetti(false);
+      setShowModal(false);
+      fetchProjectData(); // Refresh
+    }, 1500);
+  }}
+/>
+```
+- **Implementation in Applet Component**:
+```javascript
+// In your save/complete handler:
+if (response.ok) {
+  // Call the onComplete prop to trigger confetti
+  if (onComplete) {
+    onComplete();
+  }
+  // Parent component handles closing after confetti
+}
 ```
 
 #### 3. Modal Behavior

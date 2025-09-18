@@ -1608,6 +1608,20 @@ function ClientDashboard() {
             // Refresh to show updated state
             fetchProjectData();
           }}
+          onComplete={() => {
+            // Update local state
+            setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+
+            // Trigger confetti celebration
+            setShowConfetti(true);
+            setTimeout(() => {
+              setShowConfetti(false);
+              setShowToneOfVoiceModal(false);
+              setIsToneOfVoiceViewOnly(false);
+              // Refresh to show updated state
+              fetchProjectData();
+            }, 1500);
+          }}
         />
       )}
     </div>
