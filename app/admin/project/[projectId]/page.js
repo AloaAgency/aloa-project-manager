@@ -66,9 +66,11 @@ import {
   BarChart,
   Edit2,
   Star,
-  Map
+  Map,
+  Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { fetchAndExportFormResponses } from '@/lib/csvExportUtils';
 
 // Dynamically import the applets manager to avoid SSR issues
 const ProjectletAppletsManager = dynamic(() => import('@/components/ProjectletAppletsManager'), {
@@ -2295,6 +2297,22 @@ function AdminProjectPageContent() {
                                                   >
                                                     <BarChart className="w-4 h-4" />
                                                   </button>
+                                                  <button
+                                                    onClick={async () => {
+                                                      const exported = await fetchAndExportFormResponses(formId, form.title);
+                                                      if (exported) {
+                                                        toast.success('Responses exported successfully');
+                                                      } else if (form.response_count === 0) {
+                                                        toast.error('No responses to export');
+                                                      } else {
+                                                        toast.error('Failed to export responses');
+                                                      }
+                                                    }}
+                                                    className="p-1 hover:bg-green-100 rounded transition-colors"
+                                                    title="Export Responses as CSV"
+                                                  >
+                                                    <Download className="w-4 h-4 text-green-600" />
+                                                  </button>
                                                 </>
                                               );
                                             })()}
@@ -2859,6 +2877,22 @@ function AdminProjectPageContent() {
                           title="Edit Form"
                         >
                           <Edit className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const exported = await fetchAndExportFormResponses(form.id, form.title);
+                            if (exported) {
+                              toast.success('Responses exported successfully');
+                            } else if (form.response_count === 0) {
+                              toast.error('No responses to export');
+                            } else {
+                              toast.error('Failed to export responses');
+                            }
+                          }}
+                          className="p-1 hover:bg-green-100 rounded"
+                          title="Export Responses as CSV"
+                        >
+                          <Download className="w-3 h-3 text-green-600" />
                         </button>
                         <button
                           onClick={async () => {
