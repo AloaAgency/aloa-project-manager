@@ -3,12 +3,8 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET(request) {
   try {
-    // Debug logging
-    console.log('Projects API called at:', new Date().toISOString());
-    console.log('Environment:', process.env.VERCEL_ENV || 'local');
-
     // Fetch all projects with their stats
-    const { data: projects, error, count } = await supabase
+    const { data: projects, error } = await supabase
       .from('aloa_projects')
       .select(`
         *,
@@ -22,15 +18,8 @@ export async function GET(request) {
           name,
           role
         )
-      `, { count: 'exact' })
+      `)
       .order('created_at', { ascending: false });
-
-    console.log('Supabase query result:', {
-      error: error?.message || null,
-      projectCount: projects?.length || 0,
-      exactCount: count,
-      firstProjectId: projects?.[0]?.id?.substring(0, 8) || 'none'
-    });
 
     if (error) {
       console.error('Error fetching projects:', error);

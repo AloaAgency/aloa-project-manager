@@ -45,28 +45,15 @@ function AdminProjectsPageContent() {
 
   const fetchProjects = async () => {
     try {
-      console.log('[Admin Projects] Fetching projects...');
       const response = await fetch('/api/aloa-projects');
       const data = await response.json();
 
-      console.log('[Admin Projects] API Response:', {
-        status: response.status,
-        ok: response.ok,
-        dataReceived: !!data,
-        projectsArray: Array.isArray(data.projects),
-        projectCount: data.projects?.length || 0,
-        firstProjectId: data.projects?.[0]?.id?.substring(0, 8) || 'none'
-      });
-
       if (data.projects) {
-        console.log('[Admin Projects] Setting projects state with', data.projects.length, 'projects');
         setProjects(data.projects);
         calculateStats(data.projects);
-      } else {
-        console.error('[Admin Projects] No projects array in response:', data);
       }
     } catch (error) {
-      console.error('[Admin Projects] Error fetching projects:', error);
+      console.error('Error fetching projects:', error);
     } finally {
       setLoading(false);
     }
