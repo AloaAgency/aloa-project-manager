@@ -56,8 +56,8 @@ export default function LoginPage() {
           console.log('Session set in client');
         }
         
-        // Small delay to ensure session is properly set
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Longer delay for Chrome to ensure session cookies are properly set
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Role-based redirection
         const userRole = result.user?.role;

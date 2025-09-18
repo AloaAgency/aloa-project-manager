@@ -66,9 +66,11 @@ import {
   BarChart,
   Edit2,
   Star,
-  Map
+  Map,
+  Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { fetchAndExportFormResponses } from '@/lib/csvExportUtils';
 
 // Dynamically import the applets manager to avoid SSR issues
 const ProjectletAppletsManager = dynamic(() => import('@/components/ProjectletAppletsManager'), {
@@ -2295,6 +2297,22 @@ function AdminProjectPageContent() {
                                                   >
                                                     <BarChart className="w-4 h-4" />
                                                   </button>
+                                                  <button
+                                                    onClick={async () => {
+                                                      const exported = await fetchAndExportFormResponses(formId, form.title);
+                                                      if (exported) {
+                                                        toast.success('Responses exported successfully');
+                                                      } else if (form.response_count === 0) {
+                                                        toast.error('No responses to export');
+                                                      } else {
+                                                        toast.error('Failed to export responses');
+                                                      }
+                                                    }}
+                                                    className="p-1 hover:bg-green-100 rounded transition-colors"
+                                                    title="Export Responses as CSV"
+                                                  >
+                                                    <Download className="w-4 h-4 text-green-600" />
+                                                  </button>
                                                 </>
                                               );
                                             })()}
@@ -2494,12 +2512,29 @@ function AdminProjectPageContent() {
                                         )}
                                       </div>
 
-                                      {/* Available tone options preview */}
+                                      {/* Available tone options with details */}
                                       <div className="text-xs text-gray-600">
-                                        <div className="font-medium mb-1">Available Tone Options:</div>
-                                        <div className="flex flex-wrap gap-1">
-                                          {['Professional', 'Casual', 'Bold', 'Minimalist', 'Technical', 'Inspirational', 'Playful', 'Luxurious', 'Empathetic', 'Authoritative'].map(tone => (
-                                            <span key={tone} className="px-2 py-1 bg-white rounded text-xs">{tone}</span>
+                                        <div className="font-medium mb-2">Available Tone Options:</div>
+                                        <div className="space-y-2">
+                                          {[
+                                            { name: 'Professional', desc: 'Clean, corporate, and authoritative', sample: 'At our company, we deliver comprehensive solutions...', chars: 'Formal language, Complex sentences' },
+                                            { name: 'Casual', desc: 'Friendly and conversational', sample: 'Hey there! We\'re super excited to work with you...', chars: 'Contractions, Simple sentences' },
+                                            { name: 'Bold', desc: 'Aggressive and direct', sample: 'Stop settling for mediocrity...', chars: 'Imperative mood, Strong action verbs' },
+                                            { name: 'Minimalist', desc: 'Just the facts', sample: 'We build websites. Fast loading. Mobile responsive...', chars: 'Fragments, No adjectives' },
+                                            { name: 'Technical', desc: 'Data-driven and precise', sample: 'Our platform leverages a microservices architecture...', chars: 'Technical jargon, Specific metrics' },
+                                            { name: 'Inspirational', desc: 'Motivational and uplifting', sample: 'Every great journey begins with a single step...', chars: 'Emotional language, Future-focused' },
+                                            { name: 'Playful', desc: 'Fun and humorous', sample: 'Okay, let\'s be real – most company websites...', chars: 'Humor and puns, Self-deprecating' },
+                                            { name: 'Luxurious', desc: 'Premium and exclusive', sample: 'Experience the pinnacle of digital craftsmanship...', chars: 'Elevated vocabulary, Sensory language' },
+                                            { name: 'Empathetic', desc: 'Caring and understanding', sample: 'We know that choosing the right partner...', chars: 'Emotional validation, Supportive language' },
+                                            { name: 'Authoritative', desc: 'Expert and commanding', sample: 'With over 15 years of industry leadership...', chars: 'Credentials emphasized, Evidence-based' }
+                                          ].map(tone => (
+                                            <details key={tone.name} className="bg-white rounded p-2">
+                                              <summary className="cursor-pointer font-medium hover:text-blue-600">{tone.name} - {tone.desc}</summary>
+                                              <div className="mt-2 pl-4 space-y-1 text-xs">
+                                                <div><strong>Sample:</strong> <em className="text-gray-500">{tone.sample}</em></div>
+                                                <div><strong>Characteristics:</strong> <span className="text-gray-500">{tone.chars}</span></div>
+                                              </div>
+                                            </details>
                                           ))}
                                         </div>
                                       </div>
@@ -2859,6 +2894,22 @@ function AdminProjectPageContent() {
                           title="Edit Form"
                         >
                           <Edit className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const exported = await fetchAndExportFormResponses(form.id, form.title);
+                            if (exported) {
+                              toast.success('Responses exported successfully');
+                            } else if (form.response_count === 0) {
+                              toast.error('No responses to export');
+                            } else {
+                              toast.error('Failed to export responses');
+                            }
+                          }}
+                          className="p-1 hover:bg-green-100 rounded"
+                          title="Export Responses as CSV"
+                        >
+                          <Download className="w-3 h-3 text-green-600" />
                         </button>
                         <button
                           onClick={async () => {
@@ -3942,15 +3993,15 @@ function AdminProjectPageContent() {
                     <p className="text-xs font-semibold text-gray-500 mb-3">SAMPLE PARAGRAPH:</p>
                     <p className="text-sm text-gray-700 leading-relaxed">
                       {selectedToneData.selectedTone === 'Professional' && 'At our company, we deliver comprehensive solutions tailored to meet the evolving needs of modern enterprises. Our team of industry experts brings decades of combined experience to every project, ensuring that your business objectives are met with precision and professionalism. We maintain the highest standards of quality throughout our engagement, providing transparent communication and measurable results that drive sustainable growth for your organization.'}
-                      {selectedToneData.selectedTone === 'Casual & Friendly' && 'Hey there! We\'re super excited to work with you on this project. We know that finding the right partner can be tough, but don\'t worry – we\'ve got your back. Our team loves what we do, and we\'re here to make sure you have a great experience from start to finish. Let\'s grab a coffee (virtual or real!) and chat about how we can help bring your ideas to life.'}
-                      {selectedToneData.selectedTone === 'Bold & Direct' && 'Stop settling for mediocrity. Your competition isn\'t waiting, and neither should you. We don\'t just deliver solutions – we demolish obstacles and obliterate limitations. Every day you delay is a day your rivals get ahead. It\'s time to make a decision that actually matters. Choose dominance. Choose excellence. Choose to win.'}
+                      {selectedToneData.selectedTone === 'Casual' && 'Hey there! We\'re super excited to work with you on this project. We know that finding the right partner can be tough, but don\'t worry – we\'ve got your back. Our team loves what we do, and we\'re here to make sure you have a great experience from start to finish. Let\'s grab a coffee (virtual or real!) and chat about how we can help bring your ideas to life.'}
+                      {selectedToneData.selectedTone === 'Bold' && 'Stop settling for mediocrity. Your competition isn\'t waiting, and neither should you. We don\'t just deliver solutions – we demolish obstacles and obliterate limitations. Every day you delay is a day your rivals get ahead. It\'s time to make a decision that actually matters. Choose dominance. Choose excellence. Choose to win.'}
                       {selectedToneData.selectedTone === 'Minimalist' && 'We build websites. Fast loading. Mobile responsive. SEO optimized. Clear navigation. Secure hosting. Regular updates. Fixed pricing. No hidden fees. Two week delivery. One revision round included. Support available.'}
-                      {selectedToneData.selectedTone === 'Technical & Data-Driven' && 'Our platform leverages a microservices architecture deployed on Kubernetes, ensuring 99.99% uptime through automated failover and load balancing. The API processes 10,000 requests per second with sub-100ms latency, utilizing Redis caching and PostgreSQL with read replicas. Our CI/CD pipeline implements automated testing with 95% code coverage, deploying to production through blue-green deployments to minimize downtime.'}
+                      {selectedToneData.selectedTone === 'Technical' && 'Our platform leverages a microservices architecture deployed on Kubernetes, ensuring 99.99% uptime through automated failover and load balancing. The API processes 10,000 requests per second with sub-100ms latency, utilizing Redis caching and PostgreSQL with read replicas. Our CI/CD pipeline implements automated testing with 95% code coverage, deploying to production through blue-green deployments to minimize downtime.'}
                       {selectedToneData.selectedTone === 'Inspirational' && 'Every great journey begins with a single step, and today, you\'re taking yours. Imagine a world where your vision becomes reality, where boundaries dissolve and possibilities emerge. Together, we\'ll transform challenges into opportunities, dreams into achievements. Your potential is limitless, and we\'re here to help you unlock it. The future you\'ve been dreaming of? It starts now.'}
-                      {selectedToneData.selectedTone === 'Playful & Humorous' && 'Okay, let\'s be real – most company websites are about as exciting as watching paint dry. (Sorry, paint-watching enthusiasts!) But here\'s the thing: who says business has to be boring? We\'re a bunch of creative weirdos who happen to be really, really good at what we do. We\'ll make you look awesome online, have some laughs along the way, and maybe even become friends. Warning: side effects may include actually enjoying the process!'}
-                      {selectedToneData.selectedTone === 'Luxurious & Premium' && 'Experience the pinnacle of digital craftsmanship, where every pixel is meticulously placed and every interaction thoughtfully orchestrated. Our bespoke solutions are reserved for those who demand nothing less than perfection. From conception to completion, we curate an unparalleled journey that reflects the sophistication of your brand. This is not merely web design; this is digital artistry at its finest.'}
-                      {selectedToneData.selectedTone === 'Empathetic & Caring' && 'We know that choosing the right partner for your project can feel overwhelming, and we genuinely understand the weight of this decision. You\'re not just investing money; you\'re investing trust, hope, and vision. That\'s why we take the time to truly listen to your concerns, understand your challenges, and support you through every uncertainty. Your success matters deeply to us, not just as a business outcome, but because we care about the people behind every project.'}
-                      {selectedToneData.selectedTone === 'Authoritative & Expert' && 'With over 15 years of industry leadership, we have consistently set the standards that others follow. Our methodologies, published in leading industry journals and adopted by Fortune 500 companies, have proven their effectiveness time and again. When you work with us, you\'re not just hiring a service provider; you\'re partnering with the recognized authorities in digital innovation. The results speak for themselves: 97% client retention, 200+ industry awards, and consistent recognition as the benchmark for excellence.'}
+                      {selectedToneData.selectedTone === 'Playful' && 'Okay, let\'s be real – most company websites are about as exciting as watching paint dry. (Sorry, paint-watching enthusiasts!) But here\'s the thing: who says business has to be boring? We\'re a bunch of creative weirdos who happen to be really, really good at what we do. We\'ll make you look awesome online, have some laughs along the way, and maybe even become friends. Warning: side effects may include actually enjoying the process!'}
+                      {selectedToneData.selectedTone === 'Luxurious' && 'Experience the pinnacle of digital craftsmanship, where every pixel is meticulously placed and every interaction thoughtfully orchestrated. Our bespoke solutions are reserved for those who demand nothing less than perfection. From conception to completion, we curate an unparalleled journey that reflects the sophistication of your brand. This is not merely web design; this is digital artistry at its finest.'}
+                      {selectedToneData.selectedTone === 'Empathetic' && 'We know that choosing the right partner for your project can feel overwhelming, and we genuinely understand the weight of this decision. You\'re not just investing money; you\'re investing trust, hope, and vision. That\'s why we take the time to truly listen to your concerns, understand your challenges, and support you through every uncertainty. Your success matters deeply to us, not just as a business outcome, but because we care about the people behind every project.'}
+                      {selectedToneData.selectedTone === 'Authoritative' && 'With over 15 years of industry leadership, we have consistently set the standards that others follow. Our methodologies, published in leading industry journals and adopted by Fortune 500 companies, have proven their effectiveness time and again. When you work with us, you\'re not just hiring a service provider; you\'re partnering with the recognized authorities in digital innovation. The results speak for themselves: 97% client retention, 200+ industry awards, and consistent recognition as the benchmark for excellence.'}
                     </p>
                   </div>
 
@@ -3961,31 +4012,31 @@ function AdminProjectPageContent() {
                       {selectedToneData.selectedTone === 'Professional' && ['Formal language', 'Complex sentences', 'Industry terminology', 'Third-person perspective'].map((char) => (
                         <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
                       ))}
-                      {selectedToneData.selectedTone === 'Casual & Friendly' && ['Contractions', 'Simple sentences', 'Personal pronouns', 'Conversational tone'].map((char) => (
+                      {selectedToneData.selectedTone === 'Casual' && ['Contractions', 'Simple sentences', 'Personal pronouns', 'Conversational tone'].map((char) => (
                         <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
                       ))}
-                      {selectedToneData.selectedTone === 'Bold & Direct' && ['Imperative mood', 'Short, punchy sentences', 'Strong action verbs', 'Direct commands'].map((char) => (
+                      {selectedToneData.selectedTone === 'Bold' && ['Imperative mood', 'Short, punchy sentences', 'Strong action verbs', 'Direct commands'].map((char) => (
                         <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
                       ))}
                       {selectedToneData.selectedTone === 'Minimalist' && ['Fragments acceptable', 'No adjectives', 'Lists and bullets', 'Essential info only'].map((char) => (
                         <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
                       ))}
-                      {selectedToneData.selectedTone === 'Technical & Data-Driven' && ['Technical jargon', 'Specific metrics', 'Detailed specifications', 'Acronyms and numbers'].map((char) => (
+                      {selectedToneData.selectedTone === 'Technical' && ['Technical jargon', 'Specific metrics', 'Detailed specifications', 'Acronyms and numbers'].map((char) => (
                         <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
                       ))}
                       {selectedToneData.selectedTone === 'Inspirational' && ['Emotional language', 'Future-focused', 'Metaphorical', 'Second-person address'].map((char) => (
                         <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
                       ))}
-                      {selectedToneData.selectedTone === 'Playful & Humorous' && ['Humor and puns', 'Self-deprecating', 'Parenthetical asides', 'Casual punctuation'].map((char) => (
+                      {selectedToneData.selectedTone === 'Playful' && ['Humor and puns', 'Self-deprecating', 'Parenthetical asides', 'Casual punctuation'].map((char) => (
                         <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
                       ))}
-                      {selectedToneData.selectedTone === 'Luxurious & Premium' && ['Elevated vocabulary', 'Sensory language', 'Exclusivity emphasis', 'Refined tone'].map((char) => (
+                      {selectedToneData.selectedTone === 'Luxurious' && ['Elevated vocabulary', 'Sensory language', 'Exclusivity emphasis', 'Refined tone'].map((char) => (
                         <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
                       ))}
-                      {selectedToneData.selectedTone === 'Empathetic & Caring' && ['Emotional validation', 'Active listening cues', 'Supportive language', 'Personal connection'].map((char) => (
+                      {selectedToneData.selectedTone === 'Empathetic' && ['Emotional validation', 'Active listening cues', 'Supportive language', 'Personal connection'].map((char) => (
                         <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
                       ))}
-                      {selectedToneData.selectedTone === 'Authoritative & Expert' && ['Credentials emphasized', 'Definitive statements', 'Evidence-based', 'Third-party validation'].map((char) => (
+                      {selectedToneData.selectedTone === 'Authoritative' && ['Credentials emphasized', 'Definitive statements', 'Evidence-based', 'Third-party validation'].map((char) => (
                         <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
                       ))}
                     </div>

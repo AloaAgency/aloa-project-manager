@@ -73,14 +73,16 @@ export async function middleware(request) {
           },
           set(name, value, options) {
             // Ensure proper cookie settings for production
+            const isProduction = process.env.NODE_ENV === 'production';
             const cookieOptions = {
               name,
               value,
               ...options,
-              sameSite: 'lax',
-              secure: process.env.NODE_ENV === 'production',
+              sameSite: isProduction ? 'lax' : 'lax',
+              secure: isProduction,
               httpOnly: true,
-              path: '/'
+              path: '/',
+              domain: undefined
             };
             request.cookies.set(cookieOptions);
             response.cookies.set(cookieOptions);
@@ -117,24 +119,25 @@ export async function middleware(request) {
 
     // Protected routes that require authentication
     const protectedPaths = [
-      '/dashboard',
       '/create',
       '/edit',
       '/responses',
       '/ai-analysis',
       '/admin',
       '/profile',
-      '/settings'
+      '/settings',
+      '/project'  // Add project routes as protected
     ];
 
     const isProtectedPath = protectedPaths.some(path => 
       pathname.startsWith(path)
     );
     
-    // Redirect admins from /dashboard to /admin/projects
-    if (pathname === '/dashboard' && user && (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member')) {
-      return NextResponse.redirect(new URL('/admin/projects', request.url));
-    }
+    const clientRoles = ['client', 'client_admin', 'client_participant'];
+    const adminRoles = ['super_admin', 'project_admin', 'team_member'];
+
+    // No users should access /dashboard anymore - it's deprecated
+    // The /dashboard route itself will handle redirects if someone lands there
 
     // Auth routes that should redirect if already logged in
     const authPaths = ['/auth/login', '/auth/signup'];
@@ -151,21 +154,25 @@ export async function middleware(request) {
 
     // If accessing auth routes while authenticated, redirect based on role
     if (isAuthPath && user) {
-      if (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member') {
+      if (adminRoles.includes(userRole)) {
         return NextResponse.redirect(new URL('/admin/projects', request.url));
       } else {
-        // For clients, we'd need to get their project, so just go to dashboard for now
-        return NextResponse.redirect(new URL('/dashboard', request.url));
+        // For clients, don't redirect - let the login page handle finding their project
+        // This avoids the redirect loop issue
+        // The login page will properly redirect them to their project dashboard
       }
     }
 
     // For the root path, redirect based on auth status and role
     if (pathname === '/') {
       if (user) {
-        if (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member') {
+        if (adminRoles.includes(userRole)) {
           return NextResponse.redirect(new URL('/admin/projects', request.url));
         } else {
-          return NextResponse.redirect(new URL('/dashboard', request.url));
+          // For client users, we can't fetch their project here
+          // So don't redirect - let them stay on login which will handle it
+          // Or create a client landing page
+          return NextResponse.redirect(new URL('/auth/login', request.url));
         }
       } else {
         return NextResponse.redirect(new URL('/auth/login', request.url));

@@ -35,10 +35,22 @@
       "static/chunks/_app-pages-browser_components_LinkSubmissionConfig_js.js"
     ]
   },
+  "app/admin/project/[projectId]/page.js -> @/components/ProjectInsightsChat": {
+    "id": "app/admin/project/[projectId]/page.js -> @/components/ProjectInsightsChat",
+    "files": [
+      "static/chunks/_app-pages-browser_components_ProjectInsightsChat_js.js"
+    ]
+  },
   "app/admin/project/[projectId]/page.js -> @/components/ProjectletAppletsManager": {
     "id": "app/admin/project/[projectId]/page.js -> @/components/ProjectletAppletsManager",
     "files": [
       "static/chunks/_app-pages-browser_components_ProjectletAppletsManager_js.js"
+    ]
+  },
+  "app/admin/project/[projectId]/page.js -> @/components/SitemapBuilderV2": {
+    "id": "app/admin/project/[projectId]/page.js -> @/components/SitemapBuilderV2",
+    "files": [
+      "static/chunks/_app-pages-browser_components_SitemapBuilderV2_js-_dc720.js"
     ]
   },
   "app/admin/project/[projectId]/page.js -> @/components/SortableProjectlet": {
@@ -67,6 +79,18 @@
     "id": "app/project/[projectId]/dashboard/page.js -> @/components/PaletteCleanserModal",
     "files": [
       "static/chunks/_app-pages-browser_components_PaletteCleanserModal_js.js"
+    ]
+  },
+  "app/project/[projectId]/dashboard/page.js -> @/components/SitemapBuilderV2": {
+    "id": "app/project/[projectId]/dashboard/page.js -> @/components/SitemapBuilderV2",
+    "files": [
+      "static/chunks/_app-pages-browser_components_SitemapBuilderV2_js-_dc721.js"
+    ]
+  },
+  "app/project/[projectId]/dashboard/page.js -> @/components/ToneOfVoiceSelector": {
+    "id": "app/project/[projectId]/dashboard/page.js -> @/components/ToneOfVoiceSelector",
+    "files": [
+      "static/chunks/_app-pages-browser_components_ToneOfVoiceSelector_js.js"
     ]
   },
   "components/ConfettiCelebration.js -> react-confetti": {
