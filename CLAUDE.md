@@ -461,6 +461,110 @@ Many applet types support a locking feature that controls client interaction:
 - Client view checks lock status to determine interaction mode
 - Standard functionality across form, palette_cleanser, and future applet types
 
+## Project Knowledge System
+
+### Overview
+The Project Knowledge System provides AI agents with complete context awareness by automatically extracting and categorizing information from all client interactions.
+
+### Architecture
+
+**Database Tables:**
+- `aloa_project_knowledge` - Central knowledge store with categorized content
+- `aloa_knowledge_relationships` - Links between related knowledge pieces
+- `aloa_knowledge_extraction_queue` - Processing queue for async extraction
+- `aloa_ai_context_cache` - Pre-built contexts for performance
+
+### Knowledge Sources & Extraction
+
+**Automatic Extraction Triggers:**
+1. **Form Responses** - Every form submission is analyzed and categorized
+2. **Applet Interactions** - All applet completions trigger extraction:
+   - `palette_cleanser` → Design preferences (colors, visual style)
+   - `tone_of_voice` → Content strategy (brand voice, personality)
+   - `sitemap_builder` → Functionality (site structure, navigation)
+   - `link_submission` → Inspiration/current site (triggers website scraping)
+3. **File Uploads** - Text documents are processed for relevant information
+4. **Website Content** - Client's current site is scraped when URL provided
+
+### Adding Knowledge Extraction to New Applets
+
+When creating a new applet type, add knowledge extraction in `/lib/knowledgeExtractor.js`:
+
+```javascript
+if (interaction.applet?.type === 'your_new_applet') {
+  const appletData = interactionData.yourData || {};
+
+  knowledgeItems.push({
+    project_id: this.projectId,
+    source_type: 'applet_interaction',
+    source_id: interactionId,
+    source_name: `${appletName} - Your Description`,
+    content_type: 'preferences', // or 'structured_data', 'text', 'requirements'
+    content: JSON.stringify(appletData),
+    content_summary: `Brief summary of what was captured`,
+    category: 'appropriate_category', // See categories below
+    tags: ['relevant', 'tags'],
+    importance_score: 7, // 1-10 scale
+    extracted_by: 'system',
+    extraction_confidence: 1.0,
+    processed_at: new Date().toISOString(),
+    is_current: true
+  });
+}
+```
+
+### Knowledge Categories
+- `brand_identity` - Brand colors, logos, tone
+- `design_preferences` - UI/UX preferences
+- `content_strategy` - Content preferences, tone of voice
+- `functionality` - Feature requirements
+- `target_audience` - User personas, demographics
+- `business_goals` - KPIs, objectives
+- `technical_specs` - Technical requirements
+- `feedback` - Client feedback and revisions
+- `inspiration` - Reference sites, examples
+
+### API Endpoints
+
+- `GET /api/project-knowledge/[projectId]` - Retrieve project knowledge
+- `POST /api/project-knowledge/[projectId]` - Create knowledge manually
+- `GET /api/project-knowledge/[projectId]/context` - Get AI-ready context
+- `POST /api/project-knowledge/[projectId]/extract` - Trigger extraction
+- `POST /api/project-knowledge/[projectId]/extract-website` - Extract website content
+
+### AI Integration
+
+The AI form builder and other AI agents automatically receive project context:
+
+```javascript
+// In AI endpoints
+const projectContext = await getProjectContext(projectId);
+const systemPromptWithContext = SYSTEM_PROMPT + projectContext;
+```
+
+### Testing Knowledge Extraction
+
+1. **Verify Installation:**
+```sql
+-- Run in Supabase
+/supabase/verify_knowledge_system.sql
+```
+
+2. **Test Extraction:**
+```javascript
+// Browser console
+fetch(`/api/project-knowledge/${projectId}`)
+  .then(r => r.json())
+  .then(data => console.log('Knowledge items:', data));
+```
+
+3. **Check AI Context:**
+```javascript
+fetch(`/api/project-knowledge/${projectId}/context`)
+  .then(r => r.json())
+  .then(data => console.log('Context ready:', data.context));
+```
+
 ## Common Development Tasks
 
 ### Adding New Field Types
