@@ -8,7 +8,7 @@ import { useState } from 'react';
 import UserAvatar from '@/components/UserAvatar';
 
 export default function Navigation() {
-  const { user, profile, signOut, isSuperAdmin, isProjectAdmin, isTeamMember } = useUser();
+  const { user, profile, signOut, isSuperAdmin, isProjectAdmin, isTeamMember, loading } = useUser();
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -18,8 +18,9 @@ export default function Navigation() {
     profile: profile,
     role: profile?.role,
     isSuperAdmin,
-    isProjectAdmin, 
-    isTeamMember
+    isProjectAdmin,
+    isTeamMember,
+    loading
   });
 
   // Don't show navigation on auth pages
@@ -27,8 +28,23 @@ export default function Navigation() {
     return null;
   }
 
-  // Don't show navigation if user is not authenticated
-  if (!user) {
+  // Show loading state while checking auth (only on client)
+  if (loading) {
+    return <div className="h-16 bg-aloa-black border-b-2 border-aloa-black" />;
+  }
+
+  // Don't show navigation if user is not authenticated and we're done loading
+  if (!loading && !user) {
+    return null;
+  }
+
+  // If we have a user but no profile yet, show a loading state
+  if (user && !profile) {
+    return <div className="h-16 bg-aloa-black border-b-2 border-aloa-black" />;
+  }
+
+  // If we somehow get here without user or profile, return null
+  if (!user || !profile) {
     return null;
   }
 

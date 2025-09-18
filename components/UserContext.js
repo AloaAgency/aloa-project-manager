@@ -37,16 +37,25 @@ export function UserProvider({ children }) {
     // Get initial user
     const getUser = async () => {
       try {
+        console.log('UserContext: Checking authentication...');
         const { data: { user }, error } = await supabase.auth.getUser();
-        
+
+        console.log('UserContext: Auth check result', {
+          hasUser: !!user,
+          error: error?.message,
+          userId: user?.id
+        });
+
         if (user && !error) {
           setUser(user);
-          
+
           // Get user profile using API (which uses service role to bypass RLS)
           const profileData = await fetchProfileFromAPI();
-          
+
           setProfile(profileData);
           console.log('UserContext: Profile loaded', { email: user.email, role: profileData?.role });
+        } else {
+          console.log('UserContext: No user found or error occurred');
         }
       } catch (error) {
         console.error('Error getting user:', error);
