@@ -48,6 +48,27 @@ A gamified project management system specifically designed for Aloa web design p
 - **Image Previews**: Visual grid view with thumbnails for image files
 - **Right-Click Context Menu**: Quick access to rename files and folders
 - **Multiple Navigation Methods**: Breadcrumbs, folder clicks, and parent folder drops
+
+### Project Knowledge System (AI Context Awareness) 🧠
+- **Automatic Knowledge Extraction**: Captures insights from every client interaction
+  - Form responses are analyzed and categorized
+  - Applet interactions (color palettes, tone of voice, sitemap) become searchable knowledge
+  - Uploaded documents are processed for relevant information
+  - Client's current website is scraped and analyzed when provided
+- **Intelligent Categorization**: Knowledge is automatically sorted into categories:
+  - Brand Identity, Design Preferences, Content Strategy
+  - Functionality Requirements, Target Audience, Business Goals
+  - Technical Specifications, Client Feedback, Inspiration Sources
+- **AI-Powered Context**: All AI agents in the system have access to:
+  - Complete project history and preferences
+  - Client's brand voice and visual preferences
+  - Previously submitted requirements and feedback
+  - Website structure and content analysis
+- **Progressive Learning**: The system gets smarter with each interaction
+  - Knowledge importance scoring prioritizes relevant information
+  - Relationships between knowledge pieces are tracked
+  - Contradictions and updates are automatically managed
+- **Performance Optimized**: Pre-built context caching for instant AI responses
 - **Real-time File Counting**: Automatic updates to file counts in Knowledge Base
 - **Selective File Presentation**: Attach specific files to upload applets for client viewing
 - **Public Storage Configuration**: Properly configured Supabase storage with RLS policies
