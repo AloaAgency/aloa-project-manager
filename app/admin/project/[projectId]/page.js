@@ -141,6 +141,8 @@ function AdminProjectPageContent() {
   const [selectedProjectlet, setSelectedProjectlet] = useState(null);
   const [showFormsSection, setShowFormsSection] = useState(false);
   const [knowledgeBase, setKnowledgeBase] = useState(null);
+  const [projectKnowledgeCount, setProjectKnowledgeCount] = useState(0);
+  const [lastFileUpdate, setLastFileUpdate] = useState(null);
   const [showKnowledgeUpload, setShowKnowledgeUpload] = useState(false);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
   const [projectletApplets, setProjectletApplets] = useState({}); // Store applets for each projectlet
@@ -325,10 +327,21 @@ function AdminProjectPageContent() {
 
   const fetchProjectFileCount = async () => {
     try {
-      const response = await fetch(`/api/project-files?projectId=${params.projectId}`);
+      const response = await fetch(`/api/project-files?project_id=${params.projectId}`);
       if (response.ok) {
-        const files = await response.json();
-        setProjectFileCount(files.length);
+        const result = await response.json();
+        // Handle both response formats
+        const files = result.files || result;
+        setProjectFileCount(Array.isArray(files) ? files.length : 0);
+
+        // Find the most recent file update
+        if (Array.isArray(files) && files.length > 0) {
+          const mostRecent = files.reduce((latest, file) => {
+            const fileDate = new Date(file.updated_at || file.created_at);
+            return !latest || fileDate > latest ? fileDate : latest;
+          }, null);
+          setLastFileUpdate(mostRecent);
+        }
       }
     } catch (error) {
       console.error('Error fetching project file count:', error);
@@ -337,9 +350,20 @@ function AdminProjectPageContent() {
 
   const fetchKnowledgeBase = async () => {
     try {
+      // Fetch legacy knowledge base info
       const response = await fetch(`/api/aloa-projects/${params.projectId}/knowledge`);
       const data = await response.json();
       setKnowledgeBase(data);
+
+      // Fetch new knowledge system count
+      const knowledgeResponse = await fetch(`/api/project-knowledge/${params.projectId}`);
+      if (knowledgeResponse.ok) {
+        const knowledgeData = await knowledgeResponse.json();
+        console.log('Knowledge data received:', knowledgeData);
+        setProjectKnowledgeCount(knowledgeData.stats?.total || 0);
+      } else {
+        console.error('Knowledge API failed:', knowledgeResponse.status);
+      }
     } catch (error) {
       console.error('Error fetching knowledge base:', error);
     }
@@ -1333,60 +1357,17 @@ function AdminProjectPageContent() {
                     canUpload={true}
                     canDelete={true}
                     canCreateFolders={true}
-                    onFileChange={() => fetchProjectFileCount()}
+                    onFileChange={() => {
+                      fetchProjectFileCount();
+                      fetchKnowledgeBase(); // Refresh knowledge count too
+                    }}
                   />
                 </div>
               </div>
 
-              {/* Legacy Knowledge Documents (if any exist) */}
-              {knowledgeBase.knowledge && knowledgeBase.knowledge.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3">Legacy Knowledge Documents ({knowledgeBase.knowledge.length})</h3>
-                  <div className="space-y-2">
-                    {knowledgeBase.knowledge.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center flex-1">
-                          <File className="w-4 h-4 mr-2 text-gray-600" />
-                          <div>
-                            <p className="font-medium">{doc.title}</p>
-                            <p className="text-sm text-gray-600">
-                              Type: {doc.type} • Importance: {doc.importance}/10
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => deleteKnowledgeDoc(doc.id)}
-                          className="text-red-600 hover:text-red-800 p-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Legacy Knowledge Documents - Hidden (deprecated in favor of automatic extraction) */}
 
-              {/* AI Insights */}
-              {knowledgeBase.insights && knowledgeBase.insights.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3">AI Insights ({knowledgeBase.insights.length})</h3>
-                  <div className="space-y-2">
-                    {knowledgeBase.insights.map((insight) => (
-                      <div key={insight.id} className="p-3 bg-purple-50 rounded-lg">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <span className="text-xs font-medium text-purple-600 uppercase">{insight.category}</span>
-                            <p className="text-sm mt-1">{insight.insight}</p>
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {Math.round(insight.confidence * 100)}% confidence
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* AI Insights - Hidden (part of legacy system) */}
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
@@ -1396,14 +1377,16 @@ function AdminProjectPageContent() {
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-purple-600">
-                    {(knowledgeBase.knowledge?.length || 0) + (knowledgeBase.insights?.length || 0)}
+                    {projectKnowledgeCount}
                   </p>
                   <p className="text-sm text-gray-600">Knowledge Items</p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-600">Last Updated</p>
                   <p className="text-xs text-gray-500">
-                    {knowledgeBase.stats?.lastUpdated ? new Date(knowledgeBase.stats.lastUpdated).toLocaleString() : 'Never'}
+                    {lastFileUpdate ? lastFileUpdate.toLocaleString() :
+                     knowledgeBase?.stats?.lastUpdated ? new Date(knowledgeBase.stats.lastUpdated).toLocaleString() :
+                     'Never'}
                   </p>
                 </div>
               </div>
@@ -1432,7 +1415,7 @@ function AdminProjectPageContent() {
                   responsibilities: '',
                   preferences: '',
                   linkedin_url: '',
-                  importance: 5,
+                  importance_score: 5,
                   is_primary: false
                 });
                 setShowStakeholderForm(true);
@@ -1498,7 +1481,7 @@ function AdminProjectPageContent() {
                             responsibilities: stakeholder.responsibilities || '',
                             preferences: stakeholder.preferences || '',
                             linkedin_url: stakeholder.linkedin_url || '',
-                            importance: stakeholder.importance || 5,
+                            importance_score: stakeholder.importance_score || stakeholder.importance || 5,
                             is_primary: stakeholder.is_primary || false
                           });
                           setShowStakeholderForm(true);
@@ -1532,7 +1515,7 @@ function AdminProjectPageContent() {
                     </p>
                   )}
                   
-                  {stakeholder.importance && (
+                  {(stakeholder.importance_score || stakeholder.importance) && (
                     <div className="mt-2">
                       <div className="flex items-center">
                         <span className="text-xs text-gray-500 mr-2">Importance:</span>
@@ -1541,7 +1524,7 @@ function AdminProjectPageContent() {
                             <Star
                               key={i}
                               className={`w-3 h-3 ${
-                                i < stakeholder.importance
+                                i < (stakeholder.importance_score || stakeholder.importance)
                                   ? 'text-yellow-400 fill-current'
                                   : 'text-gray-300'
                               }`}
@@ -3506,7 +3489,7 @@ function AdminProjectPageContent() {
                     responsibilities: '',
                     preferences: '',
                     linkedin_url: '',
-                    importance: 5,
+                    importance_score: 5,
                     is_primary: false
                   });
                 }}
@@ -3546,7 +3529,7 @@ function AdminProjectPageContent() {
                   responsibilities: formData.get('responsibilities'),
                   preferences: formData.get('preferences'),
                   linkedin_url: formData.get('linkedin_url'),
-                  importance: parseInt(formData.get('importance')),
+                  importance_score: parseInt(formData.get('importance')),
                   is_primary: formData.get('is_primary') === 'on',
                   // Add user provisioning info
                   create_user: shouldCreateUser,
@@ -3713,7 +3696,7 @@ function AdminProjectPageContent() {
                     name="importance"
                     min="1"
                     max="10"
-                    defaultValue={editingStakeholder?.importance || 5}
+                    defaultValue={editingStakeholder?.importance_score || editingStakeholder?.importance || 5}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>

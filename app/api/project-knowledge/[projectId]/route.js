@@ -10,6 +10,8 @@ export async function GET(request, { params }) {
     const search = searchParams.get('search');
     const limit = parseInt(searchParams.get('limit') || '50');
 
+    console.log('Fetching knowledge for project:', projectId);
+
     let query = supabase
       .from('aloa_project_knowledge')
       .select('*')
@@ -29,9 +31,27 @@ export async function GET(request, { params }) {
 
     const { data: knowledge, error } = await query;
 
+    console.log('Knowledge query result:', {
+      count: knowledge?.length || 0,
+      error: error?.message || null,
+      projectId: projectId,
+      queryDetails: {
+        categories: categories,
+        search: search,
+        limit: limit
+      }
+    });
+
     if (error) {
       console.error('Error fetching knowledge:', error);
-      return NextResponse.json({ error: 'Failed to fetch knowledge' }, { status: 500 });
+      // Return empty results instead of error to avoid breaking the UI
+      return NextResponse.json({
+        knowledge: [],
+        stats: {
+          total: 0,
+          categoryCounts: {}
+        }
+      });
     }
 
     const categoryCounts = {};

@@ -450,7 +450,7 @@ export default function EnhancedFileRepository({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-bold text-gray-900">File Repository</h3>

@@ -1,62 +1,64 @@
--- Script to check and fix project metadata for AI insights
+-- Fix metadata column issue in extraction queue
+-- The metadata column doesn't exist, we need to add it
 
--- 1. First, check what's actually in the projects table
+-- 1. Add metadata column to extraction queue if it doesn't exist
+ALTER TABLE aloa_knowledge_extraction_queue
+ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}';
+
+-- 2. First, check if there's a unique constraint
+-- If not, add one (commented out - run manually if needed)
+-- ALTER TABLE aloa_knowledge_extraction_queue
+-- ADD CONSTRAINT unique_extraction_queue
+-- UNIQUE (project_id, source_type, source_id);
+
+-- 3. Queue the unextracted files for processing
+-- Using a different approach without ON CONFLICT
+WITH unextracted_files AS (
+  SELECT
+    pf.project_id,
+    pf.id::text as source_id,
+    pf.file_name,
+    pf.file_type
+  FROM aloa_project_files pf
+  LEFT JOIN aloa_project_knowledge pk
+    ON pk.source_id = pf.id::text
+    AND pk.source_type = 'file_document'
+  WHERE pf.project_id = '511306f6-0316-4a60-a318-1509d643238a'
+    AND pk.id IS NULL  -- Only files that haven't been extracted
+    AND (
+      pf.file_type LIKE '%text%'
+      OR pf.file_type LIKE '%markdown%'
+      OR pf.file_name LIKE '%.md'
+      OR pf.file_name LIKE '%.txt'
+    )
+)
+INSERT INTO aloa_knowledge_extraction_queue (
+  project_id,
+  source_type,
+  source_id,
+  metadata,
+  status,
+  priority,
+  created_at
+)
 SELECT
-    id,
-    project_name,
-    client_name,
-    client_email,
-    status,
-    start_date,
-    metadata,
-    created_at
-FROM aloa_projects
-ORDER BY created_at DESC;
-
--- 2. Check if we need to add missing columns
-ALTER TABLE aloa_projects
-ADD COLUMN IF NOT EXISTS name TEXT,
-ADD COLUMN IF NOT EXISTS description TEXT,
-ADD COLUMN IF NOT EXISTS live_url TEXT,
-ADD COLUMN IF NOT EXISTS staging_url TEXT,
-ADD COLUMN IF NOT EXISTS target_launch_date DATE;
-
--- 3. If the data is in metadata field, extract it to proper columns
--- (Uncomment and modify as needed based on what you see in step 1)
-/*
-UPDATE aloa_projects
-SET
-    name = COALESCE(name, project_name, metadata->>'name', metadata->>'project_name'),
-    description = COALESCE(description, metadata->>'description', 'Web design and development project'),
-    live_url = COALESCE(live_url, metadata->>'live_url', metadata->>'current_site'),
-    staging_url = COALESCE(staging_url, metadata->>'staging_url')
-WHERE name IS NULL OR name = '';
-*/
-
--- 4. Update a specific project with sample data (replace the ID)
--- This will help test the AI insights
-/*
-UPDATE aloa_projects
-SET
-    name = 'Ross Test Project',
-    description = 'A modern web design project focused on creating an engaging user experience',
-    live_url = 'https://example-current-site.com',
-    staging_url = 'https://staging.example.com',
-    target_launch_date = CURRENT_DATE + INTERVAL '30 days'
-WHERE id = '511306f6-0316-4a60-a318-1509d643238a';
-*/
-
--- 5. Verify the updates
-SELECT
-    id,
-    name,
-    project_name,
-    description,
-    live_url,
-    staging_url,
-    start_date,
-    target_launch_date,
-    client_name,
-    metadata
-FROM aloa_projects
-WHERE id = '511306f6-0316-4a60-a318-1509d643238a';
+  uf.project_id,
+  'file_document',
+  uf.source_id,
+  jsonb_build_object(
+    'file_name', uf.file_name,
+    'file_type', uf.file_type,
+    'file_id', uf.source_id
+  ),
+  'pending',
+  5,
+  NOW()
+FROM unextracted_files uf
+WHERE NOT EXISTS (
+  -- Don't insert if already in queue
+  SELECT 1
+  FROM aloa_knowledge_extraction_queue eq
+  WHERE eq.project_id = uf.project_id
+    AND eq.source_type = 'file_document'
+    AND eq.source_id = uf.source_id
+);
