@@ -2547,6 +2547,186 @@ function AdminProjectPageContent() {
                                       )}
                                     </div>
                                   )}
+
+                                  {/* Inline client review configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'client_review' && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                      {/* Header field */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Review Header
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={applet.config?.header || 'Review & Approve'}
+                                          onChange={async (e) => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      header: e.target.value
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating review header:', error);
+                                            }
+                                          }}
+                                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          placeholder="e.g., Please Review the Logo Designs"
+                                        />
+                                      </div>
+
+                                      {/* Description field */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Review Description
+                                        </label>
+                                        <textarea
+                                          value={applet.config?.description || 'Please review the work above and let us know if it meets your requirements.'}
+                                          onChange={async (e) => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      description: e.target.value
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating review description:', error);
+                                            }
+                                          }}
+                                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          rows={3}
+                                          placeholder="Explain what you're asking the client to review"
+                                        />
+                                      </div>
+
+                                      {/* Review status display */}
+                                      {applet.form_progress && (
+                                        <div className="bg-white p-3 rounded-md border">
+                                          <div className="text-sm">
+                                            <div className="font-medium mb-2">Review Status</div>
+                                            {applet.form_progress.status === 'approved' ? (
+                                              <div className="flex items-center gap-2 text-green-600">
+                                                <CheckCircle className="w-5 h-5" />
+                                                <span>Approved by {applet.form_progress.reviewed_by || 'Client Admin'}</span>
+                                                {applet.form_progress.approved_at && (
+                                                  <span className="text-xs text-gray-500">
+                                                    on {new Date(applet.form_progress.approved_at).toLocaleDateString()}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            ) : applet.form_progress.status === 'revision_requested' ? (
+                                              <div className="space-y-2">
+                                                <div className="flex items-center gap-2 text-orange-600">
+                                                  <AlertCircle className="w-5 h-5" />
+                                                  <span className="font-medium">Revision Requested</span>
+                                                </div>
+                                                {applet.form_progress.revision_notes && (
+                                                  <div className="bg-orange-50 p-2 rounded text-sm">
+                                                    <strong>Client Notes:</strong> {applet.form_progress.revision_notes}
+                                                  </div>
+                                                )}
+                                                {applet.form_progress.revision_count && (
+                                                  <div className="text-xs text-gray-600">
+                                                    Revision {applet.form_progress.revision_count} of {applet.config?.max_revisions || 2}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <div className="text-gray-500">
+                                                Awaiting client review
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                          {applet.config?.locked ? (
+                                            <Lock className="w-4 h-4 text-red-600" />
+                                          ) : (
+                                            <Unlock className="w-4 h-4 text-green-600" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {applet.config?.locked ? 'Review Locked' : 'Review Unlocked'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const newLockedState = !applet.config?.locked;
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: newLockedState
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating review lock status:', error);
+                                            }
+                                          }}
+                                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                            applet.config?.locked
+                                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                              : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? 'Unlock Review' : 'Lock Review'}
+                                        </button>
+                                      </div>
+
+                                      {/* Lock status explanation */}
+                                      <div className="text-xs text-gray-600 p-2 bg-white rounded border">
+                                        {applet.config?.locked ? (
+                                          <>
+                                            <strong>Locked:</strong> Client Admins can view the review decision but cannot change it.
+                                          </>
+                                        ) : (
+                                          <>
+                                            <strong>Unlocked:</strong> Client Admins can approve work or request revisions.
+                                          </>
+                                        )}
+                                      </div>
+
+                                      {/* Revision limit info */}
+                                      <div className="text-xs text-gray-600">
+                                        <strong>Note:</strong> Client contracts include up to <strong>{applet.config?.max_revisions || 2} revision requests</strong> per step.
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                                 {/* Drop zone after this applet */}
                                 {isDraggingApplet && draggedAppletInfo?.id !== applet.id && (

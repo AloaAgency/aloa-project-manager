@@ -99,7 +99,13 @@ export async function POST(request, { params }) {
 
     if (error) {
       console.error('Error creating applet:', error);
-      return NextResponse.json({ error: 'Failed to create applet' }, { status: 500 });
+      console.error('Detailed error:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      return NextResponse.json({ error: 'Failed to create applet', details: error.message }, { status: 500 });
     }
 
     console.log('Successfully created applet:', applet);
