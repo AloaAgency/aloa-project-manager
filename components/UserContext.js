@@ -22,7 +22,7 @@ export function UserProvider({ children }) {
           'Content-Type': 'application/json',
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         return data.user?.profile || null;
@@ -37,14 +37,7 @@ export function UserProvider({ children }) {
     // Get initial user
     const getUser = async () => {
       try {
-        console.log('UserContext: Checking authentication...');
         const { data: { user }, error } = await supabase.auth.getUser();
-
-        console.log('UserContext: Auth check result', {
-          hasUser: !!user,
-          error: error?.message,
-          userId: user?.id
-        });
 
         if (user && !error) {
           setUser(user);
@@ -53,9 +46,6 @@ export function UserProvider({ children }) {
           const profileData = await fetchProfileFromAPI();
 
           setProfile(profileData);
-          console.log('UserContext: Profile loaded', { email: user.email, role: profileData?.role });
-        } else {
-          console.log('UserContext: No user found or error occurred');
         }
       } catch (error) {
         console.error('Error getting user:', error);
@@ -110,17 +100,23 @@ export function UserProvider({ children }) {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('aloa_user_profiles')
-        .update(updates)
-        .eq('id', user.id)
-        .select()
-        .single();
+      // Use the API endpoint to update profile (which uses service role)
+      const response = await fetch('/api/auth/profile/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates)
+      });
 
-      if (error) throw error;
-      
-      setProfile(data);
-      return { data, error: null };
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update profile');
+      }
+
+      setProfile(result.data);
+      return { data: result.data, error: null };
     } catch (error) {
       console.error('Error updating profile:', error);
       return { data: null, error };

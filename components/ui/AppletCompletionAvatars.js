@@ -1,6 +1,7 @@
 'use client';
 
 import { Brain } from 'lucide-react';
+import UserAvatar from '@/components/UserAvatar';
 
 export default function AppletCompletionAvatars({
   completions = [],
@@ -68,21 +69,26 @@ export default function AppletCompletionAvatars({
         {/* User Avatars */}
         {completions.slice(0, maxVisible).map((completion) => {
           const user = completion.user || {};
-          const initials = getInitials(user);
-          const color = getAvatarColor(completion.user_id);
           const isInProgress = completion.status === 'in_progress';
 
           return (
             <div key={completion.user_id || completion.id} className="relative group">
               <div
                 onClick={() => onAvatarClick && onAvatarClick(completion.user_id, completion)}
-                className={`w-7 h-7 rounded-full ${color} text-white flex items-center justify-center text-xs font-medium ring-2 ${
-                  isInProgress ? 'ring-gray-400 ring-dashed' : 'ring-white'
-                } cursor-pointer hover:scale-110 transition-transform ${
-                  isInProgress ? 'opacity-80' : ''
-                }`}
+                className={`inline-block ring-2 ${
+                  isInProgress ? 'ring-gray-400 ring-dashed opacity-80' : 'ring-white'
+                } cursor-pointer hover:scale-110 transition-transform rounded-full`}
               >
-                {initials}
+                <UserAvatar
+                  user={{
+                    id: completion.user_id,
+                    full_name: user.full_name,
+                    email: user.email,
+                    avatar_url: user.avatar_url
+                  }}
+                  size="xs"
+                  className="pointer-events-none"
+                />
               </div>
               <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block z-10">
                 <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">

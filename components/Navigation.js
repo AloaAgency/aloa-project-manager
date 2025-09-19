@@ -4,7 +4,7 @@ import { useUser } from '@/components/UserContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { User, LogOut, Settings, Users, FileText, BarChart3, Plus, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import UserAvatar from '@/components/UserAvatar';
 
 export default function Navigation() {
@@ -12,16 +12,16 @@ export default function Navigation() {
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  // Debug logging
-  console.log('Navigation Debug:', {
-    user: !!user,
-    profile: profile,
-    role: profile?.role,
-    isSuperAdmin,
-    isProjectAdmin,
-    isTeamMember,
-    loading
-  });
+  // Debug profile to check avatar_url
+  useEffect(() => {
+    if (profile) {
+      console.log('Navigation profile:', {
+        has_avatar_url: !!profile.avatar_url,
+        avatar_url: profile.avatar_url,
+        full_name: profile.full_name
+      });
+    }
+  }, [profile]);
 
   // Don't show navigation on auth pages
   if (pathname.startsWith('/auth/')) {
