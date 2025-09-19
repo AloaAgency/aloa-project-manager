@@ -289,8 +289,15 @@ Remember: You are analyzing a SPECIFIC project with SPECIFIC details. Always dem
     // Identify sources used
     const sources = [];
     knowledge.slice(0, 5).forEach(item => {
-      if (answer.toLowerCase().includes(item.category.replace('_', ' ')) ||
-          (item.tags && item.tags.some(tag => answer.toLowerCase().includes(tag)))) {
+      // Check if category exists and matches
+      const categoryMatch = item.category &&
+        answer.toLowerCase().includes(item.category.replace('_', ' '));
+
+      // Check if any tags match
+      const tagMatch = item.tags &&
+        item.tags.some(tag => answer.toLowerCase().includes(tag));
+
+      if (categoryMatch || tagMatch) {
         sources.push(item.source_name);
       }
     });
@@ -303,6 +310,24 @@ Remember: You are analyzing a SPECIFIC project with SPECIFIC details. Always dem
 
   } catch (error) {
     console.error('Error generating insights:', error);
+    console.error('Error stack:', error.stack);
+
+    // Check if it's an Anthropic API error
+    if (error.message?.includes('API key') || error.status === 401) {
+      return NextResponse.json(
+        { error: 'AI service configuration error. Please check API keys.', details: error.message },
+        { status: 500 }
+      );
+    }
+
+    // Check if it's a database error
+    if (error.code === '42703') {
+      return NextResponse.json(
+        { error: 'Database schema issue. Please run the fix_knowledge_importance_column.sql script in Supabase.', details: error.message },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to generate insights', details: error.message },
       { status: 500 }

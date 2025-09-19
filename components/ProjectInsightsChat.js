@@ -71,9 +71,17 @@ export default function ProjectInsightsChat({ projectId }) {
       }]);
     } catch (error) {
       console.error('Error getting insights:', error);
+
+      let errorMessage = 'Sorry, I encountered an error analyzing the project data.';
+
+      // Try to get more specific error message from response
+      if (error.message) {
+        errorMessage += ` Error: ${error.message}`;
+      }
+
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Sorry, I encountered an error analyzing the project data. Please try again.',
+        content: errorMessage + '\n\nIf this persists, please check:\n1. The database schema is properly set up (run fix_knowledge_importance_column.sql)\n2. The Anthropic API key is configured\n3. The project has valid data',
         timestamp: new Date()
       }]);
     } finally {
