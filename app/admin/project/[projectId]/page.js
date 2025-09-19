@@ -546,13 +546,8 @@ function AdminProjectPageContent() {
 
       const data = await response.json();
 
-      // Filter for client users only (including all client role types)
-      const clientUsers = data.users?.filter(user =>
-        user.role === 'client' ||
-        user.role === 'client_admin' ||
-        user.role === 'client_participant'
-      ) || [];
-      setAvailableUsers(clientUsers);
+      // Set all users - we'll filter them where they're used
+      setAvailableUsers(data.users || []);
     } catch (error) {
       console.error('Error fetching available users:', error);
       // Ensure we always have an array, even on error
@@ -3685,7 +3680,9 @@ function AdminProjectPageContent() {
                     >
                       <option value="">-- No User Account --</option>
                       <option value="create_new">✨ Create New User Account</option>
-                      {(availableUsers || []).map(user => (
+                      {(availableUsers || [])
+                        .filter(user => ['client', 'client_admin', 'client_participant'].includes(user.role)) // Only show client users for stakeholders
+                        .map(user => (
                         <option key={user.id} value={user.id}>
                           {user.full_name} ({user.email})
                           {user.projects?.length > 0 && ` - ${user.projects.map(p => p.project_name).join(', ')}`}
@@ -4072,7 +4069,7 @@ function AdminProjectPageContent() {
                 >
                   <option value="">Choose a user...</option>
                   {availableUsers
-                    .filter(user => user.role !== 'client') // Filter out client users
+                    .filter(user => !['client', 'client_admin', 'client_participant'].includes(user.role)) // Only show non-client users (team members)
                     .filter(user => !teamMembers.some(m => m.user_id === user.id)) // Filter out already assigned users
                     .map(user => (
                       <option key={user.id} value={user.id}>
