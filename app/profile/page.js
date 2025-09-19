@@ -27,7 +27,10 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -66,6 +69,28 @@ export default function ProfilePage() {
     setSuccess(null);
 
     try {
+      // First, upload avatar if there's a new one selected
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.append('file', avatarFile);
+
+        const avatarResponse = await fetch('/api/auth/avatar', {
+          method: 'POST',
+          body: formData
+        });
+
+        const avatarData = await avatarResponse.json();
+
+        if (!avatarResponse.ok) {
+          throw new Error(avatarData.error || 'Failed to upload avatar');
+        }
+
+        // Avatar uploaded successfully
+        setAvatarFile(null);
+        setAvatarPreview(null);
+      }
+
+      // Then update the profile
       const { error } = await updateProfile({
         full_name: formData.full_name,
         phone: formData.phone,
@@ -79,10 +104,14 @@ export default function ProfilePage() {
       } else {
         setSuccess('Profile updated successfully');
         setIsEditing(false);
-        setTimeout(() => setSuccess(null), 3000);
+        setTimeout(() => {
+          setSuccess(null);
+          // Reload to refresh avatar in navigation
+          window.location.reload();
+        }, 1500);
       }
     } catch (err) {
-      setError('Failed to update profile');
+      setError(err.message || 'Failed to update profile');
     } finally {
       setSaving(false);
     }
@@ -91,6 +120,71 @@ export default function ProfilePage() {
   const handleSignOut = async () => {
     await signOut();
     router.push('/auth/login');
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        setError('Invalid file type. Please upload a JPG, PNG, GIF, or WebP image.');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        setError('File too large. Maximum size is 5MB.');
+        return;
+      }
+
+      setAvatarFile(file);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!avatarFile) return;
+
+    setUploadingAvatar(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', avatarFile);
+
+      const response = await fetch('/api/auth/avatar', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload avatar');
+      }
+
+      // Update local state with new avatar URL
+      setFormData(prev => ({ ...prev, avatar_url: data.avatar_url }));
+      setSuccess('Avatar uploaded successfully');
+      setAvatarFile(null);
+      setAvatarPreview(null);
+
+      // Refresh profile data
+      window.location.reload();
+
+    } catch (err) {
+      setError(err.message || 'Failed to upload avatar');
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   if (userLoading) {
@@ -184,8 +278,14 @@ export default function ProfilePage() {
           <div className="flex items-start gap-6">
             {/* Avatar */}
             <div className="flex-shrink-0">
-              <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center">
-                {formData.avatar_url ? (
+              <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center relative">
+                {avatarPreview ? (
+                  <img
+                    src={avatarPreview}
+                    alt="Profile preview"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : formData.avatar_url ? (
                   <img
                     src={formData.avatar_url}
                     alt="Profile"
@@ -194,12 +294,32 @@ export default function ProfilePage() {
                 ) : (
                   <User className="w-12 h-12 text-gray-400" />
                 )}
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
               {isEditing && (
-                <button className="mt-2 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                  <Camera className="w-4 h-4" />
-                  Change Photo
-                </button>
+                <div className="mt-2 space-y-2">
+                  <input
+                    type="file"
+                    id="avatar-upload"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="avatar-upload"
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Camera className="w-4 h-4" />
+                    {avatarFile ? 'Change Photo' : 'Select Photo'}
+                  </label>
+                  {avatarFile && (
+                    <p className="text-xs text-gray-500">Photo will be uploaded when you save</p>
+                  )}
+                </div>
               )}
             </div>
 

@@ -85,11 +85,29 @@ export async function GET(request, { params }) {
     })) || [];
 
     // Fetch user-specific progress for each applet
-    const { data: userProgress } = await supabase
+    const { data: userProgress, error: progressError } = await supabase
       .from('aloa_applet_progress')
       .select('*')
       .eq('project_id', projectId)
       .eq('user_id', userId);
+
+    if (progressError) {
+      console.error('Error fetching user progress:', progressError);
+    }
+
+    console.log('User progress fetched for GET:', {
+      userId,
+      projectId,
+      count: userProgress?.length,
+      paletteProgress: userProgress?.filter(p => {
+        const applet = sortedProjectlets.flatMap(pl => pl.applets).find(a => a.id === p.applet_id);
+        return applet?.type === 'palette_cleanser';
+      }).map(p => ({
+        appletId: p.applet_id,
+        status: p.status,
+        completed_at: p.completed_at
+      }))
+    });
 
     // Create a map of user progress by applet ID
     const progressMap = {};
@@ -108,9 +126,25 @@ export async function GET(request, { params }) {
           applet.user_started_at = userAppletProgress.started_at;
           applet.user_completed_at = userAppletProgress.completed_at;
           applet.form_progress = userAppletProgress.form_progress;
+
+          // Debug log for palette cleanser
+          if (applet.type === 'palette_cleanser') {
+            console.log('Palette cleanser progress applied:', {
+              appletId: applet.id,
+              name: applet.name,
+              progressStatus: userAppletProgress.status,
+              progressCompletedAt: userAppletProgress.completed_at,
+              appliedUserStatus: applet.user_status,
+              appliedUserCompletedAt: applet.user_completed_at
+            });
+          }
         } else {
           applet.user_status = 'not_started';
           applet.user_completion_percentage = 0;
+
+          if (applet.type === 'palette_cleanser') {
+            console.log('No progress found for palette cleanser:', applet.id);
+          }
         }
         if (applet.type === 'form' && applet.form_id) {
           const { data: form } = await supabase
@@ -232,23 +266,73 @@ export async function POST(request, { params }) {
 
     console.log(`Client interaction - Project: ${projectId}, Applet: ${appletId}, User: ${userId}, Type: ${interactionType}, Status: ${status}`);
 
+    // For palette_submit, ensure we're marking as completed
+    const finalStatus = (interactionType === 'palette_submit' || interactionType === 'submission') ? 'completed' : status;
+    const completionPercentage = finalStatus === 'completed' ? 100 : (status === 'in_progress' ? 50 : null);
+
+    console.log(`Updating progress with: status=${finalStatus}, completion=${completionPercentage}`);
+
     // Update user-specific applet progress
+    console.log('Calling update_applet_progress with:', {
+      p_applet_id: appletId,
+      p_user_id: userId,
+      p_project_id: projectId,
+      p_status: finalStatus,
+      p_completion_percentage: completionPercentage
+    });
+
     const { data: userProgress, error: progressError } = await supabase
       .rpc('update_applet_progress', {
         p_applet_id: appletId,
         p_user_id: userId,
         p_project_id: projectId,
-        p_status: status,
-        p_completion_percentage: status === 'completed' ? 100 : null,
+        p_status: finalStatus,
+        p_completion_percentage: completionPercentage,
         p_form_progress: data?.form_progress || null
       });
+
+    console.log('RPC response:', { userProgress, progressError });
 
     if (progressError) {
       console.error('Error updating user progress:', progressError);
       return NextResponse.json({ error: 'Failed to update progress' }, { status: 500 });
     }
 
-    console.log('User progress updated successfully:', userProgress);
+    // Verify the update actually happened
+    if (finalStatus === 'completed' && userProgress) {
+      if (!userProgress.completed_at) {
+        console.warn('WARNING: RPC returned but completed_at is null!');
+        // Try to update directly as a fallback
+        const { data: directUpdate, error: directError } = await supabase
+          .from('aloa_applet_progress')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            completion_percentage: 100,
+            updated_at: new Date().toISOString()
+          })
+          .eq('applet_id', appletId)
+          .eq('user_id', userId)
+          .select()
+          .single();
+
+        if (directError) {
+          console.error('Direct update also failed:', directError);
+        } else {
+          console.log('Direct update succeeded:', directUpdate);
+          userProgress.completed_at = directUpdate.completed_at;
+        }
+      }
+    }
+
+    console.log('User progress updated successfully:', {
+      userProgress,
+      status: finalStatus,
+      completion: completionPercentage,
+      appletId,
+      userId,
+      completed_at: userProgress?.completed_at
+    });
 
     // For form applets, update status based on form state
     if (interactionType === 'form_submit' && status === 'completed') {
@@ -371,9 +455,30 @@ export async function POST(request, { params }) {
       }
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      progress: userProgress 
+    // If this was a completion, verify it was saved
+    if (finalStatus === 'completed') {
+      // Wait a moment for database to commit
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Verify the update
+      const { data: verifyData } = await supabase
+        .from('aloa_applet_progress')
+        .select('status, completed_at')
+        .eq('applet_id', appletId)
+        .eq('user_id', userId)
+        .single();
+
+      console.log('Verification after update:', {
+        appletId,
+        userId,
+        savedStatus: verifyData?.status,
+        savedCompletedAt: verifyData?.completed_at
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      progress: userProgress
     });
   } catch (error) {
     console.error('Error in client interaction:', error);

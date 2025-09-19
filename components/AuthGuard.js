@@ -115,7 +115,7 @@ export default function AuthGuard({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+      <div className="flex items-center justify-center py-32">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Checking permissions...</p>
@@ -126,18 +126,18 @@ export default function AuthGuard({
 
   if (error || !authorized) {
     return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+      <div className="flex items-center justify-center p-4 py-32">
         <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
           <div className="flex justify-center mb-6">
             <div className="p-4 bg-red-100 rounded-full">
               <Lock className="w-8 h-8 text-red-600" />
             </div>
           </div>
-          
+
           <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
             Access Restricted
           </h1>
-          
+
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <div className="flex items-start">
               <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
@@ -153,7 +153,7 @@ export default function AuthGuard({
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-3">
             <button
               onClick={() => router.back()}
@@ -161,7 +161,7 @@ export default function AuthGuard({
             >
               Go Back
             </button>
-            
+
             <button
               onClick={() => {
                 // Don't clear cookies here - just redirect to login

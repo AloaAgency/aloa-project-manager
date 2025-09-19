@@ -141,6 +141,8 @@ function AdminProjectPageContent() {
   const [selectedProjectlet, setSelectedProjectlet] = useState(null);
   const [showFormsSection, setShowFormsSection] = useState(false);
   const [knowledgeBase, setKnowledgeBase] = useState(null);
+  const [projectKnowledgeCount, setProjectKnowledgeCount] = useState(0);
+  const [lastFileUpdate, setLastFileUpdate] = useState(null);
   const [showKnowledgeUpload, setShowKnowledgeUpload] = useState(false);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
   const [projectletApplets, setProjectletApplets] = useState({}); // Store applets for each projectlet
@@ -209,6 +211,16 @@ function AdminProjectPageContent() {
     userName: null,
     selectedTone: null,
     submittedAt: null
+  });
+  const [showClientReviewModal, setShowClientReviewModal] = useState(false);
+  const [selectedClientReviewData, setSelectedClientReviewData] = useState({
+    userName: null,
+    status: null,
+    revisionNotes: null,
+    revisionCount: 0,
+    approvedAt: null,
+    revisionRequestedAt: null,
+    appletName: null
   });
   const [editingProjectInfo, setEditingProjectInfo] = useState(false);
   const [tempProjectInfo, setTempProjectInfo] = useState({
@@ -299,10 +311,13 @@ function AdminProjectPageContent() {
         setShowPaletteResultsModal(false);
         setShowSitemapViewerModal(false);
         setShowToneOfVoiceModal(false);
+        setShowClientReviewModal(false);
         setSelectedResponseData(null);
         setSelectedPaletteData(null);
         setSelectedSitemapData(null);
         setSelectedToneData(null);
+        setSelectedClientReviewData(null);
+        setShowActionMenu(null);
       }
     };
 
@@ -312,10 +327,21 @@ function AdminProjectPageContent() {
 
   const fetchProjectFileCount = async () => {
     try {
-      const response = await fetch(`/api/project-files?projectId=${params.projectId}`);
+      const response = await fetch(`/api/project-files?project_id=${params.projectId}`);
       if (response.ok) {
-        const files = await response.json();
-        setProjectFileCount(files.length);
+        const result = await response.json();
+        // Handle both response formats
+        const files = result.files || result;
+        setProjectFileCount(Array.isArray(files) ? files.length : 0);
+
+        // Find the most recent file update
+        if (Array.isArray(files) && files.length > 0) {
+          const mostRecent = files.reduce((latest, file) => {
+            const fileDate = new Date(file.updated_at || file.created_at);
+            return !latest || fileDate > latest ? fileDate : latest;
+          }, null);
+          setLastFileUpdate(mostRecent);
+        }
       }
     } catch (error) {
       console.error('Error fetching project file count:', error);
@@ -324,9 +350,20 @@ function AdminProjectPageContent() {
 
   const fetchKnowledgeBase = async () => {
     try {
+      // Fetch legacy knowledge base info
       const response = await fetch(`/api/aloa-projects/${params.projectId}/knowledge`);
       const data = await response.json();
       setKnowledgeBase(data);
+
+      // Fetch new knowledge system count
+      const knowledgeResponse = await fetch(`/api/project-knowledge/${params.projectId}`);
+      if (knowledgeResponse.ok) {
+        const knowledgeData = await knowledgeResponse.json();
+        console.log('Knowledge data received:', knowledgeData);
+        setProjectKnowledgeCount(knowledgeData.stats?.total || 0);
+      } else {
+        console.error('Knowledge API failed:', knowledgeResponse.status);
+      }
     } catch (error) {
       console.error('Error fetching knowledge base:', error);
     }
@@ -1320,60 +1357,17 @@ function AdminProjectPageContent() {
                     canUpload={true}
                     canDelete={true}
                     canCreateFolders={true}
-                    onFileChange={() => fetchProjectFileCount()}
+                    onFileChange={() => {
+                      fetchProjectFileCount();
+                      fetchKnowledgeBase(); // Refresh knowledge count too
+                    }}
                   />
                 </div>
               </div>
 
-              {/* Legacy Knowledge Documents (if any exist) */}
-              {knowledgeBase.knowledge && knowledgeBase.knowledge.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3">Legacy Knowledge Documents ({knowledgeBase.knowledge.length})</h3>
-                  <div className="space-y-2">
-                    {knowledgeBase.knowledge.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center flex-1">
-                          <File className="w-4 h-4 mr-2 text-gray-600" />
-                          <div>
-                            <p className="font-medium">{doc.title}</p>
-                            <p className="text-sm text-gray-600">
-                              Type: {doc.type} • Importance: {doc.importance}/10
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => deleteKnowledgeDoc(doc.id)}
-                          className="text-red-600 hover:text-red-800 p-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Legacy Knowledge Documents - Hidden (deprecated in favor of automatic extraction) */}
 
-              {/* AI Insights */}
-              {knowledgeBase.insights && knowledgeBase.insights.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3">AI Insights ({knowledgeBase.insights.length})</h3>
-                  <div className="space-y-2">
-                    {knowledgeBase.insights.map((insight) => (
-                      <div key={insight.id} className="p-3 bg-purple-50 rounded-lg">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <span className="text-xs font-medium text-purple-600 uppercase">{insight.category}</span>
-                            <p className="text-sm mt-1">{insight.insight}</p>
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {Math.round(insight.confidence * 100)}% confidence
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* AI Insights - Hidden (part of legacy system) */}
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
@@ -1383,14 +1377,16 @@ function AdminProjectPageContent() {
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-purple-600">
-                    {(knowledgeBase.knowledge?.length || 0) + (knowledgeBase.insights?.length || 0)}
+                    {projectKnowledgeCount}
                   </p>
                   <p className="text-sm text-gray-600">Knowledge Items</p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-600">Last Updated</p>
                   <p className="text-xs text-gray-500">
-                    {knowledgeBase.stats?.lastUpdated ? new Date(knowledgeBase.stats.lastUpdated).toLocaleString() : 'Never'}
+                    {lastFileUpdate ? lastFileUpdate.toLocaleString() :
+                     knowledgeBase?.stats?.lastUpdated ? new Date(knowledgeBase.stats.lastUpdated).toLocaleString() :
+                     'Never'}
                   </p>
                 </div>
               </div>
@@ -1419,7 +1415,7 @@ function AdminProjectPageContent() {
                   responsibilities: '',
                   preferences: '',
                   linkedin_url: '',
-                  importance: 5,
+                  importance_score: 5,
                   is_primary: false
                 });
                 setShowStakeholderForm(true);
@@ -1485,7 +1481,7 @@ function AdminProjectPageContent() {
                             responsibilities: stakeholder.responsibilities || '',
                             preferences: stakeholder.preferences || '',
                             linkedin_url: stakeholder.linkedin_url || '',
-                            importance: stakeholder.importance || 5,
+                            importance_score: stakeholder.importance_score || stakeholder.importance || 5,
                             is_primary: stakeholder.is_primary || false
                           });
                           setShowStakeholderForm(true);
@@ -1519,7 +1515,7 @@ function AdminProjectPageContent() {
                     </p>
                   )}
                   
-                  {stakeholder.importance && (
+                  {(stakeholder.importance_score || stakeholder.importance) && (
                     <div className="mt-2">
                       <div className="flex items-center">
                         <span className="text-xs text-gray-500 mr-2">Importance:</span>
@@ -1528,7 +1524,7 @@ function AdminProjectPageContent() {
                             <Star
                               key={i}
                               className={`w-3 h-3 ${
-                                i < stakeholder.importance
+                                i < (stakeholder.importance_score || stakeholder.importance)
                                   ? 'text-yellow-400 fill-current'
                                   : 'text-gray-300'
                               }`}
@@ -1826,12 +1822,15 @@ function AdminProjectPageContent() {
                               const formId = applet.form_id || applet.config?.form_id;
                               const form = formId ? availableForms.find(f => f.id === formId) : null;
                               const isFormLocked = form?.status === 'closed';
+                              const hasRejection = applet.type === 'client_review' && applet.form_progress?.status === 'revision_requested';
 
                               return (
                                 <React.Fragment key={applet.id}>
                                   <div
                                     className={`p-2 rounded cursor-move transition-colors group border-2 mb-2 ${
-                                      isFormLocked && applet.type === 'form'
+                                      hasRejection
+                                        ? 'bg-orange-50 border-orange-300 hover:bg-orange-100 animate-pulse-subtle'
+                                        : isFormLocked && applet.type === 'form'
                                         ? 'bg-red-50 border-red-300 hover:bg-red-100'
                                         : 'bg-white/50 border-transparent hover:bg-white/70'
                                     }`}
@@ -1862,6 +1861,12 @@ function AdminProjectPageContent() {
                                       <GripVertical className="w-4 h-4 text-gray-400" />
                                       <Icon className="w-4 h-4 text-gray-600" />
                                       <span className="text-sm font-medium">{applet.name}</span>
+                                      {hasRejection && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-600 text-white text-xs font-bold rounded-full animate-pulse">
+                                          <AlertCircle className="w-3 h-3" />
+                                          ACTION NEEDED
+                                        </span>
+                                      )}
                                       {/* Always show progress - even if 0 stakeholders to show 0/0 */}
                                       {(
                                         <div className="flex items-center space-x-2">
@@ -1926,15 +1931,23 @@ function AdminProjectPageContent() {
                                             )}
                                             {applet.completions.slice(0, 4).map((completion) => {
                                               const isInProgress = completion.status === 'in_progress';
+                                              // Special handling for client_review applets
+                                              const isClientReview = applet.type === 'client_review';
+                                              const reviewStatus = isClientReview ? (completion.form_progress?.status || applet.form_progress?.status) : null;
+                                              const isRejected = reviewStatus === 'revision_requested';
+                                              const isApproved = reviewStatus === 'approved';
+
                                               return (
                                                 <div
                                                   key={completion.user_id}
-                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.type === 'tone_of_voice' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.type === 'tone_of_voice' || applet.type === 'client_review' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
                                                   title={`${completion.user?.full_name || completion.user?.email || 'User'} - ${
+                                                    isClientReview && isRejected ? `⚠️ REVISION REQUESTED${completion.form_progress?.revision_notes ? ': ' + completion.form_progress.revision_notes : ''}` :
+                                                    isClientReview && isApproved ? '✅ APPROVED' :
                                                     isInProgress ? 'In Progress' : `Reviewed ${
                                                       completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
                                                     }`
-                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : applet.type === 'tone_of_voice' ? '\nClick to view tone selection' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
+                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : applet.type === 'tone_of_voice' ? '\nClick to view tone selection' : applet.type === 'client_review' ? '\nClick to view review details' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
                                                 onClick={async () => {
                                                   if (applet.type === 'form') {
                                                     const formId = applet.form_id || applet.config?.form_id;
@@ -2021,6 +2034,19 @@ function AdminProjectPageContent() {
                                                       submittedAt: completion.completed_at || completion.started_at
                                                     });
                                                     setShowToneOfVoiceModal(true);
+                                                  } else if (applet.type === 'client_review') {
+                                                    // Show client review details modal
+                                                    const reviewData = completion.form_progress || applet.form_progress || {};
+                                                    setSelectedClientReviewData({
+                                                      userName: completion.user?.full_name || completion.user?.email || 'Client Admin',
+                                                      status: reviewData.status,
+                                                      revisionNotes: reviewData.revision_notes,
+                                                      revisionCount: reviewData.revision_count || 0,
+                                                      approvedAt: reviewData.approved_at,
+                                                      revisionRequestedAt: reviewData.revision_requested_at,
+                                                      appletName: applet.name
+                                                    });
+                                                    setShowClientReviewModal(true);
                                                   }
                                                 }}
                                               >
@@ -2029,14 +2055,34 @@ function AdminProjectPageContent() {
                                                       src={completion.user.avatar_url}
                                                       alt={completion.user.full_name || ''}
                                                       className={`w-7 h-7 rounded-full object-cover ring-2 ${
+                                                        isClientReview && isRejected ? 'ring-orange-500 ring-4' :
+                                                        isClientReview && isApproved ? 'ring-green-500 ring-4' :
                                                         isInProgress ? 'ring-gray-400 ring-dashed opacity-80' : 'ring-white'
                                                       }`}
                                                     />
                                                   ) : (
-                                                    <div className={`w-7 h-7 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-medium ring-2 ${
+                                                    <div className={`w-7 h-7 rounded-full ${
+                                                      isClientReview && isRejected ? 'bg-orange-500' :
+                                                      isClientReview && isApproved ? 'bg-green-500' :
+                                                      'bg-purple-500'
+                                                    } flex items-center justify-center text-white text-xs font-medium ring-2 ${
+                                                      isClientReview && isRejected ? 'ring-orange-500 ring-4' :
+                                                      isClientReview && isApproved ? 'ring-green-500 ring-4' :
                                                       isInProgress ? 'ring-gray-400 ring-dashed opacity-80' : 'ring-white'
                                                     }`}>
                                                       {(completion.user?.full_name || completion.user?.email || '?')[0].toUpperCase()}
+                                                    </div>
+                                                  )}
+                                                  {/* Warning badge for rejected reviews */}
+                                                  {isClientReview && isRejected && (
+                                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                                                      <span className="text-white text-xs font-bold">!</span>
+                                                    </div>
+                                                  )}
+                                                  {/* Checkmark badge for approved reviews */}
+                                                  {isClientReview && isApproved && (
+                                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                                      <CheckCircle className="w-3 h-3 text-white" />
                                                     </div>
                                                   )}
                                               </div>
@@ -2545,6 +2591,211 @@ function AdminProjectPageContent() {
                                           <strong>{applet.completions.length}</strong> participant{applet.completions.length !== 1 ? 's have' : ' has'} selected their tone of voice
                                         </div>
                                       )}
+                                    </div>
+                                  )}
+
+                                  {/* Inline client review configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'client_review' && (
+                                    <div className={`mt-3 p-3 rounded-lg space-y-3 ${
+                                      applet.form_progress?.status === 'revision_requested'
+                                        ? 'bg-orange-50 border-2 border-orange-300'
+                                        : 'bg-gray-50'
+                                    }`}>
+                                      {/* Warning banner for revision requested */}
+                                      {applet.form_progress?.status === 'revision_requested' && (
+                                        <div className="bg-orange-100 border border-orange-400 rounded-md p-3 mb-3">
+                                          <div className="flex items-start gap-2">
+                                            <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                                            <div className="flex-1">
+                                              <p className="font-semibold text-orange-900">⚠️ Agency Action Required</p>
+                                              <p className="text-sm text-orange-800 mt-1">
+                                                The client has requested revisions. Please submit updated work.
+                                              </p>
+                                              {applet.form_progress?.revision_notes && (
+                                                <div className="mt-2 p-2 bg-white/50 rounded">
+                                                  <p className="text-sm font-medium text-orange-900">Client's Request:</p>
+                                                  <p className="text-sm text-orange-800 mt-1">{applet.form_progress.revision_notes}</p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Header field */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Review Header
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={applet.config?.header || 'Review & Approve'}
+                                          onChange={async (e) => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      header: e.target.value
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating review header:', error);
+                                            }
+                                          }}
+                                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          placeholder="e.g., Please Review the Logo Designs"
+                                        />
+                                      </div>
+
+                                      {/* Description field */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Review Description
+                                        </label>
+                                        <textarea
+                                          value={applet.config?.description || 'Please review the work above and let us know if it meets your requirements.'}
+                                          onChange={async (e) => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      description: e.target.value
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating review description:', error);
+                                            }
+                                          }}
+                                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          rows={3}
+                                          placeholder="Explain what you're asking the client to review"
+                                        />
+                                      </div>
+
+                                      {/* Review status display */}
+                                      {applet.form_progress && (
+                                        <div className="bg-white p-3 rounded-md border">
+                                          <div className="text-sm">
+                                            <div className="font-medium mb-2">Review Status</div>
+                                            {applet.form_progress.status === 'approved' ? (
+                                              <div className="flex items-center gap-2 text-green-600">
+                                                <CheckCircle className="w-5 h-5" />
+                                                <span>Approved by {applet.form_progress.reviewed_by || 'Client Admin'}</span>
+                                                {applet.form_progress.approved_at && (
+                                                  <span className="text-xs text-gray-500">
+                                                    on {new Date(applet.form_progress.approved_at).toLocaleDateString()}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            ) : applet.form_progress.status === 'revision_requested' ? (
+                                              <div className="space-y-2">
+                                                <div className="flex items-center gap-2 text-orange-600">
+                                                  <AlertCircle className="w-5 h-5" />
+                                                  <span className="font-medium">Revision Requested</span>
+                                                </div>
+                                                {applet.form_progress.revision_notes && (
+                                                  <div className="bg-orange-50 p-2 rounded text-sm">
+                                                    <strong>Client Notes:</strong> {applet.form_progress.revision_notes}
+                                                  </div>
+                                                )}
+                                                {applet.form_progress.revision_count && (
+                                                  <div className="text-xs text-gray-600">
+                                                    Revision {applet.form_progress.revision_count} of {applet.config?.max_revisions || 2}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <div className="text-gray-500">
+                                                Awaiting client review
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                          {applet.config?.locked ? (
+                                            <Lock className="w-4 h-4 text-red-600" />
+                                          ) : (
+                                            <Unlock className="w-4 h-4 text-green-600" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {applet.config?.locked ? 'Review Locked' : 'Review Unlocked'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const newLockedState = !applet.config?.locked;
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: newLockedState
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating review lock status:', error);
+                                            }
+                                          }}
+                                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                            applet.config?.locked
+                                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                              : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? 'Unlock Review' : 'Lock Review'}
+                                        </button>
+                                      </div>
+
+                                      {/* Lock status explanation */}
+                                      <div className="text-xs text-gray-600 p-2 bg-white rounded border">
+                                        {applet.config?.locked ? (
+                                          <>
+                                            <strong>Locked:</strong> Client Admins can view the review decision but cannot change it.
+                                          </>
+                                        ) : (
+                                          <>
+                                            <strong>Unlocked:</strong> Client Admins can approve work or request revisions.
+                                          </>
+                                        )}
+                                      </div>
+
+                                      {/* Revision limit info */}
+                                      <div className="text-xs text-gray-600">
+                                        <strong>Note:</strong> Client contracts include up to <strong>{applet.config?.max_revisions || 2} revision requests</strong> per step.
+                                      </div>
                                     </div>
                                   )}
                                 </div>
@@ -3238,7 +3489,7 @@ function AdminProjectPageContent() {
                     responsibilities: '',
                     preferences: '',
                     linkedin_url: '',
-                    importance: 5,
+                    importance_score: 5,
                     is_primary: false
                   });
                 }}
@@ -3278,7 +3529,7 @@ function AdminProjectPageContent() {
                   responsibilities: formData.get('responsibilities'),
                   preferences: formData.get('preferences'),
                   linkedin_url: formData.get('linkedin_url'),
-                  importance: parseInt(formData.get('importance')),
+                  importance_score: parseInt(formData.get('importance')),
                   is_primary: formData.get('is_primary') === 'on',
                   // Add user provisioning info
                   create_user: shouldCreateUser,
@@ -3445,7 +3696,7 @@ function AdminProjectPageContent() {
                     name="importance"
                     min="1"
                     max="10"
-                    defaultValue={editingStakeholder?.importance || 5}
+                    defaultValue={editingStakeholder?.importance_score || editingStakeholder?.importance || 5}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
@@ -4047,6 +4298,122 @@ function AdminProjectPageContent() {
                   <p className="text-lg text-gray-500 mb-3">Selected Tone of Voice:</p>
                   <div className="inline-flex items-center justify-center px-8 py-4 bg-black text-white rounded-lg">
                     <span className="text-xl font-semibold">Not selected</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Client Review Modal */}
+      {showClientReviewModal && selectedClientReviewData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">
+                  Client Review Details: {selectedClientReviewData.appletName}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Reviewed by: {selectedClientReviewData.userName}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowClientReviewModal(false);
+                  setSelectedClientReviewData(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Review Status */}
+              <div className={`p-4 rounded-lg ${
+                selectedClientReviewData.status === 'approved' ? 'bg-green-50 border-2 border-green-200' :
+                selectedClientReviewData.status === 'revision_requested' ? 'bg-orange-50 border-2 border-orange-200' :
+                'bg-gray-50 border-2 border-gray-200'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Status</span>
+                  {selectedClientReviewData.status === 'approved' ? (
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-5 h-5" />
+                      <span className="font-semibold">APPROVED</span>
+                    </div>
+                  ) : selectedClientReviewData.status === 'revision_requested' ? (
+                    <div className="flex items-center gap-2 text-orange-700">
+                      <AlertCircle className="w-5 h-5" />
+                      <span className="font-semibold">REVISION REQUESTED</span>
+                    </div>
+                  ) : (
+                    <span className="text-gray-600">Pending Review</span>
+                  )}
+                </div>
+
+                {/* Timestamps */}
+                {selectedClientReviewData.approvedAt && (
+                  <p className="text-sm text-gray-600">
+                    Approved on: {new Date(selectedClientReviewData.approvedAt).toLocaleString()}
+                  </p>
+                )}
+                {selectedClientReviewData.revisionRequestedAt && (
+                  <p className="text-sm text-gray-600">
+                    Revision requested on: {new Date(selectedClientReviewData.revisionRequestedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+
+              {/* Revision Notes - The most important part for rejected work */}
+              {selectedClientReviewData.status === 'revision_requested' && selectedClientReviewData.revisionNotes && (
+                <div className="bg-orange-100 border-2 border-orange-300 rounded-lg p-4">
+                  <div className="flex items-start gap-2 mb-2">
+                    <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-orange-900 mb-2">Client's Revision Request:</h3>
+                      <p className="text-orange-800 whitespace-pre-wrap">{selectedClientReviewData.revisionNotes}</p>
+                    </div>
+                  </div>
+
+                  {selectedClientReviewData.revisionCount > 0 && (
+                    <div className="mt-3 pt-3 border-t border-orange-200">
+                      <p className="text-sm text-orange-700">
+                        This is revision request #{selectedClientReviewData.revisionCount}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Agency Action Required Alert */}
+              {selectedClientReviewData.status === 'revision_requested' && (
+                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-yellow-600" />
+                    <div>
+                      <p className="font-semibold text-yellow-900">Agency Action Required</p>
+                      <p className="text-sm text-yellow-800 mt-1">
+                        The client has requested revisions. Please review their feedback and submit updated work.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Success Message for Approved Work */}
+              {selectedClientReviewData.status === 'approved' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-semibold text-green-900">Work Approved!</p>
+                      <p className="text-sm text-green-800 mt-1">
+                        The client has approved this work. You can proceed to the next step.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
       .from('aloa_client_stakeholders')
       .select('*')
       .eq('project_id', projectId)
-      .order('importance', { ascending: false })
+      .order('importance_score', { ascending: false })
       .order('is_primary', { ascending: false })
       .order('name', { ascending: true });
 
@@ -108,7 +108,7 @@ export async function POST(request, { params }) {
       preferences: body.preferences || null,
       avatar_url: body.avatar_url || null,
       linkedin_url: body.linkedin_url || null,
-      importance: body.importance || 5,
+      importance_score: body.importance_score || 5,
       is_primary: body.is_primary || false,
       metadata: body.metadata || {},
       created_by: body.created_by || 'admin'
@@ -257,7 +257,7 @@ export async function PATCH(request, { params }) {
     if (body.preferences !== undefined) updateData.preferences = body.preferences;
     if (body.avatar_url !== undefined) updateData.avatar_url = body.avatar_url;
     if (body.linkedin_url !== undefined) updateData.linkedin_url = body.linkedin_url;
-    if (body.importance !== undefined) updateData.importance = body.importance;
+    if (body.importance_score !== undefined) updateData.importance_score = body.importance_score;
     if (body.is_primary !== undefined) updateData.is_primary = body.is_primary;
     if (body.metadata !== undefined) updateData.metadata = body.metadata;
 

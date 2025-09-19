@@ -32,7 +32,7 @@ export async function GET(request, { params }) {
       .from('aloa_project_knowledge')
       .select('*')
       .eq('project_id', projectId)
-      .order('importance', { ascending: false })
+      .order('importance_score', { ascending: false })
       .order('created_at', { ascending: false });
 
     if (knowledgeError) {
@@ -56,7 +56,7 @@ export async function GET(request, { params }) {
       .from('aloa_client_stakeholders')
       .select('*')
       .eq('project_id', projectId)
-      .order('importance', { ascending: false })
+      .order('importance_score', { ascending: false })
       .order('is_primary', { ascending: false });
 
     if (stakeholdersError) {
@@ -104,7 +104,7 @@ export async function POST(request, { params }) {
         file_url,
         external_url,
         metadata: metadata || {},
-        importance: importance || 5,
+        importance_score: importance || 5,
         source: 'manual',
         created_by: body.created_by || 'admin'
       }])

@@ -4,7 +4,7 @@ import { useUser } from '@/components/UserContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { User, LogOut, Settings, Users, FileText, BarChart3, Plus, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import UserAvatar from '@/components/UserAvatar';
 
 export default function Navigation() {
@@ -12,40 +12,41 @@ export default function Navigation() {
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  // Debug logging
-  console.log('Navigation Debug:', {
-    user: !!user,
-    profile: profile,
-    role: profile?.role,
-    isSuperAdmin,
-    isProjectAdmin,
-    isTeamMember,
-    loading
-  });
+  // Debug logging for navigation visibility
+  useEffect(() => {
+    console.log('Navigation Debug:', {
+      pathname,
+      loading,
+      hasUser: !!user,
+      hasProfile: !!profile,
+      userEmail: user?.email,
+      profileRole: profile?.role
+    });
+  }, [pathname, loading, user, profile]);
 
   // Don't show navigation on auth pages
   if (pathname.startsWith('/auth/')) {
+    console.log('Navigation: Hiding on auth page');
     return null;
   }
 
   // Show loading state while checking auth (only on client)
   if (loading) {
+    console.log('Navigation: Showing loading state');
     return <div className="h-16 bg-aloa-black border-b-2 border-aloa-black" />;
   }
 
   // Don't show navigation if user is not authenticated and we're done loading
   if (!loading && !user) {
+    console.log('Navigation: No user, hiding navigation');
     return null;
   }
 
-  // If we have a user but no profile yet, show a loading state
+  // If we have a user but no profile yet, still show navigation with basic info
+  // This is better UX than hiding the navigation entirely
   if (user && !profile) {
-    return <div className="h-16 bg-aloa-black border-b-2 border-aloa-black" />;
-  }
-
-  // If we somehow get here without user or profile, return null
-  if (!user || !profile) {
-    return null;
+    console.log('Navigation: User exists but no profile, showing basic navigation');
+    // Continue with rendering, we'll use user.email as fallback
   }
 
   // Different nav items for admins vs clients

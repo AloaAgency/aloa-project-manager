@@ -38,6 +38,7 @@ const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRe
 const PaletteCleanserModal = dynamic(() => import('@/components/PaletteCleanserModal'), { ssr: false });
 const SitemapBuilder = dynamic(() => import('@/components/SitemapBuilderV2'), { ssr: false });
 const ToneOfVoiceSelector = dynamic(() => import('@/components/ToneOfVoiceSelector'), { ssr: false });
+const ClientReview = dynamic(() => import('@/components/ClientReview'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -64,6 +65,9 @@ function ClientDashboard() {
   const [showToneOfVoiceModal, setShowToneOfVoiceModal] = useState(false); // Track tone of voice modal
   const [isToneOfVoiceViewOnly, setIsToneOfVoiceViewOnly] = useState(false); // Track if tone of voice is view-only
   const [selectedToneOfVoiceApplet, setSelectedToneOfVoiceApplet] = useState(null); // Track selected tone applet
+  const [showClientReviewModal, setShowClientReviewModal] = useState(false); // Track client review modal
+  const [isClientReviewViewOnly, setIsClientReviewViewOnly] = useState(false); // Track if client review is view-only
+  const [userRole, setUserRole] = useState(null); // Track user role
   const [activeTab, setActiveTab] = useState('journey'); // Track active tab
 
   // ESC key handlers for modals
@@ -88,6 +92,11 @@ function ClientDashboard() {
     setShowSitemapModal(false);
   }, showSitemapModal);
 
+  useEscapeKey(() => {
+    setShowClientReviewModal(false);
+    setIsClientReviewViewOnly(false);
+  }, showClientReviewModal);
+
   useEffect(() => {
     // Get authenticated user's ID
     const getAuthenticatedUser = async () => {
@@ -96,6 +105,17 @@ function ClientDashboard() {
       
       if (user) {
         setUserId(user.id);
+
+        // Fetch user profile to get role
+        const { data: profile } = await supabase
+          .from('aloa_user_profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (profile) {
+          setUserRole(profile.role);
+        }
       } else {
         console.error('No authenticated user found:', error);
         // Fallback to localStorage for anonymous users (shouldn't happen with AuthGuard)
@@ -157,20 +177,40 @@ function ClientDashboard() {
 
   const fetchProjectData = async () => {
     try {
+      console.log('fetchProjectData called with userId:', userId);
       // Fetch project data and projectlets from client-view endpoint with user ID
       const response = await fetch(`/api/aloa-projects/${params.projectId}/client-view?userId=${userId}`);
       const data = await response.json();
-      
+
+      console.log('fetchProjectData response received:', {
+        projectlets: data.projectlets?.length,
+        totalApplets: data.projectlets?.reduce((sum, p) => sum + (p.applets?.length || 0), 0)
+      });
+
       setProject(data.project);
       setProjectlets(data.projectlets || []);
       setStats(data.stats || { totalApplets: 0, completedApplets: 0, progressPercentage: 0 });
-      
+
       // Build completed set from user-specific status
       const completed = new Set();
       data.projectlets?.forEach(projectlet => {
         projectlet.applets?.forEach(applet => {
           // Use user-specific status if available, otherwise fallback to default
           const status = applet.user_status || applet.status;
+
+          // Debug logging for palette cleanser applets
+          if (applet.type === 'palette_cleanser') {
+            console.log('Palette Cleanser Fetch Data:', {
+              appletId: applet.id,
+              name: applet.name,
+              user_status: applet.user_status,
+              user_completed_at: applet.user_completed_at,
+              user_started_at: applet.user_started_at,
+              isLocked: applet.config?.locked,
+              willBeInCompletedSet: status === 'completed' || status === 'approved'
+            });
+          }
+
           if (status === 'completed' || status === 'approved') {
             completed.add(applet.id);
           }
@@ -183,6 +223,7 @@ function ClientDashboard() {
           }
         });
       });
+      console.log('Setting completedApplets from server:', Array.from(completed));
       setCompletedApplets(completed);
       
       // Fetch all form responses for this user to properly track submissions
@@ -227,18 +268,20 @@ function ClientDashboard() {
     const isPaletteCleanser = applet.type === 'palette_cleanser';
     const isSitemap = applet.type === 'sitemap';
     const isToneOfVoice = applet.type === 'tone_of_voice';
+    const isClientReview = applet.type === 'client_review';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const paletteIsLocked = isPaletteCleanser && applet.config?.locked === true;
     const sitemapIsLocked = isSitemap && applet.config?.locked === true;
     const toneOfVoiceIsLocked = isToneOfVoice && applet.config?.locked === true;
+    const clientReviewIsLocked = isClientReview && applet.config?.locked === true;
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
 
     // Block if:
-    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice applet that's already completed
+    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-client-review applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    // Link submissions, file uploads, palette cleanser, sitemap, and tone of voice should always be viewable even after completion
-    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, and client review should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isClientReview && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -498,6 +541,11 @@ function ClientDashboard() {
       setIsToneOfVoiceViewOnly(toneOfVoiceIsLocked && userAlreadyCompleted);
       setSelectedToneOfVoiceApplet({ ...applet, projectlet });
       setShowToneOfVoiceModal(true);
+    } else if (isClientReview) {
+      // Handle client review applet
+      setSelectedApplet({ ...applet, projectlet });
+      setIsClientReviewViewOnly(clientReviewIsLocked);
+      setShowClientReviewModal(true);
     }
   };
 
@@ -906,6 +954,23 @@ function ClientDashboard() {
                           } else if (toneIsLocked) {
                             buttonState = 'locked';
                             statusMessage = 'Tone selection locked - no longer accepting changes';
+                          }
+                        } else if (applet.type === 'client_review') {
+                          const reviewIsLocked = applet.config?.locked === true;
+                          const reviewStatus = applet.form_progress?.status;
+
+                          if (reviewStatus === 'approved') {
+                            buttonState = 'completed-locked';
+                            statusMessage = 'Work approved ✅';
+                          } else if (reviewStatus === 'revision_requested') {
+                            buttonState = 'in-progress-editing';
+                            statusMessage = `Revision requested (${applet.form_progress?.revision_count || 1} of ${applet.config?.max_revisions || 2})`;
+                          } else if (reviewIsLocked) {
+                            buttonState = 'locked';
+                            statusMessage = 'Review locked';
+                          } else {
+                            buttonState = userRole === 'client_admin' ? 'not-started' : 'locked';
+                            statusMessage = userRole === 'client_admin' ? 'Review & approve work' : 'Client Admin access required';
                           }
                         } else if (applet.type === 'palette_cleanser') {
                           const paletteIsLocked = applet.config?.locked === true;
@@ -1444,17 +1509,34 @@ function ClientDashboard() {
             setIsPaletteCleanserViewOnly(false);
           }}
           onComplete={async (data) => {
+            console.log('Palette cleanser onComplete called with data:', data);
+            console.log('Selected applet ID:', selectedApplet.id);
+
             // Update local state to show completion
-            setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+            setCompletedApplets(prev => {
+              const newSet = new Set([...prev, selectedApplet.id]);
+              console.log('Updated completedApplets set:', Array.from(newSet));
+              return newSet;
+            });
 
             // Trigger confetti
             setShowConfetti(true);
+
+            // Close modal after confetti
             setTimeout(() => {
               setShowConfetti(false);
               setShowPaletteCleanserModal(false);
               setIsPaletteCleanserViewOnly(false);
-              fetchProjectData(); // Refresh project data
             }, 1500);
+
+            // Delay the data refresh to ensure backend has fully committed the transaction
+            setTimeout(async () => {
+              console.log('Refreshing project data after palette completion');
+              await fetchProjectData(); // Refresh project data after backend has time to update
+
+              // Log the state after refresh
+              console.log('After refresh - completedApplets:', Array.from(completedApplets));
+            }, 3000); // Increased delay to 3 seconds
           }}
         />
       )}
@@ -1625,6 +1707,33 @@ function ClientDashboard() {
             }, 1500);
           }}
         />
+      )}
+
+      {/* Client Review Modal */}
+      {showClientReviewModal && selectedApplet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <ClientReview
+              applet={selectedApplet}
+              projectId={params.projectId}
+              userId={userId}
+              userRole={userRole}
+              isViewOnly={isClientReviewViewOnly}
+              onClose={() => {
+                setShowClientReviewModal(false);
+                setIsClientReviewViewOnly(false);
+                fetchProjectData();
+              }}
+              onComplete={() => {
+                // Note: ClientReview handles its own confetti for approval
+                // Just refresh data here
+                setShowClientReviewModal(false);
+                setIsClientReviewViewOnly(false);
+                fetchProjectData();
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

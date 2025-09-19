@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
 
 // Initialize Supabase service client
 const supabase = createClient(
@@ -171,6 +172,42 @@ export async function POST(request) {
             category: category
           }
         });
+
+      // Trigger knowledge extraction for text files
+      const textTypes = ['text/plain', 'text/markdown', 'text/html', 'application/json', 'text/csv'];
+      const isTextFile = textTypes.includes(file.type) ||
+                        file.name.endsWith('.md') ||
+                        file.name.endsWith('.txt') ||
+                        file.name.endsWith('.json') ||
+                        file.name.endsWith('.csv');
+
+      if (isTextFile) {
+        try {
+          // Add to extraction queue
+          await supabase
+            .from('aloa_knowledge_extraction_queue')
+            .insert({
+              project_id: projectId,
+              source_type: 'file_document',
+              source_id: fileRecord.id,
+              metadata: {
+                file_name: file.name,
+                file_type: file.type,
+                file_id: fileRecord.id
+              },
+              status: 'pending',
+              created_at: new Date().toISOString()
+            });
+
+          // Try immediate extraction with debug logging
+          console.log('Attempting knowledge extraction for file:', fileRecord.id, fileRecord.file_name);
+          const extractor = new KnowledgeExtractor(projectId);
+          await extractor.extractFromFile(fileRecord.id);
+        } catch (extractError) {
+          console.error('Error triggering knowledge extraction:', extractError);
+          // Don't fail the upload if extraction fails
+        }
+      }
 
       // Send notification to admins if uploaded by client
       if (userRole === 'client') {

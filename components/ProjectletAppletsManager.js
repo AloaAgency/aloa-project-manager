@@ -72,7 +72,8 @@ const APPLET_ICONS = {
   feedback_loop: MessageSquare,
   link_submission: Link,
   palette_cleanser: Palette,
-  tone_of_voice: Type
+  tone_of_voice: Type,
+  client_review: CheckCircle
 };
 
 const APPLET_COLORS = {
@@ -86,7 +87,8 @@ const APPLET_COLORS = {
   feedback_loop: 'bg-orange-100 text-orange-700 border-orange-300',
   link_submission: 'bg-cyan-100 text-cyan-700 border-cyan-300',
   palette_cleanser: 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-purple-300',
-  tone_of_voice: 'bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 border-amber-300'
+  tone_of_voice: 'bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 border-amber-300',
+  client_review: 'bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 border-emerald-300'
 };
 
 export default function ProjectletAppletsManager({ 
@@ -155,7 +157,8 @@ export default function ProjectletAppletsManager({
         type: libraryApplet.type,
         config: libraryApplet.default_config || {},
         requires_approval: libraryApplet.requires_approval,
-        client_instructions: libraryApplet.client_instructions
+        client_instructions: libraryApplet.client_instructions,
+        form_id: null // Always initialize form_id to null, not undefined
       };
 
       // For form applets, ensure form_id is null so it can be configured inline
@@ -165,6 +168,18 @@ export default function ProjectletAppletsManager({
           required: true
         };
         appletData.form_id = null; // Also set the direct form_id field
+      }
+
+      // For client_review applets, ensure form_id is null (they don't use forms)
+      if (libraryApplet.type === 'client_review') {
+        appletData.form_id = null; // Client review doesn't need a form
+        // Use the default config from the library
+        appletData.config = libraryApplet.default_config || {
+          header: 'Review & Approve',
+          description: 'Please review the work above and let us know if it meets your requirements.',
+          locked: false,
+          max_revisions: 2
+        };
       }
 
       // For link_submission applets, ensure proper initial config
