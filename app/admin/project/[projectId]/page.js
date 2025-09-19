@@ -309,10 +309,13 @@ function AdminProjectPageContent() {
         setShowPaletteResultsModal(false);
         setShowSitemapViewerModal(false);
         setShowToneOfVoiceModal(false);
+        setShowClientReviewModal(false);
         setSelectedResponseData(null);
         setSelectedPaletteData(null);
         setSelectedSitemapData(null);
         setSelectedToneData(null);
+        setSelectedClientReviewData(null);
+        setShowActionMenu(null);
       }
     };
 
