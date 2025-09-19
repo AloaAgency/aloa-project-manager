@@ -48,17 +48,43 @@ export default function LoginPage() {
         console.log('Client project:', result.clientProject);
         console.log('Has client project?', !!result.clientProject);
         
-        // If we have a session, set it in the client
+        // If we have a session, set it in the client and verify it
         if (result.session) {
           const { createClient } = await import('@/lib/supabase-auth');
           const supabase = createClient();
+
+          // Set the session
           await supabase.auth.setSession(result.session);
           console.log('Session set in client');
+
+          // Wait a moment for session to propagate
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // Verify session was actually set (important for private/incognito tabs)
+          const { data: { session: verifiedSession } } = await supabase.auth.getSession();
+
+          if (!verifiedSession) {
+            console.warn('Session not verified after setting, retrying...');
+            // Try setting session again
+            await supabase.auth.setSession(result.session);
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Check one more time
+            const { data: { session: retriedSession } } = await supabase.auth.getSession();
+            if (!retriedSession) {
+              console.error('Failed to establish session after retry');
+              setError('Session could not be established. Please try logging in again.');
+              setLoading(false);
+              return;
+            }
+          }
+
+          console.log('Session verified successfully');
         }
-        
-        // Longer delay for Chrome to ensure session cookies are properly set
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
+
+        // Additional delay for private/incognito tabs to ensure cookies are written
+        await new Promise(resolve => setTimeout(resolve, 300));
+
         // Role-based redirection
         const userRole = result.user?.role;
 

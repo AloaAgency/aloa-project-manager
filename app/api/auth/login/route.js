@@ -84,6 +84,21 @@ export async function POST(request) {
       password
     });
 
+    // If successful, verify the session was established
+    if (!error && data?.session) {
+      // Wait a moment for session to establish
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Verify session is accessible
+      const { data: { session: verifiedSession } } = await supabase.auth.getSession();
+      if (!verifiedSession) {
+        console.warn('Session verification failed after login, retrying...');
+        // Sometimes in private tabs the first attempt doesn't stick
+        // Force refresh the session
+        await supabase.auth.refreshSession();
+      }
+    }
+
     console.log('Server-side login result:', {
       hasUser: !!data?.user,
       hasSession: !!data?.session,
