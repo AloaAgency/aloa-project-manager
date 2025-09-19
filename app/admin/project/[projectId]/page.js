@@ -142,6 +142,8 @@ function AdminProjectPageContent() {
   const [showFormsSection, setShowFormsSection] = useState(false);
   const [knowledgeBase, setKnowledgeBase] = useState(null);
   const [projectKnowledgeCount, setProjectKnowledgeCount] = useState(0);
+  const [knowledgePendingChanges, setKnowledgePendingChanges] = useState({});
+  const [knowledgeSaving, setKnowledgeSaving] = useState(false);
   const [lastFileUpdate, setLastFileUpdate] = useState(null);
   const [showKnowledgeUpload, setShowKnowledgeUpload] = useState(false);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
@@ -353,6 +355,15 @@ function AdminProjectPageContent() {
       // Fetch legacy knowledge base info
       const response = await fetch(`/api/aloa-projects/${params.projectId}/knowledge`);
       const data = await response.json();
+
+      // If knowledge base doesn't have a URL but project does, initialize it
+      if (!data.project?.existing_url && project?.metadata?.website_url) {
+        data.project = {
+          ...data.project,
+          existing_url: project.metadata.website_url
+        };
+      }
+
       setKnowledgeBase(data);
 
       // Fetch new knowledge system count
@@ -369,22 +380,83 @@ function AdminProjectPageContent() {
     }
   };
 
-  const handleKnowledgeUpdate = async (field, value) => {
+  const handleKnowledgeFieldChange = (field, value) => {
+    // Track pending changes
+    setKnowledgePendingChanges(prev => ({ ...prev, [field]: value }));
+
+    // Update local state immediately for responsive UI
+    setKnowledgeBase(prev => ({
+      ...prev,
+      project: {
+        ...prev?.project,
+        [field]: value
+      }
+    }));
+  };
+
+  const handleKnowledgeSave = async () => {
+    if (Object.keys(knowledgePendingChanges).length === 0) {
+      toast.info('No changes to save');
+      return;
+    }
+
+    setKnowledgeSaving(true);
     try {
+      // Save to database
       const response = await fetch(`/api/aloa-projects/${params.projectId}/knowledge`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value })
+        body: JSON.stringify(knowledgePendingChanges)
       });
-      
+
       if (response.ok) {
-        toast.success('Knowledge base updated');
+        toast.success('Knowledge base saved successfully');
+
+        // If website URL was updated, also update project metadata
+        if (knowledgePendingChanges.existing_url !== undefined) {
+          await fetch(`/api/aloa-projects/${params.projectId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              metadata: {
+                ...project?.metadata,
+                website_url: knowledgePendingChanges.existing_url
+              }
+            })
+          });
+          // Refresh project data to sync URL
+          fetchProjectData();
+        }
+
+        // Trigger AI knowledge extraction for the changes
+        if (knowledgePendingChanges.base_knowledge || knowledgePendingChanges.existing_url) {
+          await fetch(`/api/project-knowledge/${params.projectId}/extract`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              source: 'manual_update',
+              data: knowledgePendingChanges
+            })
+          });
+        }
+
+        // Clear pending changes
+        setKnowledgePendingChanges({});
         fetchKnowledgeBase();
+      } else {
+        toast.error('Failed to save knowledge base');
       }
     } catch (error) {
-      console.error('Error updating knowledge:', error);
-      toast.error('Failed to update knowledge base');
+      console.error('Error saving knowledge:', error);
+      toast.error('Error saving knowledge base');
+    } finally {
+      setKnowledgeSaving(false);
     }
+  };
+
+  const handleKnowledgeUpdate = async (field, value) => {
+    // Keep for backward compatibility with other parts that may use it
+    handleKnowledgeFieldChange(field, value);
   };
 
   const handleFileUpload = async (file) => {
@@ -1083,6 +1155,16 @@ function AdminProjectPageContent() {
         setProject(updatedProject);
         setEditingProjectInfo(false);
         toast.success('Project information updated');
+
+        // Also sync the URL to knowledge base if it was changed
+        if (tempProjectInfo.website_url !== project?.metadata?.website_url) {
+          await fetch(`/api/aloa-projects/${params.projectId}/knowledge`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ existing_url: tempProjectInfo.website_url })
+          });
+          fetchKnowledgeBase(); // Refresh knowledge base to show updated URL
+        }
       } else {
         toast.error('Failed to update project information');
       }
@@ -1095,7 +1177,7 @@ function AdminProjectPageContent() {
   const startEditingProjectInfo = () => {
     setTempProjectInfo({
       project_type: project?.metadata?.project_type || 'Website Design',
-      website_url: project?.metadata?.website_url || '',
+      website_url: project?.metadata?.website_url || knowledgeBase?.project?.existing_url || '',
       scope: {
         main_pages: project?.metadata?.scope?.main_pages || project?.rules?.main_pages || 5,
         aux_pages: project?.metadata?.scope?.aux_pages || project?.rules?.aux_pages || 5,
@@ -1287,14 +1369,30 @@ function AdminProjectPageContent() {
             <div className="flex items-center">
               <Brain className="w-6 h-6 mr-2 text-purple-600" />
               <h2 className="text-2xl font-bold">Project Knowledge Base</h2>
+              {Object.keys(knowledgePendingChanges).length > 0 && (
+                <span className="ml-3 text-sm text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                  Unsaved changes
+                </span>
+              )}
             </div>
-            <button
-              onClick={() => setShowKnowledgeUpload(true)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Document
-            </button>
+            <div className="flex items-center gap-2">
+              {Object.keys(knowledgePendingChanges).length > 0 && (
+                <button
+                  onClick={handleKnowledgeSave}
+                  disabled={knowledgeSaving}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2">
+                  <Save className="w-4 h-4" />
+                  {knowledgeSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              )}
+              <button
+                onClick={() => setShowKnowledgeUpload(true)}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Document
+              </button>
+            </div>
           </div>
 
           {knowledgeBase && (
@@ -1308,8 +1406,8 @@ function AdminProjectPageContent() {
                   </label>
                   <input
                     type="url"
-                    value={knowledgeBase.project?.existing_url || ''}
-                    onChange={(e) => handleKnowledgeUpdate('existing_url', e.target.value)}
+                    value={knowledgeBase.project?.existing_url || project?.metadata?.website_url || ''}
+                    onChange={(e) => handleKnowledgeFieldChange('existing_url', e.target.value)}
                     placeholder="https://example.com"
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
@@ -1323,7 +1421,7 @@ function AdminProjectPageContent() {
                   <input
                     type="url"
                     value={knowledgeBase.project?.google_drive_url || ''}
-                    onChange={(e) => handleKnowledgeUpdate('google_drive_url', e.target.value)}
+                    onChange={(e) => handleKnowledgeFieldChange('google_drive_url', e.target.value)}
                     placeholder="https://drive.google.com/..."
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
@@ -1338,7 +1436,7 @@ function AdminProjectPageContent() {
                 </label>
                 <textarea
                   value={knowledgeBase.project?.base_knowledge?.notes || ''}
-                  onChange={(e) => handleKnowledgeUpdate('base_knowledge', { notes: e.target.value })}
+                  onChange={(e) => handleKnowledgeFieldChange('base_knowledge', { notes: e.target.value })}
                   placeholder="Enter key information about this project: brand guidelines, target audience, business goals, etc."
                   rows={4}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"

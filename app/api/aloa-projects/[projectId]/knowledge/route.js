@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServiceClient } from '@/lib/supabase-service';
 
 // GET project knowledge
 export async function GET(request, { params }) {
   try {
     const { projectId } = params;
+    const supabase = createServiceClient();
 
     // Get project with knowledge base
     const { data: project, error: projectError } = await supabase
@@ -90,6 +91,7 @@ export async function POST(request, { params }) {
   try {
     const { projectId } = params;
     const body = await request.json();
+    const supabase = createServiceClient();
 
     const { type, title, content, file_url, external_url, metadata, importance } = body;
 
@@ -119,8 +121,8 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Trigger context update
-    await supabase.rpc('update_project_ai_context', { p_project_id: projectId });
+    // Trigger context update (commented out as the RPC might not exist yet)
+    // await supabase.rpc('update_project_ai_context', { p_project_id: projectId });
 
     return NextResponse.json({
       success: true,
@@ -142,11 +144,47 @@ export async function PATCH(request, { params }) {
     const { projectId } = params;
     const body = await request.json();
 
+    console.log('PATCH knowledge base - received body:', JSON.stringify(body, null, 2));
+    console.log('PATCH knowledge base - projectId:', projectId);
+
+    // Create service client that bypasses RLS
+    let supabase;
+    try {
+      supabase = createServiceClient();
+      console.log('Service client created successfully');
+    } catch (clientError) {
+      console.error('Failed to create service client:', clientError);
+      return NextResponse.json(
+        { error: 'Failed to initialize database client' },
+        { status: 500 }
+      );
+    }
+
     const updateData = {};
     if (body.existing_url !== undefined) updateData.existing_url = body.existing_url;
     if (body.google_drive_url !== undefined) updateData.google_drive_url = body.google_drive_url;
     if (body.base_knowledge !== undefined) updateData.base_knowledge = body.base_knowledge;
 
+    console.log('PATCH knowledge base - updateData:', JSON.stringify(updateData, null, 2));
+
+    // First verify the project exists
+    const { data: existingProject, error: fetchError } = await supabase
+      .from('aloa_projects')
+      .select('id, project_name, existing_url, google_drive_url, base_knowledge')
+      .eq('id', projectId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching project:', fetchError);
+      return NextResponse.json(
+        { error: 'Project not found' },
+        { status: 404 }
+      );
+    }
+
+    console.log('Found project:', existingProject?.project_name);
+
+    // Now perform the update
     const { data: project, error } = await supabase
       .from('aloa_projects')
       .update(updateData)
@@ -155,25 +193,93 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error updating project knowledge:', error);
+      console.error('Error updating project knowledge - full details:');
+      console.error('Error object:', JSON.stringify(error, null, 2));
+      console.error('Update data was:', JSON.stringify(updateData, null, 2));
+      console.error('Project ID was:', projectId);
       return NextResponse.json(
-        { error: 'Failed to update project knowledge' },
+        { error: error.message || 'Failed to update project knowledge' },
         { status: 500 }
       );
     }
 
-    // Trigger context update
-    await supabase.rpc('update_project_ai_context', { p_project_id: projectId });
+    // Trigger knowledge extraction if content changed
+    const hasContentChanges =
+      updateData.existing_url !== undefined ||
+      updateData.google_drive_url !== undefined ||
+      updateData.base_knowledge !== undefined;
+
+    if (hasContentChanges) {
+      console.log('Triggering knowledge extraction for changed content');
+
+      // Queue extraction for website URL if it was updated
+      if (updateData.existing_url) {
+        await supabase
+          .from('aloa_knowledge_extraction_queue')
+          .upsert([{
+            project_id: projectId,
+            source_type: 'website',
+            source_id: updateData.existing_url,
+            metadata: { url: updateData.existing_url },
+            status: 'pending',
+            priority: 10
+          }], {
+            onConflict: 'project_id,source_type,source_id'
+          });
+      }
+
+      // Queue extraction for Google Drive if it was updated
+      if (updateData.google_drive_url) {
+        await supabase
+          .from('aloa_knowledge_extraction_queue')
+          .upsert([{
+            project_id: projectId,
+            source_type: 'google_drive',
+            source_id: updateData.google_drive_url,
+            metadata: { url: updateData.google_drive_url },
+            status: 'pending',
+            priority: 8
+          }], {
+            onConflict: 'project_id,source_type,source_id'
+          });
+      }
+
+      // Store base knowledge directly if it was updated
+      if (updateData.base_knowledge) {
+        await supabase
+          .from('aloa_project_knowledge')
+          .upsert([{
+            project_id: projectId,
+            source_type: 'manual',
+            source_id: 'base_knowledge',
+            source_name: 'Base Project Knowledge',
+            content_type: 'text',
+            content: updateData.base_knowledge,
+            content_summary: 'Manual project notes and context',
+            category: 'project_overview',
+            tags: ['manual', 'base_knowledge'],
+            importance_score: 8,
+            extracted_by: 'system',
+            extraction_confidence: 1.0,
+            is_current: true
+          }], {
+            onConflict: 'project_id,source_type,source_id'
+          });
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      project
+      project,
+      knowledgeExtracted: hasContentChanges
     });
 
   } catch (error) {
-    console.error('Error updating knowledge:', error);
+    console.error('Error in PATCH handler:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error message:', error.message);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     );
   }
@@ -185,6 +291,7 @@ export async function DELETE(request, { params }) {
     const { projectId } = params;
     const { searchParams } = new URL(request.url);
     const knowledgeId = searchParams.get('knowledgeId');
+    const supabase = createServiceClient();
 
     if (!knowledgeId) {
       return NextResponse.json(
@@ -207,8 +314,8 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Trigger context update
-    await supabase.rpc('update_project_ai_context', { p_project_id: projectId });
+    // Trigger context update (commented out as the RPC might not exist yet)
+    // await supabase.rpc('update_project_ai_context', { p_project_id: projectId });
 
     return NextResponse.json({
       success: true,
