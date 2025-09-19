@@ -19,6 +19,13 @@ export async function POST(request, { params }) {
     // In production, you'd want to properly implement auth
     // But since other endpoints don't check auth, we'll match that pattern
 
+    // Get project details first
+    const { data: project } = await supabase
+      .from('aloa_projects')
+      .select('*')
+      .eq('id', projectId)
+      .single();
+
     // Get all project knowledge
     let { data: knowledge, error: knowledgeError } = await supabase
       .from('aloa_project_knowledge')
@@ -33,21 +40,107 @@ export async function POST(request, { params }) {
       knowledge = [];
     }
 
-    // Handle case where no knowledge exists yet
-    if (!knowledge || knowledge.length === 0) {
+    // Get project stakeholders
+    const { data: stakeholders } = await supabase
+      .from('aloa_project_stakeholders')
+      .select('*')
+      .eq('project_id', projectId);
+
+    // Get project members
+    const { data: members } = await supabase
+      .from('aloa_project_members')
+      .select(`
+        *,
+        user:aloa_user_profiles(
+          email,
+          full_name,
+          role
+        )
+      `)
+      .eq('project_id', projectId);
+
+    // Build project metadata as additional context
+    const projectMetadata = [];
+
+    console.log('Project data:', JSON.stringify(project, null, 2));
+
+    if (project) {
+      // Handle both old and new column names
+      const projectName = project.name || project.project_name;
+      const clientName = project.client_name;
+      const projectDescription = project.description || project.metadata?.description;
+      const liveUrl = project.live_url || project.metadata?.live_url;
+      const stagingUrl = project.staging_url || project.metadata?.staging_url;
+      const projectType = project.project_type || project.metadata?.project_type;
+
+      if (projectName) {
+        projectMetadata.push(`Project Name: ${projectName}`);
+      }
+      if (clientName) {
+        projectMetadata.push(`Client: ${clientName}`);
+      }
+      if (projectDescription) {
+        projectMetadata.push(`Project Description: ${projectDescription}`);
+      }
+      if (projectType) {
+        projectMetadata.push(`Project Type: ${projectType}`);
+      }
+      if (liveUrl) {
+        projectMetadata.push(`Current Website: ${liveUrl}`);
+      }
+      if (stagingUrl) {
+        projectMetadata.push(`Staging Site: ${stagingUrl}`);
+      }
+      if (project.start_date) {
+        projectMetadata.push(`Project Start Date: ${new Date(project.start_date).toLocaleDateString()}`);
+      }
+      if (project.target_launch_date || project.target_completion_date) {
+        const targetDate = project.target_launch_date || project.target_completion_date;
+        projectMetadata.push(`Target Launch Date: ${new Date(targetDate).toLocaleDateString()}`);
+      }
+      if (project.budget) {
+        projectMetadata.push(`Budget: $${project.budget}`);
+      }
+      if (project.status) {
+        projectMetadata.push(`Status: ${project.status}`);
+      }
+      // Add project ID for reference
+      projectMetadata.push(`Project ID: ${project.id}`);
+    }
+
+    if (stakeholders && stakeholders.length > 0) {
+      const stakeholderList = stakeholders.map(s => `${s.name} (${s.role})`).join(', ');
+      projectMetadata.push(`Stakeholders: ${stakeholderList}`);
+    }
+
+    if (members && members.length > 0) {
+      const clientMembers = members.filter(m => m.user?.role === 'client' || m.user?.role === 'client_admin' || m.user?.role === 'client_participant');
+      const teamMembers = members.filter(m => m.user?.role === 'team_member' || m.user?.role === 'project_admin');
+
+      if (clientMembers.length > 0) {
+        const clientList = clientMembers.map(m => m.user?.full_name || m.user?.email).join(', ');
+        projectMetadata.push(`Client Team: ${clientList}`);
+      }
+
+      if (teamMembers.length > 0) {
+        const teamList = teamMembers.map(m => m.user?.full_name || m.user?.email).join(', ');
+        projectMetadata.push(`Aloa Team: ${teamList}`);
+      }
+    }
+
+    console.log('Knowledge items found:', knowledge?.length || 0);
+    console.log('Project metadata items:', projectMetadata.length);
+    console.log('Project metadata:', projectMetadata);
+
+    // Handle case where no extracted knowledge exists yet (but we still have project metadata)
+    if ((!knowledge || knowledge.length === 0) && projectMetadata.length === 0) {
+      console.log('No data available - returning empty response');
       return NextResponse.json({
         answer: "I don't have enough project data yet to provide insights. As the team collects more information through forms, applets, and file uploads, I'll be able to analyze the project and answer your questions.",
         sources: [],
         knowledgeCount: 0
       });
     }
-
-    // Get project details
-    const { data: project } = await supabase
-      .from('aloa_projects')
-      .select('*')
-      .eq('id', projectId)
-      .single();
 
     // Build context from knowledge
     const knowledgeByCategory = {};
@@ -138,6 +231,11 @@ export async function POST(request, { params }) {
       }
     }
 
+    // Log what we're sending to the AI for debugging
+    console.log('Sending to AI - Project metadata:', projectMetadata);
+    console.log('Sending to AI - Context sections:', contextSections.length);
+    console.log('Sending to AI - Detailed data keys:', Object.keys(detailedData));
+
     const systemPrompt = `You are an AI assistant analyzing a web design project for Aloa Agency. You have access to all collected project knowledge including client preferences, requirements, and feedback.
 
 Your role is to provide insightful analysis to help the agency team understand:
@@ -147,22 +245,30 @@ Your role is to provide insightful analysis to help the agency team understand:
 - Patterns in client feedback
 - Strategic recommendations
 
-Project: ${project?.name || 'Unnamed Project'}
-${project?.description ? `Description: ${project.description}` : ''}
+${projectMetadata.length > 0 ? `PROJECT INFORMATION:
+${projectMetadata.join('\n')}` : 'No project information available.'}
 
-PROJECT KNOWLEDGE:
-${projectContext}
+${contextSections.length > 0 ? `PROJECT KNOWLEDGE:
+${projectContext}` : 'PROJECT KNOWLEDGE:\nNo client interactions collected yet.'}
 
-DETAILED DATA:
-${JSON.stringify(detailedData, null, 2)}
+${Object.keys(detailedData).length > 0 ? `DETAILED DATA:
+${JSON.stringify(detailedData, null, 2)}` : ''}
 
-Guidelines:
-1. Be specific and reference actual data points when available
-2. Identify patterns and connections between different data points
-3. Highlight any contradictions or potential issues
-4. Suggest actionable next steps when relevant
-5. Keep responses concise and focused
-6. If you notice gaps in data, suggest what additional information would be helpful`;
+CRITICAL INSTRUCTIONS - YOU MUST FOLLOW THESE:
+1. ALWAYS START by acknowledging the project context: mention the project name, client name, and any other known details
+2. NEVER give generic answers - ALWAYS ground your response in the specific project data provided above
+3. When answering ANY question, first state what you know about the project (even basic facts like name, URLs, dates)
+4. Reference SPECIFIC data points from the PROJECT INFORMATION and PROJECT KNOWLEDGE sections
+5. If project metadata exists (name, client, URLs, dates), you MUST reference it in your answer
+6. Be specific - use actual names, URLs, dates, and details from the data provided
+7. If data is limited, still reference what IS known before discussing gaps
+8. Identify patterns and connections between different data points
+9. Suggest actionable next steps based on the specific project context
+10. NEVER say you don't have information without first stating what you DO know about the project
+
+EXAMPLE: Instead of "I don't have tone of voice data", say "For the [Project Name] project for [Client Name], which has [live URL] as their current site, I don't yet have tone of voice preferences..."
+
+Remember: You are analyzing a SPECIFIC project with SPECIFIC details. Always demonstrate awareness of those details.`;
 
     // Generate AI response
     const completion = await anthropic.messages.create({
