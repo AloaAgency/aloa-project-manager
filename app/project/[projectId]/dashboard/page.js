@@ -177,20 +177,40 @@ function ClientDashboard() {
 
   const fetchProjectData = async () => {
     try {
+      console.log('fetchProjectData called with userId:', userId);
       // Fetch project data and projectlets from client-view endpoint with user ID
       const response = await fetch(`/api/aloa-projects/${params.projectId}/client-view?userId=${userId}`);
       const data = await response.json();
-      
+
+      console.log('fetchProjectData response received:', {
+        projectlets: data.projectlets?.length,
+        totalApplets: data.projectlets?.reduce((sum, p) => sum + (p.applets?.length || 0), 0)
+      });
+
       setProject(data.project);
       setProjectlets(data.projectlets || []);
       setStats(data.stats || { totalApplets: 0, completedApplets: 0, progressPercentage: 0 });
-      
+
       // Build completed set from user-specific status
       const completed = new Set();
       data.projectlets?.forEach(projectlet => {
         projectlet.applets?.forEach(applet => {
           // Use user-specific status if available, otherwise fallback to default
           const status = applet.user_status || applet.status;
+
+          // Debug logging for palette cleanser applets
+          if (applet.type === 'palette_cleanser') {
+            console.log('Palette Cleanser Fetch Data:', {
+              appletId: applet.id,
+              name: applet.name,
+              user_status: applet.user_status,
+              user_completed_at: applet.user_completed_at,
+              user_started_at: applet.user_started_at,
+              isLocked: applet.config?.locked,
+              willBeInCompletedSet: status === 'completed' || status === 'approved'
+            });
+          }
+
           if (status === 'completed' || status === 'approved') {
             completed.add(applet.id);
           }
@@ -203,6 +223,7 @@ function ClientDashboard() {
           }
         });
       });
+      console.log('Setting completedApplets from server:', Array.from(completed));
       setCompletedApplets(completed);
       
       // Fetch all form responses for this user to properly track submissions
@@ -1488,17 +1509,34 @@ function ClientDashboard() {
             setIsPaletteCleanserViewOnly(false);
           }}
           onComplete={async (data) => {
+            console.log('Palette cleanser onComplete called with data:', data);
+            console.log('Selected applet ID:', selectedApplet.id);
+
             // Update local state to show completion
-            setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+            setCompletedApplets(prev => {
+              const newSet = new Set([...prev, selectedApplet.id]);
+              console.log('Updated completedApplets set:', Array.from(newSet));
+              return newSet;
+            });
 
             // Trigger confetti
             setShowConfetti(true);
+
+            // Close modal after confetti
             setTimeout(() => {
               setShowConfetti(false);
               setShowPaletteCleanserModal(false);
               setIsPaletteCleanserViewOnly(false);
-              fetchProjectData(); // Refresh project data
             }, 1500);
+
+            // Delay the data refresh to ensure backend has fully committed the transaction
+            setTimeout(async () => {
+              console.log('Refreshing project data after palette completion');
+              await fetchProjectData(); // Refresh project data after backend has time to update
+
+              // Log the state after refresh
+              console.log('After refresh - completedApplets:', Array.from(completedApplets));
+            }, 3000); // Increased delay to 3 seconds
           }}
         />
       )}

@@ -129,6 +129,47 @@ export default function PaletteCleanserModal({
   // Use background preference for display
   const isDark = backgroundPreference === 'dark';
 
+  // Save progress before closing
+  useEffect(() => {
+    return () => {
+      // Save progress when component unmounts (modal closes)
+      if (!isViewOnly) {
+        saveProgressBeforeClose();
+      }
+    };
+  }, [backgroundPreference, paletteRatings, finalSelections, notes, noneSelected, currentStep, showFinalSelection, showSummary]);
+
+  const saveProgressBeforeClose = async () => {
+    const hasChanges = backgroundPreference || Object.keys(paletteRatings).length > 0 ||
+                      finalSelections.length > 0 || notes || noneSelected;
+
+    if (hasChanges) {
+      const progressData = {
+        currentStep,
+        backgroundPreference,
+        paletteRatings,
+        finalSelections,
+        notes,
+        noneSelected,
+        showFinalSelection,
+        showSummary,
+        lastUpdated: new Date().toISOString()
+      };
+
+      await fetch(`/api/aloa-projects/${projectId}/client-view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appletId: applet.id,
+          userId,
+          status: 'in_progress',
+          interactionType: 'palette_progress',
+          data: progressData
+        })
+      });
+    }
+  };
+
   // Helper function to get user email
   const getUserEmail = async () => {
     try {
@@ -180,6 +221,14 @@ export default function PaletteCleanserModal({
                 setCurrentStep(PALETTE_COLLECTIONS.length - 1);
                 setShowFinalSelection(true);
                 toast.success('Your previous selections have been loaded for editing');
+
+                // Scroll to top after loading
+                setTimeout(() => {
+                  const modalContent = document.querySelector('.palette-cleanser-modal-content');
+                  if (modalContent) {
+                    modalContent.scrollTop = 0;
+                  }
+                }, 100);
               } else {
                 // In view-only mode, show the summary
                 setCurrentStep(PALETTE_COLLECTIONS.length - 1);
@@ -211,9 +260,18 @@ export default function PaletteCleanserModal({
             setNoneSelected(savedData.noneSelected || false);
             setShowFinalSelection(savedData.showFinalSelection || false);
             setShowSummary(isViewOnly ? true : savedData.showSummary || false);
+            setHasLoadedData(true);
 
             if (!isViewOnly && (savedData.currentStep > 0 || savedData.backgroundPreference)) {
               toast.success('Your previous progress has been restored');
+
+              // Scroll to top after loading
+              setTimeout(() => {
+                const modalContent = document.querySelector('.palette-cleanser-modal-content');
+                if (modalContent) {
+                  modalContent.scrollTop = 0;
+                }
+              }, 100);
             }
           }
         }
@@ -504,7 +562,13 @@ export default function PaletteCleanserModal({
         throw new Error(errorData.error || 'Failed to save preferences');
       }
 
-      // Also update progress tracking
+      // Also update progress tracking - ensure we mark as completed
+      console.log('Updating progress for palette cleanser:', {
+        appletId: applet.id,
+        userId,
+        status: 'completed'
+      });
+
       const progressResponse = await fetch(`/api/aloa-projects/${projectId}/client-view`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -512,14 +576,24 @@ export default function PaletteCleanserModal({
           appletId: applet.id,
           userId,
           status: 'completed',
-          interactionType: 'submission',
-          data: responseData
+          interactionType: 'palette_submit',
+          data: {
+            form_progress: responseData
+          }
         })
       });
 
       if (!progressResponse.ok) {
-        console.error('Failed to update progress, but preferences were saved');
+        const errorText = await progressResponse.text();
+        console.error('Failed to update progress:', errorText);
+        throw new Error('Failed to update progress status');
       }
+
+      const progressResult = await progressResponse.json();
+      console.log('Progress update response:', progressResult);
+
+      // Wait a bit longer to ensure database transaction completes
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       toast.success('Your color preferences have been saved!');
       if (onComplete) onComplete(responseData);
@@ -841,7 +915,16 @@ export default function PaletteCleanserModal({
                   </button>
                 </div>
                 <button
-                  onClick={() => setShowSummary(true)}
+                  onClick={() => {
+                    setShowSummary(true);
+                    // Auto-scroll to top when showing summary
+                    setTimeout(() => {
+                      const modalContent = document.querySelector('.palette-cleanser-modal-content');
+                      if (modalContent) {
+                        modalContent.scrollTop = 0;
+                      }
+                    }, 100);
+                  }}
                   disabled={!canComplete()}
                   className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
                     canComplete()
@@ -951,7 +1034,16 @@ export default function PaletteCleanserModal({
                 {!isViewOnly ? (
                   <>
                     <button
-                      onClick={() => setShowSummary(false)}
+                      onClick={() => {
+                        setShowSummary(false);
+                        // Auto-scroll to top when going back to selection
+                        setTimeout(() => {
+                          const modalContent = document.querySelector('.palette-cleanser-modal-content');
+                          if (modalContent) {
+                            modalContent.scrollTop = 0;
+                          }
+                        }, 100);
+                      }}
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                         isDark ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
                       }`}>
@@ -1067,7 +1159,16 @@ export default function PaletteCleanserModal({
 
               {currentStep === totalSteps - 1 && canProceed() ? (
                 <button
-                  onClick={() => setShowFinalSelection(true)}
+                  onClick={() => {
+                    setShowFinalSelection(true);
+                    // Auto-scroll to top when showing final selection
+                    setTimeout(() => {
+                      const modalContent = document.querySelector('.palette-cleanser-modal-content');
+                      if (modalContent) {
+                        modalContent.scrollTop = 0;
+                      }
+                    }, 100);
+                  }}
                   className="px-6 py-2 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-all flex items-center gap-2"
                 >
                   <TrendingUp className="w-5 h-5" />
