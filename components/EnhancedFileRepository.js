@@ -130,19 +130,26 @@ export default function EnhancedFileRepository({
           body: formData
         });
 
-        if (!response.ok) throw new Error('Failed to upload file');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to upload file');
+        }
+
+        const result = await response.json();
+
+        // Show success message
+        toast.success(`${file.name} uploaded successfully`);
 
         const percent = ((uploadedFiles.indexOf(file) + 1) / uploadedFiles.length) * 100;
         setUploadProgress(Math.round(percent));
       } catch (error) {
         console.error('Error uploading file:', error);
-        toast.error(`Failed to upload ${file.name}`);
+        toast.error(`Failed to upload ${file.name}: ${error.message}`);
       }
     }
 
     // Refresh files list
     await fetchContents();
-    toast.success(`${uploadedFiles.length} file(s) uploaded successfully`);
     if (onFileChange) onFileChange();
 
     // Reset file input
