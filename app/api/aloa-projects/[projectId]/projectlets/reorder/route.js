@@ -6,12 +6,12 @@ export async function POST(request, { params }) {
     const { projectId } = params;
     const { projectletId, newIndex } = await request.json();
 
-    // Get all projectlets for this project, ordered by sequence_order
+    // Get all projectlets for this project, ordered by order_index
     const { data: projectlets, error: fetchError } = await supabase
       .from('aloa_projectlets')
-      .select('id, sequence_order')
+      .select('id, order_index')
       .eq('project_id', projectId)
-      .order('sequence_order', { ascending: true });
+      .order('order_index', { ascending: true });
 
     if (fetchError) {
       console.error('Error fetching projectlets:', fetchError);
@@ -36,17 +36,17 @@ export async function POST(request, { params }) {
     // Insert it at the new position
     projectlets.splice(newIndex, 0, movedProjectlet);
 
-    // Update sequence_order for all affected projectlets
+    // Update order_index for all affected projectlets
     const updates = projectlets.map((projectlet, index) => ({
       id: projectlet.id,
-      sequence_order: index
+      order_index: index
     }));
 
-    // Batch update all projectlets with new sequence orders
+    // Batch update all projectlets with new order indexes
     for (const update of updates) {
       const { error: updateError } = await supabase
         .from('aloa_projectlets')
-        .update({ sequence_order: update.sequence_order })
+        .update({ order_index: update.order_index })
         .eq('id', update.id);
 
       if (updateError) {

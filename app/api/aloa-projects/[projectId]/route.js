@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
 
 export async function GET(request, { params }) {
   try {
@@ -56,6 +57,16 @@ export async function PATCH(request, { params }) {
         { error: 'Failed to update project' },
         { status: 500 }
       );
+    }
+
+    // Automatically extract knowledge from the updated project
+    try {
+      const extractor = new KnowledgeExtractor(projectId);
+      await extractor.extractFromProject(project);
+      console.log(`Knowledge extracted for updated project: ${projectId}`);
+    } catch (extractError) {
+      console.error('Error extracting project knowledge:', extractError);
+      // Don't fail the request if extraction fails
     }
 
     return NextResponse.json(project);
