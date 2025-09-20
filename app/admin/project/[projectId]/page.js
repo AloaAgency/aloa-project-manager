@@ -3256,12 +3256,23 @@ function AdminProjectPageContent() {
                         <div>
                           <div className="font-medium text-sm">{member.name || member.email}</div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-600 capitalize">
-                              {member.project_role || member.role}
-                            </span>
-                            {member.system_role && (
-                              <span className="text-xs px-1.5 py-0.5 bg-gray-100 rounded">
-                                {member.system_role}
+                            {(member.system_role || member.project_role || member.role) && (
+                              <span className="text-xs px-1.5 py-0.5 bg-gray-100 rounded capitalize">
+                                {(() => {
+                                  const role = member.system_role || member.project_role || member.role;
+                                  // Format role names properly
+                                  const roleDisplay = {
+                                    'super_admin': 'Super Admin',
+                                    'project_admin': 'Project Admin',
+                                    'team_member': 'Team Member',
+                                    'client': 'Client',
+                                    'client_admin': 'Client Admin',
+                                    'client_participant': 'Client Participant',
+                                    'viewer': 'Viewer',
+                                    'editor': 'Editor'
+                                  };
+                                  return roleDisplay[role] || role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                })()}
                               </span>
                             )}
                           </div>
