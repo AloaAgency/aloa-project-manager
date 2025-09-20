@@ -8,9 +8,10 @@ import { useState, useEffect } from 'react';
 import UserAvatar from '@/components/UserAvatar';
 
 export default function Navigation() {
-  const { user, profile, signOut, isSuperAdmin, isProjectAdmin, isTeamMember, loading } = useUser();
+  const { user, profile, signOut, isSuperAdmin, isProjectAdmin, isTeamMember, loading, refreshAuth } = useUser();
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [hasAttemptedRefresh, setHasAttemptedRefresh] = useState(false);
 
   // Debug logging for navigation visibility
   useEffect(() => {
@@ -20,9 +21,19 @@ export default function Navigation() {
       hasUser: !!user,
       hasProfile: !!profile,
       userEmail: user?.email,
-      profileRole: profile?.role
+      profileRole: profile?.role,
+      hasAttemptedRefresh
     });
-  }, [pathname, loading, user, profile]);
+  }, [pathname, loading, user, profile, hasAttemptedRefresh]);
+
+  // Attempt refresh once if we have no user after initial load
+  useEffect(() => {
+    if (!loading && !user && !hasAttemptedRefresh && !pathname.startsWith('/auth/')) {
+      console.log('Navigation: No user found after loading, attempting one-time refresh');
+      setHasAttemptedRefresh(true);
+      refreshAuth();
+    }
+  }, [loading, user, hasAttemptedRefresh, pathname, refreshAuth]);
 
   // Don't show navigation on auth pages
   if (pathname.startsWith('/auth/')) {

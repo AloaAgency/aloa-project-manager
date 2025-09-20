@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-auth';
 
@@ -12,9 +12,9 @@ export function UserProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const supabase = createClient();
-  
+
   // Helper function to fetch profile using API (which uses service role)
-  const fetchProfileFromAPI = async () => {
+  const fetchProfileFromAPI = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/profile', {
         credentials: 'include',
@@ -31,26 +31,85 @@ export function UserProvider({ children }) {
       console.error('Error fetching profile from API:', error);
     }
     return null;
-  };
+  }, []);
 
   useEffect(() => {
+    let mounted = true;
+
     // Get initial user
     const getUser = async () => {
+      console.log('UserContext: Starting initial auth check');
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        // First try to get the session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        console.log('UserContext: getSession result:', {
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          sessionError
+        });
 
-        if (user && !error) {
-          setUser(user);
+        if (sessionError) {
+          console.error('UserContext: Session error:', sessionError);
+          // Try to refresh the session if there's an error
+          const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+          if (refreshedSession?.user && mounted) {
+            console.log('UserContext: Session refreshed successfully');
+            setUser(refreshedSession.user);
+            const profileData = await fetchProfileFromAPI();
+            if (mounted) {
+              setProfile(profileData);
+            }
+          } else if (mounted) {
+            console.log('UserContext: No session after refresh, clearing state');
+            setUser(null);
+            setProfile(null);
+          }
+        } else if (session?.user) {
+          console.log('UserContext: Valid session found, setting user:', session.user.email);
+          if (mounted) {
+            setUser(session.user);
 
-          // Get user profile using API (which uses service role to bypass RLS)
-          const profileData = await fetchProfileFromAPI();
+            // Get user profile using API (which uses service role to bypass RLS)
+            const profileData = await fetchProfileFromAPI();
+            console.log('UserContext: Profile fetched:', profileData?.role);
 
-          setProfile(profileData);
+            if (mounted) {
+              setProfile(profileData);
+            }
+          }
+        } else {
+          // No session, clear everything
+          console.log('UserContext: No session found, clearing state');
+          if (mounted) {
+            setUser(null);
+            setProfile(null);
+          }
         }
       } catch (error) {
-        console.error('Error getting user:', error);
+        console.error('UserContext: Error in getUser:', error);
+        // On error, try one more time with refreshSession
+        try {
+          const { data: { session } } = await supabase.auth.refreshSession();
+          if (session?.user && mounted) {
+            console.log('UserContext: Recovered session after error');
+            setUser(session.user);
+            const profileData = await fetchProfileFromAPI();
+            if (mounted) {
+              setProfile(profileData);
+            }
+          }
+        } catch (refreshError) {
+          console.error('UserContext: Failed to recover session:', refreshError);
+          if (mounted) {
+            setUser(null);
+            setProfile(null);
+          }
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          console.log('UserContext: Loading complete');
+          setLoading(false);
+        }
       }
     };
 
@@ -139,11 +198,12 @@ export function UserProvider({ children }) {
     window.addEventListener('focus', handleFocus);
 
     return () => {
+      mounted = false;
       subscription?.unsubscribe();
       clearInterval(refreshInterval);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [router, supabase]);
+  }, [router, supabase, fetchProfileFromAPI]);
 
   const signOut = async () => {
     try {
@@ -209,6 +269,32 @@ export function UserProvider({ children }) {
     }
   };
 
+  // Add a manual refresh function
+  const refreshAuth = async () => {
+    console.log('UserContext: Manual auth refresh requested');
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.refreshSession();
+      if (session?.user) {
+        setUser(session.user);
+        const profileData = await fetchProfileFromAPI();
+        setProfile(profileData);
+        console.log('UserContext: Manual refresh successful');
+      } else {
+        setUser(null);
+        setProfile(null);
+        router.push('/auth/login');
+      }
+    } catch (error) {
+      console.error('UserContext: Manual refresh failed:', error);
+      setUser(null);
+      setProfile(null);
+      router.push('/auth/login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     profile,
@@ -217,6 +303,7 @@ export function UserProvider({ children }) {
     updateProfile,
     hasRole,
     hasProjectRole,
+    refreshAuth,
     isAuthenticated: !!user,
     isSuperAdmin: profile?.role === 'super_admin',
     isProjectAdmin: profile?.role === 'project_admin' || profile?.role === 'super_admin',

@@ -102,8 +102,9 @@ export async function middleware(request) {
       }
     );
 
-    // Refresh session if expired
-    const { data: { user } } = await supabase.auth.getUser();
+    // Try to get session instead of user (more reliable for middleware)
+    const { data: { session }, error } = await supabase.auth.getSession();
+    const user = session?.user || null;
     
     // Get user profile if authenticated
     let userRole = null;
