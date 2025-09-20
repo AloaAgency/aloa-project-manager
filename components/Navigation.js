@@ -49,6 +49,12 @@ export default function Navigation() {
     // Continue with rendering, we'll use user.email as fallback
   }
 
+  // Safety check - if we somehow have neither user nor loading state, hide nav
+  if (!user) {
+    console.log('Navigation: No user data available');
+    return null;
+  }
+
   // Different nav items for admins vs clients
   const isAdmin = profile?.role === 'super_admin' || profile?.role === 'project_admin' || profile?.role === 'team_member';
   

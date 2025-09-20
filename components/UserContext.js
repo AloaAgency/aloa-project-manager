@@ -59,31 +59,89 @@ export function UserProvider({ children }) {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, { hasSession: !!session });
+
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
-          
+
           // Get user profile using API
           const profileData = await fetchProfileFromAPI();
-          
+
           setProfile(profileData);
           console.log('UserContext (SIGNED_IN): Profile loaded', { email: session.user.email, role: profileData?.role });
-        } else if (event === 'SIGNED_OUT') {
+        } else if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
+          // If signed out OR token refresh failed (no session), clear everything
           setUser(null);
           setProfile(null);
           router.push('/auth/login');
         } else if (event === 'USER_UPDATED' && session?.user) {
           setUser(session.user);
-          
+
           // Refresh profile using API
           const profileData = await fetchProfileFromAPI();
-          
+
           setProfile(profileData);
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          // Token successfully refreshed, update user
+          setUser(session.user);
+
+          // Refresh profile using API
+          const profileData = await fetchProfileFromAPI();
+
+          setProfile(profileData);
+        }
+
+        // Handle session expiration - if no session and we have a user, clear and redirect
+        if (!session && user) {
+          console.log('Session expired - logging out user');
+          setUser(null);
+          setProfile(null);
+          router.push('/auth/login');
         }
       }
     );
 
+    // Set up session refresh interval (refresh every 30 minutes)
+    const refreshInterval = setInterval(async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error || !session) {
+        console.log('Session refresh failed or no session - logging out');
+        setUser(null);
+        setProfile(null);
+        router.push('/auth/login');
+      } else {
+        console.log('Session refreshed successfully');
+      }
+    }, 30 * 60 * 1000); // 30 minutes
+
+    // Also refresh session when window regains focus
+    const handleFocus = async () => {
+      console.log('Window focused - checking session');
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error || !session) {
+        console.log('Session check failed on focus - logging out');
+        setUser(null);
+        setProfile(null);
+        router.push('/auth/login');
+      } else if (session?.user) {
+        // Session is valid, update user if needed
+        if (!user || user.id !== session.user.id) {
+          setUser(session.user);
+          const profileData = await fetchProfileFromAPI();
+          setProfile(profileData);
+          console.log('Session restored on focus');
+        }
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       subscription?.unsubscribe();
+      clearInterval(refreshInterval);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [router, supabase]);
 
