@@ -972,35 +972,54 @@ function AdminProjectPageContent() {
       if (response.ok) {
         const data = await response.json();
         console.log(`Fetched ${data.applets?.length || 0} applets for projectlet ${projectletId}:`, data.applets);
-        
-        // Fetch completion data for each applet
-        const appletsWithCompletions = await Promise.all(
-          (data.applets || []).map(async (applet) => {
-            try {
-              const completionRes = await fetch(
-                `/api/aloa-projects/${params.projectId}/applet-completions?appletId=${applet.id}`
-              );
-              if (completionRes.ok) {
-                const completionData = await completionRes.json();
-                console.log(`Completion data for applet ${applet.id} (${applet.name}):`, completionData);
-                const enrichedApplet = {
-                  ...applet,
-                  completions: completionData.completions || [],
-                  completion_percentage: completionData.percentage || 0,
-                  totalStakeholders: completionData.totalStakeholders || 0,
-                  completedCount: completionData.completedCount || 0
-                };
-                console.log('Enriched applet data:', enrichedApplet);
-                return enrichedApplet;
-              } else {
-                console.error(`Failed to fetch completion data for applet ${applet.id}:`, completionRes.status);
+
+        // Fetch completion data for each applet with rate limiting
+        // Process applets in batches of 3 with a delay to avoid rate limiting
+        const appletsWithCompletions = [];
+        const batchSize = 3;
+        const delayMs = 200; // 200ms delay between batches
+
+        for (let i = 0; i < (data.applets || []).length; i += batchSize) {
+          const batch = (data.applets || []).slice(i, i + batchSize);
+
+          const batchResults = await Promise.all(
+            batch.map(async (applet) => {
+              try {
+                const completionRes = await fetch(
+                  `/api/aloa-projects/${params.projectId}/applet-completions?appletId=${applet.id}`
+                );
+                if (completionRes.ok) {
+                  const completionData = await completionRes.json();
+                  console.log(`Completion data for applet ${applet.id} (${applet.name}):`, completionData);
+                  const enrichedApplet = {
+                    ...applet,
+                    completions: completionData.completions || [],
+                    completion_percentage: completionData.percentage || 0,
+                    totalStakeholders: completionData.totalStakeholders || 0,
+                    completedCount: completionData.completedCount || 0
+                  };
+                  console.log('Enriched applet data:', enrichedApplet);
+                  return enrichedApplet;
+                } else if (completionRes.status === 429) {
+                  console.warn(`Rate limited for applet ${applet.id}, returning without completion data`);
+                  return applet;
+                } else {
+                  console.error(`Failed to fetch completion data for applet ${applet.id}:`, completionRes.status);
+                }
+              } catch (error) {
+                console.error('Error fetching completion data for applet:', error);
               }
-            } catch (error) {
-              console.error('Error fetching completion data for applet:', error);
-            }
-            return applet;
-          })
-        );
+              return applet;
+            })
+          );
+
+          appletsWithCompletions.push(...batchResults);
+
+          // Add delay between batches to avoid rate limiting
+          if (i + batchSize < (data.applets || []).length) {
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+        }
         
         setProjectletApplets(prev => ({
           ...prev,
