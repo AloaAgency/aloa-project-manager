@@ -1990,7 +1990,7 @@ function AdminProjectPageContent() {
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
                           </div>
                         ) : applets.length > 0 ? (
-                          <div className="space-y-0">
+                          <div>
                             {/* Drop zone at the beginning */}
                             {isDraggingApplet && (
                               <div
@@ -2041,7 +2041,7 @@ function AdminProjectPageContent() {
                               return (
                                 <React.Fragment key={applet.id}>
                                   <div
-                                    className={`p-2 rounded cursor-move transition-colors group border-2 mb-2 ${
+                                    className={`p-2 rounded cursor-move transition-colors group border-2 ${
                                       hasRejection
                                         ? 'bg-orange-50 border-orange-300 hover:bg-orange-100 animate-pulse-subtle'
                                         : isFormLocked && applet.type === 'form'
@@ -3013,6 +3013,10 @@ function AdminProjectPageContent() {
                                     </div>
                                   )}
                                 </div>
+                                {/* Spacer between applets */}
+                                {appletIndex < applets.length - 1 && (
+                                  <div className="h-2" />
+                                )}
                                 {/* Drop zone after this applet */}
                                 {isDraggingApplet && draggedAppletInfo?.id !== applet.id && (
                                   <div
