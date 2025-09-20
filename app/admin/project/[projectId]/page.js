@@ -792,6 +792,15 @@ function AdminProjectPageContent() {
           id: applet.id,
           order_index: index
         }));
+
+        // Update local state immediately for better UX
+        setProjectletApplets(prev => ({
+          ...prev,
+          [sourceProjectletId]: newApplets.map((applet, index) => ({
+            ...applet,
+            order_index: index
+          }))
+        }));
       } else {
         // Moving between projectlets
         // Remove from source
@@ -811,6 +820,19 @@ function AdminProjectPageContent() {
         const targetUpdates = newTargetApplets.map((applet, index) => ({
           id: applet.id,
           order_index: index
+        }));
+
+        // Update local state immediately for both projectlets
+        setProjectletApplets(prev => ({
+          ...prev,
+          [sourceProjectletId]: newSourceApplets.map((applet, index) => ({
+            ...applet,
+            order_index: index
+          })),
+          [targetProjectletId]: newTargetApplets.map((applet, index) => ({
+            ...applet,
+            order_index: index
+          }))
         }));
 
         // Update the applet's projectlet_id
@@ -850,8 +872,7 @@ function AdminProjectPageContent() {
             );
           }
 
-          fetchProjectletApplets(sourceProjectletId);
-          fetchProjectletApplets(targetProjectletId);
+          // Don't need to refetch since we already updated local state
           toast.success('Applet moved successfully');
         }
         return;
@@ -869,12 +890,14 @@ function AdminProjectPageContent() {
       );
 
       if (response.ok) {
-        fetchProjectletApplets(sourceProjectletId);
+        // Don't need to refetch since we already updated local state
         toast.success('Applet reordered successfully');
       } else {
         const errorData = await response.json();
         console.error('Reorder failed:', errorData);
         toast.error(errorData.error || 'Failed to reorder applet');
+        // Revert local state on error
+        fetchProjectletApplets(sourceProjectletId);
       }
     } catch (error) {
       console.error('Error handling applet drop:', error);
