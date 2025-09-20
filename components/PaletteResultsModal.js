@@ -319,7 +319,12 @@ export default function PaletteResultsModal({
     preferences = {},
     insights = [],
     notes = '',
-    completedAt
+    completedAt,
+    // Add brand-related fields
+    hasBrandColors,
+    brandColors = [],
+    brandColorAttachment,
+    brandColorInput
   } = responseData;
 
   // Get all palettes with their ratings
@@ -420,8 +425,8 @@ export default function PaletteResultsModal({
               <div className="text-xs text-purple-100">Palettes Rated</div>
             </div>
             <div className="bg-white/20 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold flex justify-center">
-                {backgroundPreference === 'dark' ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
+              <div className="text-2xl font-bold h-8 flex items-center justify-center">
+                {backgroundPreference === 'dark' ? <Moon className="w-7 h-7" /> : <Sun className="w-7 h-7" />}
               </div>
               <div className="text-xs text-purple-100">
                 {backgroundPreference === 'dark' ? 'Dark Mode' : 'Light Mode'}
@@ -566,24 +571,76 @@ export default function PaletteResultsModal({
                 </div>
               )}
 
-              {/* Preferences Summary */}
+              {/* Brand Color Assessment & Preferences */}
               <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4">
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-purple-600" />
                   Color Preferences Analysis
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {Object.entries(preferences).map(([key, value]) => {
-                    if (!value) return null;
-                    const label = key.replace('prefers', '').replace(/([A-Z])/g, ' $1').trim();
-                    return (
-                      <div key={key} className="bg-white rounded-lg p-2 text-center">
-                        <Sparkles className="w-4 h-4 text-purple-500 mx-auto mb-1" />
-                        <p className="text-sm font-medium text-purple-900">{label}</p>
-                      </div>
-                    );
-                  }).filter(Boolean)}
+
+                {/* Brand Color Info */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  {/* Background Preference */}
+                  <div className="bg-white rounded-lg p-3">
+                    <div className="flex items-center justify-center mb-2">
+                      {backgroundPreference === 'dark' ?
+                        <Moon className="w-5 h-5 text-gray-700" /> :
+                        <Sun className="w-5 h-5 text-yellow-500" />
+                      }
+                    </div>
+                    <p className="text-sm font-medium text-center text-purple-900">
+                      {backgroundPreference === 'dark' ? 'Dark' : 'Light'} Mode Preferred
+                    </p>
+                  </div>
+
+                  {/* Brand Colors Status */}
+                  <div className="bg-white rounded-lg p-3">
+                    <div className="flex items-center justify-center mb-2">
+                      <Sparkles className="w-5 h-5 text-purple-500" />
+                    </div>
+                    <p className="text-sm font-medium text-center text-purple-900">
+                      {brandColors && brandColors.length > 0 ? 'Has Brand Colors' :
+                       hasBrandColors === 'yes_custom' ? 'Provided Brand Colors' :
+                       hasBrandColors === 'yes_loaded' ? 'Has Brand Colors' :
+                       hasBrandColors === 'no' ? 'No Brand Colors' :
+                       'No Brand Colors'}
+                    </p>
+                  </div>
+
+                  {/* Brand Attachment */}
+                  <div className="bg-white rounded-lg p-3">
+                    <div className="flex items-center justify-center mb-2">
+                      <Sparkles className="w-5 h-5 text-purple-500" />
+                    </div>
+                    <p className="text-sm font-medium text-center text-purple-900">
+                      {brandColorAttachment === 'very' ? '💚 Very Attached' :
+                       brandColorAttachment === 'somewhat' ? '💛 Somewhat Attached' :
+                       brandColorAttachment === 'not' ? '❌ Not Attached' :
+                       'No Attachment Info'}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Display actual brand colors if available */}
+                {brandColors && brandColors.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium mb-2 text-purple-800">
+                      {hasBrandColors === 'yes_custom' ? 'Client Provided Colors:' : 'Brand Colors:'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {brandColors.map((color, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-purple-200">
+                          <div
+                            className="w-6 h-6 rounded border border-gray-300"
+                            style={{ backgroundColor: color }}
+                          />
+                          <span className="text-xs font-mono text-gray-700">{color}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           )}

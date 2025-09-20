@@ -1438,6 +1438,85 @@ function AdminProjectPageContent() {
                 />
               </div>
 
+              {/* Brand Colors Section */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Palette className="inline w-4 h-4 mr-1" />
+                  Brand Colors
+                </label>
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-600">
+                    Add the client's existing brand colors here. These will automatically populate in the Palette Cleanser applet.
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {(knowledgeBase.project?.brand_colors || []).map((color, index) => (
+                      <div key={index} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200">
+                        <div
+                          className="w-8 h-8 rounded border-2 border-gray-300"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="font-mono text-sm">{color}</span>
+                        <button
+                          onClick={() => {
+                            const newColors = [...(knowledgeBase.project?.brand_colors || [])];
+                            newColors.splice(index, 1);
+                            handleKnowledgeFieldChange('brand_colors', newColors);
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="#000000 or rgb(0,0,0)"
+                      className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          const input = e.target;
+                          const color = input.value.trim();
+                          if (color && color.match(/^#[0-9A-Fa-f]{6}$/)) {
+                            const currentColors = knowledgeBase.project?.brand_colors || [];
+                            if (currentColors.length < 5) {
+                              handleKnowledgeFieldChange('brand_colors', [...currentColors, color.toUpperCase()]);
+                              input.value = '';
+                            } else {
+                              toast.error('Maximum 5 colors allowed');
+                            }
+                          } else {
+                            toast.error('Please enter a valid hex color (e.g., #FF5733)');
+                          }
+                        }
+                      }}
+                      id="brand-color-input"
+                    />
+                    <button
+                      onClick={() => {
+                        const input = document.getElementById('brand-color-input');
+                        const color = input.value.trim();
+                        if (color && color.match(/^#[0-9A-Fa-f]{6}$/)) {
+                          const currentColors = knowledgeBase.project?.brand_colors || [];
+                          if (currentColors.length < 5) {
+                            handleKnowledgeFieldChange('brand_colors', [...currentColors, color.toUpperCase()]);
+                            input.value = '';
+                          } else {
+                            toast.error('Maximum 5 colors allowed');
+                          }
+                        } else {
+                          toast.error('Please enter a valid hex color (e.g., #FF5733)');
+                        }
+                      }}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* File Repository - Central Knowledge Base */}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold mb-3 flex items-center">

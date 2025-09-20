@@ -1,8 +1,418 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Heart, ThumbsUp, ThumbsDown, Palette, Sparkles, Moon, Sun, CheckCircle, Info, Lightbulb, TrendingUp, Star, Award, FileText, AlertCircle } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Heart, ThumbsUp, ThumbsDown, Palette, Sparkles, Moon, Sun, CheckCircle, Info, Lightbulb, TrendingUp, Star, Award, FileText, AlertCircle, Plus, Trash2, HelpCircle, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+// Helper functions for color manipulation
+const hexToRgb = (hex) => {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+};
+
+const rgbToHex = (r, g, b) => {
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+};
+
+const adjustBrightness = (hex, percent) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+
+  const amount = Math.round(255 * percent / 100);
+  const r = Math.max(0, Math.min(255, rgb.r + amount));
+  const g = Math.max(0, Math.min(255, rgb.g + amount));
+  const b = Math.max(0, Math.min(255, rgb.b + amount));
+
+  return rgbToHex(r, g, b);
+};
+
+const generateComplementaryColor = (hex) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+
+  const r = 255 - rgb.r;
+  const g = 255 - rgb.g;
+  const b = 255 - rgb.b;
+
+  return rgbToHex(r, g, b);
+};
+
+const generateAnalogousColors = (hex) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return [hex];
+
+  // Simplified analogous color generation
+  const colors = [];
+  colors.push(adjustBrightness(hex, -30));
+  colors.push(hex);
+  colors.push(adjustBrightness(hex, 30));
+
+  return colors;
+};
+
+const generateMonochromaticPalette = (hex, isDarkMode = false) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return [hex, hex, hex, hex, hex];
+
+  // For monochromatic, we want to maintain the hue but vary the saturation and lightness
+  // This creates a more sophisticated monochromatic palette
+  const colors = [];
+
+  if (isDarkMode) {
+    // For dark mode, start darker and go lighter
+    colors.push(adjustBrightness(hex, -60)); // Very dark
+    colors.push(adjustBrightness(hex, -35)); // Dark
+    colors.push(hex); // Original
+    colors.push(adjustBrightness(hex, 25)); // Light
+    colors.push(adjustBrightness(hex, 50)); // Very light
+  } else {
+    // For light mode, more even distribution
+    colors.push(adjustBrightness(hex, -50)); // Darkest
+    colors.push(adjustBrightness(hex, -25)); // Darker
+    colors.push(hex); // Original
+    colors.push(adjustBrightness(hex, 35)); // Lighter
+    colors.push(adjustBrightness(hex, 60)); // Lightest
+  }
+
+  return colors;
+};
+
+// Generate all 21 custom palettes organized by pages (3 per page)
+const generateAllCustomPalettes = (brandColors, isDarkMode = false) => {
+  if (!brandColors || brandColors.length === 0) return [];
+
+  const allPalettes = [];
+  const primaryColor = brandColors[0];
+  const secondaryColor = brandColors[1] || null;
+
+  // Page 1: Original & Foundation (3 palettes)
+
+  // 1. Your exact brand colors
+  if (brandColors.length > 1) {
+    const brandPalette = [...brandColors];
+    while (brandPalette.length < 5) {
+      brandPalette.push(adjustBrightness(brandColors[brandPalette.length % brandColors.length], (brandPalette.length - brandColors.length) * 20));
+    }
+    allPalettes.push({
+      id: 'brand-original',
+      colors: brandPalette.slice(0, 5),
+      mood: 'Your Current Brand',
+      page: 1
+    });
+  } else {
+    // Single color with shades
+    allPalettes.push({
+      id: 'brand-original',
+      colors: [
+        adjustBrightness(primaryColor, -40),
+        adjustBrightness(primaryColor, -20),
+        primaryColor,
+        adjustBrightness(primaryColor, 20),
+        adjustBrightness(primaryColor, 40)
+      ],
+      mood: 'Your Brand Shades',
+      page: 1
+    });
+  }
+
+  // 2. Navy & Gold Professional
+  allPalettes.push({
+    id: 'navy-gold',
+    colors: [
+      primaryColor,
+      '#1E3A5F',
+      '#FFC107',
+      isDarkMode ? '#0D1929' : '#F8F9FA',
+      secondaryColor || '#4A6FA5'
+    ],
+    mood: 'Executive Professional',
+    page: 1
+  });
+
+  // 3. Sage & Terracotta Earth
+  allPalettes.push({
+    id: 'sage-terra',
+    colors: [
+      primaryColor,
+      '#87A96B',
+      '#CC6B49',
+      '#F4E4D4',
+      secondaryColor || '#6B8E6B'
+    ],
+    mood: 'Natural Harmony',
+    page: 1
+  });
+
+  // Page 2: Modern Tech (3 palettes)
+
+  // 4. Cyberpunk Neon
+  allPalettes.push({
+    id: 'cyberpunk',
+    colors: [
+      primaryColor,
+      '#FF00FF',
+      '#00FFFF',
+      isDarkMode ? '#0A0A0A' : '#1A0033',
+      '#7B00FF'
+    ],
+    mood: 'Digital Future',
+    page: 2
+  });
+
+  // 5. Minimal Scandinavian
+  allPalettes.push({
+    id: 'scandi',
+    colors: [
+      primaryColor,
+      isDarkMode ? '#2C2C2C' : '#FAFAFA',
+      '#E0E0E0',
+      isDarkMode ? '#1A1A1A' : '#FFFFFF',
+      secondaryColor || '#B8B8B8'
+    ],
+    mood: 'Clean Minimal',
+    page: 2
+  });
+
+  // 6. Ocean Depths
+  allPalettes.push({
+    id: 'ocean',
+    colors: [
+      primaryColor,
+      '#006994',
+      '#00A8CC',
+      '#40E0D0',
+      isDarkMode ? '#002E3F' : '#E6F7FB'
+    ],
+    mood: 'Aquatic Flow',
+    page: 2
+  });
+
+  // Page 3: Warm Vibes (3 palettes)
+
+  // 7. Sunset Glow
+  allPalettes.push({
+    id: 'sunset',
+    colors: [
+      primaryColor,
+      '#FF6B6B',
+      '#FFE66D',
+      '#FF9F1C',
+      '#F77F00'
+    ],
+    mood: 'Golden Hour',
+    page: 3
+  });
+
+  // 8. Desert Oasis
+  allPalettes.push({
+    id: 'desert',
+    colors: [
+      primaryColor,
+      '#C19A6B',
+      '#8B7355',
+      '#FFE5CC',
+      secondaryColor || '#D2691E'
+    ],
+    mood: 'Warm Desert',
+    page: 3
+  });
+
+  // 9. Autumn Leaves
+  allPalettes.push({
+    id: 'autumn',
+    colors: [
+      primaryColor,
+      '#D2691E',
+      '#FF7F50',
+      '#8B4513',
+      '#FFE4B5'
+    ],
+    mood: 'Fall Warmth',
+    page: 3
+  });
+
+  // Page 4: Cool Tones (3 palettes)
+
+  // 10. Nordic Ice
+  allPalettes.push({
+    id: 'nordic',
+    colors: [
+      primaryColor,
+      '#B4D4E7',
+      '#6FA3C7',
+      isDarkMode ? '#2C3E50' : '#F0F4F8',
+      '#4A90A4'
+    ],
+    mood: 'Arctic Cool',
+    page: 4
+  });
+
+  // 11. Purple Haze
+  allPalettes.push({
+    id: 'purple-haze',
+    colors: [
+      primaryColor,
+      '#9B59B6',
+      '#8E44AD',
+      '#E8DAEF',
+      secondaryColor || '#6C3483'
+    ],
+    mood: 'Royal Purple',
+    page: 4
+  });
+
+  // 12. Mint Fresh
+  allPalettes.push({
+    id: 'mint',
+    colors: [
+      primaryColor,
+      '#00C9A7',
+      '#4FFFB0',
+      isDarkMode ? '#003D30' : '#E8FFF8',
+      '#00A693'
+    ],
+    mood: 'Fresh Mint',
+    page: 4
+  });
+
+  // Page 5: Bold & Energetic (3 palettes)
+
+  // 13. Miami Vice
+  allPalettes.push({
+    id: 'miami',
+    colors: [
+      primaryColor,
+      '#FF006E',
+      '#FFB700',
+      '#00D9FF',
+      '#FB5607'
+    ],
+    mood: 'Vibrant Energy',
+    page: 5
+  });
+
+  // 14. Pop Art
+  allPalettes.push({
+    id: 'pop-art',
+    colors: [
+      primaryColor,
+      '#FF1744',
+      '#00E676',
+      '#FFEA00',
+      '#2979FF'
+    ],
+    mood: 'Bold Pop',
+    page: 5
+  });
+
+  // 15. Electric Dreams
+  allPalettes.push({
+    id: 'electric',
+    colors: [
+      primaryColor,
+      '#FF00F5',
+      '#00FF88',
+      isDarkMode ? '#000033' : '#FFFF00',
+      '#00BFFF'
+    ],
+    mood: 'Electric Bold',
+    page: 5
+  });
+
+  // Page 6: Sophisticated (3 palettes)
+
+  // 16. Black Tie
+  allPalettes.push({
+    id: 'black-tie',
+    colors: [
+      primaryColor,
+      isDarkMode ? '#FFFFFF' : '#000000',
+      '#C0C0C0',
+      isDarkMode ? '#1C1C1C' : '#F5F5F5',
+      secondaryColor || '#808080'
+    ],
+    mood: 'Formal Elegance',
+    page: 6
+  });
+
+  // 17. Burgundy & Cream
+  allPalettes.push({
+    id: 'burgundy',
+    colors: [
+      primaryColor,
+      '#800020',
+      '#FFFDD0',
+      '#4B0013',
+      '#F5E6D3'
+    ],
+    mood: 'Wine & Cream',
+    page: 6
+  });
+
+  // 18. Jewel Tones
+  allPalettes.push({
+    id: 'jewel',
+    colors: [
+      primaryColor,
+      '#0F52BA',  // Sapphire
+      '#50C878',  // Emerald
+      '#E0115F',  // Ruby
+      '#FFD700'   // Gold
+    ],
+    mood: 'Precious Gems',
+    page: 6
+  });
+
+  // Page 7: Experimental (3 palettes)
+
+  // 19. Pastel Dreams
+  allPalettes.push({
+    id: 'pastel',
+    colors: [
+      primaryColor,
+      '#FFD1DC',
+      '#C7CEEA',
+      '#FFDAC1',
+      '#B5EAD7'
+    ],
+    mood: 'Soft Pastels',
+    page: 7
+  });
+
+  // 20. Industrial Steel
+  allPalettes.push({
+    id: 'industrial',
+    colors: [
+      primaryColor,
+      '#434343',
+      '#7F7F7F',
+      isDarkMode ? '#1A1A1A' : '#ECECEC',
+      secondaryColor || '#5C5C5C'
+    ],
+    mood: 'Urban Industrial',
+    page: 7
+  });
+
+  // 21. Botanical Garden
+  allPalettes.push({
+    id: 'botanical',
+    colors: [
+      primaryColor,
+      '#2E7D32',
+      '#689F38',
+      '#FDD835',
+      '#8BC34A'
+    ],
+    mood: 'Garden Fresh',
+    page: 7
+  });
+
+  return allPalettes;
+};
 
 // Comprehensive palette collections for better preference learning
 const PALETTE_COLLECTIONS = [
@@ -122,9 +532,58 @@ export default function PaletteCleanserModal({
   const [isEditingPrevious, setIsEditingPrevious] = useState(false);
   const [hasLoadedData, setHasLoadedData] = useState(false);
 
+  // New states for brand color assessment
+  const [showBrandAssessment, setShowBrandAssessment] = useState(true);
+  const [hasBrandColors, setHasBrandColors] = useState(null);
+  const [brandColorAttachment, setBrandColorAttachment] = useState(null);
+  const [brandColors, setBrandColors] = useState([]);
+  const [brandColorInput, setBrandColorInput] = useState('');
+  const [customPalettes, setCustomPalettes] = useState([]);
+  const [customPalettePage, setCustomPalettePage] = useState(1);
+  const [totalCustomPages, setTotalCustomPages] = useState(0);
+
   const currentQuestion = PALETTE_COLLECTIONS[currentStep];
   const totalSteps = PALETTE_COLLECTIONS.length;
-  const progress = ((currentStep + 1) / totalSteps) * 100;
+
+  // Calculate progress based on the user's journey
+  let progress = 0;
+  if (showBrandAssessment) {
+    progress = 0; // At brand assessment
+  } else if (showSummary) {
+    progress = 100; // At summary/completion
+  } else if (brandColorAttachment === 'very') {
+    // For "very attached" users: brand assessment -> background -> 7 custom pages -> final selection -> summary
+    // Total steps: 1 (background) + 7 (custom palettes) + 1 (final selection) + 1 (summary) = 10 steps
+    const totalVeryAttachedSteps = 10;
+
+    if (!backgroundPreference) {
+      progress = 10; // At background selection (step 1/10)
+    } else if (customPalettes.length > 0 && !showFinalSelection) {
+      // At custom palettes (steps 2-8 out of 10)
+      const customPaletteProgress = (1 + customPalettePage) / totalVeryAttachedSteps;
+      progress = customPaletteProgress * 100;
+    } else if (showFinalSelection) {
+      progress = 90; // At final selection (step 9/10)
+    }
+  } else if (brandColorAttachment === 'somewhat' || brandColorAttachment === 'not') {
+    // For other users: includes both custom and standard palettes
+    if (!backgroundPreference) {
+      progress = 5; // At background selection
+    } else if (customPalettes.length > 0 && currentStep === 0 && !showFinalSelection) {
+      // At custom palettes phase
+      const customPhaseProgress = (customPalettePage * 10) + 10; // 10-70% range
+      progress = customPhaseProgress;
+    } else if (currentStep > 0 && !showFinalSelection) {
+      // At standard palettes
+      const standardPhaseProgress = 70 + ((currentStep / totalSteps) * 20); // 70-90% range
+      progress = standardPhaseProgress;
+    } else if (showFinalSelection) {
+      progress = 90; // At final selection
+    }
+  } else {
+    // Standard flow without brand colors
+    progress = ((currentStep + 1) / totalSteps) * 100;
+  }
 
   // Use background preference for display
   const isDark = backgroundPreference === 'dark';
@@ -137,11 +596,11 @@ export default function PaletteCleanserModal({
         saveProgressBeforeClose();
       }
     };
-  }, [backgroundPreference, paletteRatings, finalSelections, notes, noneSelected, currentStep, showFinalSelection, showSummary]);
+  }, [backgroundPreference, paletteRatings, finalSelections, notes, noneSelected, currentStep, showFinalSelection, showSummary, hasBrandColors, brandColors, brandColorAttachment]);
 
   const saveProgressBeforeClose = async () => {
     const hasChanges = backgroundPreference || Object.keys(paletteRatings).length > 0 ||
-                      finalSelections.length > 0 || notes || noneSelected;
+                      finalSelections.length > 0 || notes || noneSelected || hasBrandColors !== null;
 
     if (hasChanges) {
       const progressData = {
@@ -153,6 +612,14 @@ export default function PaletteCleanserModal({
         noneSelected,
         showFinalSelection,
         showSummary,
+        // Brand assessment data
+        hasBrandColors,
+        brandColors,
+        brandColorAttachment,
+        brandColorInput,
+        customPalettes,
+        customPalettePage,
+        showBrandAssessment,
         lastUpdated: new Date().toISOString()
       };
 
@@ -164,7 +631,9 @@ export default function PaletteCleanserModal({
           userId,
           status: 'in_progress',
           interactionType: 'palette_progress',
-          data: progressData
+          data: {
+            form_progress: progressData
+          }
         })
       });
     }
@@ -188,7 +657,70 @@ export default function PaletteCleanserModal({
   useEffect(() => {
     const loadProgress = async () => {
       try {
-        // First check if user has completed this palette cleanser before
+        // Check for existing brand colors from project knowledge base
+        let projectBrandColors = [];
+        try {
+          // Fetch from the knowledge API which now includes brand_colors
+          const knowledgeResponse = await fetch(`/api/aloa-projects/${projectId}/knowledge`);
+          if (knowledgeResponse.ok) {
+            const knowledgeData = await knowledgeResponse.json();
+            // Brand colors are now in project.brand_colors (extracted from metadata)
+            if (knowledgeData.project?.brand_colors && Array.isArray(knowledgeData.project.brand_colors)) {
+              projectBrandColors = knowledgeData.project.brand_colors;
+              console.log('Loaded brand colors from project:', projectBrandColors);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching project brand colors:', error);
+        }
+
+        // First check if we have form_progress data from the applet prop
+        if (applet && applet.form_progress) {
+          const savedData = applet.form_progress;
+          console.log('Loading from applet.form_progress:', savedData);
+
+          // Restore all the saved state
+          setCurrentStep(savedData.currentStep || 0);
+          setBackgroundPreference(savedData.backgroundPreference || null);
+          setPaletteRatings(savedData.paletteRatings || {});
+          setFinalSelections(savedData.finalSelections || []);
+          setNotes(savedData.notes || '');
+          setNoneSelected(savedData.noneSelected || false);
+          setShowFinalSelection(savedData.showFinalSelection || false);
+          setShowSummary(isViewOnly ? true : savedData.showSummary || false);
+
+          // Restore brand assessment data
+          setHasBrandColors(savedData.hasBrandColors !== undefined ? savedData.hasBrandColors : null);
+          setBrandColors(savedData.brandColors || []);
+          setBrandColorAttachment(savedData.brandColorAttachment || null);
+          setBrandColorInput(savedData.brandColorInput || '');
+          setCustomPalettes(savedData.customPalettes || []);
+          setCustomPalettePage(savedData.customPalettePage || 1);
+          setHasLoadedData(true);
+
+          // Skip brand assessment if we have data
+          if (savedData.hasBrandColors !== null || savedData.backgroundPreference || savedData.currentStep > 0) {
+            setShowBrandAssessment(false);
+          } else if (savedData.showBrandAssessment !== undefined) {
+            setShowBrandAssessment(savedData.showBrandAssessment);
+          }
+
+          // Generate custom palettes if we have brand colors and background preference
+          if (savedData.brandColors && savedData.brandColors.length > 0 && savedData.backgroundPreference) {
+            const isDark = savedData.backgroundPreference === 'dark';
+            const allPalettes = generateAllCustomPalettes(savedData.brandColors, isDark);
+            setCustomPalettes(allPalettes);
+            setTotalCustomPages(7);
+          }
+
+          if (!isViewOnly) {
+            toast.success('Your previous progress has been restored');
+          }
+
+          return; // Exit early since we loaded from applet.form_progress
+        }
+
+        // Otherwise check if user has completed this palette cleanser before
         const userEmail = userId === 'anonymous' ? null : await getUserEmail();
 
         if (userEmail || userId !== 'anonymous') {
@@ -210,10 +742,17 @@ export default function PaletteCleanserModal({
               setFinalSelections(savedData.finalSelections || []);
               setNotes(savedData.notes || '');
               setNoneSelected(savedData.noneSelected || false);
+              setHasBrandColors(savedData.hasBrandColors || null);
+              setBrandColors(savedData.brandColors || []);
+              setBrandColorAttachment(savedData.brandColorAttachment || null);
+              setBrandColorInput(savedData.brandColorInput || '');
+              setCustomPalettes(savedData.customPalettes || []);
+              setCustomPalettePage(savedData.customPalettePage || 1);
 
               // Mark that we're editing previous data
               setIsEditingPrevious(true);
               setHasLoadedData(true);
+              setShowBrandAssessment(false); // Skip brand assessment when editing
 
               // If we're in edit mode (not view-only), go directly to final selection
               // since the user has already completed all steps
@@ -260,7 +799,18 @@ export default function PaletteCleanserModal({
             setNoneSelected(savedData.noneSelected || false);
             setShowFinalSelection(savedData.showFinalSelection || false);
             setShowSummary(isViewOnly ? true : savedData.showSummary || false);
+            setHasBrandColors(savedData.hasBrandColors || null);
+            setBrandColors(savedData.brandColors || []);
+            setBrandColorAttachment(savedData.brandColorAttachment || null);
+            setBrandColorInput(savedData.brandColorInput || '');
+            setCustomPalettes(savedData.customPalettes || []);
+            setCustomPalettePage(savedData.customPalettePage || 1);
             setHasLoadedData(true);
+
+            // If we have any saved data, skip the brand assessment
+            if (savedData.hasBrandColors !== null || savedData.backgroundPreference || savedData.currentStep > 0) {
+              setShowBrandAssessment(false);
+            }
 
             if (!isViewOnly && (savedData.currentStep > 0 || savedData.backgroundPreference)) {
               toast.success('Your previous progress has been restored');
@@ -274,6 +824,16 @@ export default function PaletteCleanserModal({
               }, 100);
             }
           }
+        }
+
+        // Always pre-populate brand colors from project if they exist and we haven't loaded saved data
+        // This ensures brand colors from admin panel are shown to the client
+        if (projectBrandColors.length > 0 && !hasLoadedData) {
+          console.log('Pre-populating brand colors from project:', projectBrandColors);
+          setBrandColors(projectBrandColors);
+          // Don't set hasBrandColors automatically - let user go through the flow
+          // This way they still answer the questions but see their colors pre-filled
+          toast.info(`Your brand colors have been loaded: ${projectBrandColors.join(', ')}`);
         }
       } catch (error) {
         console.error('Error loading progress:', error);
@@ -298,6 +858,14 @@ export default function PaletteCleanserModal({
         noneSelected,
         showFinalSelection,
         showSummary,
+        // Brand assessment data
+        hasBrandColors,
+        brandColors,
+        brandColorAttachment,
+        brandColorInput,
+        customPalettes,
+        customPalettePage,
+        showBrandAssessment,
         lastUpdated: new Date().toISOString()
       };
 
@@ -309,7 +877,9 @@ export default function PaletteCleanserModal({
           userId,
           status: 'in_progress',
           interactionType: 'palette_progress',
-          data: progressData
+          data: {
+            form_progress: progressData
+          }
         })
       });
 
@@ -337,10 +907,26 @@ export default function PaletteCleanserModal({
 
   const handleBackgroundChoice = (choice) => {
     setBackgroundPreference(choice);
+
+    // If user has brand colors, generate custom palettes based on their light/dark preference
+    if (brandColors && brandColors.length > 0) {
+      const isDark = choice === 'dark';
+      const allPalettes = generateAllCustomPalettes(brandColors, isDark);
+      setCustomPalettes(allPalettes);
+      setTotalCustomPages(7); // We have 7 pages total
+      setCustomPalettePage(1); // Start on page 1
+    }
+
     setAnimating(true);
     setTimeout(() => {
       setAnimating(false);
-      setCurrentStep(1);
+      // If user is "very attached" to brand colors, show only custom palettes
+      // Otherwise continue to standard palettes after custom ones
+      if (brandColorAttachment === 'very' && brandColors.length > 0) {
+        setCurrentStep(0); // Stay on step 0 but will show custom palettes
+      } else {
+        setCurrentStep(1);
+      }
     }, 500);
   };
 
@@ -385,17 +971,30 @@ export default function PaletteCleanserModal({
   };
 
   const getDisplayPalettes = () => {
+    // For "very attached" users, only show custom palettes based on their brand
+    if (brandColorAttachment === 'very' && customPalettes.length > 0) {
+      const likedCustomPalettes = customPalettes.filter(p =>
+        paletteRatings[p.id] === 'love' || paletteRatings[p.id] === 'like'
+      );
+
+      // If they didn't like any, show all custom palettes for selection
+      return likedCustomPalettes.length > 0 ? likedCustomPalettes : allCustomPalettes;
+    }
+
     // When editing previous submission, show both previous selections and newly liked palettes
     if (isEditingPrevious && finalSelections.length > 0) {
       const likedPalettes = getLikedPalettes();
+      const likedCustomPalettes = customPalettes.filter(p =>
+        paletteRatings[p.id] === 'love' || paletteRatings[p.id] === 'like'
+      );
 
       // If user started over and has new ratings, use those
       if (Object.keys(paletteRatings).length > 0) {
-        const allPalettes = [...likedPalettes];
+        const allPalettes = [...likedCustomPalettes, ...likedPalettes];
 
         // Add previous selections that aren't in the new liked palettes
         finalSelections.forEach(palette => {
-          if (!likedPalettes.some(p => p.id === palette.id)) {
+          if (!allPalettes.some(p => p.id === palette.id)) {
             allPalettes.push(palette);
           }
         });
@@ -407,8 +1006,12 @@ export default function PaletteCleanserModal({
       return finalSelections;
     }
 
-    // Otherwise just show liked palettes
-    return getLikedPalettes();
+    // Otherwise show liked palettes including custom ones
+    const likedPalettes = getLikedPalettes();
+    const likedCustomPalettes = customPalettes.filter(p =>
+      paletteRatings[p.id] === 'love' || paletteRatings[p.id] === 'like'
+    );
+    return [...likedCustomPalettes, ...likedPalettes];
   };
 
   const canProceed = () => {
@@ -476,6 +1079,33 @@ export default function PaletteCleanserModal({
     return insights.length > 0 ? insights : ['Your color preferences will guide our design process.'];
   };
 
+  const handleStartOver = () => {
+    if (confirm('Are you sure you want to start over? This will clear all your selections.')) {
+      // Reset all state
+      setCurrentStep(0);
+      setBackgroundPreference(null);
+      setPaletteRatings({});
+      setFinalSelections([]);
+      setNotes('');
+      setShowFinalSelection(false);
+      setShowSummary(false);
+      setNoneSelected(false);
+      setIsEditingPrevious(false);
+      // Reset brand assessment
+      setShowBrandAssessment(true);
+      setHasBrandColors(null);
+      setBrandColors([]);
+      setBrandColorAttachment(null);
+      setBrandColorInput('');
+      setCustomPalettes([]);
+      setCustomPalettePage(1);
+      setTotalCustomPages(0);
+      // Clear saved progress
+      saveProgress();
+      toast.success('Started fresh! Let\'s explore your color preferences.');
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < totalSteps - 1) {
       setAnimating(true);
@@ -529,6 +1159,10 @@ export default function PaletteCleanserModal({
         finalSelections,
         paletteRatings,
         noneSelected,
+        hasBrandColors,
+        brandColors,
+        brandColorAttachment,
+        customPalettes,
         preferences: {
           prefersDark: backgroundPreference === 'dark',
           prefersWarm: finalSelections.some(p => p.id === 'warm'),
@@ -537,7 +1171,9 @@ export default function PaletteCleanserModal({
           prefersPastel: finalSelections.some(p => p.id === 'pastel'),
           prefersMinimal: finalSelections.some(p => p.id === 'minimal'),
           prefersCorporate: finalSelections.some(p => p.id === 'corporate'),
-          prefersCreative: finalSelections.some(p => p.id === 'creative')
+          prefersCreative: finalSelections.some(p => p.id === 'creative'),
+          hasBrandColors,
+          brandColorAttachment
         },
         insights: getInsightFromSelections(),
         notes,
@@ -596,7 +1232,11 @@ export default function PaletteCleanserModal({
       await new Promise(resolve => setTimeout(resolve, 500));
 
       toast.success('Your color preferences have been saved!');
-      if (onComplete) onComplete(responseData);
+
+      // Call onComplete to trigger confetti and close modal
+      if (onComplete) {
+        onComplete();
+      }
     } catch (error) {
       console.error('Error saving palette preferences:', error);
       toast.error('Failed to save preferences');
@@ -715,16 +1355,28 @@ export default function PaletteCleanserModal({
                 )}
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-2">
+              {!isViewOnly && (
+                <button
+                  onClick={handleStartOver}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1"
+                  title="Start Over"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Start Over
+                </button>
+              )}
+              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
 
           {/* Progress Bar */}
           <div className="mt-4">
             <div className="flex justify-between text-sm mb-2">
               <span className={isDark ? 'text-gray-300' : 'text-gray-600'}>
-                Step {currentStep + 1} of {totalSteps}
+                {showBrandAssessment ? 'Brand Assessment' : customPalettes.length > 0 && currentStep === 0 ? 'Custom Palettes' : `Step ${currentStep + 1} of ${totalSteps}`}
               </span>
               {showFinalSelection ? (
                 <span className="font-semibold text-purple-600">
@@ -746,8 +1398,312 @@ export default function PaletteCleanserModal({
         </div>
 
         <div className="p-6">
-          {/* Show final selection screen */}
-          {showFinalSelection && !showSummary ? (
+          {/* Brand Assessment Screen */}
+          {showBrandAssessment ? (
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <Palette className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+                <h3 className={`text-2xl font-bold mb-3 ${isDark ? 'text-white' : ''}`}>
+                  Let's Start With Your Brand
+                </h3>
+                <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'} max-w-2xl mx-auto`}>
+                  Before we begin exploring palettes, we'd like to understand your current brand colors and how attached you are to them. Please note! This process is only to get to know you better, these are *not* necessarily the final colors we will use.
+                </p>
+              </div>
+
+              {/* Question 1: Do you have brand colors? */}
+              {hasBrandColors === null ? (
+                <div className="space-y-4">
+                  <div className={`p-6 rounded-xl border-2 ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                    <h4 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : ''}`}>
+                      Do you already have established brand colors?
+                    </h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <button
+                        onClick={() => setHasBrandColors(true)}
+                        className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
+                          isDark
+                            ? 'border-gray-600 hover:border-purple-400 bg-gray-800'
+                            : 'border-gray-200 hover:border-purple-300 bg-white'
+                        }`}
+                      >
+                        <CheckCircle className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                        <p className={`font-medium ${isDark ? 'text-white' : ''}`}>Yes, I have brand colors</p>
+                        <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                          I want to work with or refine my existing colors
+                        </p>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setHasBrandColors(false);
+                          setShowBrandAssessment(false);
+                        }}
+                        className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
+                          isDark
+                            ? 'border-gray-600 hover:border-purple-400 bg-gray-800'
+                            : 'border-gray-200 hover:border-purple-300 bg-white'
+                        }`}
+                      >
+                        <Sparkles className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                        <p className={`font-medium ${isDark ? 'text-white' : ''}`}>No brand colors yet</p>
+                        <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                          I'm starting fresh and exploring options
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : hasBrandColors && brandColorAttachment === null ? (
+                /* Question 2: How attached are you? */
+                <div className="space-y-4">
+                  {/* Back button */}
+                  <button
+                    onClick={() => setHasBrandColors(null)}
+                    className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-900'} transition-colors`}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Back
+                  </button>
+                  <div className={`p-6 rounded-xl border-2 ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                    <h4 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : ''}`}>
+                      How attached are you to your current brand colors?
+                    </h4>
+                    <p className={`mb-6 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                      Are you open to exploring new possibilities?
+                    </p>
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => setBrandColorAttachment('very')}
+                        className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                          brandColorAttachment === 'very'
+                            ? 'border-purple-500 bg-purple-50'
+                            : isDark
+                              ? 'border-gray-600 hover:border-purple-400 bg-gray-800'
+                              : 'border-gray-200 hover:border-purple-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Heart className="w-6 h-6 text-purple-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className={`font-medium ${isDark ? 'text-white' : ''}`}>
+                              Very attached - They're part of our identity
+                            </p>
+                            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                              I want palettes that work perfectly with my existing colors
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => setBrandColorAttachment('somewhat')}
+                        className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                          brandColorAttachment === 'somewhat'
+                            ? 'border-purple-500 bg-purple-50'
+                            : isDark
+                              ? 'border-gray-600 hover:border-purple-400 bg-gray-800'
+                              : 'border-gray-200 hover:border-purple-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <ThumbsUp className="w-6 h-6 text-purple-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className={`font-medium ${isDark ? 'text-white' : ''}`}>
+                              Somewhat attached - Open to refinements
+                            </p>
+                            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                              Show me variations and improvements on my current palette
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => setBrandColorAttachment('open')}
+                        className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                          brandColorAttachment === 'open'
+                            ? 'border-purple-500 bg-purple-50'
+                            : isDark
+                              ? 'border-gray-600 hover:border-purple-400 bg-gray-800'
+                              : 'border-gray-200 hover:border-purple-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Sparkles className="w-6 h-6 text-purple-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className={`font-medium ${isDark ? 'text-white' : ''}`}>
+                              Very open to change
+                            </p>
+                            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                              I'm ready to explore completely new directions
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : hasBrandColors && brandColorAttachment !== null ? (
+                /* Brand Color Input */
+                <div className="space-y-6">
+                  {/* Back button */}
+                  <button
+                    onClick={() => setBrandColorAttachment(null)}
+                    className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-900'} transition-colors`}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Back
+                  </button>
+                  <div className={`p-6 rounded-xl border-2 ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                    <h4 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : ''}`}>
+                      Enter Your Current Brand Colors
+                    </h4>
+                    <p className={`mb-6 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                      {brandColors.length > 0 && !hasLoadedData ?
+                        "We found your brand colors in our system! Feel free to adjust them if needed." :
+                        "Add your brand colors (hex codes like #FF5733) and we'll create custom palettes that work with them."}
+                    </p>
+
+                    {/* Color input */}
+                    <div className="flex gap-2 mb-4">
+                      <input
+                        type="text"
+                        value={brandColorInput}
+                        onChange={(e) => setBrandColorInput(e.target.value)}
+                        placeholder="#000000 or rgb(0,0,0)"
+                        className={`flex-1 px-4 py-2 rounded-lg border ${
+                          isDark
+                            ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400'
+                            : 'bg-white border-gray-200'
+                        }`}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            const color = brandColorInput.trim();
+                            if (color && color.match(/^#[0-9A-Fa-f]{6}$/)) {
+                              if (brandColors.length < 5) {
+                                setBrandColors([...brandColors, color.toUpperCase()]);
+                                setBrandColorInput('');
+                              } else {
+                                toast.error('Maximum 5 colors allowed');
+                              }
+                            } else {
+                              toast.error('Please enter a valid hex color (e.g., #FF5733)');
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          const color = brandColorInput.trim();
+                          if (color && color.match(/^#[0-9A-Fa-f]{6}$/)) {
+                            if (brandColors.length < 5) {
+                              setBrandColors([...brandColors, color.toUpperCase()]);
+                              setBrandColorInput('');
+                            } else {
+                              toast.error('Maximum 5 colors allowed');
+                            }
+                          } else {
+                            toast.error('Please enter a valid hex color (e.g., #FF5733)');
+                          }
+                        }}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Add Color
+                      </button>
+                    </div>
+
+                    {/* Display added colors */}
+                    {brandColors.length > 0 && (
+                      <div className="space-y-2">
+                        <p className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Your Brand Colors ({brandColors.length}/5):
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {brandColors.map((color, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200"
+                            >
+                              <div
+                                className="w-8 h-8 rounded border-2 border-gray-300"
+                                style={{ backgroundColor: color }}
+                              />
+                              <span className="font-mono text-sm">{color}</span>
+                              <button
+                                onClick={() => setBrandColors(brandColors.filter((_, i) => i !== index))}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Generated custom palettes preview */}
+                    {brandColors.length > 0 && (
+                      <div className="mt-6 pt-6 border-t border-gray-200">
+                        <p className={`text-sm font-medium mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Preview of custom palettes we'll create:
+                        </p>
+                        <div className="grid gap-2">
+                          {generateAllCustomPalettes(brandColors).slice(0, 3).map(palette => (
+                            <div
+                              key={palette.id}
+                              className={`p-3 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} border ${
+                                isDark ? 'border-gray-600' : 'border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="grid grid-cols-5 gap-1 flex-1">
+                                  {palette.colors.map((color, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="h-8 rounded"
+                                      style={{ backgroundColor: color }}
+                                    />
+                                  ))}
+                                </div>
+                                <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                  {palette.mood}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Continue button */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        if (brandColors.length === 0) {
+                          toast.error('Please add at least one brand color');
+                          return;
+                        }
+                        // Don't generate palettes yet - we need to ask about light/dark first
+                        setShowBrandAssessment(false);
+                        // Go to background preference question
+                        setCurrentStep(0);
+                      }}
+                      disabled={brandColors.length === 0}
+                      className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
+                        brandColors.length > 0
+                          ? 'bg-purple-600 text-white hover:bg-purple-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      Continue to Background Preference
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : /* Show final selection screen */
+          showFinalSelection && !showSummary ? (
             <div className="space-y-6">
               {/* Show editing indicator if loading previous data */}
               {isEditingPrevious && !isViewOnly && (
@@ -935,6 +1891,123 @@ export default function PaletteCleanserModal({
                 </button>
               </div>
             </div>
+          ) : customPalettes.length > 0 && currentStep === 0 && backgroundPreference && !showFinalSelection ? (
+            /* Show custom palettes based on brand colors after background preference is set */
+            <div className="space-y-6">
+              <div className="text-center mb-6">
+                <h3 className={`text-xl font-semibold ${isDark ? 'text-white' : ''}`}>
+                  {brandColorAttachment === 'very'
+                    ? 'Palettes designed specifically for your brand'
+                    : 'Let\'s explore palettes based on your brand colors'}
+                </h3>
+                <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {customPalettePage === 1 && 'Starting with your brand and professional options'}
+                  {customPalettePage === 2 && 'Modern tech-inspired variations'}
+                  {customPalettePage === 3 && 'Warm and energetic combinations'}
+                  {customPalettePage === 4 && 'Cool and calming tones'}
+                  {customPalettePage === 5 && 'Bold and vibrant energy'}
+                  {customPalettePage === 6 && 'Sophisticated elegance'}
+                  {customPalettePage === 7 && 'Creative experimental options'}
+                </p>
+                <div className="flex items-center justify-center gap-2 mt-3">
+                  <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Page {customPalettePage} of {totalCustomPages}
+                  </span>
+                  <div className="flex gap-1">
+                    {[...Array(totalCustomPages)].map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-2 h-2 rounded-full transition-all ${
+                          customPalettePage === i + 1
+                            ? 'bg-purple-600 w-3'
+                            : 'bg-gray-300 hover:bg-gray-400 cursor-pointer'
+                        }`}
+                        onClick={() => {
+                          // Allow jumping to already rated pages
+                          const targetPagePalettes = customPalettes.filter(p => p.page === i + 1);
+                          if (i < customPalettePage - 1 || targetPagePalettes.every(p => paletteRatings[p.id] !== undefined)) {
+                            setCustomPalettePage(i + 1);
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Display only 3 palettes for current page */}
+              <div className="grid md:grid-cols-1 gap-6 max-w-2xl mx-auto">
+                {customPalettes
+                  .filter(palette => palette.page === customPalettePage)
+                  .map(palette => renderPaletteRating(palette))}
+              </div>
+
+              {/* Navigation */}
+              <div className="flex justify-between items-center mt-8 pt-6 border-t">
+                <button
+                  onClick={() => {
+                    if (customPalettePage > 1) {
+                      setCustomPalettePage(customPalettePage - 1);
+                    } else {
+                      setBackgroundPreference(null);
+                      setCustomPalettes([]);
+                    }
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    isDark
+                      ? 'text-white hover:bg-gray-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                  {customPalettePage === 1 ? 'Back to Background' : 'Previous'}
+                </button>
+
+                <div className="flex gap-3 items-center">
+                  <div className="text-sm text-gray-500">
+                    {customPalettes
+                      .filter(p => p.page === customPalettePage)
+                      .filter(p => paletteRatings[p.id] !== undefined)
+                      .length} of 3 rated
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const currentPagePalettes = customPalettes.filter(p => p.page === customPalettePage);
+
+                      if (currentPagePalettes.every(p => paletteRatings[p.id] !== undefined)) {
+                        if (customPalettePage < totalCustomPages) {
+                          // Go to next page
+                          setCustomPalettePage(customPalettePage + 1);
+                        } else {
+                          // Finished all pages
+                          if (brandColorAttachment === 'very') {
+                            // For "very attached", go straight to final selection
+                            setShowFinalSelection(true);
+                          } else {
+                            // Otherwise continue to standard palettes
+                            setCurrentStep(1);
+                          }
+                        }
+                      } else {
+                        toast.error('Please rate all 3 palettes before continuing');
+                      }
+                    }}
+                    disabled={!customPalettes.filter(p => p.page === customPalettePage).every(p => paletteRatings[p.id] !== undefined)}
+                    className={`px-6 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                      customPalettes.filter(p => p.page === customPalettePage).every(p => paletteRatings[p.id] !== undefined)
+                        ? 'bg-purple-600 text-white hover:bg-purple-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {customPalettePage < totalCustomPages
+                      ? 'Next Page'
+                      : (brandColorAttachment === 'very' ? 'View Selection' : 'Standard Palettes')}
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
           ) : showSummary ? (
             <div className="space-y-6">
               <div className="text-center">
@@ -943,9 +2016,71 @@ export default function PaletteCleanserModal({
                   Your Color Profile Is Ready!
                 </h3>
                 <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Let's review your preferences before we create your perfect palette.
+                  Let's review your preferences. Remember: These aren't final. It's just a window into your soul.
                 </p>
               </div>
+
+              {/* Brand Color Assessment - Show for admins viewing results */}
+              {(brandColorAttachment !== null || brandColors.length > 0) && (
+                <div className={`p-4 rounded-lg ${isDark ? 'bg-purple-900/30' : 'bg-purple-50'} border ${isDark ? 'border-purple-700' : 'border-purple-200'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-5 h-5 text-purple-600" />
+                    <h4 className={`font-semibold ${isDark ? 'text-white' : ''}`}>Brand Color Assessment</h4>
+                  </div>
+
+                  {/* Attachment Level */}
+                  <div className="mb-3">
+                    <p className={`text-sm font-medium mb-1 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                      Attachment to Current Brand Colors:
+                    </p>
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                      brandColorAttachment === 'very'
+                        ? 'bg-green-100 text-green-800'
+                        : brandColorAttachment === 'somewhat'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : brandColorAttachment === 'not'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {brandColorAttachment === 'very' ? '💚 Very Attached' :
+                       brandColorAttachment === 'somewhat' ? '💛 Somewhat Attached' :
+                       brandColorAttachment === 'not' ? '❌ Not Attached' :
+                       '❓ No Response'}
+                    </span>
+                  </div>
+
+                  {/* Brand Colors if provided */}
+                  {brandColors.length > 0 && (
+                    <div>
+                      <p className={`text-sm font-medium mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                        {hasBrandColors === 'yes_custom' ? 'Client Provided Colors:' : 'Colors from Project Settings:'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {brandColors.map((color, idx) => (
+                          <div key={idx} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-gray-200">
+                            <div
+                              className="w-8 h-8 rounded border border-gray-300"
+                              style={{ backgroundColor: color }}
+                            />
+                            <span className="text-sm font-mono text-gray-700">{color}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Explanation based on attachment */}
+                  <p className={`text-sm mt-3 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    {brandColorAttachment === 'very'
+                      ? "Client wants to stay close to their existing brand colors. All suggested palettes were based on these colors."
+                      : brandColorAttachment === 'somewhat'
+                        ? "Client is open to exploring beyond their current colors but wants some connection to their brand."
+                        : brandColorAttachment === 'not'
+                          ? "Client is ready for a complete refresh and isn't attached to their current brand colors."
+                          : "No brand color preference was indicated."}
+                  </p>
+                </div>
+              )}
 
               {/* Background Preference Summary */}
               <div className={`p-4 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-50'}`}>
@@ -1036,6 +2171,10 @@ export default function PaletteCleanserModal({
                     <button
                       onClick={() => {
                         setShowSummary(false);
+                        // Ensure we go back to final selection for "very attached" users
+                        if (brandColorAttachment === 'very') {
+                          setShowFinalSelection(true);
+                        }
                         // Auto-scroll to top when going back to selection
                         setTimeout(() => {
                           const modalContent = document.querySelector('.palette-cleanser-modal-content');
@@ -1134,10 +2273,18 @@ export default function PaletteCleanserModal({
           {/* Navigation */}
           <div className="flex justify-between items-center mt-8 pt-6 border-t">
             <button
-              onClick={handleBack}
-              disabled={currentStep === 0}
+              onClick={() => {
+                if (currentStep === 0 && hasBrandColors !== null) {
+                  // Go back to brand assessment if we came from there
+                  setShowBrandAssessment(true);
+                  setBackgroundPreference(null);
+                } else {
+                  handleBack();
+                }
+              }}
+              disabled={currentStep === 0 && hasBrandColors === null}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                currentStep === 0
+                currentStep === 0 && hasBrandColors === null
                   ? 'opacity-50 cursor-not-allowed text-gray-400'
                   : isDark
                     ? 'text-white hover:bg-gray-700'

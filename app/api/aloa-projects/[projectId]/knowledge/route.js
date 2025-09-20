@@ -15,7 +15,8 @@ export async function GET(request, { params }) {
         google_drive_url,
         base_knowledge,
         ai_context,
-        knowledge_updated_at
+        knowledge_updated_at,
+        metadata
       `)
       .eq('id', projectId)
       .single();
@@ -64,8 +65,14 @@ export async function GET(request, { params }) {
       console.error('Error fetching stakeholders:', stakeholdersError);
     }
 
+    // Extract brand_colors from metadata and add to project object
+    const projectWithBrandColors = project ? {
+      ...project,
+      brand_colors: project.metadata?.brand_colors || []
+    } : {};
+
     return NextResponse.json({
-      project: project || {},
+      project: projectWithBrandColors,
       knowledge: knowledge || [],
       insights: insights || [],
       stakeholders: stakeholders || [],
@@ -165,12 +172,19 @@ export async function PATCH(request, { params }) {
     if (body.google_drive_url !== undefined) updateData.google_drive_url = body.google_drive_url;
     if (body.base_knowledge !== undefined) updateData.base_knowledge = body.base_knowledge;
 
+    // Handle brand_colors by storing in metadata field
+    if (body.brand_colors !== undefined) {
+      // We'll handle metadata merging after we verify the project exists
+      // For now just mark that we need to update brand_colors
+      updateData.brand_colors = body.brand_colors;
+    }
+
     console.log('PATCH knowledge base - updateData:', JSON.stringify(updateData, null, 2));
 
     // First verify the project exists
     const { data: existingProject, error: fetchError } = await supabase
       .from('aloa_projects')
-      .select('id, project_name, existing_url, google_drive_url, base_knowledge')
+      .select('id, project_name, existing_url, google_drive_url, base_knowledge, metadata')
       .eq('id', projectId)
       .single();
 
@@ -183,6 +197,18 @@ export async function PATCH(request, { params }) {
     }
 
     console.log('Found project:', existingProject?.project_name);
+
+    // If we have brand_colors, merge them into metadata
+    if (updateData.brand_colors !== undefined) {
+      const brandColors = updateData.brand_colors;
+      delete updateData.brand_colors; // Remove from updateData as it's not a direct field
+
+      const currentMetadata = existingProject?.metadata || {};
+      updateData.metadata = {
+        ...currentMetadata,
+        brand_colors: brandColors
+      };
+    }
 
     // Now perform the update
     const { data: project, error } = await supabase
@@ -207,7 +233,8 @@ export async function PATCH(request, { params }) {
     const hasContentChanges =
       updateData.existing_url !== undefined ||
       updateData.google_drive_url !== undefined ||
-      updateData.base_knowledge !== undefined;
+      updateData.base_knowledge !== undefined ||
+      body.brand_colors !== undefined;
 
     if (hasContentChanges) {
       console.log('Triggering knowledge extraction for changed content');
@@ -259,6 +286,33 @@ export async function PATCH(request, { params }) {
             category: 'project_overview',
             tags: ['manual', 'base_knowledge'],
             importance_score: 8,
+            extracted_by: 'system',
+            extraction_confidence: 1.0,
+            is_current: true
+          }], {
+            onConflict: 'project_id,source_type,source_id'
+          });
+      }
+
+      // Store brand colors knowledge if updated
+      if (body.brand_colors !== undefined) {
+        const brandColorsContent = body.brand_colors.length > 0
+          ? `Client's brand colors: ${body.brand_colors.join(', ')}`
+          : 'No brand colors specified';
+
+        await supabase
+          .from('aloa_project_knowledge')
+          .upsert([{
+            project_id: projectId,
+            source_type: 'manual',
+            source_id: 'brand_colors',
+            source_name: 'Brand Colors',
+            content_type: 'preferences',
+            content: brandColorsContent,
+            content_summary: `Brand colors: ${body.brand_colors.join(', ') || 'None'}`,
+            category: 'brand_identity',
+            tags: ['manual', 'brand_colors', 'design'],
+            importance_score: 9,
             extracted_by: 'system',
             extraction_confidence: 1.0,
             is_current: true
