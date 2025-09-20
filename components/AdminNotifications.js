@@ -49,23 +49,23 @@ export default function AdminNotifications({ projectId }) {
         if (response.ok) {
           const data = await response.json();
           const newNotifications = data.notifications || [];
-          
+
           // Update unread count
           const unread = newNotifications.filter(n => !n.read).length;
           setUnreadCount(unread);
-          
+
           // Show toast for new completions since last check
           if (lastCheck) {
-            const newCompletions = newNotifications.filter(n => 
-              n.type === 'applet_completed' && 
+            const newCompletions = newNotifications.filter(n =>
+              n.type === 'applet_completed' &&
               new Date(n.created_at) > new Date(lastCheck)
             );
-            
+
             newCompletions.forEach(notification => {
               showToast(notification);
             });
           }
-          
+
           setNotifications(newNotifications);
           setLastCheck(new Date().toISOString());
         }
@@ -76,12 +76,12 @@ export default function AdminNotifications({ projectId }) {
 
     // Initial check
     checkNotifications();
-    
+
     // Set up polling
     const interval = setInterval(checkNotifications, 30000);
-    
+
     return () => clearInterval(interval);
-  }, [projectId, lastCheck]);
+  }, [projectId]); // Removed lastCheck from dependencies to prevent re-running effect
 
   const showToast = (notification) => {
     // Create toast element
