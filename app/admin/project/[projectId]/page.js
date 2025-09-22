@@ -2822,6 +2822,8 @@ function AdminProjectPageContent() {
                                           value={applet.config?.form_id || ''}
                                           onChange={async (e) => {
                                             try {
+                                              const selectedFormId = e.target.value;
+                                              const selectedForm = availableForms.find(f => f.id === selectedFormId);
                                               const response = await fetch(
                                                 `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
                                                 {
@@ -2830,7 +2832,8 @@ function AdminProjectPageContent() {
                                                   body: JSON.stringify({
                                                     config: {
                                                       ...applet.config,
-                                                      form_id: e.target.value,
+                                                      form_id: selectedFormId,
+                                                      form_title: selectedForm?.title || '',
                                                       ai_report: null, // Clear report when changing form
                                                       last_generated_at: null
                                                     }
@@ -2849,7 +2852,7 @@ function AdminProjectPageContent() {
                                           className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
                                         >
                                           <option value="">Select a form...</option>
-                                          {availableForms.filter(form => form.aloa_project_id === params.projectId).map(form => (
+                                          {availableForms.filter(form => form.projectId === params.projectId).map(form => (
                                             <option key={form.id} value={form.id}>
                                               {form.title}
                                             </option>
@@ -2956,7 +2959,11 @@ function AdminProjectPageContent() {
 
                                           {/* Edit Report Button */}
                                           <button
-                                            onClick={() => {
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              // Close any other modals first
+                                              setShowAppletManager(false);
+                                              setSelectedProjectletForApplet(null);
                                               // Open a modal to edit the report
                                               setEditingAIReport(applet);
                                               setShowAIReportEditor(true);

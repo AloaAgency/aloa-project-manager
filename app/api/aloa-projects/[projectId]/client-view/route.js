@@ -150,9 +150,9 @@ export async function GET(request, { params }) {
           const { data: form } = await supabase
             .from('aloa_forms')
             .select(`
-              id, 
-              title, 
-              description, 
+              id,
+              title,
+              description,
               url_id,
               status,
               sections,
@@ -172,13 +172,30 @@ export async function GET(request, { params }) {
             `)
             .eq('id', applet.form_id)
             .single();
-          
+
           if (form) {
             // Sort fields by order
             if (form.aloa_form_fields) {
               form.aloa_form_fields.sort((a, b) => (a.field_order || 0) - (b.field_order || 0));
             }
             applet.form = form;
+          }
+        }
+
+        // For AI Form Results applets, fetch the form title if not already in config
+        if (applet.type === 'ai_form_results' && applet.config?.form_id) {
+          // If form_title isn't already saved in config, fetch it
+          if (!applet.config.form_title) {
+            const { data: form } = await supabase
+              .from('aloa_forms')
+              .select('title')
+              .eq('id', applet.config.form_id)
+              .single();
+
+            if (form) {
+              // Update the config to include the form title for display
+              applet.config.form_title = form.title;
+            }
           }
         }
       }

@@ -272,6 +272,7 @@ function ClientDashboard() {
     const isSitemap = applet.type === 'sitemap';
     const isToneOfVoice = applet.type === 'tone_of_voice';
     const isClientReview = applet.type === 'client_review';
+    const isAIFormResults = applet.type === 'ai_form_results';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const paletteIsLocked = isPaletteCleanser && applet.config?.locked === true;
@@ -281,10 +282,10 @@ function ClientDashboard() {
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
 
     // Block if:
-    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-client-review applet that's already completed
+    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-client-review, non-ai-form-results applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, and client review should always be viewable even after completion
-    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isClientReview && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, client review, and AI form results should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isClientReview && !isAIFormResults && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -992,10 +993,16 @@ function ClientDashboard() {
                         } else if (applet.type === 'ai_form_results') {
                           const reportIsLocked = applet.config?.locked === true;
                           const hasReport = !!applet.config?.ai_report;
+                          const hasViewedReport = applet.user_completed_at !== null;
 
                           if (reportIsLocked && hasReport) {
-                            buttonState = 'completed';
-                            statusMessage = 'View AI insights report';
+                            if (hasViewedReport) {
+                              buttonState = 'completed-locked';
+                              statusMessage = 'AI insights reviewed ✓';
+                            } else {
+                              buttonState = 'available';
+                              statusMessage = 'View AI insights report';
+                            }
                           } else if (!hasReport) {
                             buttonState = 'locked';
                             statusMessage = 'Report being prepared...';
@@ -1052,7 +1059,7 @@ function ClientDashboard() {
                           <button
                             key={applet.id}
                             onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
-                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser' && applet.type !== 'tone_of_voice')}
+                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser' && applet.type !== 'tone_of_voice' && applet.type !== 'ai_form_results')}
                             className={`w-full p-4 rounded-lg border-2 transition-all ${
                               buttonState === 'completed-locked'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
@@ -1093,12 +1100,14 @@ function ClientDashboard() {
                                 </div>
                                 <div className="text-left">
                                   <p className="font-medium">
-                                    {applet.type === 'form' && applet.form?.title 
-                                      ? applet.form.title 
+                                    {applet.type === 'form' && applet.form?.title
+                                      ? applet.form.title
                                       : applet.type === 'link_submission' && applet.config?.heading
                                       ? applet.config.heading
                                       : (applet.type === 'upload' || applet.type === 'file_upload') && applet.config?.heading
                                       ? applet.config.heading
+                                      : applet.type === 'ai_form_results' && applet.config?.form_title
+                                      ? `AI Results: ${applet.config.form_title}`
                                       : applet.name}
                                   </p>
                                   {statusMessage ? (
@@ -1791,6 +1800,70 @@ function ClientDashboard() {
                 applet={selectedApplet}
                 isViewOnly={true}
               />
+
+              {/* Acknowledgment Section */}
+              {!selectedApplet.user_completed_at && (
+                <div className="mt-8 p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Acknowledge Review</h3>
+                  <p className="text-gray-600 mb-4">
+                    Please confirm that you have reviewed this AI-generated insights report.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      try {
+                        // Mark as completed
+                        const response = await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            appletId: selectedApplet.id,
+                            status: 'completed',
+                            interactionType: 'acknowledgment',
+                            userId: userId,
+                            data: {
+                              acknowledged_at: new Date().toISOString(),
+                              report_viewed: true
+                            }
+                          })
+                        });
+
+                        if (response.ok) {
+                          // Update local state
+                          const newCompleted = new Set(completedApplets);
+                          newCompleted.add(selectedApplet.id);
+                          setCompletedApplets(newCompleted);
+
+                          // Show confetti
+                          setShowConfetti(true);
+                          setTimeout(() => {
+                            setShowConfetti(false);
+                            setShowAIResultsModal(false);
+                            fetchProjectData();
+                          }, 1500);
+                        }
+                      } catch (error) {
+                        console.error('Error acknowledging report:', error);
+                      }
+                    }}
+                    className="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                    I have reviewed this report
+                  </button>
+                </div>
+              )}
+
+              {/* Already Acknowledged Message */}
+              {selectedApplet.user_completed_at && (
+                <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2 text-green-700">
+                    <CheckCircle className="w-5 h-5" />
+                    <span className="font-medium">
+                      You reviewed this report on {new Date(selectedApplet.user_completed_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

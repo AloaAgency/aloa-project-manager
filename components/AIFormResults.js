@@ -149,12 +149,19 @@ export default function AIFormResults({ applet, isViewOnly = false }) {
           </div>
           {isExpanded.insights && (
             <ul className="mt-4 space-y-3">
-              {report.insights.map((insight, index) => (
-                <li key={index} className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-gray-700">{insight}</span>
-                </li>
-              ))}
+              {report.insights.map((insight, index) => {
+                // Handle both string and object formats
+                const insightText = typeof insight === 'string'
+                  ? insight
+                  : insight.title || insight.description || JSON.stringify(insight);
+
+                return (
+                  <li key={index} className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700">{insightText}</span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -179,14 +186,21 @@ export default function AIFormResults({ applet, isViewOnly = false }) {
           </div>
           {isExpanded.recommendations && (
             <ul className="mt-4 space-y-3">
-              {report.recommendations.map((rec, index) => (
-                <li key={index} className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-amber-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                    {index + 1}
-                  </div>
-                  <span className="text-gray-700">{rec}</span>
-                </li>
-              ))}
+              {report.recommendations.map((rec, index) => {
+                // Handle both string and object formats
+                const recText = typeof rec === 'string'
+                  ? rec
+                  : rec.title || rec.description || JSON.stringify(rec);
+
+                return (
+                  <li key={index} className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-amber-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      {index + 1}
+                    </div>
+                    <span className="text-gray-700">{recText}</span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
