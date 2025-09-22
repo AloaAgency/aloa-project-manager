@@ -862,7 +862,16 @@ function ClientDashboard() {
                 {!isLocked && applets.length > 0 && (
                   <div className={`p-6 ${isInProgress ? 'bg-yellow-50/50' : ''}`}>
                     <div className="space-y-3">
-                      {applets.map(applet => {
+                      {applets
+                        .filter(applet => {
+                          // Filter out form applets that don't have a form_id configured
+                          if (applet.type === 'form') {
+                            const formId = applet.form_id || applet.config?.form_id;
+                            return !!formId; // Only show form applets with a form_id
+                          }
+                          return true; // Show all non-form applets
+                        })
+                        .map(applet => {
                         const Icon = getAppletIcon(applet.type);
                         const isAppletCompleted = completedApplets.has(applet.id);
                         // Check if it's a form and whether it's still accepting responses
