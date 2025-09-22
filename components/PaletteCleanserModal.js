@@ -531,6 +531,7 @@ export default function PaletteCleanserModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isEditingPrevious, setIsEditingPrevious] = useState(false);
   const [hasLoadedData, setHasLoadedData] = useState(false);
+  const [wasAlreadyCompleted, setWasAlreadyCompleted] = useState(false);
 
   // New states for brand color assessment
   const [showBrandAssessment, setShowBrandAssessment] = useState(true);
@@ -629,7 +630,7 @@ export default function PaletteCleanserModal({
         body: JSON.stringify({
           appletId: applet.id,
           userId,
-          status: 'in_progress',
+          status: wasAlreadyCompleted ? 'completed' : 'in_progress',
           interactionType: 'palette_progress',
           data: {
             form_progress: progressData
@@ -754,6 +755,21 @@ export default function PaletteCleanserModal({
               setHasLoadedData(true);
               setShowBrandAssessment(false); // Skip brand assessment when editing
 
+              // Check if this was already completed
+              console.log('Checking if already completed:', {
+                appletId: applet.id,
+                user_completed_at: applet.user_completed_at,
+                user_status: applet.user_status,
+                submissionData,
+                hasSubmission: !!submissionData
+              });
+
+              // Check both user_completed_at and if we have submission data
+              if (applet.user_completed_at || submissionData) {
+                console.log('Setting wasAlreadyCompleted to true');
+                setWasAlreadyCompleted(true);
+              }
+
               // If we're in edit mode (not view-only), go directly to final selection
               // since the user has already completed all steps
               if (!isViewOnly) {
@@ -847,6 +863,12 @@ export default function PaletteCleanserModal({
   const saveProgress = async () => {
     if (isSaving) return;
 
+    console.log('PaletteCleanser auto-save triggered:', {
+      wasAlreadyCompleted,
+      statusToSend: wasAlreadyCompleted ? 'completed' : 'in_progress',
+      appletId: applet.id
+    });
+
     setIsSaving(true);
     try {
       const progressData = {
@@ -875,7 +897,7 @@ export default function PaletteCleanserModal({
         body: JSON.stringify({
           appletId: applet.id,
           userId,
-          status: 'in_progress',
+          status: wasAlreadyCompleted ? 'completed' : 'in_progress',
           interactionType: 'palette_progress',
           data: {
             form_progress: progressData

@@ -1562,21 +1562,19 @@ function ClientDashboard() {
             // Trigger confetti
             setShowConfetti(true);
 
-            // Close modal after confetti
-            setTimeout(() => {
+            // Close modal and refresh data after a short delay
+            setTimeout(async () => {
               setShowConfetti(false);
               setShowPaletteCleanserModal(false);
               setIsPaletteCleanserViewOnly(false);
+
+              // Wait a bit more before refreshing to ensure database transaction is complete
+              setTimeout(async () => {
+                console.log('Refreshing project data after palette completion');
+                await fetchProjectData();
+                console.log('After refresh - completedApplets:', Array.from(completedApplets));
+              }, 1000); // Wait 1 second after modal closes
             }, 1500);
-
-            // Delay the data refresh to ensure backend has fully committed the transaction
-            setTimeout(async () => {
-              console.log('Refreshing project data after palette completion');
-              await fetchProjectData(); // Refresh project data after backend has time to update
-
-              // Log the state after refresh
-              console.log('After refresh - completedApplets:', Array.from(completedApplets));
-            }, 3000); // Increased delay to 3 seconds
           }}
         />
       )}
