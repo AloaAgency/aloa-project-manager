@@ -1107,6 +1107,8 @@ function AdminProjectPageContent() {
 
   const updateProjectletStatus = async (projectletId, newStatus) => {
     try {
+      console.log('Updating projectlet status:', { projectletId, newStatus, projectId: params.projectId });
+
       const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1117,11 +1119,20 @@ function AdminProjectPageContent() {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('Status update successful:', result);
+        // Show success feedback
+        toast.success(`Status updated to ${newStatus.replace('_', ' ')}`);
         // Refresh projectlets
         fetchProjectData();
+      } else {
+        const errorData = await response.text();
+        console.error('Failed to update status:', response.status, errorData);
+        toast.error('Failed to update status');
       }
     } catch (error) {
       console.error('Error updating projectlet:', error);
+      toast.error('Error updating status');
     }
   };
 

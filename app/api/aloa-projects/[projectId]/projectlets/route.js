@@ -169,7 +169,18 @@ export async function POST(request, { params }) {
 export async function PATCH(request, { params }) {
   try {
     const { projectId } = params;
-    const { projectletId, status, metadata } = await request.json();
+    const body = await request.json();
+    const { projectletId, status, metadata } = body;
+
+    console.log('PATCH request received:', { projectId, projectletId, status, metadata });
+
+    if (!projectletId || !status) {
+      console.error('Missing required fields:', { projectletId, status });
+      return NextResponse.json(
+        { error: 'projectletId and status are required' },
+        { status: 400 }
+      );
+    }
 
     // Try to use service client, fall back to regular client if needed
     let supabase;
@@ -185,13 +196,17 @@ export async function PATCH(request, { params }) {
     }
 
     // Update the projectlet
+    const updateData = {
+      status,
+      ...(metadata && { metadata }),
+      ...(status === 'completed' && { completion_date: new Date().toISOString() })
+    };
+
+    console.log('Updating projectlet with:', { projectletId, projectId, updateData });
+
     const { data: updatedProjectlet, error: updateError } = await supabase
       .from('aloa_projectlets')
-      .update({
-        status,
-        ...(metadata && { metadata }),
-        ...(status === 'completed' && { completion_date: new Date().toISOString() })
-      })
+      .update(updateData)
       .eq('id', projectletId)
       .eq('project_id', projectId)
       .select()
@@ -199,11 +214,19 @@ export async function PATCH(request, { params }) {
 
     if (updateError) {
       console.error('Error updating projectlet:', updateError);
+      console.error('Update error details:', {
+        code: updateError.code,
+        message: updateError.message,
+        details: updateError.details,
+        hint: updateError.hint
+      });
       return NextResponse.json(
-        { error: 'Failed to update projectlet' },
+        { error: 'Failed to update projectlet', details: updateError.message },
         { status: 500 }
       );
     }
+
+    console.log('Projectlet updated successfully:', updatedProjectlet);
 
     // If projectlet is completed, check if we need to unlock the next one
     if (status === 'completed') {
