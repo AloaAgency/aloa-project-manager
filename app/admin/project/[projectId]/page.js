@@ -226,6 +226,8 @@ function AdminProjectPageContent() {
   });
   const [showAIReportEditor, setShowAIReportEditor] = useState(false);
   const [editingAIReport, setEditingAIReport] = useState(null);
+  const [showNarrativeEditor, setShowNarrativeEditor] = useState(false);
+  const [editingNarrativeApplet, setEditingNarrativeApplet] = useState(null);
   const [editingProjectInfo, setEditingProjectInfo] = useState(false);
   const [tempProjectInfo, setTempProjectInfo] = useState({
     project_type: '',
@@ -633,6 +635,7 @@ function AdminProjectPageContent() {
     try {
       const formsRes = await fetch(`/api/aloa-forms?project=${params.projectId}`);
       const formsData = await formsRes.json();
+      console.log('Available forms from API:', formsData);
       setAvailableForms(formsData || []);
       setProjectForms(formsData || []);
     } catch (error) {
@@ -3050,6 +3053,253 @@ function AdminProjectPageContent() {
                                     </div>
                                   )}
 
+                                  {/* Inline AI Narrative Generator configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'ai_narrative_generator' && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                      {/* Page Name */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Page Name
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={applet.config?.pageName || 'Homepage'}
+                                          onChange={async (e) => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      pageName: e.target.value
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success('Page name updated');
+                                              }
+                                            } catch (error) {
+                                              toast.error('Failed to update page name');
+                                            }
+                                          }}
+                                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                          placeholder="e.g., Homepage, About Us, Services"
+                                        />
+                                      </div>
+
+                                      {/* Form selector dropdown */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Select Source Form
+                                        </label>
+                                        <select
+                                          value={applet.config?.formId || ''}
+                                          onChange={async (e) => {
+                                            try {
+                                              const selectedFormId = e.target.value;
+                                              const selectedForm = availableForms.find(f => f.id === selectedFormId);
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      formId: selectedFormId,
+                                                      formTitle: selectedForm?.title || '',
+                                                      generatedContent: null,
+                                                      aiGenerated: false,
+                                                      lastGeneratedAt: null
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success('Form selected');
+                                              }
+                                            } catch (error) {
+                                              toast.error('Failed to select form');
+                                            }
+                                          }}
+                                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        >
+                                          <option value="">Select a form...</option>
+                                          {availableForms.map(form => (
+                                            <option key={form.id} value={form.id}>
+                                              {form.title}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+
+                                      {/* Generate/Regenerate button */}
+                                      {applet.config?.formId && (
+                                        <div className="flex items-center justify-between">
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                console.log('Generate Narrative clicked. Applet config:', applet.config);
+                                                console.log('Form ID being sent:', applet.config.formId);
+
+                                                toast.loading('Generating narrative content...', { id: 'ai-narrative' });
+
+                                                // Call the API to generate narrative
+                                                const response = await fetch('/api/ai-narrative-generator', {
+                                                  method: 'POST',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    formId: applet.config.formId,
+                                                    pageName: applet.config.pageName || 'Homepage',
+                                                    projectId: params.projectId
+                                                  })
+                                                });
+
+                                                if (!response.ok) {
+                                                  throw new Error('Failed to generate narrative');
+                                                }
+
+                                                const narrativeData = await response.json();
+
+                                                // Save the generated content
+                                                const updateResponse = await fetch(
+                                                  `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                  {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                      config: {
+                                                        ...applet.config,
+                                                        generatedContent: narrativeData,
+                                                        aiGenerated: true,
+                                                        lastGeneratedAt: new Date().toISOString()
+                                                      }
+                                                    })
+                                                  }
+                                                );
+
+                                                if (updateResponse.ok) {
+                                                  fetchProjectletApplets(projectlet.id);
+                                                  toast.success('Narrative content generated successfully!', { id: 'ai-narrative' });
+                                                } else {
+                                                  throw new Error('Failed to save narrative');
+                                                }
+                                              } catch (error) {
+                                                console.error('Error generating narrative:', error);
+                                                toast.error(error.message || 'Failed to generate narrative', { id: 'ai-narrative' });
+                                              }
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                                          >
+                                            <Brain className="w-4 h-4" />
+                                            {applet.config?.generatedContent ? 'Regenerate Narrative' : 'Generate Narrative'}
+                                          </button>
+
+                                          {applet.config?.lastGeneratedAt && (
+                                            <span className="text-xs text-gray-500">
+                                              Last generated: {new Date(applet.config.lastGeneratedAt).toLocaleString()}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Preview of Generated Content */}
+                                      {applet.config?.generatedContent && (
+                                        <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                                          <h4 className="font-semibold text-sm text-gray-700 mb-2">Content Preview</h4>
+
+                                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                                            {Object.entries(applet.config.generatedContent).map(([section, content]) => (
+                                              <div key={section} className="border-b border-gray-100 pb-2 last:border-0">
+                                                <h5 className="text-xs font-medium text-gray-600 uppercase mb-1">{section}</h5>
+                                                <p className="text-sm text-gray-700 line-clamp-3">{content}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+
+                                          {/* Edit Content Button */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              // Set up state for editing
+                                              setEditingNarrativeApplet(applet);
+                                              setShowNarrativeEditor(true);
+                                            }}
+                                            className="mt-2 text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                                          >
+                                            <Edit2 className="w-3 h-3" />
+                                            Edit Content
+                                          </button>
+                                        </div>
+                                      )}
+
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between pt-2 border-t">
+                                        <div className="flex items-center space-x-2">
+                                          {applet.config?.locked ? (
+                                            <Lock className="w-4 h-4 text-red-600" />
+                                          ) : (
+                                            <Unlock className="w-4 h-4 text-green-600" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {applet.config?.locked ? 'Content Published' : 'Content Draft'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: !applet.config?.locked
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success(applet.config?.locked ? 'Content unpublished' : 'Content published to client!');
+                                              }
+                                            } catch (error) {
+                                              toast.error('Failed to update publish status');
+                                            }
+                                          }}
+                                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                            applet.config?.locked
+                                              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? 'Unpublish' : 'Publish to Client'}
+                                        </button>
+                                      </div>
+
+                                      {/* Info text */}
+                                      <div className="text-xs text-gray-600">
+                                        {applet.config?.locked ? (
+                                          <>
+                                            <strong>Published:</strong> Client can view the narrative content for their {applet.config?.pageName || 'page'}.
+                                          </>
+                                        ) : (
+                                          <>
+                                            <strong>Draft:</strong> Content is hidden from client until published.
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {/* Inline client review configuration */}
                                   {expandedApplets[applet.id] && applet.type === 'client_review' && (
                                     <div className={`mt-3 p-3 rounded-lg space-y-3 ${
@@ -5030,6 +5280,148 @@ function AdminProjectPageContent() {
                     onClick={() => {
                       setShowAIReportEditor(false);
                       setEditingAIReport(null);
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Narrative Content Editor Modal */}
+      {showNarrativeEditor && editingNarrativeApplet && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b flex items-center justify-between">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-600" />
+                Edit Narrative Content - {editingNarrativeApplet.config?.pageName || 'Page'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowNarrativeEditor(false);
+                  setEditingNarrativeApplet(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const formData = new FormData(e.target);
+                    const updatedContent = {};
+
+                    // Collect all content sections
+                    for (const [key, value] of formData.entries()) {
+                      if (key.startsWith('section_')) {
+                        const sectionName = key.replace('section_', '').replace(/_/g, ' ');
+                        updatedContent[sectionName] = value;
+                      }
+                    }
+
+                    // Find the correct projectlet ID
+                    const projectletId = projectlets.find(p =>
+                      p.applets?.some(a => a.id === editingNarrativeApplet.id)
+                    )?.id;
+
+                    if (!projectletId) {
+                      throw new Error('Could not find projectlet for this applet');
+                    }
+
+                    const response = await fetch(
+                      `/api/aloa-projects/${params.projectId}/projectlets/${projectletId}/applets/${editingNarrativeApplet.id}`,
+                      {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          config: {
+                            ...editingNarrativeApplet.config,
+                            generatedContent: updatedContent
+                          }
+                        })
+                      }
+                    );
+
+                    if (response.ok) {
+                      toast.success('Narrative content updated successfully!');
+                      fetchProjectletApplets(projectletId);
+                      setShowNarrativeEditor(false);
+                      setEditingNarrativeApplet(null);
+                    } else {
+                      throw new Error('Failed to update content');
+                    }
+                  } catch (error) {
+                    console.error('Error updating narrative:', error);
+                    toast.error(error.message || 'Failed to update narrative content');
+                  }
+                }}
+                className="space-y-6"
+              >
+                {/* Dynamic sections based on generated content */}
+                {editingNarrativeApplet.config?.generatedContent && Object.entries(editingNarrativeApplet.config.generatedContent).map(([section, content]) => (
+                  <div key={section}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {section}
+                    </label>
+                    <textarea
+                      name={`section_${section.replace(/ /g, '_')}`}
+                      defaultValue={content}
+                      rows={6}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder={`Enter content for ${section}...`}
+                    />
+                  </div>
+                ))}
+
+                {/* Add new section button */}
+                <div className="border-t pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sectionName = prompt('Enter new section name:');
+                      if (sectionName) {
+                        const updatedContent = {
+                          ...editingNarrativeApplet.config.generatedContent,
+                          [sectionName]: ''
+                        };
+                        setEditingNarrativeApplet({
+                          ...editingNarrativeApplet,
+                          config: {
+                            ...editingNarrativeApplet.config,
+                            generatedContent: updatedContent
+                          }
+                        });
+                      }
+                    }}
+                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add New Section
+                  </button>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNarrativeEditor(false);
+                      setEditingNarrativeApplet(null);
                     }}
                     className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                   >
