@@ -190,7 +190,7 @@ export default function ClientReview({
               <div className="text-center">
                 <PartyPopper className="w-20 h-20 mx-auto mb-4" />
                 <h2 className="text-4xl font-bold mb-2">Work Approved!</h2>
-                <p className="text-xl">Great job making a decision!</p>
+                <p className="text-xl">You're one step closer towards completing this project!</p>
               </div>
             </div>
           </motion.div>

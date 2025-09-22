@@ -22,6 +22,27 @@ export async function GET(request, { params }) {
       );
     }
 
+    // If stakeholders found, fetch user profile data for those with user_id
+    if (stakeholders && stakeholders.length > 0) {
+      const userIds = stakeholders.filter(s => s.user_id).map(s => s.user_id);
+      if (userIds.length > 0) {
+        const { data: userProfiles } = await supabase
+          .from('aloa_user_profiles')
+          .select('id, email, full_name, avatar_url, role')
+          .in('id', userIds);
+
+        // Map user profiles to stakeholders
+        if (userProfiles) {
+          stakeholders.forEach(stakeholder => {
+            if (stakeholder.user_id) {
+              const userProfile = userProfiles.find(u => u.id === stakeholder.user_id);
+              stakeholder.user = userProfile || null;
+            }
+          });
+        }
+      }
+    }
+
     return NextResponse.json({
       stakeholders: stakeholders || [],
       count: stakeholders?.length || 0
@@ -128,6 +149,19 @@ export async function POST(request, { params }) {
       .insert([stakeholderData])
       .select()
       .single();
+
+    // If stakeholder has user_id, fetch the user profile
+    if (stakeholder && stakeholder.user_id) {
+      const { data: userProfile } = await supabase
+        .from('aloa_user_profiles')
+        .select('id, email, full_name, avatar_url, role')
+        .eq('id', stakeholder.user_id)
+        .single();
+
+      if (userProfile) {
+        stakeholder.user = userProfile;
+      }
+    }
 
     if (error) {
       console.error('Error creating stakeholder:', error);
@@ -278,6 +312,19 @@ export async function PATCH(request, { params }) {
       .eq('project_id', projectId)
       .select()
       .single();
+
+    // If stakeholder has user_id, fetch the user profile
+    if (stakeholder && stakeholder.user_id) {
+      const { data: userProfile } = await supabase
+        .from('aloa_user_profiles')
+        .select('id, email, full_name, avatar_url, role')
+        .eq('id', stakeholder.user_id)
+        .single();
+
+      if (userProfile) {
+        stakeholder.user = userProfile;
+      }
+    }
 
     if (error) {
       console.error('Error updating stakeholder:', error);

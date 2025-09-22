@@ -142,6 +142,8 @@ function AdminProjectPageContent() {
   const [showFormsSection, setShowFormsSection] = useState(false);
   const [knowledgeBase, setKnowledgeBase] = useState(null);
   const [projectKnowledgeCount, setProjectKnowledgeCount] = useState(0);
+  const [knowledgePendingChanges, setKnowledgePendingChanges] = useState({});
+  const [knowledgeSaving, setKnowledgeSaving] = useState(false);
   const [lastFileUpdate, setLastFileUpdate] = useState(null);
   const [showKnowledgeUpload, setShowKnowledgeUpload] = useState(false);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
@@ -353,6 +355,15 @@ function AdminProjectPageContent() {
       // Fetch legacy knowledge base info
       const response = await fetch(`/api/aloa-projects/${params.projectId}/knowledge`);
       const data = await response.json();
+
+      // If knowledge base doesn't have a URL but project does, initialize it
+      if (!data.project?.existing_url && project?.metadata?.website_url) {
+        data.project = {
+          ...data.project,
+          existing_url: project.metadata.website_url
+        };
+      }
+
       setKnowledgeBase(data);
 
       // Fetch new knowledge system count
@@ -369,22 +380,83 @@ function AdminProjectPageContent() {
     }
   };
 
-  const handleKnowledgeUpdate = async (field, value) => {
+  const handleKnowledgeFieldChange = (field, value) => {
+    // Track pending changes
+    setKnowledgePendingChanges(prev => ({ ...prev, [field]: value }));
+
+    // Update local state immediately for responsive UI
+    setKnowledgeBase(prev => ({
+      ...prev,
+      project: {
+        ...prev?.project,
+        [field]: value
+      }
+    }));
+  };
+
+  const handleKnowledgeSave = async () => {
+    if (Object.keys(knowledgePendingChanges).length === 0) {
+      toast.info('No changes to save');
+      return;
+    }
+
+    setKnowledgeSaving(true);
     try {
+      // Save to database
       const response = await fetch(`/api/aloa-projects/${params.projectId}/knowledge`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value })
+        body: JSON.stringify(knowledgePendingChanges)
       });
-      
+
       if (response.ok) {
-        toast.success('Knowledge base updated');
+        toast.success('Knowledge base saved successfully');
+
+        // If website URL was updated, also update project metadata
+        if (knowledgePendingChanges.existing_url !== undefined) {
+          await fetch(`/api/aloa-projects/${params.projectId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              metadata: {
+                ...project?.metadata,
+                website_url: knowledgePendingChanges.existing_url
+              }
+            })
+          });
+          // Refresh project data to sync URL
+          fetchProjectData();
+        }
+
+        // Trigger AI knowledge extraction for the changes
+        if (knowledgePendingChanges.base_knowledge || knowledgePendingChanges.existing_url) {
+          await fetch(`/api/project-knowledge/${params.projectId}/extract`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              source: 'manual_update',
+              data: knowledgePendingChanges
+            })
+          });
+        }
+
+        // Clear pending changes
+        setKnowledgePendingChanges({});
         fetchKnowledgeBase();
+      } else {
+        toast.error('Failed to save knowledge base');
       }
     } catch (error) {
-      console.error('Error updating knowledge:', error);
-      toast.error('Failed to update knowledge base');
+      console.error('Error saving knowledge:', error);
+      toast.error('Error saving knowledge base');
+    } finally {
+      setKnowledgeSaving(false);
     }
+  };
+
+  const handleKnowledgeUpdate = async (field, value) => {
+    // Keep for backward compatibility with other parts that may use it
+    handleKnowledgeFieldChange(field, value);
   };
 
   const handleFileUpload = async (file) => {
@@ -474,13 +546,8 @@ function AdminProjectPageContent() {
 
       const data = await response.json();
 
-      // Filter for client users only (including all client role types)
-      const clientUsers = data.users?.filter(user =>
-        user.role === 'client' ||
-        user.role === 'client_admin' ||
-        user.role === 'client_participant'
-      ) || [];
-      setAvailableUsers(clientUsers);
+      // Set all users - we'll filter them where they're used
+      setAvailableUsers(data.users || []);
     } catch (error) {
       console.error('Error fetching available users:', error);
       // Ensure we always have an array, even on error
@@ -725,6 +792,15 @@ function AdminProjectPageContent() {
           id: applet.id,
           order_index: index
         }));
+
+        // Update local state immediately for better UX
+        setProjectletApplets(prev => ({
+          ...prev,
+          [sourceProjectletId]: newApplets.map((applet, index) => ({
+            ...applet,
+            order_index: index
+          }))
+        }));
       } else {
         // Moving between projectlets
         // Remove from source
@@ -744,6 +820,19 @@ function AdminProjectPageContent() {
         const targetUpdates = newTargetApplets.map((applet, index) => ({
           id: applet.id,
           order_index: index
+        }));
+
+        // Update local state immediately for both projectlets
+        setProjectletApplets(prev => ({
+          ...prev,
+          [sourceProjectletId]: newSourceApplets.map((applet, index) => ({
+            ...applet,
+            order_index: index
+          })),
+          [targetProjectletId]: newTargetApplets.map((applet, index) => ({
+            ...applet,
+            order_index: index
+          }))
         }));
 
         // Update the applet's projectlet_id
@@ -783,8 +872,7 @@ function AdminProjectPageContent() {
             );
           }
 
-          fetchProjectletApplets(sourceProjectletId);
-          fetchProjectletApplets(targetProjectletId);
+          // Don't need to refetch since we already updated local state
           toast.success('Applet moved successfully');
         }
         return;
@@ -802,12 +890,14 @@ function AdminProjectPageContent() {
       );
 
       if (response.ok) {
-        fetchProjectletApplets(sourceProjectletId);
+        // Don't need to refetch since we already updated local state
         toast.success('Applet reordered successfully');
       } else {
         const errorData = await response.json();
         console.error('Reorder failed:', errorData);
         toast.error(errorData.error || 'Failed to reorder applet');
+        // Revert local state on error
+        fetchProjectletApplets(sourceProjectletId);
       }
     } catch (error) {
       console.error('Error handling applet drop:', error);
@@ -905,35 +995,54 @@ function AdminProjectPageContent() {
       if (response.ok) {
         const data = await response.json();
         console.log(`Fetched ${data.applets?.length || 0} applets for projectlet ${projectletId}:`, data.applets);
-        
-        // Fetch completion data for each applet
-        const appletsWithCompletions = await Promise.all(
-          (data.applets || []).map(async (applet) => {
-            try {
-              const completionRes = await fetch(
-                `/api/aloa-projects/${params.projectId}/applet-completions?appletId=${applet.id}`
-              );
-              if (completionRes.ok) {
-                const completionData = await completionRes.json();
-                console.log(`Completion data for applet ${applet.id} (${applet.name}):`, completionData);
-                const enrichedApplet = {
-                  ...applet,
-                  completions: completionData.completions || [],
-                  completion_percentage: completionData.percentage || 0,
-                  totalStakeholders: completionData.totalStakeholders || 0,
-                  completedCount: completionData.completedCount || 0
-                };
-                console.log('Enriched applet data:', enrichedApplet);
-                return enrichedApplet;
-              } else {
-                console.error(`Failed to fetch completion data for applet ${applet.id}:`, completionRes.status);
+
+        // Fetch completion data for each applet with rate limiting
+        // Process applets in batches of 3 with a delay to avoid rate limiting
+        const appletsWithCompletions = [];
+        const batchSize = 3;
+        const delayMs = 200; // 200ms delay between batches
+
+        for (let i = 0; i < (data.applets || []).length; i += batchSize) {
+          const batch = (data.applets || []).slice(i, i + batchSize);
+
+          const batchResults = await Promise.all(
+            batch.map(async (applet) => {
+              try {
+                const completionRes = await fetch(
+                  `/api/aloa-projects/${params.projectId}/applet-completions?appletId=${applet.id}`
+                );
+                if (completionRes.ok) {
+                  const completionData = await completionRes.json();
+                  console.log(`Completion data for applet ${applet.id} (${applet.name}):`, completionData);
+                  const enrichedApplet = {
+                    ...applet,
+                    completions: completionData.completions || [],
+                    completion_percentage: completionData.percentage || 0,
+                    totalStakeholders: completionData.totalStakeholders || 0,
+                    completedCount: completionData.completedCount || 0
+                  };
+                  console.log('Enriched applet data:', enrichedApplet);
+                  return enrichedApplet;
+                } else if (completionRes.status === 429) {
+                  console.warn(`Rate limited for applet ${applet.id}, returning without completion data`);
+                  return applet;
+                } else {
+                  console.error(`Failed to fetch completion data for applet ${applet.id}:`, completionRes.status);
+                }
+              } catch (error) {
+                console.error('Error fetching completion data for applet:', error);
               }
-            } catch (error) {
-              console.error('Error fetching completion data for applet:', error);
-            }
-            return applet;
-          })
-        );
+              return applet;
+            })
+          );
+
+          appletsWithCompletions.push(...batchResults);
+
+          // Add delay between batches to avoid rate limiting
+          if (i + batchSize < (data.applets || []).length) {
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+        }
         
         setProjectletApplets(prev => ({
           ...prev,
@@ -1083,6 +1192,16 @@ function AdminProjectPageContent() {
         setProject(updatedProject);
         setEditingProjectInfo(false);
         toast.success('Project information updated');
+
+        // Also sync the URL to knowledge base if it was changed
+        if (tempProjectInfo.website_url !== project?.metadata?.website_url) {
+          await fetch(`/api/aloa-projects/${params.projectId}/knowledge`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ existing_url: tempProjectInfo.website_url })
+          });
+          fetchKnowledgeBase(); // Refresh knowledge base to show updated URL
+        }
       } else {
         toast.error('Failed to update project information');
       }
@@ -1095,7 +1214,7 @@ function AdminProjectPageContent() {
   const startEditingProjectInfo = () => {
     setTempProjectInfo({
       project_type: project?.metadata?.project_type || 'Website Design',
-      website_url: project?.metadata?.website_url || '',
+      website_url: project?.metadata?.website_url || knowledgeBase?.project?.existing_url || '',
       scope: {
         main_pages: project?.metadata?.scope?.main_pages || project?.rules?.main_pages || 5,
         aux_pages: project?.metadata?.scope?.aux_pages || project?.rules?.aux_pages || 5,
@@ -1287,14 +1406,30 @@ function AdminProjectPageContent() {
             <div className="flex items-center">
               <Brain className="w-6 h-6 mr-2 text-purple-600" />
               <h2 className="text-2xl font-bold">Project Knowledge Base</h2>
+              {Object.keys(knowledgePendingChanges).length > 0 && (
+                <span className="ml-3 text-sm text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                  Unsaved changes
+                </span>
+              )}
             </div>
-            <button
-              onClick={() => setShowKnowledgeUpload(true)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Document
-            </button>
+            <div className="flex items-center gap-2">
+              {Object.keys(knowledgePendingChanges).length > 0 && (
+                <button
+                  onClick={handleKnowledgeSave}
+                  disabled={knowledgeSaving}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2">
+                  <Save className="w-4 h-4" />
+                  {knowledgeSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              )}
+              <button
+                onClick={() => setShowKnowledgeUpload(true)}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Document
+              </button>
+            </div>
           </div>
 
           {knowledgeBase && (
@@ -1308,8 +1443,8 @@ function AdminProjectPageContent() {
                   </label>
                   <input
                     type="url"
-                    value={knowledgeBase.project?.existing_url || ''}
-                    onChange={(e) => handleKnowledgeUpdate('existing_url', e.target.value)}
+                    value={knowledgeBase.project?.existing_url || project?.metadata?.website_url || ''}
+                    onChange={(e) => handleKnowledgeFieldChange('existing_url', e.target.value)}
                     placeholder="https://example.com"
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
@@ -1323,7 +1458,7 @@ function AdminProjectPageContent() {
                   <input
                     type="url"
                     value={knowledgeBase.project?.google_drive_url || ''}
-                    onChange={(e) => handleKnowledgeUpdate('google_drive_url', e.target.value)}
+                    onChange={(e) => handleKnowledgeFieldChange('google_drive_url', e.target.value)}
                     placeholder="https://drive.google.com/..."
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
@@ -1338,11 +1473,90 @@ function AdminProjectPageContent() {
                 </label>
                 <textarea
                   value={knowledgeBase.project?.base_knowledge?.notes || ''}
-                  onChange={(e) => handleKnowledgeUpdate('base_knowledge', { notes: e.target.value })}
+                  onChange={(e) => handleKnowledgeFieldChange('base_knowledge', { notes: e.target.value })}
                   placeholder="Enter key information about this project: brand guidelines, target audience, business goals, etc."
                   rows={4}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
+              </div>
+
+              {/* Brand Colors Section */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Palette className="inline w-4 h-4 mr-1" />
+                  Brand Colors
+                </label>
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-600">
+                    Add the client's existing brand colors here. These will automatically populate in the Palette Cleanser applet.
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {(knowledgeBase.project?.brand_colors || []).map((color, index) => (
+                      <div key={index} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200">
+                        <div
+                          className="w-8 h-8 rounded border-2 border-gray-300"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="font-mono text-sm">{color}</span>
+                        <button
+                          onClick={() => {
+                            const newColors = [...(knowledgeBase.project?.brand_colors || [])];
+                            newColors.splice(index, 1);
+                            handleKnowledgeFieldChange('brand_colors', newColors);
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="#000000 or rgb(0,0,0)"
+                      className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          const input = e.target;
+                          const color = input.value.trim();
+                          if (color && color.match(/^#[0-9A-Fa-f]{6}$/)) {
+                            const currentColors = knowledgeBase.project?.brand_colors || [];
+                            if (currentColors.length < 5) {
+                              handleKnowledgeFieldChange('brand_colors', [...currentColors, color.toUpperCase()]);
+                              input.value = '';
+                            } else {
+                              toast.error('Maximum 5 colors allowed');
+                            }
+                          } else {
+                            toast.error('Please enter a valid hex color (e.g., #FF5733)');
+                          }
+                        }
+                      }}
+                      id="brand-color-input"
+                    />
+                    <button
+                      onClick={() => {
+                        const input = document.getElementById('brand-color-input');
+                        const color = input.value.trim();
+                        if (color && color.match(/^#[0-9A-Fa-f]{6}$/)) {
+                          const currentColors = knowledgeBase.project?.brand_colors || [];
+                          if (currentColors.length < 5) {
+                            handleKnowledgeFieldChange('brand_colors', [...currentColors, color.toUpperCase()]);
+                            input.value = '';
+                          } else {
+                            toast.error('Maximum 5 colors allowed');
+                          }
+                        } else {
+                          toast.error('Please enter a valid hex color (e.g., #FF5733)');
+                        }
+                      }}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* File Repository - Central Knowledge Base */}
@@ -1776,7 +1990,7 @@ function AdminProjectPageContent() {
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
                           </div>
                         ) : applets.length > 0 ? (
-                          <div className="space-y-0">
+                          <div>
                             {/* Drop zone at the beginning */}
                             {isDraggingApplet && (
                               <div
@@ -1827,7 +2041,7 @@ function AdminProjectPageContent() {
                               return (
                                 <React.Fragment key={applet.id}>
                                   <div
-                                    className={`p-2 rounded cursor-move transition-colors group border-2 mb-2 ${
+                                    className={`p-2 rounded cursor-move transition-colors group border-2 ${
                                       hasRejection
                                         ? 'bg-orange-50 border-orange-300 hover:bg-orange-100 animate-pulse-subtle'
                                         : isFormLocked && applet.type === 'form'
@@ -2799,6 +3013,10 @@ function AdminProjectPageContent() {
                                     </div>
                                   )}
                                 </div>
+                                {/* Spacer between applets */}
+                                {appletIndex < applets.length - 1 && (
+                                  <div className="h-2" />
+                                )}
                                 {/* Drop zone after this applet */}
                                 {isDraggingApplet && draggedAppletInfo?.id !== applet.id && (
                                   <div
@@ -3065,12 +3283,23 @@ function AdminProjectPageContent() {
                         <div>
                           <div className="font-medium text-sm">{member.name || member.email}</div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-600 capitalize">
-                              {member.project_role || member.role}
-                            </span>
-                            {member.system_role && (
-                              <span className="text-xs px-1.5 py-0.5 bg-gray-100 rounded">
-                                {member.system_role}
+                            {(member.system_role || member.project_role || member.role) && (
+                              <span className="text-xs px-1.5 py-0.5 bg-gray-100 rounded capitalize">
+                                {(() => {
+                                  const role = member.system_role || member.project_role || member.role;
+                                  // Format role names properly
+                                  const roleDisplay = {
+                                    'super_admin': 'Super Admin',
+                                    'project_admin': 'Project Admin',
+                                    'team_member': 'Team Member',
+                                    'client': 'Client',
+                                    'client_admin': 'Client Admin',
+                                    'client_participant': 'Client Participant',
+                                    'viewer': 'Viewer',
+                                    'editor': 'Editor'
+                                  };
+                                  return roleDisplay[role] || role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                })()}
                               </span>
                             )}
                           </div>
@@ -3587,7 +3816,9 @@ function AdminProjectPageContent() {
                     >
                       <option value="">-- No User Account --</option>
                       <option value="create_new">✨ Create New User Account</option>
-                      {(availableUsers || []).map(user => (
+                      {(availableUsers || [])
+                        .filter(user => ['client', 'client_admin', 'client_participant'].includes(user.role)) // Only show client users for stakeholders
+                        .map(user => (
                         <option key={user.id} value={user.id}>
                           {user.full_name} ({user.email})
                           {user.projects?.length > 0 && ` - ${user.projects.map(p => p.project_name).join(', ')}`}
@@ -3974,7 +4205,7 @@ function AdminProjectPageContent() {
                 >
                   <option value="">Choose a user...</option>
                   {availableUsers
-                    .filter(user => user.role !== 'client') // Filter out client users
+                    .filter(user => !['client', 'client_admin', 'client_participant'].includes(user.role)) // Only show non-client users (team members)
                     .filter(user => !teamMembers.some(m => m.user_id === user.id)) // Filter out already assigned users
                     .map(user => (
                       <option key={user.id} value={user.id}>
