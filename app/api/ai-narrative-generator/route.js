@@ -25,6 +25,13 @@ CRITICAL RULES FOR ACCURACY:
 - Only add transitional language and structural elements to connect the client's actual content
 - When in doubt, quote directly from the form responses rather than paraphrasing
 
+IMPORTANCE WEIGHTING:
+- When multiple stakeholders provide conflicting responses, prioritize based on their importance scores
+- Responses with higher importance scores (8-10) should be considered authoritative
+- Lower importance responses (1-4) can provide supplementary details but should not override higher-priority input
+- For CEO/decision-maker responses (importance 9-10), their preferences should be treated as final
+- When responses align, combine them; when they conflict, defer to the highest importance stakeholder
+
 IMPORTANT GUIDELINES:
 - Each section should have a clear purpose and hierarchy
 - Use the client's actual language and terminology EXACTLY as provided
@@ -96,12 +103,25 @@ export async function POST(request) {
       fields = formFields || [];
       console.log(`Found ${fields.length} fields for form ${formId}`);
 
-      // Get responses from aloa_form_responses
+      // Get responses from aloa_form_responses with stakeholder importance
       const { data: aloaResponses } = await supabase
         .from('aloa_form_responses')
-        .select('*')
+        .select(`
+          *,
+          stakeholder:aloa_project_stakeholders(
+            id,
+            role,
+            importance_score,
+            user:aloa_user_profiles(
+              name,
+              email,
+              role
+            )
+          )
+        `)
         .eq('aloa_form_id', formId)
-        .order('submitted_at', { ascending: false });
+        .order('stakeholder_importance', { ascending: false }) // Order by importance first
+        .order('submitted_at', { ascending: false }); // Then by submission time
 
       responses = aloaResponses || [];
       console.log(`Found ${responses.length} responses for form ${formId}`);
@@ -186,9 +206,6 @@ export async function POST(request) {
     }
 
     // Prepare the prompt with form data
-    // Handle different response formats - aloa_forms uses 'responses' field, others use 'data'
-    const latestResponses = responses[0]?.responses || responses[0]?.data || {};
-
     // Create a detailed breakdown of questions and answers
     let formContent = `PAGE TYPE: ${pageName || 'Homepage'}\n\n`;
     formContent += `FORM TITLE: ${form.title || 'Untitled Form'}\n`;
@@ -197,8 +214,12 @@ export async function POST(request) {
     }
     formContent += '\n';
 
+    // Process multiple responses with importance weighting
+    let consolidatedResponses = {};
+    let responsesByImportance = [];
+
     // If we have no responses, create sample content for testing
-    if (responses.length === 0 || Object.keys(latestResponses).length === 0) {
+    if (responses.length === 0) {
       console.log('No responses found, using sample content for testing');
       formContent += 'SAMPLE CONTENT FOR TESTING:\n';
       formContent += '\nBUSINESS NAME: Glid Digital Solutions\n';
@@ -207,48 +228,80 @@ export async function POST(request) {
       formContent += '\nKEY SERVICES: Web Design, Development, Digital Strategy\n';
       formContent += '\nBRAND TONE: Professional, approachable, innovative\n';
     } else {
-      formContent += 'FORM RESPONSES:\n';
-      console.log(`Processing ${Object.keys(latestResponses).length} response fields`);
+      // Process multiple responses with stakeholder importance
+      formContent += 'FORM RESPONSES (Weighted by Stakeholder Importance):\n\n';
 
-      // If we have fields from aloa_form_fields, use them for structure
-      if (fields && fields.length > 0) {
-        fields.forEach(field => {
-          // Try different field name formats
-          const fieldName = field.field_name || field.field_label?.toLowerCase().replace(/\s+/g, '_');
-          const answer = latestResponses[fieldName] || latestResponses[field.field_label] || latestResponses[field.id];
+      // Group responses by stakeholder importance
+      responses.forEach(response => {
+        const importance = response.stakeholder_importance || 5;
+        const stakeholderInfo = response.stakeholder || {};
+        const responseData = response.responses || response.data || {};
 
-          if (answer) {
-            formContent += `\nQUESTION: ${field.field_label}\n`;
-            formContent += `ANSWER: ${typeof answer === 'object' ? JSON.stringify(answer, null, 2) : answer}\n`;
-          }
+        responsesByImportance.push({
+          importance,
+          stakeholderName: stakeholderInfo.user?.full_name || 'Anonymous',
+          stakeholderRole: stakeholderInfo.role || 'Unknown',
+          data: responseData
         });
-      } else if (form.fields_structure) {
-        // Fallback to fields_structure for legacy forms
-        form.fields_structure.forEach(field => {
-          const answer = latestResponses[field.id];
-          if (answer) {
-            formContent += `\nQUESTION: ${field.label}\n`;
-            formContent += `ANSWER: ${typeof answer === 'object' ? JSON.stringify(answer, null, 2) : answer}\n`;
-          }
-        });
-      }
-
-      // Add any additional responses that might not be in the field structure
-      Object.entries(latestResponses).forEach(([key, value]) => {
-        // Skip if already processed or if it's metadata
-        if (value && !key.startsWith('_') && !['id', 'created_at', 'updated_at', 'submitted_at'].includes(key)) {
-          // Check if we already added this field
-          const alreadyAdded = fields?.some(f =>
-            f.field_name === key ||
-            f.field_label === key ||
-            f.field_label?.toLowerCase().replace(/\s+/g, '_') === key
-          ) || form.fields_structure?.some(f => f.id === key);
-
-          if (!alreadyAdded) {
-            formContent += `\n${key.replace(/_/g, ' ').toUpperCase()}: ${typeof value === 'object' ? JSON.stringify(value, null, 2) : value}\n`;
-          }
-        }
       });
+
+      // Sort by importance (highest first)
+      responsesByImportance.sort((a, b) => b.importance - a.importance);
+
+      // If we have multiple responses, show them with importance context
+      if (responsesByImportance.length > 1) {
+        formContent += 'STAKEHOLDER RESPONSES (Prioritize higher importance scores when conflicts arise):\n\n';
+
+        responsesByImportance.forEach((resp, idx) => {
+          formContent += `--- STAKEHOLDER ${idx + 1} ---\n`;
+          formContent += `Name: ${resp.stakeholderName}\n`;
+          formContent += `Role: ${resp.stakeholderRole}\n`;
+          formContent += `IMPORTANCE SCORE: ${resp.importance}/10 ${resp.importance >= 8 ? '(HIGH PRIORITY)' : resp.importance <= 3 ? '(LOW PRIORITY)' : '(MEDIUM PRIORITY)'}\n\n`;
+
+          // Process each field in this response
+          if (fields && fields.length > 0) {
+            fields.forEach(field => {
+              const fieldName = field.field_name || field.field_label?.toLowerCase().replace(/\s+/g, '_');
+              const answer = resp.data[fieldName] || resp.data[field.field_label] || resp.data[field.id];
+
+              if (answer) {
+                formContent += `${field.field_label}: ${typeof answer === 'object' ? JSON.stringify(answer, null, 2) : answer}\n`;
+              }
+            });
+          } else {
+            // Just output all data
+            Object.entries(resp.data).forEach(([key, value]) => {
+              if (value && !key.startsWith('_') && !['id', 'created_at', 'updated_at', 'submitted_at'].includes(key)) {
+                formContent += `${key.replace(/_/g, ' ')}: ${typeof value === 'object' ? JSON.stringify(value, null, 2) : value}\n`;
+              }
+            });
+          }
+          formContent += '\n';
+        });
+
+        formContent += 'CONSOLIDATION GUIDANCE: When responses conflict, prioritize the highest importance score. CEO/decision-maker responses (9-10) should override all others.\n\n';
+      } else {
+        // Single response - process normally
+        const singleResponse = responsesByImportance[0];
+
+        if (fields && fields.length > 0) {
+          fields.forEach(field => {
+            const fieldName = field.field_name || field.field_label?.toLowerCase().replace(/\s+/g, '_');
+            const answer = singleResponse.data[fieldName] || singleResponse.data[field.field_label] || singleResponse.data[field.id];
+
+            if (answer) {
+              formContent += `\nQUESTION: ${field.field_label}\n`;
+              formContent += `ANSWER: ${typeof answer === 'object' ? JSON.stringify(answer, null, 2) : answer}\n`;
+            }
+          });
+        } else {
+          Object.entries(singleResponse.data).forEach(([key, value]) => {
+            if (value && !key.startsWith('_') && !['id', 'created_at', 'updated_at', 'submitted_at'].includes(key)) {
+              formContent += `\n${key.replace(/_/g, ' ').toUpperCase()}: ${typeof value === 'object' ? JSON.stringify(value, null, 2) : value}\n`;
+            }
+          });
+        }
+      }
     }
 
     // Call Claude to generate narrative content

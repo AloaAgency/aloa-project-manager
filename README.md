@@ -6,11 +6,13 @@ A gamified project management system specifically designed for Aloa web design p
 
 ### Authentication & User Management
 - **Controlled Access**: No open signup - all users must be provisioned by admins
-- **Role-Based Access Control**: Four distinct roles with specific permissions:
+- **Role-Based Access Control**: Six distinct roles with specific permissions:
   - **Super Admin**: Full system access, user management, all projects
   - **Project Admin**: Manage specific projects and team members
   - **Team Member**: Access to assigned projects with edit capabilities
-  - **Client**: View-only access to their specific project dashboard
+  - **Client**: Standard client access to their assigned project dashboard
+  - **Client Admin**: Client decision-makers who can approve/reject/request revisions on deliverables (final authority)
+  - **Client Participant**: Client team members who can provide feedback and fill out forms, but cannot make approval decisions
 - **User Provisioning**: Super admins can create users directly or send email invitations
 - **Project Assignment**: Clients can be assigned to specific projects
 - **Secure API Access**: All sensitive operations use service role keys
@@ -65,6 +67,25 @@ A gamified project management system specifically designed for Aloa web design p
 - **Real-time File Counting**: Automatic updates to file counts in Knowledge Base
 - **Selective File Presentation**: Attach specific files to upload applets for client viewing
 - **Public Storage Configuration**: Properly configured Supabase storage with RLS policies
+
+### Stakeholder Importance Scoring System ⚖️
+- **Hierarchical Decision Making**: Respects organizational structure when collecting multi-stakeholder input
+- **Importance Scores (1-10)**: Each stakeholder is assigned an importance score reflecting their decision-making authority
+  - **10**: CEO, Owner, Founder - Final decision authority
+  - **9**: CTO, CFO, VP, Directors - Executive leadership
+  - **7**: Managers, Team Leads - Department heads
+  - **5**: Contributors, Developers - Team members
+  - **3**: Assistants, Coordinators - Support staff
+- **Automatic Weighting**: All form responses and applet interactions automatically capture stakeholder importance
+- **AI Response Generation**: AI generators (narrative, form results) prioritize high-importance stakeholder input
+- **Conflict Resolution**: When stakeholders disagree:
+  - CEO/Owner preferences (score 9-10) override all other input
+  - Higher importance scores take precedence in decision-making
+  - Lower scores provide supplementary context but don't override key decisions
+- **Visual Indicators**: Admin dashboard shows star ratings for each stakeholder's importance level
+- **Smart Defaults**: Existing stakeholders are auto-assigned importance based on their title/role
+- **Form Response Tracking**: Multi-stakeholder form submissions maintain individual importance scores
+- **Weighted Consensus**: Database functions calculate weighted averages for quantitative responses
 
 ### Project Knowledge System (AI Context Awareness) 🧠
 - **Automatic Knowledge Extraction**: Captures insights from every client interaction
@@ -186,6 +207,13 @@ supabase/add_folder_support_to_files.sql
 -- 11. Storage Configuration: Create and configure public storage bucket
 supabase/create_storage_bucket.sql
 supabase/fix_storage_bucket.sql
+
+-- 12. Stakeholder Management: Add client stakeholders with importance scoring
+supabase/add_client_stakeholders.sql
+supabase/add_importance_to_client_stakeholders.sql
+
+-- 13. Stakeholder Response Weighting: Track importance across all responses
+supabase/add_stakeholder_importance_scoring.sql
 ```
 
 **IMPORTANT**: Only use tables with `aloa_` prefix. Never reference or create tables without this prefix.
@@ -283,7 +311,8 @@ The system guides projects through these phases:
 - `aloa_project_forms` - Link forms to projects
 - `aloa_project_timeline` - Event tracking
 - `aloa_project_team` - Team members
-- `aloa_project_stakeholders` - Client-project associations
+- `aloa_project_stakeholders` - Client-project associations (legacy)
+- `aloa_client_stakeholders` - Enhanced stakeholder management with importance scoring
 - `aloa_project_documents` - Project files and deliverables
 - `aloa_project_files` - Enhanced file repository with folder support
 - `aloa_project_knowledge` - AI knowledge base

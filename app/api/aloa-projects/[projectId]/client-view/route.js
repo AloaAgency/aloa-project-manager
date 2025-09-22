@@ -283,6 +283,25 @@ export async function POST(request, { params }) {
 
     console.log(`Client interaction - Project: ${projectId}, Applet: ${appletId}, User: ${userId}, Type: ${interactionType}, Status: ${status}`);
 
+    // Get stakeholder importance if userId is a valid UUID
+    let stakeholderImportance = 5; // Default importance
+    let stakeholderId = null;
+
+    if (userId && userId !== 'anonymous' && userId.match(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)) {
+      const { data: stakeholder } = await supabase
+        .from('aloa_project_stakeholders')
+        .select('id, importance_score')
+        .eq('user_id', userId)
+        .eq('project_id', projectId)
+        .single();
+
+      if (stakeholder) {
+        stakeholderImportance = stakeholder.importance_score || 5;
+        stakeholderId = stakeholder.id;
+        console.log(`Found stakeholder importance: ${stakeholderImportance} for user ${userId}`);
+      }
+    }
+
     // For palette_submit, ensure we're marking as completed
     const finalStatus = (interactionType === 'palette_submit' || interactionType === 'submission') ? 'completed' : status;
     const completionPercentage = finalStatus === 'completed' ? 100 : (status === 'in_progress' ? 50 : null);
@@ -326,7 +345,9 @@ export async function POST(request, { params }) {
             status: 'completed',
             completed_at: new Date().toISOString(),
             completion_percentage: 100,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            stakeholder_importance: stakeholderImportance,
+            stakeholder_id: stakeholderId
           })
           .eq('applet_id', appletId)
           .eq('user_id', userId)
