@@ -58,13 +58,13 @@ import {
   MessageSquare,
   MoreVertical,
   Pencil,
+  Edit2,
   GripVertical,
   Settings,
   Copy,
   Bell,
   ExternalLink,
   BarChart,
-  Edit2,
   Star,
   Map,
   Download
@@ -224,6 +224,8 @@ function AdminProjectPageContent() {
     revisionRequestedAt: null,
     appletName: null
   });
+  const [showAIReportEditor, setShowAIReportEditor] = useState(false);
+  const [editingAIReport, setEditingAIReport] = useState(null);
   const [editingProjectInfo, setEditingProjectInfo] = useState(false);
   const [tempProjectInfo, setTempProjectInfo] = useState({
     project_type: '',
@@ -2808,6 +2810,228 @@ function AdminProjectPageContent() {
                                     </div>
                                   )}
 
+                                  {/* Inline AI Form Results configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'ai_form_results' && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                      {/* Form selector dropdown */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Select Source Form
+                                        </label>
+                                        <select
+                                          value={applet.config?.form_id || ''}
+                                          onChange={async (e) => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      form_id: e.target.value,
+                                                      ai_report: null, // Clear report when changing form
+                                                      last_generated_at: null
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success('Form selected');
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating applet:', error);
+                                              toast.error('Failed to update form selection');
+                                            }
+                                          }}
+                                          className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        >
+                                          <option value="">Select a form...</option>
+                                          {availableForms.filter(form => form.aloa_project_id === params.projectId).map(form => (
+                                            <option key={form.id} value={form.id}>
+                                              {form.title}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+
+                                      {/* Generate/Regenerate AI Report Button */}
+                                      {applet.config?.form_id && (
+                                        <div className="flex items-center justify-between">
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                toast.loading('Generating AI insights...', { id: 'ai-report' });
+
+                                                // Call the AI analysis endpoint
+                                                const response = await fetch(
+                                                  `/api/ai-analysis/${applet.config.form_id}`,
+                                                  {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' }
+                                                  }
+                                                );
+
+                                                if (!response.ok) {
+                                                  const error = await response.json();
+                                                  throw new Error(error.error || 'Failed to generate report');
+                                                }
+
+                                                const aiData = await response.json();
+
+                                                // Save the report to the applet config
+                                                const updateResponse = await fetch(
+                                                  `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                  {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                      config: {
+                                                        ...applet.config,
+                                                        ai_report: aiData,
+                                                        last_generated_at: new Date().toISOString()
+                                                      }
+                                                    })
+                                                  }
+                                                );
+
+                                                if (updateResponse.ok) {
+                                                  fetchProjectletApplets(projectlet.id);
+                                                  toast.success('AI insights generated successfully!', { id: 'ai-report' });
+                                                } else {
+                                                  throw new Error('Failed to save report');
+                                                }
+                                              } catch (error) {
+                                                console.error('Error generating AI report:', error);
+                                                toast.error(error.message || 'Failed to generate AI insights', { id: 'ai-report' });
+                                              }
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                                          >
+                                            <Brain className="w-4 h-4" />
+                                            {applet.config?.ai_report ? 'Regenerate AI Insights' : 'Generate AI Insights'}
+                                          </button>
+
+                                          {applet.config?.last_generated_at && (
+                                            <span className="text-xs text-gray-500">
+                                              Last generated: {new Date(applet.config.last_generated_at).toLocaleString()}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Preview of AI Report */}
+                                      {applet.config?.ai_report && (
+                                        <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                                          <h4 className="font-semibold text-sm text-gray-700 mb-2">AI Report Preview</h4>
+
+                                          {/* Executive Summary */}
+                                          {applet.config.ai_report.executiveSummary && (
+                                            <div className="mb-3">
+                                              <h5 className="text-xs font-medium text-gray-600 uppercase mb-1">Executive Summary</h5>
+                                              <p className="text-sm text-gray-700 line-clamp-3">
+                                                {applet.config.ai_report.executiveSummary}
+                                              </p>
+                                            </div>
+                                          )}
+
+                                          {/* Key Metrics */}
+                                          {applet.config.ai_report.keyMetrics && (
+                                            <div className="mb-3">
+                                              <h5 className="text-xs font-medium text-gray-600 uppercase mb-1">Key Metrics</h5>
+                                              <div className="flex gap-3 flex-wrap">
+                                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                                  Responses: {applet.config.ai_report.keyMetrics.totalResponses || 0}
+                                                </span>
+                                                {applet.config.ai_report.keyMetrics.completionRate && (
+                                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                                    Completion: {applet.config.ai_report.keyMetrics.completionRate}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {/* Edit Report Button */}
+                                          <button
+                                            onClick={() => {
+                                              // Open a modal to edit the report
+                                              setEditingAIReport(applet);
+                                              setShowAIReportEditor(true);
+                                            }}
+                                            className="mt-2 text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                                          >
+                                            <Edit2 className="w-3 h-3" />
+                                            Edit Report Before Sharing
+                                          </button>
+                                        </div>
+                                      )}
+
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between pt-2 border-t">
+                                        <div className="flex items-center space-x-2">
+                                          {applet.config?.locked ? (
+                                            <Lock className="w-4 h-4 text-red-600" />
+                                          ) : (
+                                            <Unlock className="w-4 h-4 text-green-600" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {applet.config?.locked ? 'Report Published' : 'Report Draft'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const newLockedState = !applet.config?.locked;
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: newLockedState
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success(newLockedState ? 'Report published to client' : 'Report set to draft mode');
+                                              }
+                                            } catch (error) {
+                                              console.error('Error toggling lock:', error);
+                                              toast.error('Failed to update report status');
+                                            }
+                                          }}
+                                          className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                                            applet.config?.locked
+                                              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? 'Unpublish' : 'Publish to Client'}
+                                        </button>
+                                      </div>
+
+                                      {/* Info text */}
+                                      <div className="text-xs text-gray-600">
+                                        {applet.config?.locked ? (
+                                          <>
+                                            <strong>Published:</strong> Client can view the AI-generated insights report.
+                                          </>
+                                        ) : (
+                                          <>
+                                            <strong>Draft:</strong> Report is hidden from client until published.
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {/* Inline client review configuration */}
                                   {expandedApplets[applet.id] && applet.type === 'client_review' && (
                                     <div className={`mt-3 p-3 rounded-lg space-y-3 ${
@@ -4648,6 +4872,153 @@ function AdminProjectPageContent() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Report Editor Modal */}
+      {showAIReportEditor && editingAIReport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b flex items-center justify-between">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Brain className="w-5 h-5 text-purple-600" />
+                Edit AI Report
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAIReportEditor(false);
+                  setEditingAIReport(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const formData = new FormData(e.target);
+                    const updatedReport = {
+                      executiveSummary: formData.get('executiveSummary'),
+                      keyMetrics: editingAIReport.config?.ai_report?.keyMetrics || {},
+                      insights: formData.get('insights')?.split('\n').filter(Boolean) || [],
+                      recommendations: formData.get('recommendations')?.split('\n').filter(Boolean) || [],
+                      conclusion: formData.get('conclusion')
+                    };
+
+                    const response = await fetch(
+                      `/api/aloa-projects/${params.projectId}/projectlets/${editingAIReport.projectlet_id}/applets/${editingAIReport.id}`,
+                      {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          config: {
+                            ...editingAIReport.config,
+                            ai_report: updatedReport
+                          }
+                        })
+                      }
+                    );
+
+                    if (response.ok) {
+                      toast.success('Report updated successfully');
+                      setShowAIReportEditor(false);
+                      setEditingAIReport(null);
+                      // Refresh the applets
+                      fetchProjectData();
+                    } else {
+                      throw new Error('Failed to update report');
+                    }
+                  } catch (error) {
+                    console.error('Error updating report:', error);
+                    toast.error('Failed to update report');
+                  }
+                }}
+                className="space-y-6"
+              >
+                {/* Executive Summary */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Executive Summary
+                  </label>
+                  <textarea
+                    name="executiveSummary"
+                    defaultValue={editingAIReport.config?.ai_report?.executiveSummary || ''}
+                    rows={4}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Provide a high-level summary of the form responses..."
+                  />
+                </div>
+
+                {/* Key Insights */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Key Insights
+                    <span className="text-xs text-gray-500 ml-2">(One per line)</span>
+                  </label>
+                  <textarea
+                    name="insights"
+                    defaultValue={editingAIReport.config?.ai_report?.insights?.join('\n') || ''}
+                    rows={6}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="• Key finding 1\n• Key finding 2\n• Key finding 3"
+                  />
+                </div>
+
+                {/* Recommendations */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Recommendations
+                    <span className="text-xs text-gray-500 ml-2">(One per line)</span>
+                  </label>
+                  <textarea
+                    name="recommendations"
+                    defaultValue={editingAIReport.config?.ai_report?.recommendations?.join('\n') || ''}
+                    rows={6}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="• Recommendation 1\n• Recommendation 2\n• Recommendation 3"
+                  />
+                </div>
+
+                {/* Conclusion */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Conclusion
+                  </label>
+                  <textarea
+                    name="conclusion"
+                    defaultValue={editingAIReport.config?.ai_report?.conclusion || ''}
+                    rows={3}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Summarize the key takeaways..."
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAIReportEditor(false);
+                      setEditingAIReport(null);
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

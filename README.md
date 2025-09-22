@@ -36,11 +36,25 @@ A gamified project management system specifically designed for Aloa web design p
   - Form applets: Shows the user's form responses
   - Palette Cleanser applets: Shows the user's palette preferences
   - Sitemap applets: Shows the user's submitted sitemap structure
+  - AI Form Results: Shows AI-generated insights report
 - **Visual Status Indicators**:
   - Solid ring: Completed submission
   - Dashed ring: In-progress submission
 - **Clean Interface**: Applets remain collapsed with inline configuration when expanded
 - **Consistent UX**: All applet types follow the same interaction pattern for viewing user submissions
+
+### AI Form Results Applet 🧠
+- **AI-Powered Insights**: Automatically generates comprehensive reports from form responses
+- **Admin Control**: Review and edit AI-generated content before client presentation
+- **Rich Report Structure**:
+  - Executive Summary: High-level overview of key findings
+  - Key Metrics: Response rates, completion metrics, and statistics
+  - Insights: AI-extracted key findings and patterns
+  - Recommendations: Actionable suggestions based on data
+  - Conclusion: Summary of main takeaways
+- **Publishing Workflow**: Draft mode for editing, published mode for client viewing
+- **Beautiful Client Presentation**: Professional report layout with expandable sections
+- **Integration**: Works with any form in the system that has collected responses
 
 ### Enhanced File Repository
 - **Hierarchical Folder Structure**: Create nested folders to organize project files

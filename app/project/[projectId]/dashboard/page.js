@@ -24,7 +24,8 @@ import {
   Download,
   File,
   FolderOpen,
-  Home
+  Home,
+  Brain
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
@@ -39,6 +40,7 @@ const PaletteCleanserModal = dynamic(() => import('@/components/PaletteCleanserM
 const SitemapBuilder = dynamic(() => import('@/components/SitemapBuilderV2'), { ssr: false });
 const ToneOfVoiceSelector = dynamic(() => import('@/components/ToneOfVoiceSelector'), { ssr: false });
 const ClientReview = dynamic(() => import('@/components/ClientReview'), { ssr: false });
+const AIFormResults = dynamic(() => import('@/components/AIFormResults'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -58,6 +60,7 @@ function ClientDashboard() {
   const [isFormViewOnly, setIsFormViewOnly] = useState(false); // Track if form is in view-only mode
   const [showLinkSubmissionModal, setShowLinkSubmissionModal] = useState(false); // Track link submission modal
   const [showFileUploadModal, setShowFileUploadModal] = useState(false); // Track file upload modal
+  const [showAIResultsModal, setShowAIResultsModal] = useState(false); // Track AI Form Results modal
   const [showPaletteCleanserModal, setShowPaletteCleanserModal] = useState(false); // Track palette cleanser modal
   const [isPaletteCleanserViewOnly, setIsPaletteCleanserViewOnly] = useState(false); // Track if palette cleanser is view-only
   const [showSitemapModal, setShowSitemapModal] = useState(false); // Track sitemap modal
@@ -546,6 +549,10 @@ function ClientDashboard() {
       setSelectedApplet({ ...applet, projectlet });
       setIsClientReviewViewOnly(clientReviewIsLocked);
       setShowClientReviewModal(true);
+    } else if (applet.type === 'ai_form_results') {
+      // Handle AI Form Results applet
+      setSelectedApplet({ ...applet, projectlet });
+      setShowAIResultsModal(true);
     }
   };
 
@@ -636,7 +643,8 @@ function ClientDashboard() {
       review: Eye,
       moodboard: Palette,
       content_gather: MessageSquare,
-      sitemap: Map
+      sitemap: Map,
+      ai_form_results: Brain
     };
     return icons[type] || FileText;
   };
@@ -971,6 +979,20 @@ function ClientDashboard() {
                           } else {
                             buttonState = userRole === 'client_admin' ? 'not-started' : 'locked';
                             statusMessage = userRole === 'client_admin' ? 'Review & approve work' : 'Client Admin access required';
+                          }
+                        } else if (applet.type === 'ai_form_results') {
+                          const reportIsLocked = applet.config?.locked === true;
+                          const hasReport = !!applet.config?.ai_report;
+
+                          if (reportIsLocked && hasReport) {
+                            buttonState = 'completed';
+                            statusMessage = 'View AI insights report';
+                          } else if (!hasReport) {
+                            buttonState = 'locked';
+                            statusMessage = 'Report being prepared...';
+                          } else {
+                            buttonState = 'locked';
+                            statusMessage = 'Report not yet available';
                           }
                         } else if (applet.type === 'palette_cleanser') {
                           const paletteIsLocked = applet.config?.locked === true;
@@ -1732,6 +1754,35 @@ function ClientDashboard() {
                 fetchProjectData();
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* AI Form Results Modal */}
+      {showAIResultsModal && selectedApplet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Brain className="w-5 h-5 text-purple-600" />
+                AI-Generated Insights
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAIResultsModal(false);
+                  fetchProjectData();
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <AIFormResults
+                applet={selectedApplet}
+                isViewOnly={true}
+              />
+            </div>
           </div>
         </div>
       )}
