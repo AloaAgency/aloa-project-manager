@@ -1,9 +1,22 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServiceClient } from '@/lib/supabase-service';
 
 export async function GET(request, { params }) {
   try {
     const { projectId } = params;
+
+    // Try to use service client, fall back to regular client if needed
+    let supabase;
+    try {
+      supabase = createServiceClient();
+    } catch (serviceError) {
+      console.error('Failed to create service client, using regular client:', serviceError.message);
+      const { supabase: fallbackClient } = await import('@/lib/supabase');
+      supabase = fallbackClient;
+      if (!supabase) {
+        throw new Error('No Supabase client available');
+      }
+    }
 
     // Get projectlets for this project
     const { data: projectlets, error } = await supabase
@@ -65,6 +78,20 @@ export async function POST(request, { params }) {
     const { projectId } = params;
     const { name, description, type } = await request.json();
 
+    // Try to use service client, fall back to regular client if needed
+    let supabase;
+    try {
+      supabase = createServiceClient();
+    } catch (serviceError) {
+      console.error('Failed to create service client, using regular client:', serviceError.message);
+      // Fall back to importing the regular client
+      const { supabase: fallbackClient } = await import('@/lib/supabase');
+      supabase = fallbackClient;
+      if (!supabase) {
+        throw new Error('No Supabase client available');
+      }
+    }
+
     // Get the max order_index for this project
     const { data: maxOrder } = await supabase
       .from('aloa_projectlets')
@@ -93,9 +120,18 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error creating projectlet:', error);
+      console.error('Error creating projectlet:', {
+        error,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        projectId,
+        name: name || `New Projectlet ${newOrderIndex + 1}`,
+        type: type || 'design'
+      });
       return NextResponse.json(
-        { error: 'Failed to create projectlet' },
+        { error: 'Failed to create projectlet', details: error.message },
         { status: 500 }
       );
     }
@@ -117,9 +153,13 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error creating projectlet:', error);
+    console.error('Error creating projectlet - caught exception:', {
+      error: error.message,
+      stack: error.stack,
+      projectId: params.projectId
+    });
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }
@@ -130,6 +170,19 @@ export async function PATCH(request, { params }) {
   try {
     const { projectId } = params;
     const { projectletId, status, metadata } = await request.json();
+
+    // Try to use service client, fall back to regular client if needed
+    let supabase;
+    try {
+      supabase = createServiceClient();
+    } catch (serviceError) {
+      console.error('Failed to create service client, using regular client:', serviceError.message);
+      const { supabase: fallbackClient } = await import('@/lib/supabase');
+      supabase = fallbackClient;
+      if (!supabase) {
+        throw new Error('No Supabase client available');
+      }
+    }
 
     // Update the projectlet
     const { data: updatedProjectlet, error: updateError } = await supabase
@@ -214,15 +267,28 @@ export async function PATCH(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const { projectId } = params;
-    const { 
-      projectletId, 
-      name, 
-      description, 
+    const {
+      projectletId,
+      name,
+      description,
       type,
       formId,
       deadline,
-      metadata 
+      metadata
     } = await request.json();
+
+    // Try to use service client, fall back to regular client if needed
+    let supabase;
+    try {
+      supabase = createServiceClient();
+    } catch (serviceError) {
+      console.error('Failed to create service client, using regular client:', serviceError.message);
+      const { supabase: fallbackClient } = await import('@/lib/supabase');
+      supabase = fallbackClient;
+      if (!supabase) {
+        throw new Error('No Supabase client available');
+      }
+    }
 
     // Build update object
     const updateData = {};
@@ -331,6 +397,19 @@ export async function DELETE(request, { params }) {
   try {
     const { searchParams } = new URL(request.url);
     const projectletId = searchParams.get('projectletId');
+
+    // Try to use service client, fall back to regular client if needed
+    let supabase;
+    try {
+      supabase = createServiceClient();
+    } catch (serviceError) {
+      console.error('Failed to create service client, using regular client:', serviceError.message);
+      const { supabase: fallbackClient } = await import('@/lib/supabase');
+      supabase = fallbackClient;
+      if (!supabase) {
+        throw new Error('No Supabase client available');
+      }
+    }
 
     if (!projectletId) {
       return NextResponse.json(
