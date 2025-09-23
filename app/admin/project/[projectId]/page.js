@@ -158,6 +158,8 @@ function AdminProjectPageContent() {
   const [projectKnowledgeCount, setProjectKnowledgeCount] = useState(0);
   const [knowledgePendingChanges, setKnowledgePendingChanges] = useState({});
   const [knowledgeSaving, setKnowledgeSaving] = useState(false);
+  const [selectedProjectlets, setSelectedProjectlets] = useState(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
   const [lastFileUpdate, setLastFileUpdate] = useState(null);
   const [showKnowledgeUpload, setShowKnowledgeUpload] = useState(false);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
@@ -972,6 +974,9 @@ function AdminProjectPageContent() {
       const projectletsRes = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`);
       const projectletsData = await projectletsRes.json();
       setProjectlets(projectletsData.projectlets);
+      // Clear selection when refreshing
+      setSelectedProjectlets(new Set());
+      setShowBulkActions(false);
       
       // Fetch applets for each projectlet
       if (projectletsData.projectlets) {
@@ -1224,6 +1229,70 @@ function AdminProjectPageContent() {
     } catch (error) {
       console.error('Error deleting projectlet:', error);
       toast.error('Failed to delete projectlet');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProjectlets.size === 0) {
+      toast.error('No projectlets selected');
+      return;
+    }
+
+    const count = selectedProjectlets.size;
+    if (!confirm(`Are you sure you want to delete ${count} projectlet${count > 1 ? 's' : ''}? This will also delete all applets within them.`)) {
+      return;
+    }
+
+    try {
+      // Delete projectlets one by one
+      const deletePromises = Array.from(selectedProjectlets).map(projectletId =>
+        fetch(
+          `/api/aloa-projects/${params.projectId}/projectlets?projectletId=${projectletId}`,
+          { method: 'DELETE' }
+        )
+      );
+
+      const results = await Promise.allSettled(deletePromises);
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value?.ok).length;
+      const failCount = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value?.ok)).length;
+
+      if (successCount > 0) {
+        toast.success(`${successCount} projectlet${successCount > 1 ? 's' : ''} deleted`);
+      }
+      if (failCount > 0) {
+        toast.error(`Failed to delete ${failCount} projectlet${failCount > 1 ? 's' : ''}`);
+      }
+
+      // Clear selection and refresh
+      setSelectedProjectlets(new Set());
+      setShowBulkActions(false);
+      fetchProjectData();
+    } catch (error) {
+      console.error('Error during bulk delete:', error);
+      toast.error('Failed to delete projectlets');
+    }
+  };
+
+  const toggleProjectletSelection = (projectletId) => {
+    const newSelection = new Set(selectedProjectlets);
+    if (newSelection.has(projectletId)) {
+      newSelection.delete(projectletId);
+    } else {
+      newSelection.add(projectletId);
+    }
+    setSelectedProjectlets(newSelection);
+    setShowBulkActions(newSelection.size > 0);
+  };
+
+  const selectAllProjectlets = () => {
+    if (selectedProjectlets.size === projectlets.length) {
+      // Deselect all
+      setSelectedProjectlets(new Set());
+      setShowBulkActions(false);
+    } else {
+      // Select all
+      setSelectedProjectlets(new Set(projectlets.map(p => p.id)));
+      setShowBulkActions(true);
     }
   };
 
@@ -1988,6 +2057,21 @@ function AdminProjectPageContent() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold">Projectlets Management</h2>
                 <div className="flex items-center gap-2">
+                  {/* Bulk Actions */}
+                  {showBulkActions && (
+                    <div className="flex items-center gap-2 mr-2 p-2 bg-blue-50 rounded-lg">
+                      <span className="text-sm text-blue-700 font-medium">
+                        {selectedProjectlets.size} selected
+                      </span>
+                      <button
+                        onClick={handleBulkDelete}
+                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete Selected
+                      </button>
+                    </div>
+                  )}
                   <button
                     onClick={() => {
                       // Get all applet IDs
@@ -2089,6 +2173,21 @@ function AdminProjectPageContent() {
                 </div>
               </div>
 
+              {/* Select All Checkbox */}
+              {projectlets.length > 0 && (
+                <div className="mb-4 flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedProjectlets.size === projectlets.length && projectlets.length > 0}
+                    onChange={selectAllProjectlets}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer mr-3"
+                  />
+                  <label className="text-sm text-gray-600 font-medium cursor-pointer" onClick={selectAllProjectlets}>
+                    Select All ({projectlets.length} projectlet{projectlets.length !== 1 ? 's' : ''})
+                  </label>
+                </div>
+              )}
+
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -2122,12 +2221,25 @@ function AdminProjectPageContent() {
                           id={projectlet.id}
                           isDragging={activeId !== null}
                         >
-                          <div className={`border-2 rounded-lg ${getStatusColor(projectlet.status)} transition-all`}>
+                          <div className={`border-2 rounded-lg ${getStatusColor(projectlet.status)} transition-all ${
+                            selectedProjectlets.has(projectlet.id) ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                          }`}>
                             {/* Header */}
                             <div className="p-4 pb-0">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-start flex-1">
-                            
+
+                            {/* Checkbox */}
+                            <div className="mr-3 mt-1">
+                              <input
+                                type="checkbox"
+                                checked={selectedProjectlets.has(projectlet.id)}
+                                onChange={() => toggleProjectletSelection(projectlet.id)}
+                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+
                             <div className="flex-1">
                               <div className="flex items-center mb-2 group">
                                 <span className="text-sm font-medium text-gray-500 mr-3">
