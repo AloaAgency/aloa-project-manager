@@ -97,6 +97,11 @@ const FormBuilderModal = dynamic(() => import('@/components/FormBuilderModal'), 
   ssr: false
 });
 
+// Dynamically import Create from Sitemap Modal
+const CreateFromSitemapModal = dynamic(() => import('@/components/CreateFromSitemapModal'), {
+  ssr: false
+});
+
 // Dynamically import Template Modals
 const SaveTemplateModal = dynamic(() => import('@/components/SaveTemplateModal'), {
   ssr: false
@@ -153,6 +158,8 @@ function AdminProjectPageContent() {
   const [projectKnowledgeCount, setProjectKnowledgeCount] = useState(0);
   const [knowledgePendingChanges, setKnowledgePendingChanges] = useState({});
   const [knowledgeSaving, setKnowledgeSaving] = useState(false);
+  const [selectedProjectlets, setSelectedProjectlets] = useState(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
   const [lastFileUpdate, setLastFileUpdate] = useState(null);
   const [showKnowledgeUpload, setShowKnowledgeUpload] = useState(false);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
@@ -179,6 +186,7 @@ function AdminProjectPageContent() {
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [showLoadTemplateModal, setShowLoadTemplateModal] = useState(false);
+  const [showCreateFromSitemapModal, setShowCreateFromSitemapModal] = useState(false);
   const [selectedTemplateProjectlet, setSelectedTemplateProjectlet] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [showTeamMemberModal, setShowTeamMemberModal] = useState(false);
@@ -251,6 +259,16 @@ function AdminProjectPageContent() {
       description: ''
     }
   });
+
+  // Collapsible sections state
+  const [collapsedSections, setCollapsedSections] = useState({
+    projectInfo: false,
+    fileRepository: false,
+    clientReferences: false
+  });
+  const [clientReferences, setClientReferences] = useState([]);
+  const [editingReferences, setEditingReferences] = useState(false);
+  const [tempReferences, setTempReferences] = useState([]);
 
   // ESC key handlers for modals
   useEscapeKey(() => {
@@ -383,6 +401,11 @@ function AdminProjectPageContent() {
 
       setKnowledgeBase(data);
 
+      // Load client references from project metadata
+      if (data.project?.client_references) {
+        setClientReferences(data.project.client_references);
+      }
+
       // Fetch new knowledge system count
       const knowledgeResponse = await fetch(`/api/project-knowledge/${params.projectId}`);
       if (knowledgeResponse.ok) {
@@ -409,6 +432,11 @@ function AdminProjectPageContent() {
         [field]: value
       }
     }));
+
+    // Also handle client_references separately
+    if (field === 'client_references') {
+      setClientReferences(value);
+    }
   };
 
   const handleKnowledgeSave = async () => {
@@ -946,6 +974,9 @@ function AdminProjectPageContent() {
       const projectletsRes = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`);
       const projectletsData = await projectletsRes.json();
       setProjectlets(projectletsData.projectlets);
+      // Clear selection when refreshing
+      setSelectedProjectlets(new Set());
+      setShowBulkActions(false);
       
       // Fetch applets for each projectlet
       if (projectletsData.projectlets) {
@@ -1198,6 +1229,70 @@ function AdminProjectPageContent() {
     } catch (error) {
       console.error('Error deleting projectlet:', error);
       toast.error('Failed to delete projectlet');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProjectlets.size === 0) {
+      toast.error('No projectlets selected');
+      return;
+    }
+
+    const count = selectedProjectlets.size;
+    if (!confirm(`Are you sure you want to delete ${count} projectlet${count > 1 ? 's' : ''}? This will also delete all applets within them.`)) {
+      return;
+    }
+
+    try {
+      // Delete projectlets one by one
+      const deletePromises = Array.from(selectedProjectlets).map(projectletId =>
+        fetch(
+          `/api/aloa-projects/${params.projectId}/projectlets?projectletId=${projectletId}`,
+          { method: 'DELETE' }
+        )
+      );
+
+      const results = await Promise.allSettled(deletePromises);
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value?.ok).length;
+      const failCount = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value?.ok)).length;
+
+      if (successCount > 0) {
+        toast.success(`${successCount} projectlet${successCount > 1 ? 's' : ''} deleted`);
+      }
+      if (failCount > 0) {
+        toast.error(`Failed to delete ${failCount} projectlet${failCount > 1 ? 's' : ''}`);
+      }
+
+      // Clear selection and refresh
+      setSelectedProjectlets(new Set());
+      setShowBulkActions(false);
+      fetchProjectData();
+    } catch (error) {
+      console.error('Error during bulk delete:', error);
+      toast.error('Failed to delete projectlets');
+    }
+  };
+
+  const toggleProjectletSelection = (projectletId) => {
+    const newSelection = new Set(selectedProjectlets);
+    if (newSelection.has(projectletId)) {
+      newSelection.delete(projectletId);
+    } else {
+      newSelection.add(projectletId);
+    }
+    setSelectedProjectlets(newSelection);
+    setShowBulkActions(newSelection.size > 0);
+  };
+
+  const selectAllProjectlets = () => {
+    if (selectedProjectlets.size === projectlets.length) {
+      // Deselect all
+      setSelectedProjectlets(new Set());
+      setShowBulkActions(false);
+    } else {
+      // Select all
+      setSelectedProjectlets(new Set(projectlets.map(p => p.id)));
+      setShowBulkActions(true);
     }
   };
 
@@ -1463,8 +1558,27 @@ function AdminProjectPageContent() {
 
           {knowledgeBase && (
             <>
-              {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Project Information Section - Collapsible */}
+              <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setCollapsedSections(prev => ({ ...prev, projectInfo: !prev.projectInfo }))}
+                  className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                >
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <Database className="w-5 h-5 mr-2 text-purple-600" />
+                    Project Information
+                  </h3>
+                  {collapsedSections.projectInfo ? (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  )}
+                </button>
+
+                {!collapsedSections.projectInfo && (
+                  <div className="p-4">
+                    {/* Basic Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Globe className="inline w-4 h-4 mr-1" />
@@ -1492,10 +1606,10 @@ function AdminProjectPageContent() {
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
-              </div>
+                    </div>
 
-              {/* Base Knowledge */}
-              <div className="mb-6">
+                    {/* Base Knowledge */}
+                    <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Database className="inline w-4 h-4 mr-1" />
                   Base Knowledge (Key Information)
@@ -1507,10 +1621,10 @@ function AdminProjectPageContent() {
                   rows={4}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
-              </div>
+                    </div>
 
-              {/* Brand Colors Section */}
-              <div className="mb-6">
+                    {/* Brand Colors Section */}
+                    <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Palette className="inline w-4 h-4 mr-1" />
                   Brand Colors
@@ -1586,15 +1700,160 @@ function AdminProjectPageContent() {
                     </button>
                   </div>
                 </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* File Repository - Central Knowledge Base */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-3 flex items-center">
-                  <FolderOpen className="w-5 h-5 mr-2 text-purple-600" />
-                  Project File Repository
-                </h3>
-                <div className="border border-gray-200 rounded-lg bg-gray-50">
+              {/* Client References Section - New */}
+              <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setCollapsedSections(prev => ({ ...prev, clientReferences: !prev.clientReferences }))}
+                  className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                >
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <Link className="w-5 h-5 mr-2 text-purple-600" />
+                    Client References
+                  </h3>
+                  {collapsedSections.clientReferences ? (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  )}
+                </button>
+
+                {!collapsedSections.clientReferences && (
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm text-gray-600">Add URLs for client reference websites and inspiration</p>
+                      {!editingReferences ? (
+                        <button
+                          onClick={() => {
+                            setEditingReferences(true);
+                            setTempReferences([...(clientReferences || [])]);
+                          }}
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              handleKnowledgeFieldChange('client_references', tempReferences);
+                              setEditingReferences(false);
+                            }}
+                            className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingReferences(false);
+                              setTempReferences([]);
+                            }}
+                            className="px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {editingReferences ? (
+                      <div className="space-y-2">
+                        {tempReferences.map((ref, index) => (
+                          <div key={index} className="flex gap-2">
+                            <input
+                              type="url"
+                              value={ref.url}
+                              onChange={(e) => {
+                                const newRefs = [...tempReferences];
+                                newRefs[index] = { ...ref, url: e.target.value };
+                                setTempReferences(newRefs);
+                              }}
+                              placeholder="https://example.com"
+                              className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
+                            <input
+                              type="text"
+                              value={ref.description || ''}
+                              onChange={(e) => {
+                                const newRefs = [...tempReferences];
+                                newRefs[index] = { ...ref, description: e.target.value };
+                                setTempReferences(newRefs);
+                              }}
+                              placeholder="Description (optional)"
+                              className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
+                            <button
+                              onClick={() => {
+                                setTempReferences(tempReferences.filter((_, i) => i !== index));
+                              }}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
+                            setTempReferences([...tempReferences, { url: '', description: '' }]);
+                          }}
+                          className="w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-purple-400 hover:text-purple-600 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Reference URL
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {clientReferences && clientReferences.length > 0 ? (
+                          clientReferences.map((ref, index) => (
+                            <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                              <ExternalLink className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                              <a
+                                href={ref.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline flex-1 truncate"
+                              >
+                                {ref.url}
+                              </a>
+                              {ref.description && (
+                                <span className="text-sm text-gray-600">- {ref.description}</span>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-gray-400 italic">No reference URLs added yet</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* File Repository Section - Collapsible */}
+              <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setCollapsedSections(prev => ({ ...prev, fileRepository: !prev.fileRepository }))}
+                  className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                >
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <FolderOpen className="w-5 h-5 mr-2 text-purple-600" />
+                    Project File Repository
+                  </h3>
+                  {collapsedSections.fileRepository ? (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  )}
+                </button>
+
+                {!collapsedSections.fileRepository && (
+                  <div className="p-4">
+                    <div className="border border-gray-200 rounded-lg bg-gray-50">
                   <EnhancedFileRepository
                     projectId={params.projectId}
                     canUpload={true}
@@ -1604,8 +1863,10 @@ function AdminProjectPageContent() {
                       fetchProjectFileCount();
                       fetchKnowledgeBase(); // Refresh knowledge count too
                     }}
-                  />
-                </div>
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Legacy Knowledge Documents - Hidden (deprecated in favor of automatic extraction) */}
@@ -1796,6 +2057,21 @@ function AdminProjectPageContent() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold">Projectlets Management</h2>
                 <div className="flex items-center gap-2">
+                  {/* Bulk Actions */}
+                  {showBulkActions && (
+                    <div className="flex items-center gap-2 mr-2 p-2 bg-blue-50 rounded-lg">
+                      <span className="text-sm text-blue-700 font-medium">
+                        {selectedProjectlets.size} selected
+                      </span>
+                      <button
+                        onClick={handleBulkDelete}
+                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete Selected
+                      </button>
+                    </div>
+                  )}
                   <button
                     onClick={() => {
                       // Get all applet IDs
@@ -1880,11 +2156,37 @@ function AdminProjectPageContent() {
                           <Save className="w-4 h-4 mr-2" />
                           Save All as Template
                         </button>
+                        <hr className="my-1" />
+                        <button
+                          onClick={() => {
+                            setShowCreateFromSitemapModal(true);
+                            setShowTemplateMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                        >
+                          <Map className="w-4 h-4 mr-2" />
+                          Create from Sitemap
+                        </button>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
+
+              {/* Select All Checkbox */}
+              {projectlets.length > 0 && (
+                <div className="mb-4 flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedProjectlets.size === projectlets.length && projectlets.length > 0}
+                    onChange={selectAllProjectlets}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer mr-3"
+                  />
+                  <label className="text-sm text-gray-600 font-medium cursor-pointer" onClick={selectAllProjectlets}>
+                    Select All ({projectlets.length} projectlet{projectlets.length !== 1 ? 's' : ''})
+                  </label>
+                </div>
+              )}
 
               <DndContext
                 sensors={sensors}
@@ -1919,12 +2221,25 @@ function AdminProjectPageContent() {
                           id={projectlet.id}
                           isDragging={activeId !== null}
                         >
-                          <div className={`border-2 rounded-lg ${getStatusColor(projectlet.status)} transition-all`}>
+                          <div className={`border-2 rounded-lg ${getStatusColor(projectlet.status)} transition-all ${
+                            selectedProjectlets.has(projectlet.id) ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                          }`}>
                             {/* Header */}
                             <div className="p-4 pb-0">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-start flex-1">
-                            
+
+                            {/* Checkbox */}
+                            <div className="mr-3 mt-1">
+                              <input
+                                type="checkbox"
+                                checked={selectedProjectlets.has(projectlet.id)}
+                                onChange={() => toggleProjectletSelection(projectlet.id)}
+                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+
                             <div className="flex-1">
                               <div className="flex items-center mb-2 group">
                                 <span className="text-sm font-medium text-gray-500 mr-3">
@@ -4736,6 +5051,20 @@ function AdminProjectPageContent() {
           onLoadTemplate={() => {
             // Refresh the page after loading template
             window.location.reload();
+          }}
+        />
+      )}
+
+      {/* Create from Sitemap Modal */}
+      {showCreateFromSitemapModal && (
+        <CreateFromSitemapModal
+          projectId={params.projectId}
+          onClose={() => setShowCreateFromSitemapModal(false)}
+          onSuccess={(message) => {
+            toast.success(message);
+            setShowCreateFromSitemapModal(false);
+            // Refresh projectlets
+            fetchProjectlets();
           }}
         />
       )}
