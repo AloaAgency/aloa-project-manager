@@ -252,6 +252,16 @@ function AdminProjectPageContent() {
     }
   });
 
+  // Collapsible sections state
+  const [collapsedSections, setCollapsedSections] = useState({
+    projectInfo: false,
+    fileRepository: false,
+    clientReferences: false
+  });
+  const [clientReferences, setClientReferences] = useState([]);
+  const [editingReferences, setEditingReferences] = useState(false);
+  const [tempReferences, setTempReferences] = useState([]);
+
   // ESC key handlers for modals
   useEscapeKey(() => {
     setShowProjectletEditor(false);
@@ -383,6 +393,11 @@ function AdminProjectPageContent() {
 
       setKnowledgeBase(data);
 
+      // Load client references from project metadata
+      if (data.project?.client_references) {
+        setClientReferences(data.project.client_references);
+      }
+
       // Fetch new knowledge system count
       const knowledgeResponse = await fetch(`/api/project-knowledge/${params.projectId}`);
       if (knowledgeResponse.ok) {
@@ -409,6 +424,11 @@ function AdminProjectPageContent() {
         [field]: value
       }
     }));
+
+    // Also handle client_references separately
+    if (field === 'client_references') {
+      setClientReferences(value);
+    }
   };
 
   const handleKnowledgeSave = async () => {
@@ -1463,8 +1483,27 @@ function AdminProjectPageContent() {
 
           {knowledgeBase && (
             <>
-              {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Project Information Section - Collapsible */}
+              <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setCollapsedSections(prev => ({ ...prev, projectInfo: !prev.projectInfo }))}
+                  className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                >
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <Database className="w-5 h-5 mr-2 text-purple-600" />
+                    Project Information
+                  </h3>
+                  {collapsedSections.projectInfo ? (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  )}
+                </button>
+
+                {!collapsedSections.projectInfo && (
+                  <div className="p-4">
+                    {/* Basic Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Globe className="inline w-4 h-4 mr-1" />
@@ -1492,10 +1531,10 @@ function AdminProjectPageContent() {
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
-              </div>
+                    </div>
 
-              {/* Base Knowledge */}
-              <div className="mb-6">
+                    {/* Base Knowledge */}
+                    <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Database className="inline w-4 h-4 mr-1" />
                   Base Knowledge (Key Information)
@@ -1507,10 +1546,10 @@ function AdminProjectPageContent() {
                   rows={4}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
-              </div>
+                    </div>
 
-              {/* Brand Colors Section */}
-              <div className="mb-6">
+                    {/* Brand Colors Section */}
+                    <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Palette className="inline w-4 h-4 mr-1" />
                   Brand Colors
@@ -1586,15 +1625,160 @@ function AdminProjectPageContent() {
                     </button>
                   </div>
                 </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* File Repository - Central Knowledge Base */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-3 flex items-center">
-                  <FolderOpen className="w-5 h-5 mr-2 text-purple-600" />
-                  Project File Repository
-                </h3>
-                <div className="border border-gray-200 rounded-lg bg-gray-50">
+              {/* Client References Section - New */}
+              <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setCollapsedSections(prev => ({ ...prev, clientReferences: !prev.clientReferences }))}
+                  className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                >
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <Link className="w-5 h-5 mr-2 text-purple-600" />
+                    Client References
+                  </h3>
+                  {collapsedSections.clientReferences ? (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  )}
+                </button>
+
+                {!collapsedSections.clientReferences && (
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm text-gray-600">Add URLs for client reference websites and inspiration</p>
+                      {!editingReferences ? (
+                        <button
+                          onClick={() => {
+                            setEditingReferences(true);
+                            setTempReferences([...(clientReferences || [])]);
+                          }}
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              handleKnowledgeFieldChange('client_references', tempReferences);
+                              setEditingReferences(false);
+                            }}
+                            className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingReferences(false);
+                              setTempReferences([]);
+                            }}
+                            className="px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {editingReferences ? (
+                      <div className="space-y-2">
+                        {tempReferences.map((ref, index) => (
+                          <div key={index} className="flex gap-2">
+                            <input
+                              type="url"
+                              value={ref.url}
+                              onChange={(e) => {
+                                const newRefs = [...tempReferences];
+                                newRefs[index] = { ...ref, url: e.target.value };
+                                setTempReferences(newRefs);
+                              }}
+                              placeholder="https://example.com"
+                              className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
+                            <input
+                              type="text"
+                              value={ref.description || ''}
+                              onChange={(e) => {
+                                const newRefs = [...tempReferences];
+                                newRefs[index] = { ...ref, description: e.target.value };
+                                setTempReferences(newRefs);
+                              }}
+                              placeholder="Description (optional)"
+                              className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
+                            <button
+                              onClick={() => {
+                                setTempReferences(tempReferences.filter((_, i) => i !== index));
+                              }}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
+                            setTempReferences([...tempReferences, { url: '', description: '' }]);
+                          }}
+                          className="w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-purple-400 hover:text-purple-600 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Reference URL
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {clientReferences && clientReferences.length > 0 ? (
+                          clientReferences.map((ref, index) => (
+                            <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                              <ExternalLink className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                              <a
+                                href={ref.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline flex-1 truncate"
+                              >
+                                {ref.url}
+                              </a>
+                              {ref.description && (
+                                <span className="text-sm text-gray-600">- {ref.description}</span>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-gray-400 italic">No reference URLs added yet</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* File Repository Section - Collapsible */}
+              <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setCollapsedSections(prev => ({ ...prev, fileRepository: !prev.fileRepository }))}
+                  className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                >
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <FolderOpen className="w-5 h-5 mr-2 text-purple-600" />
+                    Project File Repository
+                  </h3>
+                  {collapsedSections.fileRepository ? (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  )}
+                </button>
+
+                {!collapsedSections.fileRepository && (
+                  <div className="p-4">
+                    <div className="border border-gray-200 rounded-lg bg-gray-50">
                   <EnhancedFileRepository
                     projectId={params.projectId}
                     canUpload={true}
@@ -1604,8 +1788,10 @@ function AdminProjectPageContent() {
                       fetchProjectFileCount();
                       fetchKnowledgeBase(); // Refresh knowledge count too
                     }}
-                  />
-                </div>
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Legacy Knowledge Documents - Hidden (deprecated in favor of automatic extraction) */}
