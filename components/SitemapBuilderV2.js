@@ -162,7 +162,7 @@ const SitemapBuilderV2 = ({
     return () => clearTimeout(timer);
   }, [sitemap, onAutoSave, isLocked]);
 
-  const handleDragStart = (e, item, fromSection) => {
+  const handleDragStart = useCallback((e, item, fromSection) => {
     if (item.name === 'Home' || item.id === '1' || isLocked) {
       e.preventDefault();
       return;
@@ -172,14 +172,14 @@ const SitemapBuilderV2 = ({
     setDraggedItem(dragData);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', e.target.innerHTML);
-  };
+  }, [isLocked]);
 
-  const handleDragOver = (e) => {
+  const handleDragOver = useCallback((e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-  };
+  }, []);
 
-  const handleDrop = (e, toSection, toIndex) => {
+  const handleDrop = useCallback((e, toSection, toIndex) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -280,12 +280,12 @@ const SitemapBuilderV2 = ({
 
     setDraggedItem(null);
     setDragOverInfo(null);
-  };
+  }, [draggedItem, isLocked, projectScope.main_pages, projectScope.aux_pages, pageCount]);
 
-  const handleDragEnd = () => {
+  const handleDragEnd = useCallback(() => {
     setDraggedItem(null);
     setDragOverInfo(null);
-  };
+  }, []);
 
   const deletePage = (pageId, section) => {
     if (isLocked || pageId === '1') return;
@@ -318,12 +318,12 @@ const SitemapBuilderV2 = ({
     setEditName('');
   };
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (isLocked) return;
     if (typeof onSave === 'function') {
       onSave(sitemap);
     }
-  };
+  }, [isLocked, onSave, sitemap]);
 
   const renderPage = (page, section, index) => {
     const isHome = page.name === 'Home' || page.id === '1';
@@ -568,4 +568,18 @@ const SitemapBuilderV2 = ({
   );
 };
 
-export default SitemapBuilderV2;
+// Memoize component to prevent unnecessary re-renders during drag operations
+const arePropsEqual = (prevProps, nextProps) => {
+  return (
+    prevProps.isLocked === nextProps.isLocked &&
+    prevProps.appletId === nextProps.appletId &&
+    prevProps.projectId === nextProps.projectId &&
+    prevProps.userId === nextProps.userId &&
+    prevProps.websiteUrl === nextProps.websiteUrl &&
+    JSON.stringify(prevProps.config) === JSON.stringify(nextProps.config) &&
+    JSON.stringify(prevProps.projectScope) === JSON.stringify(nextProps.projectScope) &&
+    JSON.stringify(prevProps.initialData) === JSON.stringify(nextProps.initialData)
+  );
+};
+
+export default React.memo(SitemapBuilderV2, arePropsEqual);
