@@ -150,9 +150,9 @@ export async function GET(request, { params }) {
           const { data: form } = await supabase
             .from('aloa_forms')
             .select(`
-              id, 
-              title, 
-              description, 
+              id,
+              title,
+              description,
               url_id,
               status,
               sections,
@@ -172,13 +172,30 @@ export async function GET(request, { params }) {
             `)
             .eq('id', applet.form_id)
             .single();
-          
+
           if (form) {
             // Sort fields by order
             if (form.aloa_form_fields) {
               form.aloa_form_fields.sort((a, b) => (a.field_order || 0) - (b.field_order || 0));
             }
             applet.form = form;
+          }
+        }
+
+        // For AI Form Results applets, fetch the form title if not already in config
+        if (applet.type === 'ai_form_results' && applet.config?.form_id) {
+          // If form_title isn't already saved in config, fetch it
+          if (!applet.config.form_title) {
+            const { data: form } = await supabase
+              .from('aloa_forms')
+              .select('title')
+              .eq('id', applet.config.form_id)
+              .single();
+
+            if (form) {
+              // Update the config to include the form title for display
+              applet.config.form_title = form.title;
+            }
           }
         }
       }
@@ -266,6 +283,25 @@ export async function POST(request, { params }) {
 
     console.log(`Client interaction - Project: ${projectId}, Applet: ${appletId}, User: ${userId}, Type: ${interactionType}, Status: ${status}`);
 
+    // Get stakeholder importance if userId is a valid UUID
+    let stakeholderImportance = 5; // Default importance
+    let stakeholderId = null;
+
+    if (userId && userId !== 'anonymous' && userId.match(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)) {
+      const { data: stakeholder } = await supabase
+        .from('aloa_project_stakeholders')
+        .select('id, importance_score')
+        .eq('user_id', userId)
+        .eq('project_id', projectId)
+        .single();
+
+      if (stakeholder) {
+        stakeholderImportance = stakeholder.importance_score || 5;
+        stakeholderId = stakeholder.id;
+        console.log(`Found stakeholder importance: ${stakeholderImportance} for user ${userId}`);
+      }
+    }
+
     // For palette_submit, ensure we're marking as completed
     const finalStatus = (interactionType === 'palette_submit' || interactionType === 'submission') ? 'completed' : status;
     const completionPercentage = finalStatus === 'completed' ? 100 : (status === 'in_progress' ? 50 : null);
@@ -309,7 +345,9 @@ export async function POST(request, { params }) {
             status: 'completed',
             completed_at: new Date().toISOString(),
             completion_percentage: 100,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            stakeholder_importance: stakeholderImportance,
+            stakeholder_id: stakeholderId
           })
           .eq('applet_id', appletId)
           .eq('user_id', userId)

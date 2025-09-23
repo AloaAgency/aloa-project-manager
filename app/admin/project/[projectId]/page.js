@@ -58,13 +58,13 @@ import {
   MessageSquare,
   MoreVertical,
   Pencil,
+  Edit2,
   GripVertical,
   Settings,
   Copy,
   Bell,
   ExternalLink,
   BarChart,
-  Edit2,
   Star,
   Map,
   Download
@@ -94,6 +94,15 @@ const AdminNotifications = dynamic(() => import('@/components/AdminNotifications
 
 // Dynamically import Form Builder Modal
 const FormBuilderModal = dynamic(() => import('@/components/FormBuilderModal'), {
+  ssr: false
+});
+
+// Dynamically import Template Modals
+const SaveTemplateModal = dynamic(() => import('@/components/SaveTemplateModal'), {
+  ssr: false
+});
+
+const LoadTemplateModal = dynamic(() => import('@/components/LoadTemplateModal'), {
   ssr: false
 });
 
@@ -167,6 +176,10 @@ function AdminProjectPageContent() {
   const [editingStakeholder, setEditingStakeholder] = useState(null);
   const [expandedApplets, setExpandedApplets] = useState({});
   const [availableUsers, setAvailableUsers] = useState([]);
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [showLoadTemplateModal, setShowLoadTemplateModal] = useState(false);
+  const [selectedTemplateProjectlet, setSelectedTemplateProjectlet] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [showTeamMemberModal, setShowTeamMemberModal] = useState(false);
   const [selectedTeamUserId, setSelectedTeamUserId] = useState('');
@@ -224,6 +237,10 @@ function AdminProjectPageContent() {
     revisionRequestedAt: null,
     appletName: null
   });
+  const [showAIReportEditor, setShowAIReportEditor] = useState(false);
+  const [editingAIReport, setEditingAIReport] = useState(null);
+  const [showNarrativeEditor, setShowNarrativeEditor] = useState(false);
+  const [editingNarrativeApplet, setEditingNarrativeApplet] = useState(null);
   const [editingProjectInfo, setEditingProjectInfo] = useState(false);
   const [tempProjectInfo, setTempProjectInfo] = useState({
     project_type: '',
@@ -631,6 +648,7 @@ function AdminProjectPageContent() {
     try {
       const formsRes = await fetch(`/api/aloa-forms?project=${params.projectId}`);
       const formsData = await formsRes.json();
+      console.log('Available forms from API:', formsData);
       setAvailableForms(formsData || []);
       setProjectForms(formsData || []);
     } catch (error) {
@@ -1105,6 +1123,8 @@ function AdminProjectPageContent() {
 
   const updateProjectletStatus = async (projectletId, newStatus) => {
     try {
+      console.log('Updating projectlet status:', { projectletId, newStatus, projectId: params.projectId });
+
       const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1115,11 +1135,20 @@ function AdminProjectPageContent() {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('Status update successful:', result);
+        // Show success feedback
+        toast.success(`Status updated to ${newStatus.replace('_', ' ')}`);
         // Refresh projectlets
         fetchProjectData();
+      } else {
+        const errorData = await response.text();
+        console.error('Failed to update status:', response.status, errorData);
+        toast.error('Failed to update status');
       }
     } catch (error) {
       console.error('Error updating projectlet:', error);
+      toast.error('Error updating status');
     }
   };
 
@@ -1811,13 +1840,49 @@ function AdminProjectPageContent() {
                       );
                     })()}
                   </button>
-                  <button 
+                  <button
                     onClick={addProjectlet}
                     className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Projectlet
                   </button>
+
+                  {/* Template Menu */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+                      className="p-2 border rounded-lg hover:bg-gray-50"
+                      title="Template options"
+                    >
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+
+                    {showTemplateMenu && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border z-20">
+                        <button
+                          onClick={() => {
+                            setShowLoadTemplateModal(true);
+                            setShowTemplateMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                        >
+                          <FolderOpen className="w-4 h-4 mr-2" />
+                          Load Template
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowSaveTemplateModal(true);
+                            setShowTemplateMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          Save All as Template
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1967,6 +2032,17 @@ function AdminProjectPageContent() {
                                   >
                                     <Copy className="w-4 h-4 mr-2" />
                                     Duplicate
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTemplateProjectlet(projectlet);
+                                      setShowSaveTemplateModal(true);
+                                      setShowActionMenu(null);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                                  >
+                                    <Save className="w-4 h-4 mr-2" />
+                                    Save as Template
                                   </button>
                                   <hr className="my-1" />
                                   <button
@@ -2805,6 +2881,482 @@ function AdminProjectPageContent() {
                                           <strong>{applet.completions.length}</strong> participant{applet.completions.length !== 1 ? 's have' : ' has'} selected their tone of voice
                                         </div>
                                       )}
+                                    </div>
+                                  )}
+
+                                  {/* Inline AI Form Results configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'ai_form_results' && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                      {/* Form selector dropdown */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Select Source Form
+                                        </label>
+                                        <select
+                                          value={applet.config?.form_id || ''}
+                                          onChange={async (e) => {
+                                            try {
+                                              const selectedFormId = e.target.value;
+                                              const selectedForm = availableForms.find(f => f.id === selectedFormId);
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      form_id: selectedFormId,
+                                                      form_title: selectedForm?.title || '',
+                                                      ai_report: null, // Clear report when changing form
+                                                      last_generated_at: null
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success('Form selected');
+                                              }
+                                            } catch (error) {
+                                              console.error('Error updating applet:', error);
+                                              toast.error('Failed to update form selection');
+                                            }
+                                          }}
+                                          className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        >
+                                          <option value="">Select a form...</option>
+                                          {availableForms.filter(form => form.projectId === params.projectId).map(form => (
+                                            <option key={form.id} value={form.id}>
+                                              {form.title}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+
+                                      {/* Generate/Regenerate AI Report Button */}
+                                      {applet.config?.form_id && (
+                                        <div className="flex items-center justify-between">
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                toast.loading('Generating AI insights...', { id: 'ai-report' });
+
+                                                // Call the AI analysis endpoint
+                                                const response = await fetch(
+                                                  `/api/ai-analysis/${applet.config.form_id}`,
+                                                  {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' }
+                                                  }
+                                                );
+
+                                                if (!response.ok) {
+                                                  const error = await response.json();
+                                                  throw new Error(error.error || 'Failed to generate report');
+                                                }
+
+                                                const aiData = await response.json();
+
+                                                // Save the report to the applet config
+                                                const updateResponse = await fetch(
+                                                  `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                  {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                      config: {
+                                                        ...applet.config,
+                                                        ai_report: aiData,
+                                                        last_generated_at: new Date().toISOString()
+                                                      }
+                                                    })
+                                                  }
+                                                );
+
+                                                if (updateResponse.ok) {
+                                                  fetchProjectletApplets(projectlet.id);
+                                                  toast.success('AI insights generated successfully!', { id: 'ai-report' });
+                                                } else {
+                                                  throw new Error('Failed to save report');
+                                                }
+                                              } catch (error) {
+                                                console.error('Error generating AI report:', error);
+                                                toast.error(error.message || 'Failed to generate AI insights', { id: 'ai-report' });
+                                              }
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                                          >
+                                            <Brain className="w-4 h-4" />
+                                            {applet.config?.ai_report ? 'Regenerate AI Insights' : 'Generate AI Insights'}
+                                          </button>
+
+                                          {applet.config?.last_generated_at && (
+                                            <span className="text-xs text-gray-500">
+                                              Last generated: {new Date(applet.config.last_generated_at).toLocaleString()}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Preview of AI Report */}
+                                      {applet.config?.ai_report && (
+                                        <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                                          <h4 className="font-semibold text-sm text-gray-700 mb-2">AI Report Preview</h4>
+
+                                          {/* Executive Summary */}
+                                          {applet.config.ai_report.executiveSummary && (
+                                            <div className="mb-3">
+                                              <h5 className="text-xs font-medium text-gray-600 uppercase mb-1">Executive Summary</h5>
+                                              <p className="text-sm text-gray-700 line-clamp-3">
+                                                {applet.config.ai_report.executiveSummary}
+                                              </p>
+                                            </div>
+                                          )}
+
+                                          {/* Key Metrics */}
+                                          {applet.config.ai_report.keyMetrics && (
+                                            <div className="mb-3">
+                                              <h5 className="text-xs font-medium text-gray-600 uppercase mb-1">Key Metrics</h5>
+                                              <div className="flex gap-3 flex-wrap">
+                                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                                  Responses: {applet.config.ai_report.keyMetrics.totalResponses || 0}
+                                                </span>
+                                                {applet.config.ai_report.keyMetrics.completionRate && (
+                                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                                    Completion: {applet.config.ai_report.keyMetrics.completionRate}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {/* Edit Report Button */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              // Close any other modals first
+                                              setShowAppletManager(false);
+                                              setSelectedProjectletForApplet(null);
+                                              // Open a modal to edit the report
+                                              setEditingAIReport(applet);
+                                              setShowAIReportEditor(true);
+                                            }}
+                                            className="mt-2 text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                                          >
+                                            <Edit2 className="w-3 h-3" />
+                                            Edit Report Before Sharing
+                                          </button>
+                                        </div>
+                                      )}
+
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between pt-2 border-t">
+                                        <div className="flex items-center space-x-2">
+                                          {applet.config?.locked ? (
+                                            <Lock className="w-4 h-4 text-red-600" />
+                                          ) : (
+                                            <Unlock className="w-4 h-4 text-green-600" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {applet.config?.locked ? 'Report Published' : 'Report Draft'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const newLockedState = !applet.config?.locked;
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: newLockedState
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success(newLockedState ? 'Report published to client' : 'Report set to draft mode');
+                                              }
+                                            } catch (error) {
+                                              console.error('Error toggling lock:', error);
+                                              toast.error('Failed to update report status');
+                                            }
+                                          }}
+                                          className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                                            applet.config?.locked
+                                              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? 'Unpublish' : 'Publish to Client'}
+                                        </button>
+                                      </div>
+
+                                      {/* Info text */}
+                                      <div className="text-xs text-gray-600">
+                                        {applet.config?.locked ? (
+                                          <>
+                                            <strong>Published:</strong> Client can view the AI-generated insights report.
+                                          </>
+                                        ) : (
+                                          <>
+                                            <strong>Draft:</strong> Report is hidden from client until published.
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Inline AI Narrative Generator configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'ai_narrative_generator' && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                      {/* Page Name */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Page Name
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={applet.config?.pageName || 'Homepage'}
+                                          onChange={async (e) => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      pageName: e.target.value
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success('Page name updated');
+                                              }
+                                            } catch (error) {
+                                              toast.error('Failed to update page name');
+                                            }
+                                          }}
+                                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                          placeholder="e.g., Homepage, About Us, Services"
+                                        />
+                                      </div>
+
+                                      {/* Form selector dropdown */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Select Source Form
+                                        </label>
+                                        <select
+                                          value={applet.config?.formId || ''}
+                                          onChange={async (e) => {
+                                            try {
+                                              const selectedFormId = e.target.value;
+                                              const selectedForm = availableForms.find(f => f.id === selectedFormId);
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      formId: selectedFormId,
+                                                      formTitle: selectedForm?.title || '',
+                                                      generatedContent: null,
+                                                      aiGenerated: false,
+                                                      lastGeneratedAt: null
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success('Form selected');
+                                              }
+                                            } catch (error) {
+                                              toast.error('Failed to select form');
+                                            }
+                                          }}
+                                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        >
+                                          <option value="">Select a form...</option>
+                                          {availableForms.map(form => (
+                                            <option key={form.id} value={form.id}>
+                                              {form.title}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+
+                                      {/* Generate/Regenerate button */}
+                                      {applet.config?.formId && (
+                                        <div className="flex items-center justify-between">
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                console.log('Generate Narrative clicked. Applet config:', applet.config);
+                                                console.log('Form ID being sent:', applet.config.formId);
+
+                                                toast.loading('Generating narrative content...', { id: 'ai-narrative' });
+
+                                                // Call the API to generate narrative
+                                                const response = await fetch('/api/ai-narrative-generator', {
+                                                  method: 'POST',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    formId: applet.config.formId,
+                                                    pageName: applet.config.pageName || 'Homepage',
+                                                    projectId: params.projectId
+                                                  })
+                                                });
+
+                                                if (!response.ok) {
+                                                  throw new Error('Failed to generate narrative');
+                                                }
+
+                                                const narrativeData = await response.json();
+
+                                                // Save the generated content
+                                                const updateResponse = await fetch(
+                                                  `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                  {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                      config: {
+                                                        ...applet.config,
+                                                        generatedContent: narrativeData,
+                                                        aiGenerated: true,
+                                                        lastGeneratedAt: new Date().toISOString()
+                                                      }
+                                                    })
+                                                  }
+                                                );
+
+                                                if (updateResponse.ok) {
+                                                  fetchProjectletApplets(projectlet.id);
+                                                  toast.success('Narrative content generated successfully!', { id: 'ai-narrative' });
+                                                } else {
+                                                  throw new Error('Failed to save narrative');
+                                                }
+                                              } catch (error) {
+                                                console.error('Error generating narrative:', error);
+                                                toast.error(error.message || 'Failed to generate narrative', { id: 'ai-narrative' });
+                                              }
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                                          >
+                                            <Brain className="w-4 h-4" />
+                                            {applet.config?.generatedContent ? 'Regenerate Narrative' : 'Generate Narrative'}
+                                          </button>
+
+                                          {applet.config?.lastGeneratedAt && (
+                                            <span className="text-xs text-gray-500">
+                                              Last generated: {new Date(applet.config.lastGeneratedAt).toLocaleString()}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Preview of Generated Content */}
+                                      {applet.config?.generatedContent && (
+                                        <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                                          <h4 className="font-semibold text-sm text-gray-700 mb-2">Content Preview</h4>
+
+                                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                                            {Object.entries(applet.config.generatedContent).map(([section, content]) => (
+                                              <div key={section} className="border-b border-gray-100 pb-2 last:border-0">
+                                                <h5 className="text-xs font-medium text-gray-600 uppercase mb-1">{section}</h5>
+                                                <p className="text-sm text-gray-700 line-clamp-3">{content}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+
+                                          {/* Edit Content Button */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              // Set up state for editing
+                                              setEditingNarrativeApplet(applet);
+                                              setShowNarrativeEditor(true);
+                                            }}
+                                            className="mt-2 text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                                          >
+                                            <Edit2 className="w-3 h-3" />
+                                            Edit Content
+                                          </button>
+                                        </div>
+                                      )}
+
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between pt-2 border-t">
+                                        <div className="flex items-center space-x-2">
+                                          {applet.config?.locked ? (
+                                            <Lock className="w-4 h-4 text-red-600" />
+                                          ) : (
+                                            <Unlock className="w-4 h-4 text-green-600" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {applet.config?.locked ? 'Content Published' : 'Content Draft'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: !applet.config?.locked
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success(applet.config?.locked ? 'Content unpublished' : 'Content published to client!');
+                                              }
+                                            } catch (error) {
+                                              toast.error('Failed to update publish status');
+                                            }
+                                          }}
+                                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                            applet.config?.locked
+                                              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? 'Unpublish' : 'Publish to Client'}
+                                        </button>
+                                      </div>
+
+                                      {/* Info text */}
+                                      <div className="text-xs text-gray-600">
+                                        {applet.config?.locked ? (
+                                          <>
+                                            <strong>Published:</strong> Client can view the narrative content for their {applet.config?.pageName || 'page'}.
+                                          </>
+                                        ) : (
+                                          <>
+                                            <strong>Draft:</strong> Content is hidden from client until published.
+                                          </>
+                                        )}
+                                      </div>
                                     </div>
                                   )}
 
@@ -4160,6 +4712,34 @@ function AdminProjectPageContent() {
         />
       )}
 
+      {/* Save Template Modal */}
+      {showSaveTemplateModal && (
+        <SaveTemplateModal
+          isOpen={showSaveTemplateModal}
+          onClose={() => {
+            setShowSaveTemplateModal(false);
+            setSelectedTemplateProjectlet(null);
+          }}
+          projectId={params.projectId}
+          selectedProjectlet={selectedTemplateProjectlet}
+          allProjectlets={selectedTemplateProjectlet ? null : projectlets}
+          projectletApplets={projectletApplets}
+        />
+      )}
+
+      {/* Load Template Modal */}
+      {showLoadTemplateModal && (
+        <LoadTemplateModal
+          isOpen={showLoadTemplateModal}
+          onClose={() => setShowLoadTemplateModal(false)}
+          projectId={params.projectId}
+          onLoadTemplate={() => {
+            // Refresh the page after loading template
+            window.location.reload();
+          }}
+        />
+      )}
+
       {/* Team Member Modal */}
       {showTeamMemberModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -4648,6 +5228,295 @@ function AdminProjectPageContent() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Report Editor Modal */}
+      {showAIReportEditor && editingAIReport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b flex items-center justify-between">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Brain className="w-5 h-5 text-purple-600" />
+                Edit AI Report
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAIReportEditor(false);
+                  setEditingAIReport(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const formData = new FormData(e.target);
+                    const updatedReport = {
+                      executiveSummary: formData.get('executiveSummary'),
+                      keyMetrics: editingAIReport.config?.ai_report?.keyMetrics || {},
+                      insights: formData.get('insights')?.split('\n').filter(Boolean) || [],
+                      recommendations: formData.get('recommendations')?.split('\n').filter(Boolean) || [],
+                      conclusion: formData.get('conclusion')
+                    };
+
+                    const response = await fetch(
+                      `/api/aloa-projects/${params.projectId}/projectlets/${editingAIReport.projectlet_id}/applets/${editingAIReport.id}`,
+                      {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          config: {
+                            ...editingAIReport.config,
+                            ai_report: updatedReport
+                          }
+                        })
+                      }
+                    );
+
+                    if (response.ok) {
+                      toast.success('Report updated successfully');
+                      setShowAIReportEditor(false);
+                      setEditingAIReport(null);
+                      // Refresh the applets
+                      fetchProjectData();
+                    } else {
+                      throw new Error('Failed to update report');
+                    }
+                  } catch (error) {
+                    console.error('Error updating report:', error);
+                    toast.error('Failed to update report');
+                  }
+                }}
+                className="space-y-6"
+              >
+                {/* Executive Summary */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Executive Summary
+                  </label>
+                  <textarea
+                    name="executiveSummary"
+                    defaultValue={editingAIReport.config?.ai_report?.executiveSummary || ''}
+                    rows={4}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Provide a high-level summary of the form responses..."
+                  />
+                </div>
+
+                {/* Key Insights */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Key Insights
+                    <span className="text-xs text-gray-500 ml-2">(One per line)</span>
+                  </label>
+                  <textarea
+                    name="insights"
+                    defaultValue={editingAIReport.config?.ai_report?.insights?.join('\n') || ''}
+                    rows={6}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="• Key finding 1\n• Key finding 2\n• Key finding 3"
+                  />
+                </div>
+
+                {/* Recommendations */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Recommendations
+                    <span className="text-xs text-gray-500 ml-2">(One per line)</span>
+                  </label>
+                  <textarea
+                    name="recommendations"
+                    defaultValue={editingAIReport.config?.ai_report?.recommendations?.join('\n') || ''}
+                    rows={6}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="• Recommendation 1\n• Recommendation 2\n• Recommendation 3"
+                  />
+                </div>
+
+                {/* Conclusion */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Conclusion
+                  </label>
+                  <textarea
+                    name="conclusion"
+                    defaultValue={editingAIReport.config?.ai_report?.conclusion || ''}
+                    rows={3}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Summarize the key takeaways..."
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAIReportEditor(false);
+                      setEditingAIReport(null);
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Narrative Content Editor Modal */}
+      {showNarrativeEditor && editingNarrativeApplet && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b flex items-center justify-between">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-600" />
+                Edit Narrative Content - {editingNarrativeApplet.config?.pageName || 'Page'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowNarrativeEditor(false);
+                  setEditingNarrativeApplet(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const formData = new FormData(e.target);
+                    const updatedContent = {};
+
+                    // Collect all content sections
+                    for (const [key, value] of formData.entries()) {
+                      if (key.startsWith('section_')) {
+                        const sectionName = key.replace('section_', '').replace(/_/g, ' ');
+                        updatedContent[sectionName] = value;
+                      }
+                    }
+
+                    // Find the correct projectlet ID
+                    const projectletId = projectlets.find(p =>
+                      p.applets?.some(a => a.id === editingNarrativeApplet.id)
+                    )?.id;
+
+                    if (!projectletId) {
+                      throw new Error('Could not find projectlet for this applet');
+                    }
+
+                    const response = await fetch(
+                      `/api/aloa-projects/${params.projectId}/projectlets/${projectletId}/applets/${editingNarrativeApplet.id}`,
+                      {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          config: {
+                            ...editingNarrativeApplet.config,
+                            generatedContent: updatedContent
+                          }
+                        })
+                      }
+                    );
+
+                    if (response.ok) {
+                      toast.success('Narrative content updated successfully!');
+                      fetchProjectletApplets(projectletId);
+                      setShowNarrativeEditor(false);
+                      setEditingNarrativeApplet(null);
+                    } else {
+                      throw new Error('Failed to update content');
+                    }
+                  } catch (error) {
+                    console.error('Error updating narrative:', error);
+                    toast.error(error.message || 'Failed to update narrative content');
+                  }
+                }}
+                className="space-y-6"
+              >
+                {/* Dynamic sections based on generated content */}
+                {editingNarrativeApplet.config?.generatedContent && Object.entries(editingNarrativeApplet.config.generatedContent).map(([section, content]) => (
+                  <div key={section}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {section}
+                    </label>
+                    <textarea
+                      name={`section_${section.replace(/ /g, '_')}`}
+                      defaultValue={content}
+                      rows={6}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder={`Enter content for ${section}...`}
+                    />
+                  </div>
+                ))}
+
+                {/* Add new section button */}
+                <div className="border-t pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sectionName = prompt('Enter new section name:');
+                      if (sectionName) {
+                        const updatedContent = {
+                          ...editingNarrativeApplet.config.generatedContent,
+                          [sectionName]: ''
+                        };
+                        setEditingNarrativeApplet({
+                          ...editingNarrativeApplet,
+                          config: {
+                            ...editingNarrativeApplet.config,
+                            generatedContent: updatedContent
+                          }
+                        });
+                      }
+                    }}
+                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add New Section
+                  </button>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNarrativeEditor(false);
+                      setEditingNarrativeApplet(null);
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

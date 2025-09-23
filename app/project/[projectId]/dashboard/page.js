@@ -24,7 +24,8 @@ import {
   Download,
   File,
   FolderOpen,
-  Home
+  Home,
+  Brain
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
@@ -39,6 +40,8 @@ const PaletteCleanserModal = dynamic(() => import('@/components/PaletteCleanserM
 const SitemapBuilder = dynamic(() => import('@/components/SitemapBuilderV2'), { ssr: false });
 const ToneOfVoiceSelector = dynamic(() => import('@/components/ToneOfVoiceSelector'), { ssr: false });
 const ClientReview = dynamic(() => import('@/components/ClientReview'), { ssr: false });
+const AIFormResults = dynamic(() => import('@/components/AIFormResults'), { ssr: false });
+const AIContentNarrative = dynamic(() => import('@/components/AIContentNarrative'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -58,6 +61,8 @@ function ClientDashboard() {
   const [isFormViewOnly, setIsFormViewOnly] = useState(false); // Track if form is in view-only mode
   const [showLinkSubmissionModal, setShowLinkSubmissionModal] = useState(false); // Track link submission modal
   const [showFileUploadModal, setShowFileUploadModal] = useState(false); // Track file upload modal
+  const [showAIResultsModal, setShowAIResultsModal] = useState(false); // Track AI Form Results modal
+  const [showAINarrativeModal, setShowAINarrativeModal] = useState(false); // Track AI Narrative Generator modal
   const [showPaletteCleanserModal, setShowPaletteCleanserModal] = useState(false); // Track palette cleanser modal
   const [isPaletteCleanserViewOnly, setIsPaletteCleanserViewOnly] = useState(false); // Track if palette cleanser is view-only
   const [showSitemapModal, setShowSitemapModal] = useState(false); // Track sitemap modal
@@ -96,6 +101,10 @@ function ClientDashboard() {
     setShowClientReviewModal(false);
     setIsClientReviewViewOnly(false);
   }, showClientReviewModal);
+
+  useEscapeKey(() => {
+    setShowAINarrativeModal(false);
+  }, showAINarrativeModal);
 
   useEffect(() => {
     // Get authenticated user's ID
@@ -269,6 +278,8 @@ function ClientDashboard() {
     const isSitemap = applet.type === 'sitemap';
     const isToneOfVoice = applet.type === 'tone_of_voice';
     const isClientReview = applet.type === 'client_review';
+    const isAIFormResults = applet.type === 'ai_form_results';
+    const isAINarrativeGenerator = applet.type === 'ai_narrative_generator';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const paletteIsLocked = isPaletteCleanser && applet.config?.locked === true;
@@ -278,10 +289,10 @@ function ClientDashboard() {
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
 
     // Block if:
-    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-client-review applet that's already completed
+    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-client-review, non-ai-form-results applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, and client review should always be viewable even after completion
-    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isClientReview && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, client review, AI form results, and AI narrative generator should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isClientReview && !isAIFormResults && !isAINarrativeGenerator && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -546,6 +557,14 @@ function ClientDashboard() {
       setSelectedApplet({ ...applet, projectlet });
       setIsClientReviewViewOnly(clientReviewIsLocked);
       setShowClientReviewModal(true);
+    } else if (applet.type === 'ai_form_results') {
+      // Handle AI Form Results applet
+      setSelectedApplet({ ...applet, projectlet });
+      setShowAIResultsModal(true);
+    } else if (applet.type === 'ai_narrative_generator') {
+      // Handle AI Narrative Generator applet
+      setSelectedApplet({ ...applet, projectlet });
+      setShowAINarrativeModal(true);
     }
   };
 
@@ -636,7 +655,8 @@ function ClientDashboard() {
       review: Eye,
       moodboard: Palette,
       content_gather: MessageSquare,
-      sitemap: Map
+      sitemap: Map,
+      ai_form_results: Brain
     };
     return icons[type] || FileText;
   };
@@ -854,7 +874,16 @@ function ClientDashboard() {
                 {!isLocked && applets.length > 0 && (
                   <div className={`p-6 ${isInProgress ? 'bg-yellow-50/50' : ''}`}>
                     <div className="space-y-3">
-                      {applets.map(applet => {
+                      {applets
+                        .filter(applet => {
+                          // Filter out form applets that don't have a form_id configured
+                          if (applet.type === 'form') {
+                            const formId = applet.form_id || applet.config?.form_id;
+                            return !!formId; // Only show form applets with a form_id
+                          }
+                          return true; // Show all non-form applets
+                        })
+                        .map(applet => {
                         const Icon = getAppletIcon(applet.type);
                         const isAppletCompleted = completedApplets.has(applet.id);
                         // Check if it's a form and whether it's still accepting responses
@@ -972,6 +1001,46 @@ function ClientDashboard() {
                             buttonState = userRole === 'client_admin' ? 'not-started' : 'locked';
                             statusMessage = userRole === 'client_admin' ? 'Review & approve work' : 'Client Admin access required';
                           }
+                        } else if (applet.type === 'ai_form_results') {
+                          const reportIsLocked = applet.config?.locked === true;
+                          const hasReport = !!applet.config?.ai_report;
+                          const hasViewedReport = applet.user_completed_at !== null;
+
+                          if (reportIsLocked && hasReport) {
+                            if (hasViewedReport) {
+                              buttonState = 'completed-locked';
+                              statusMessage = 'AI insights reviewed ✓';
+                            } else {
+                              buttonState = 'available';
+                              statusMessage = 'View AI insights report';
+                            }
+                          } else if (!hasReport) {
+                            buttonState = 'locked';
+                            statusMessage = 'Report being prepared...';
+                          } else {
+                            buttonState = 'locked';
+                            statusMessage = 'Report not yet available';
+                          }
+                        } else if (applet.type === 'ai_narrative_generator') {
+                          const narrativeIsLocked = applet.config?.locked === true;
+                          const hasNarrative = !!applet.config?.generatedContent;
+                          const hasViewedNarrative = applet.user_completed_at !== null;
+
+                          if (narrativeIsLocked && hasNarrative) {
+                            if (hasViewedNarrative) {
+                              buttonState = 'completed-locked';
+                              statusMessage = `${applet.config?.pageName || 'Page'} narrative reviewed ✓`;
+                            } else {
+                              buttonState = 'available';
+                              statusMessage = `View ${applet.config?.pageName || 'page'} narrative`;
+                            }
+                          } else if (!hasNarrative) {
+                            buttonState = 'locked';
+                            statusMessage = 'Content being prepared...';
+                          } else {
+                            buttonState = 'locked';
+                            statusMessage = 'Content not yet available';
+                          }
                         } else if (applet.type === 'palette_cleanser') {
                           const paletteIsLocked = applet.config?.locked === true;
 
@@ -1021,7 +1090,7 @@ function ClientDashboard() {
                           <button
                             key={applet.id}
                             onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
-                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser' && applet.type !== 'tone_of_voice')}
+                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser' && applet.type !== 'tone_of_voice' && applet.type !== 'ai_form_results')}
                             className={`w-full p-4 rounded-lg border-2 transition-all ${
                               buttonState === 'completed-locked'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
@@ -1062,12 +1131,16 @@ function ClientDashboard() {
                                 </div>
                                 <div className="text-left">
                                   <p className="font-medium">
-                                    {applet.type === 'form' && applet.form?.title 
-                                      ? applet.form.title 
+                                    {applet.type === 'form' && applet.form?.title
+                                      ? applet.form.title
                                       : applet.type === 'link_submission' && applet.config?.heading
                                       ? applet.config.heading
                                       : (applet.type === 'upload' || applet.type === 'file_upload') && applet.config?.heading
                                       ? applet.config.heading
+                                      : applet.type === 'ai_form_results' && applet.config?.form_title
+                                      ? `AI Results: ${applet.config.form_title}`
+                                      : applet.type === 'ai_narrative_generator' && applet.config?.pageName
+                                      ? `Page Narrative Structure: ${applet.config.pageName}`
                                       : applet.name}
                                   </p>
                                   {statusMessage ? (
@@ -1522,21 +1595,19 @@ function ClientDashboard() {
             // Trigger confetti
             setShowConfetti(true);
 
-            // Close modal after confetti
-            setTimeout(() => {
+            // Close modal and refresh data after a short delay
+            setTimeout(async () => {
               setShowConfetti(false);
               setShowPaletteCleanserModal(false);
               setIsPaletteCleanserViewOnly(false);
+
+              // Wait a bit more before refreshing to ensure database transaction is complete
+              setTimeout(async () => {
+                console.log('Refreshing project data after palette completion');
+                await fetchProjectData();
+                console.log('After refresh - completedApplets:', Array.from(completedApplets));
+              }, 1000); // Wait 1 second after modal closes
             }, 1500);
-
-            // Delay the data refresh to ensure backend has fully committed the transaction
-            setTimeout(async () => {
-              console.log('Refreshing project data after palette completion');
-              await fetchProjectData(); // Refresh project data after backend has time to update
-
-              // Log the state after refresh
-              console.log('After refresh - completedApplets:', Array.from(completedApplets));
-            }, 3000); // Increased delay to 3 seconds
           }}
         />
       )}
@@ -1732,6 +1803,148 @@ function ClientDashboard() {
                 fetchProjectData();
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* AI Form Results Modal */}
+      {showAIResultsModal && selectedApplet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Brain className="w-5 h-5 text-purple-600" />
+                AI-Generated Insights
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAIResultsModal(false);
+                  fetchProjectData();
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <AIFormResults
+                applet={selectedApplet}
+                isViewOnly={true}
+              />
+
+              {/* Acknowledgment Section */}
+              {!selectedApplet.user_completed_at && (
+                <div className="mt-8 p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Acknowledge Review</h3>
+                  <p className="text-gray-600 mb-4">
+                    Please confirm that you have reviewed this AI-generated insights report.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      try {
+                        // Mark as completed
+                        const response = await fetch(`/api/aloa-projects/${params.projectId}/client-view`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            appletId: selectedApplet.id,
+                            status: 'completed',
+                            interactionType: 'acknowledgment',
+                            userId: userId,
+                            data: {
+                              acknowledged_at: new Date().toISOString(),
+                              report_viewed: true
+                            }
+                          })
+                        });
+
+                        if (response.ok) {
+                          // Update local state
+                          const newCompleted = new Set(completedApplets);
+                          newCompleted.add(selectedApplet.id);
+                          setCompletedApplets(newCompleted);
+
+                          // Show confetti
+                          setShowConfetti(true);
+                          setTimeout(() => {
+                            setShowConfetti(false);
+                            setShowAIResultsModal(false);
+                            fetchProjectData();
+                          }, 1500);
+                        }
+                      } catch (error) {
+                        console.error('Error acknowledging report:', error);
+                      }
+                    }}
+                    className="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                    I have reviewed this report
+                  </button>
+                </div>
+              )}
+
+              {/* Already Acknowledged Message */}
+              {selectedApplet.user_completed_at && (
+                <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2 text-green-700">
+                    <CheckCircle className="w-5 h-5" />
+                    <span className="font-medium">
+                      You reviewed this report on {new Date(selectedApplet.user_completed_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Narrative Generator Modal */}
+      {showAINarrativeModal && selectedApplet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-600" />
+                {selectedApplet.config?.pageName || 'Page'} Narrative Structure
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAINarrativeModal(false);
+                  fetchProjectData();
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <AIContentNarrative
+                applet={selectedApplet}
+                projectId={params.projectId}
+                userId={userId}
+                isViewOnly={true}
+                onClose={() => {
+                  setShowAINarrativeModal(false);
+                  fetchProjectData();
+                }}
+                onComplete={() => {
+                  // Update local state
+                  const newCompleted = new Set(completedApplets);
+                  newCompleted.add(selectedApplet.id);
+                  setCompletedApplets(newCompleted);
+
+                  // Show confetti
+                  setShowConfetti(true);
+                  setTimeout(() => {
+                    setShowConfetti(false);
+                    setShowAINarrativeModal(false);
+                    fetchProjectData();
+                  }, 1500);
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

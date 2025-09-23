@@ -113,8 +113,28 @@ export async function POST(request) {
     }
     
     const userId = body.userId || body.user_id || null;
+    const projectId = body.projectId || body.project_id || null;
     let response;
     let isUpdate = false;
+
+    // Get stakeholder importance if userId and projectId are provided
+    let stakeholderImportance = 5; // Default importance
+    let stakeholderId = null;
+
+    if (userId && projectId && userId.match(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)) {
+      const { data: stakeholder } = await supabase
+        .from('aloa_project_stakeholders')
+        .select('id, importance_score')
+        .eq('user_id', userId)
+        .eq('project_id', projectId)
+        .single();
+
+      if (stakeholder) {
+        stakeholderImportance = stakeholder.importance_score || 5;
+        stakeholderId = stakeholder.id;
+        console.log(`Found stakeholder importance: ${stakeholderImportance} for user ${userId}`);
+      }
+    }
     
     // Check if user already has a response for this form
     if (userId) {
@@ -134,7 +154,9 @@ export async function POST(request) {
             responses: body.data || {},
             submitted_at: new Date().toISOString(),
             ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
-            user_agent: request.headers.get('user-agent')
+            user_agent: request.headers.get('user-agent'),
+            stakeholder_importance: stakeholderImportance,
+            stakeholder_id: stakeholderId
           })
           .eq('id', existingResponse.id)
           .select()
@@ -161,12 +183,14 @@ export async function POST(request) {
         .from('aloa_form_responses')
         .insert([{
           aloa_form_id: body.formId,
-          aloa_project_id: body.projectId || null,
+          aloa_project_id: projectId || null,
           user_id: userId,
           responses: body.data || {},
           submitted_at: new Date().toISOString(),
           ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
-          user_agent: request.headers.get('user-agent')
+          user_agent: request.headers.get('user-agent'),
+          stakeholder_importance: stakeholderImportance,
+          stakeholder_id: stakeholderId
         }])
         .select()
         .single();
