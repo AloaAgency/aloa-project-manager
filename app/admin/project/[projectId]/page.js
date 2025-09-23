@@ -97,6 +97,11 @@ const FormBuilderModal = dynamic(() => import('@/components/FormBuilderModal'), 
   ssr: false
 });
 
+// Dynamically import Create from Sitemap Modal
+const CreateFromSitemapModal = dynamic(() => import('@/components/CreateFromSitemapModal'), {
+  ssr: false
+});
+
 // Dynamically import Template Modals
 const SaveTemplateModal = dynamic(() => import('@/components/SaveTemplateModal'), {
   ssr: false
@@ -179,6 +184,7 @@ function AdminProjectPageContent() {
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [showLoadTemplateModal, setShowLoadTemplateModal] = useState(false);
+  const [showCreateFromSitemapModal, setShowCreateFromSitemapModal] = useState(false);
   const [selectedTemplateProjectlet, setSelectedTemplateProjectlet] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [showTeamMemberModal, setShowTeamMemberModal] = useState(false);
@@ -2065,6 +2071,17 @@ function AdminProjectPageContent() {
                         >
                           <Save className="w-4 h-4 mr-2" />
                           Save All as Template
+                        </button>
+                        <hr className="my-1" />
+                        <button
+                          onClick={() => {
+                            setShowCreateFromSitemapModal(true);
+                            setShowTemplateMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                        >
+                          <Map className="w-4 h-4 mr-2" />
+                          Create from Sitemap
                         </button>
                       </div>
                     )}
@@ -4922,6 +4939,20 @@ function AdminProjectPageContent() {
           onLoadTemplate={() => {
             // Refresh the page after loading template
             window.location.reload();
+          }}
+        />
+      )}
+
+      {/* Create from Sitemap Modal */}
+      {showCreateFromSitemapModal && (
+        <CreateFromSitemapModal
+          projectId={params.projectId}
+          onClose={() => setShowCreateFromSitemapModal(false)}
+          onSuccess={(message) => {
+            toast.success(message);
+            setShowCreateFromSitemapModal(false);
+            // Refresh projectlets
+            fetchProjectlets();
           }}
         />
       )}
