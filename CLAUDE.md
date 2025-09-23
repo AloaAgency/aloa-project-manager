@@ -11,32 +11,38 @@ A gamified project management system specifically for Aloa web design projects. 
 ### Daily Branch Workflow
 **IMPORTANT: Follow this strict branching strategy:**
 
-1. **Create daily branch with date format**: `YYYY_MM_DD` (e.g., `2025_09_18` for September 18, 2025)
-2. **Never switch branches during the day** - All work stays on the daily branch
-3. **End of day**: User will create PR to merge daily branch to main
-4. **Next day**: Only create new branch AFTER user confirms PR is merged to main
+1. **Create daily branch with naming convention**: `YYYY_MM_DD - Feature Name` (e.g., `2025_09_18 - Add User Authentication`)
+2. **For multiple PRs per day**: Each new feature gets its own branch with descriptive name
+3. **Never switch branches during work** - All work stays on the current branch until PR is merged
+4. **After PR merge**: User will confirm merge and provide the next feature name for new branch
 
 **CRITICAL RULES FOR CLAUDE CODE:**
 - **NEVER switch branches unless explicitly instructed by the user**
 - **NEVER create a PR unless explicitly requested by the user**
 - **NEVER merge to main - only the user handles merges**
 - **Only create a new dated branch when the user confirms the previous PR has been merged**
+- **ALWAYS ask for the feature name when creating a new branch**
 - Stay on the current branch for all work unless specifically told to change branches
 
 Example workflow (user-driven):
 ```bash
-# User says: "Create today's branch"
-git checkout -b 2025_09_18
+# User says: "Create today's branch for adding user authentication"
+git checkout -b "2025_09_18 - Add User Authentication"
 
-# Work all day on this branch...
+# Work on this feature...
 
-# User says: "Create a PR for today's work"
+# User says: "Create a PR for this feature"
 # Claude creates PR via gh pr create
 
-# Next day - User says: "I've merged yesterday's PR, create today's branch"
+# After merge - User says: "I've merged the PR, create a new branch for fixing navigation bugs"
 git checkout main
 git pull
-git checkout -b 2025_09_19
+git checkout -b "2025_09_18 - Fix Navigation Bugs"
+
+# Next day - User says: "Create today's branch for implementing search feature"
+git checkout main
+git pull
+git checkout -b "2025_09_19 - Implement Search Feature"
 ```
 
 This workflow ensures clean daily snapshots with full user control over merges and deployments.
