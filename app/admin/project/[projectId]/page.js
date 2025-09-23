@@ -1705,9 +1705,33 @@ function AdminProjectPageContent() {
                       ) : (
                         <div className="flex gap-2">
                           <button
-                            onClick={() => {
+                            onClick={async () => {
+                              // Update local state
                               handleKnowledgeFieldChange('client_references', tempReferences);
                               setEditingReferences(false);
+
+                              // Save immediately to database
+                              try {
+                                const response = await fetch(`/api/aloa-projects/${params.projectId}/knowledge`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ client_references: tempReferences })
+                                });
+
+                                if (response.ok) {
+                                  toast.success('Client references saved');
+                                  // Clear pending changes for this field
+                                  setKnowledgePendingChanges(prev => {
+                                    const updated = { ...prev };
+                                    delete updated.client_references;
+                                    return updated;
+                                  });
+                                } else {
+                                  toast.error('Failed to save client references');
+                                }
+                              } catch (error) {
+                                toast.error('Error saving client references');
+                              }
                             }}
                             className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                           >

@@ -16,7 +16,8 @@ export async function GET(request, { params }) {
         base_knowledge,
         ai_context,
         knowledge_updated_at,
-        metadata
+        metadata,
+        client_references
       `)
       .eq('id', projectId)
       .single();
@@ -67,7 +68,8 @@ export async function GET(request, { params }) {
     // Extract brand_colors from metadata and add to project object
     const projectWithBrandColors = project ? {
       ...project,
-      brand_colors: project.metadata?.brand_colors || []
+      brand_colors: project.metadata?.brand_colors || [],
+      client_references: project.client_references || []
     } : {};
 
     return NextResponse.json({
@@ -163,6 +165,7 @@ export async function PATCH(request, { params }) {
     if (body.existing_url !== undefined) updateData.existing_url = body.existing_url;
     if (body.google_drive_url !== undefined) updateData.google_drive_url = body.google_drive_url;
     if (body.base_knowledge !== undefined) updateData.base_knowledge = body.base_knowledge;
+    if (body.client_references !== undefined) updateData.client_references = body.client_references;
 
     // Handle brand_colors by storing in metadata field
     if (body.brand_colors !== undefined) {
@@ -174,7 +177,7 @@ export async function PATCH(request, { params }) {
     // First verify the project exists
     const { data: existingProject, error: fetchError } = await supabase
       .from('aloa_projects')
-      .select('id, project_name, existing_url, google_drive_url, base_knowledge, metadata')
+      .select('id, project_name, existing_url, google_drive_url, base_knowledge, metadata, client_references')
       .eq('id', projectId)
       .single();
 
@@ -218,7 +221,8 @@ export async function PATCH(request, { params }) {
       updateData.existing_url !== undefined ||
       updateData.google_drive_url !== undefined ||
       updateData.base_knowledge !== undefined ||
-      body.brand_colors !== undefined;
+      body.brand_colors !== undefined ||
+      body.client_references !== undefined;
 
     if (hasContentChanges) {
       // Queue extraction for website URL if it was updated
@@ -295,6 +299,33 @@ export async function PATCH(request, { params }) {
             category: 'brand_identity',
             tags: ['manual', 'brand_colors', 'design'],
             importance_score: 9,
+            extracted_by: 'system',
+            extraction_confidence: 1.0,
+            is_current: true
+          }], {
+            onConflict: 'project_id,source_type,source_id'
+          });
+      }
+
+      // Store client references knowledge if updated
+      if (body.client_references !== undefined) {
+        const referencesContent = body.client_references.length > 0
+          ? body.client_references.map(ref => `- ${ref.name}: ${ref.url}`).join('\n')
+          : 'No client references provided';
+
+        await supabase
+          .from('aloa_project_knowledge')
+          .upsert([{
+            project_id: projectId,
+            source_type: 'manual',
+            source_id: 'client_references',
+            source_name: 'Client Reference Sites',
+            content_type: 'references',
+            content: referencesContent,
+            content_summary: `Client reference websites: ${body.client_references.map(r => r.name).join(', ') || 'None'}`,
+            category: 'inspiration',
+            tags: ['manual', 'references', 'design', 'inspiration'],
+            importance_score: 8,
             extracted_by: 'system',
             extraction_confidence: 1.0,
             is_current: true
