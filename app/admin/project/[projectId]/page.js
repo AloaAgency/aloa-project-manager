@@ -131,6 +131,11 @@ const SortableProjectlet = dynamic(() => import('@/components/SortableProjectlet
   ssr: false
 });
 
+// Dynamically import SortableApplet for nested drag-and-drop
+const SortableApplet = dynamic(() => import('@/components/SortableApplet'), {
+  ssr: false
+});
+
 // Dynamically import SitemapBuilder for viewing user submissions
 const SitemapBuilder = dynamic(() => import('@/components/SitemapBuilderV2'), {
   ssr: false
@@ -1385,38 +1390,126 @@ function AdminProjectPageContent() {
     setActiveId(event.active.id);
   };
 
+  // Helper function to handle applet reordering API call
+  const handleAppletReorder = async (projectletId, applets) => {
+    try {
+      const response = await fetch(
+        `/api/aloa-projects/${params.projectId}/projectlets/${projectletId}/applets/reorder`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            applets: applets.map((a, index) => ({
+              id: a.id,
+              order_index: index
+            }))
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to reorder applets');
+      }
+    } catch (error) {
+      console.error('Error reordering applets:', error);
+      toast.error('Failed to reorder applets');
+      fetchProjectletApplets(projectletId); // Refresh applets on error
+    }
+  };
+
   const handleDragEnd = async (event) => {
     const { active, over } = event;
 
-    if (active.id !== over.id) {
+    if (!over || active.id === over.id) {
+      setActiveId(null);
+      return;
+    }
+
+    // Check if we're dragging an applet or a projectlet
+    const activeData = active.data?.current;
+    const overData = over.data?.current;
+
+    if (activeData?.type === 'applet') {
+      // Handle applet reordering
+      const activeAppletId = active.id;
+      const overAppletId = over.id;
+
+      // Find which projectlet contains the active applet
+      let sourceProjectletId = null;
+      let targetProjectletId = null;
+      let sourceApplets = [];
+      let targetApplets = [];
+
+      for (const projectlet of projectlets) {
+        const applets = projectletApplets[projectlet.id] || [];
+        if (applets.some(a => a.id === activeAppletId)) {
+          sourceProjectletId = projectlet.id;
+          sourceApplets = applets;
+        }
+        if (overData?.type === 'applet' && applets.some(a => a.id === overAppletId)) {
+          targetProjectletId = projectlet.id;
+          targetApplets = applets;
+        }
+      }
+
+      if (!sourceProjectletId) {
+        setActiveId(null);
+        return;
+      }
+
+      // If dropping on another applet
+      if (overData?.type === 'applet' && targetProjectletId) {
+        const oldIndex = sourceApplets.findIndex(a => a.id === activeAppletId);
+        const newIndex = targetApplets.findIndex(a => a.id === overAppletId);
+
+        if (sourceProjectletId === targetProjectletId) {
+          // Reordering within the same projectlet
+          const newApplets = arrayMove(sourceApplets, oldIndex, newIndex);
+          setProjectletApplets(prev => ({
+            ...prev,
+            [sourceProjectletId]: newApplets
+          }));
+
+          // Update in database
+          await handleAppletReorder(sourceProjectletId, newApplets);
+          toast.success('Applet order updated');
+        } else {
+          // Moving between projectlets - currently not supported
+          toast.error('Moving applets between sections is not yet supported');
+        }
+      }
+    } else {
+      // Handle projectlet reordering (existing code)
       const oldIndex = projectlets.findIndex((p) => p.id === active.id);
       const newIndex = projectlets.findIndex((p) => p.id === over.id);
 
-      const newProjectlets = arrayMove(projectlets, oldIndex, newIndex);
-      setProjectlets(newProjectlets);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newProjectlets = arrayMove(projectlets, oldIndex, newIndex);
+        setProjectlets(newProjectlets);
 
-      // Update order in database
-      try {
-        const response = await fetch(
-          `/api/aloa-projects/${params.projectId}/projectlets/reorder`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              projectletId: active.id,
-              newIndex
-            })
+        // Update order in database
+        try {
+          const response = await fetch(
+            `/api/aloa-projects/${params.projectId}/projectlets/reorder`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                projectletId: active.id,
+                newIndex
+              })
+            }
+          );
+
+          if (response.ok) {
+            toast.success('Order updated');
+          } else {
+            throw new Error('Failed to update order');
           }
-        );
-
-        if (response.ok) {
-          toast.success('Order updated');
-        } else {
-          throw new Error('Failed to update order');
+        } catch (error) {
+          toast.error('Failed to update order');
+          fetchProjectData(); // Revert on error
         }
-      } catch (error) {
-        toast.error('Failed to update order');
-        fetchProjectData(); // Revert on error
       }
     }
 
@@ -2372,45 +2465,11 @@ function AdminProjectPageContent() {
                           </div>
                         ) : applets.length > 0 ? (
                           <div>
-                            {/* Drop zone at the beginning */}
-                            {isDraggingApplet && (
-                              <div
-                                className={`h-1 transition-all ${
-                                  dropTargetProjectletId === projectlet.id && dropTargetIndex === 0
-                                    ? 'bg-blue-500 h-12 border-2 border-dashed border-blue-500 rounded mb-2'
-                                    : ''
-                                }`}
-                                onDragOver={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setDropTargetProjectletId(projectlet.id);
-                                  setDropTargetIndex(0);
-                                }}
-                                onDragLeave={(e) => {
-                                  e.stopPropagation();
-                                  if (dropTargetIndex === 0) {
-                                    setDropTargetIndex(null);
-                                    setDropTargetProjectletId(null);
-                                  }
-                                }}
-                                onDrop={async (e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setDropTargetIndex(null);
-                                  setDropTargetProjectletId(null);
-
-                                  const isApplet = e.dataTransfer.getData('isApplet');
-                                  if (!isApplet) return;
-
-                                  const draggedAppletId = e.dataTransfer.getData('appletId');
-                                  const sourceProjectletId = e.dataTransfer.getData('projectletId');
-
-                                  // Handle drop at beginning
-                                  await handleAppletDrop(draggedAppletId, sourceProjectletId, projectlet.id, 0);
-                                }}
-                              />
-                            )}
-
+                            {/* Nested SortableContext for applets within this projectlet */}
+                            <SortableContext
+                              items={applets.map(a => a.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
                             {applets.map((applet, appletIndex) => {
                               const Icon = APPLET_ICONS[applet.type] || FileText;
                               const formId = applet.form_id || applet.config?.form_id;
@@ -2420,41 +2479,23 @@ function AdminProjectPageContent() {
 
                               return (
                                 <React.Fragment key={applet.id}>
-                                  <div
-                                    className={`p-2 rounded cursor-move transition-colors group border-2 ${
-                                      hasRejection
-                                        ? 'bg-orange-50 border-orange-300 hover:bg-orange-100 animate-pulse-subtle'
-                                        : isFormLocked && applet.type === 'form'
-                                        ? 'bg-red-50 border-red-300 hover:bg-red-100'
-                                        : 'bg-white/50 border-transparent hover:bg-white/70'
-                                    }`}
-                                    draggable
-                                    onDragStart={(e) => {
-                                      e.stopPropagation(); // Prevent projectlet from being dragged
-                                      setIsDraggingApplet(true);
-                                      setDraggedAppletInfo({
-                                        id: applet.id,
-                                        index: appletIndex,
-                                        projectletId: projectlet.id
-                                      });
-                                      e.dataTransfer.effectAllowed = 'move';
-                                      e.dataTransfer.setData('appletId', applet.id);
-                                      e.dataTransfer.setData('appletIndex', appletIndex);
-                                      e.dataTransfer.setData('projectletId', projectlet.id);
-                                      e.dataTransfer.setData('isApplet', 'true'); // Mark as applet drag
-                                    }}
-                                    onDragEnd={() => {
-                                      setIsDraggingApplet(false);
-                                      setDraggedAppletInfo(null);
-                                      setDropTargetIndex(null);
-                                      setDropTargetProjectletId(null);
-                                    }}
+                                  <SortableApplet
+                                    id={applet.id}
+                                    isDragging={activeId === applet.id}
                                   >
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-2 flex-1">
-                                      <GripVertical className="w-4 h-4 text-gray-400" />
-                                      <Icon className="w-4 h-4 text-gray-600" />
-                                      <span className="text-sm font-medium">{applet.name}</span>
+                                    <div
+                                      className={`p-2 rounded transition-colors group border-2 ${
+                                        hasRejection
+                                          ? 'bg-orange-50 border-orange-300 hover:bg-orange-100 animate-pulse-subtle'
+                                          : isFormLocked && applet.type === 'form'
+                                          ? 'bg-red-50 border-red-300 hover:bg-red-100'
+                                          : 'bg-white/50 border-transparent hover:bg-white/70'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2 flex-1">
+                                          <Icon className="w-4 h-4 text-gray-600" />
+                                          <span className="text-sm font-medium">{applet.name}</span>
                                       {hasRejection && (
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-600 text-white text-xs font-bold rounded-full animate-pulse">
                                           <AlertCircle className="w-3 h-3" />
@@ -3850,6 +3891,7 @@ function AdminProjectPageContent() {
                                     </div>
                                   )}
                                 </div>
+                                </SortableApplet>
                                 {/* Spacer between applets */}
                                 {appletIndex < applets.length - 1 && (
                                   <div className="h-2" />
@@ -3887,6 +3929,7 @@ function AdminProjectPageContent() {
                               </React.Fragment>
                             );
                           })}
+                            </SortableContext>
                           </div>
                         ) : (
                           <div className="text-center py-4 border-2 border-dashed border-gray-200 rounded-lg bg-white/30">

@@ -22,7 +22,7 @@
  * and need to complete in their project journey.
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
@@ -96,7 +96,7 @@ const APPLET_COLORS = {
   ai_narrative_generator: 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 border-indigo-300'
 };
 
-export default function ProjectletAppletsManager({ 
+function ProjectletAppletsManager({ 
   projectId, 
   projectletId, 
   projectletName,
@@ -119,13 +119,15 @@ export default function ProjectletAppletsManager({
   const [showAIFormBuilder, setShowAIFormBuilder] = useState(false);
   const [projectKnowledge, setProjectKnowledge] = useState(null);
   const [uploadingMarkdown, setUploadingMarkdown] = useState(false);
+  const [draggedApplet, setDraggedApplet] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
 
   useEffect(() => {
     fetchApplets();
     fetchLibraryApplets();
   }, [projectletId]);
 
-  const fetchApplets = async () => {
+  const fetchApplets = useCallback(async () => {
     try {
       const response = await fetch(
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`
@@ -138,9 +140,9 @@ export default function ProjectletAppletsManager({
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, projectletId]);
 
-  const fetchLibraryApplets = async () => {
+  const fetchLibraryApplets = useCallback(async () => {
     try {
       const response = await fetch('/api/aloa-applets/library?active=true');
       const data = await response.json();
@@ -148,9 +150,9 @@ export default function ProjectletAppletsManager({
     } catch (error) {
 
     }
-  };
+  }, []);
 
-  const addAppletFromLibrary = async (libraryApplet) => {
+  const addAppletFromLibrary = useCallback(async (libraryApplet) => {
     // Add all applets directly, including form applets with null form_id for inline configuration
     try {
 
@@ -225,9 +227,9 @@ export default function ProjectletAppletsManager({
 
       toast.error('Failed to add applet');
     }
-  };
+  }, [projectId, projectletId, onAppletsUpdated, fetchApplets]);
 
-  const createFormWithAI = async () => {
+  const createFormWithAI = useCallback(async () => {
     setCreatingForm(true);
     try {
       // Get project knowledge context
@@ -246,9 +248,9 @@ export default function ProjectletAppletsManager({
     } finally {
       setCreatingForm(false);
     }
-  };
+  }, [projectId]);
 
-  const handleMarkdownUpload = async (event) => {
+  const handleMarkdownUpload = useCallback(async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -301,9 +303,9 @@ export default function ProjectletAppletsManager({
       // Reset file input
       event.target.value = '';
     }
-  };
+  }, [projectId, selectedLibraryApplet, onAppletsUpdated]);
 
-  const attachFormToApplet = async (applet, formId) => {
+  const attachFormToApplet = useCallback(async (applet, formId) => {
     try {
       // Check if this is an existing applet (has an id field) or a library applet
       if (applet.id && !applet.library_applet_id) {
@@ -351,9 +353,9 @@ export default function ProjectletAppletsManager({
 
       toast.error('Failed to attach form to applet');
     }
-  };
+  }, [projectId, projectletId, fetchApplets]);
 
-  const handleAIFormGenerated = async (markdown) => {
+  const handleAIFormGenerated = useCallback(async (markdown) => {
     try {
       // Create form from AI-generated markdown
       const blob = new Blob([markdown], { type: 'text/markdown' });
@@ -409,9 +411,9 @@ export default function ProjectletAppletsManager({
 
       toast.error(error.message || 'Failed to create form');
     }
-  };
+  }, [projectId, projectletId, selectedLibraryApplet, fetchApplets]);
 
-  const attachExistingForm = async () => {
+  const attachExistingForm = useCallback(async () => {
     if (!selectedFormId) {
       toast.error('Please select a form');
       return;
@@ -447,9 +449,9 @@ export default function ProjectletAppletsManager({
 
       toast.error('Failed to attach form');
     }
-  };
+  }, [projectId, projectletId, selectedFormId, selectedLibraryApplet, fetchApplets]);
 
-  const updateApplet = async (appletId, updates) => {
+  const updateApplet = useCallback(async (appletId, updates) => {
     try {
       const response = await fetch(
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`,
@@ -472,9 +474,9 @@ export default function ProjectletAppletsManager({
 
       toast.error('Failed to update applet');
     }
-  };
+  }, [projectId, projectletId, fetchApplets]);
 
-  const updateAppletStatus = async (appletId, status) => {
+  const updateAppletStatus = useCallback(async (appletId, status) => {
     try {
       const response = await fetch(
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`,
@@ -493,9 +495,9 @@ export default function ProjectletAppletsManager({
 
       toast.error('Failed to update status');
     }
-  };
+  }, [projectId, projectletId, fetchApplets]);
 
-  const deleteApplet = async (appletId) => {
+  const deleteApplet = useCallback(async (appletId) => {
     if (!confirm('Are you sure you want to delete this applet?')) return;
 
     try {
@@ -514,9 +516,77 @@ export default function ProjectletAppletsManager({
 
       toast.error('Failed to delete applet');
     }
-  };
+  }, [projectId, projectletId, fetchApplets]);
 
-  const getStatusColor = (status) => {
+  // Drag and Drop Handlers
+  const handleDragStart = useCallback((e, applet, index) => {
+    setDraggedApplet({ applet, index });
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = useCallback((e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedApplet(null);
+    setDragOverIndex(null);
+  }, []);
+
+  const handleDrop = useCallback(async (e, dropIndex) => {
+    e.preventDefault();
+
+    if (!draggedApplet || draggedApplet.index === dropIndex) {
+      setDraggedApplet(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    // Create new array with reordered applets
+    const reorderedApplets = [...applets];
+    const [movedApplet] = reorderedApplets.splice(draggedApplet.index, 1);
+    reorderedApplets.splice(dropIndex, 0, movedApplet);
+
+    // Update order_index for each applet
+    const updatedApplets = reorderedApplets.map((applet, index) => ({
+      ...applet,
+      order_index: index
+    }));
+
+    // Optimistic update
+    setApplets(updatedApplets);
+
+    // Call API to persist the new order
+    try {
+      const response = await fetch(
+        `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets/reorder`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ applets: updatedApplets })
+        }
+      );
+
+      if (!response.ok) {
+        // Revert on error
+        fetchApplets();
+        toast.error('Failed to reorder applets');
+      } else {
+        toast.success('Applets reordered successfully');
+      }
+    } catch (error) {
+      // Revert on error
+      fetchApplets();
+      toast.error('Failed to reorder applets');
+    }
+
+    setDraggedApplet(null);
+    setDragOverIndex(null);
+  }, [applets, draggedApplet, projectId, projectletId, fetchApplets]);
+
+  const getStatusColor = useCallback((status) => {
     const colors = {
       pending: 'bg-gray-100 text-gray-600',
       active: 'bg-blue-100 text-blue-700',
@@ -528,7 +598,7 @@ export default function ProjectletAppletsManager({
       skipped: 'bg-gray-100 text-gray-500'
     };
     return colors[status] || 'bg-gray-100 text-gray-600';
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -607,12 +677,21 @@ export default function ProjectletAppletsManager({
             return (
               <div
                 key={applet.id}
-                className={`border-2 rounded-lg p-4 ${colorClass}`}
+                className={`border-2 rounded-lg p-4 ${colorClass} ${
+                  dragOverIndex === index ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                } ${
+                  draggedApplet?.index === index ? 'opacity-50' : ''
+                } transition-all`}
+                draggable
+                onDragStart={(e) => handleDragStart(e, applet, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                onDrop={(e) => handleDrop(e, index)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start flex-1">
-                    <div className="mr-3 mt-1">
-                      <GripVertical className="w-5 h-5 text-gray-400" />
+                    <div className="mr-3 mt-1 cursor-move">
+                      <GripVertical className="w-5 h-5 text-gray-400 hover:text-gray-600" />
                     </div>
                     <Icon className="w-5 h-5 mr-3 mt-1" />
                     <div className="flex-1">
@@ -1422,3 +1501,16 @@ export default function ProjectletAppletsManager({
     </div>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export default React.memo(ProjectletAppletsManager, (prevProps, nextProps) => {
+  // Re-render only if key props change
+  return (
+    prevProps.projectId === nextProps.projectId &&
+    prevProps.projectletId === nextProps.projectletId &&
+    prevProps.projectletName === nextProps.projectletName &&
+    prevProps.startWithLibraryOpen === nextProps.startWithLibraryOpen &&
+    prevProps.availableForms === nextProps.availableForms &&
+    prevProps.onAppletsUpdated === nextProps.onAppletsUpdated
+  );
+});
