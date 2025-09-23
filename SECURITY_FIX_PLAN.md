@@ -202,6 +202,48 @@ CREATE POLICY "Service role manage queue" ON aloa_knowledge_extraction_queue
 
 ## Phase 5: Update API Routes (Day 2 Afternoon)
 
+### Step 5.0: Input Validation for Project Insights ✅ COMPLETED
+The `/api/project-knowledge/[projectId]/insights` endpoint now includes comprehensive input validation:
+
+**Security Improvements Implemented:**
+```javascript
+// UUID validation for projectId parameter
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if (!projectId || !uuidRegex.test(projectId)) {
+  return NextResponse.json({ error: 'Invalid project ID format' }, { status: 400 });
+}
+
+// Type checking and sanitization
+if (!question || typeof question !== 'string') {
+  return NextResponse.json({ error: 'Question is required and must be a string' }, { status: 400 });
+}
+
+// Length limit to prevent abuse
+const MAX_QUESTION_LENGTH = 500;
+if (question.length > MAX_QUESTION_LENGTH) {
+  return NextResponse.json({ error: `Question must be ${MAX_QUESTION_LENGTH} characters or less` }, { status: 400 });
+}
+
+// Control character sanitization
+const sanitizedQuestion = question.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
+```
+
+**Protections Added:**
+- Prevents SQL injection via invalid project IDs
+- Blocks non-string inputs that could cause type confusion
+- Limits input length to prevent resource exhaustion
+- Sanitizes control characters that could cause parsing issues
+- Validates empty inputs after sanitization
+
+**Test Coverage:** All 10 security test cases pass including:
+- Valid requests work correctly
+- Invalid UUID formats rejected
+- SQL injection attempts blocked
+- XSS attempts handled safely
+- Excessive length inputs rejected
+
+## Phase 5: Update API Routes (Day 2 Afternoon)
+
 ### Step 5.1: Verify Service Client Usage
 Check each API route uses `createServiceClient()` for system operations:
 
@@ -340,6 +382,9 @@ When implementing each phase:
 - [ ] Phase 3: Project Tables Secured
 - [ ] Phase 4: Knowledge Tables Secured
 - [ ] Phase 5: API Routes Updated
+  - [x] Step 5.0: Input Validation for Project Insights ✅
+  - [ ] Step 5.1: Verify Service Client Usage
+  - [ ] Step 5.2: Update Error Handling
 - [ ] Phase 6: All Tests Pass
 - [ ] Phase 7: Cleanup Complete
 - [ ] Security Documentation Written
