@@ -97,6 +97,15 @@ const FormBuilderModal = dynamic(() => import('@/components/FormBuilderModal'), 
   ssr: false
 });
 
+// Dynamically import Template Modals
+const SaveTemplateModal = dynamic(() => import('@/components/SaveTemplateModal'), {
+  ssr: false
+});
+
+const LoadTemplateModal = dynamic(() => import('@/components/LoadTemplateModal'), {
+  ssr: false
+});
+
 // Dynamically import Link Submission Config
 const LinkSubmissionConfig = dynamic(() => import('@/components/LinkSubmissionConfig'), {
   ssr: false
@@ -167,6 +176,10 @@ function AdminProjectPageContent() {
   const [editingStakeholder, setEditingStakeholder] = useState(null);
   const [expandedApplets, setExpandedApplets] = useState({});
   const [availableUsers, setAvailableUsers] = useState([]);
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [showLoadTemplateModal, setShowLoadTemplateModal] = useState(false);
+  const [selectedTemplateProjectlet, setSelectedTemplateProjectlet] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [showTeamMemberModal, setShowTeamMemberModal] = useState(false);
   const [selectedTeamUserId, setSelectedTeamUserId] = useState('');
@@ -1827,13 +1840,49 @@ function AdminProjectPageContent() {
                       );
                     })()}
                   </button>
-                  <button 
+                  <button
                     onClick={addProjectlet}
                     className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Projectlet
                   </button>
+
+                  {/* Template Menu */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+                      className="p-2 border rounded-lg hover:bg-gray-50"
+                      title="Template options"
+                    >
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+
+                    {showTemplateMenu && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border z-20">
+                        <button
+                          onClick={() => {
+                            setShowLoadTemplateModal(true);
+                            setShowTemplateMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                        >
+                          <FolderOpen className="w-4 h-4 mr-2" />
+                          Load Template
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowSaveTemplateModal(true);
+                            setShowTemplateMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          Save All as Template
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1983,6 +2032,17 @@ function AdminProjectPageContent() {
                                   >
                                     <Copy className="w-4 h-4 mr-2" />
                                     Duplicate
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTemplateProjectlet(projectlet);
+                                      setShowSaveTemplateModal(true);
+                                      setShowActionMenu(null);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                                  >
+                                    <Save className="w-4 h-4 mr-2" />
+                                    Save as Template
                                   </button>
                                   <hr className="my-1" />
                                   <button
@@ -4648,6 +4708,34 @@ function AdminProjectPageContent() {
             if (formBuilderContext?.projectletId) {
               fetchProjectletApplets(formBuilderContext.projectletId);
             }
+          }}
+        />
+      )}
+
+      {/* Save Template Modal */}
+      {showSaveTemplateModal && (
+        <SaveTemplateModal
+          isOpen={showSaveTemplateModal}
+          onClose={() => {
+            setShowSaveTemplateModal(false);
+            setSelectedTemplateProjectlet(null);
+          }}
+          projectId={params.projectId}
+          selectedProjectlet={selectedTemplateProjectlet}
+          allProjectlets={selectedTemplateProjectlet ? null : projectlets}
+          projectletApplets={projectletApplets}
+        />
+      )}
+
+      {/* Load Template Modal */}
+      {showLoadTemplateModal && (
+        <LoadTemplateModal
+          isOpen={showLoadTemplateModal}
+          onClose={() => setShowLoadTemplateModal(false)}
+          projectId={params.projectId}
+          onLoadTemplate={() => {
+            // Refresh the page after loading template
+            window.location.reload();
           }}
         />
       )}
