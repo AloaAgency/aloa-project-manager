@@ -23,6 +23,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { debounce } from '../lib/debounce';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
@@ -476,6 +477,12 @@ function ProjectletAppletsManager({
     }
   }, [projectId, projectletId, fetchApplets]);
 
+  // Debounced version for text inputs to prevent excessive API calls
+  const debouncedUpdateApplet = useMemo(
+    () => debounce(updateApplet, 500),
+    [updateApplet]
+  );
+
   const updateAppletStatus = useCallback(async (appletId, status) => {
     try {
       const response = await fetch(
@@ -898,7 +905,7 @@ function ProjectletAppletsManager({
                               <input
                                 type="text"
                                 value={applet.config?.heading || 'Project Deliverables'}
-                                onChange={(e) => updateApplet(applet.id, {
+                                onChange={(e) => debouncedUpdateApplet(applet.id, {
                                   config: { ...(applet.config || {}), heading: e.target.value }
                                 })}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-sm font-medium bg-white"
@@ -911,7 +918,7 @@ function ProjectletAppletsManager({
                               <label className="text-xs font-medium text-gray-700 block mb-1">Description</label>
                               <textarea
                                 value={applet.config?.description || 'Please review the following materials:'}
-                                onChange={(e) => updateApplet(applet.id, {
+                                onChange={(e) => debouncedUpdateApplet(applet.id, {
                                   config: { ...(applet.config || {}), description: e.target.value }
                                 })}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white"

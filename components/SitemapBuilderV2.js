@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Map, Plus, X, ChevronRight, ChevronDown, Edit2, Trash2, Check, Home, Info, Users, Phone, ShoppingBag, FileText, Settings, Mail, Search, Menu, Navigation, Link } from 'lucide-react';
+import { debounce } from '../lib/debounce';
 
 const SitemapBuilderV2 = ({
   config = {},
@@ -133,7 +134,23 @@ const SitemapBuilderV2 = ({
     setPageCount(counts);
   }, [sitemap]);
 
-  // Auto-save with debounce
+  // Create debounced auto-save function
+  const debouncedAutoSave = useMemo(
+    () => debounce(async (sitemapData) => {
+      setIsSaving(true);
+      try {
+        await onAutoSave(sitemapData);
+        setLastSaved(new Date());
+      } catch (error) {
+        console.error('Auto-save error:', error);
+      } finally {
+        setTimeout(() => setIsSaving(false), 1000);
+      }
+    }, 2000),
+    [onAutoSave]
+  );
+
+  // Auto-save with proper debouncing
   useEffect(() => {
     if (!onAutoSave || isLocked) return;
 
@@ -147,20 +164,13 @@ const SitemapBuilderV2 = ({
     if (prevSitemapRef.current === currentSitemapStr) return;
 
     prevSitemapRef.current = currentSitemapStr;
+    debouncedAutoSave(sitemap);
 
-    const timer = setTimeout(async () => {
-      setIsSaving(true);
-      try {
-        await onAutoSave(sitemap);
-        setLastSaved(new Date());
-      } catch (error) {
-
-      }
-      setTimeout(() => setIsSaving(false), 1000);
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [sitemap, onAutoSave, isLocked]);
+    // Cleanup: cancel any pending saves on unmount
+    return () => {
+      debouncedAutoSave.cancel?.();
+    };
+  }, [sitemap, debouncedAutoSave, isLocked, onAutoSave]);
 
   const handleDragStart = useCallback((e, item, fromSection) => {
     if (item.name === 'Home' || item.id === '1' || isLocked) {

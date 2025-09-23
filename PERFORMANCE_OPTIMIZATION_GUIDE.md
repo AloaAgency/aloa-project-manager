@@ -130,14 +130,16 @@ import { FixedSizeList } from 'react-window';
 </FixedSizeList>
 ```
 
-### 3.2 Debounce/Throttle Expensive Operations
+### 3.2 Debounce/Throttle Expensive Operations ✅
 **Priority: HIGH | Impact: MEDIUM | Risk: LOW**
+**Status: COMPLETED**
 
 #### Target Areas:
 1. Search inputs
-2. Auto-save in forms
-3. Drag-and-drop operations
-4. Window resize handlers
+2. Auto-save in forms ✅ (SitemapBuilderV2)
+3. Text inputs that trigger API calls ✅ (ProjectletAppletsManager)
+4. Drag-and-drop operations
+5. Window resize handlers
 
 #### Pattern:
 ```javascript
@@ -299,7 +301,7 @@ export const revalidate = 3600; // Revalidate every hour
 
 ### Week 3: Runtime Performance
 - [ ] Day 1-2: Phase 3.1 (Virtual scrolling)
-- [ ] Day 3-4: Phase 3.2 (Debouncing)
+- [x] Day 3-4: Phase 3.2 (Debouncing) ✅ COMPLETED
 - [ ] Day 5: Performance testing
 
 ### Week 4: Network & API
