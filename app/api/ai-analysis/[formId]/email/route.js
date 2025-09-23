@@ -36,7 +36,7 @@ export async function POST(request, { params }) {
 
     // Check if Resend is configured
     if (!resend) {
-      console.warn('RESEND_API_KEY not configured, email sending disabled');
+
       return NextResponse.json(
         { error: 'Email service not configured. Please set up RESEND_API_KEY.' },
         { status: 503 }
@@ -53,10 +53,10 @@ export async function POST(request, { params }) {
       // If it's not JSON, treat it as plain text
       parsedAnalysis = analysisText;
     }
-    
+
     // Generate the email HTML
     const emailHTML = generateAnalysisEmailHTML(formTitle, parsedAnalysis, recipientName, isClientFacing);
-    
+
     // Prepare email options
     const emailOptions = {
       from: process.env.EMAIL_FROM || 'Aloa® Forms <forms@updates.aloa.agency>',
@@ -75,7 +75,7 @@ export async function POST(request, { params }) {
     const { data, error } = await resend.emails.send(emailOptions);
 
     if (error) {
-      console.error('Error sending analysis email:', error);
+
       return NextResponse.json(
         { error: 'Failed to send email', details: error.message },
         { status: 500 }
@@ -83,7 +83,6 @@ export async function POST(request, { params }) {
     }
 
     // Log the email send event
-    console.log(`Analysis email sent successfully for form ${formId} to ${recipientEmail}`);
 
     // Optionally store email send record in database
     if (supabase) {
@@ -99,7 +98,7 @@ export async function POST(request, { params }) {
           });
       } catch (dbError) {
         // Don't fail the request if logging fails
-        console.error('Failed to log email send:', dbError);
+
       }
     }
 
@@ -110,7 +109,7 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in email analysis endpoint:', error);
+
     return NextResponse.json(
       { error: 'Failed to send analysis email' },
       { status: 500 }

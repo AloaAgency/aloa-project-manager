@@ -5,8 +5,6 @@ import { supabase } from '@/lib/supabase';
 export async function GET(request, { params }) {
   try {
     const { projectletId } = params;
-    
-    console.log(`Fetching applets for projectlet: ${projectletId}`);
 
     const { data: applets, error } = await supabase
       .from('aloa_applets')
@@ -15,7 +13,7 @@ export async function GET(request, { params }) {
       .order('order_index', { ascending: true });
 
     if (error) {
-      console.error('Error fetching applets:', error);
+
       return NextResponse.json({ error: 'Failed to fetch applets' }, { status: 500 });
     }
 
@@ -31,7 +29,7 @@ export async function GET(request, { params }) {
       const completedUsers = userProgress?.filter(p => 
         p.status === 'completed' || p.status === 'approved'
       ) || [];
-      
+
       const inProgressUsers = userProgress?.filter(p => 
         p.status === 'in_progress'
       ) || [];
@@ -48,10 +46,9 @@ export async function GET(request, { params }) {
       };
     }));
 
-    console.log(`Found ${appletsWithProgress?.length || 0} applets for projectlet ${projectletId}`);
     return NextResponse.json({ applets: appletsWithProgress || [] });
   } catch (error) {
-    console.error('Error in applets route:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -87,8 +84,6 @@ export async function POST(request, { params }) {
       client_can_skip: body.client_can_skip || false,
       library_applet_id: body.library_applet_id
     };
-    
-    console.log('Creating applet with data:', appletData);
 
     // Create the applet
     const { data: applet, error } = await supabase
@@ -98,20 +93,13 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error creating applet:', error);
-      console.error('Detailed error:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      });
+
       return NextResponse.json({ error: 'Failed to create applet', details: error.message }, { status: 500 });
     }
 
-    console.log('Successfully created applet:', applet);
     return NextResponse.json({ applet });
   } catch (error) {
-    console.error('Error in applet creation:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -122,8 +110,6 @@ export async function PUT(request, { params }) {
     const body = await request.json();
     const { appletId, ...updateData } = body;
 
-    console.log('Updating applet:', appletId, 'with data:', updateData);
-
     const { data: applet, error } = await supabase
       .from('aloa_applets')
       .update(updateData)
@@ -132,14 +118,13 @@ export async function PUT(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error updating applet:', error);
+
       return NextResponse.json({ error: 'Failed to update applet' }, { status: 500 });
     }
 
-    console.log('Successfully updated applet:', applet);
     return NextResponse.json({ applet });
   } catch (error) {
-    console.error('Error in applet update:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -151,7 +136,7 @@ export async function PATCH(request, { params }) {
     const { appletId, status, completion_percentage } = body;
 
     const updateData = { status };
-    
+
     if (completion_percentage !== undefined) {
       updateData.completion_percentage = completion_percentage;
     }
@@ -172,7 +157,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error updating applet status:', error);
+
       return NextResponse.json({ error: 'Failed to update applet status' }, { status: 500 });
     }
 
@@ -189,7 +174,7 @@ export async function PATCH(request, { params }) {
 
     return NextResponse.json({ applet });
   } catch (error) {
-    console.error('Error in applet status update:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -210,13 +195,13 @@ export async function DELETE(request, { params }) {
       .eq('id', appletId);
 
     if (error) {
-      console.error('Error deleting applet:', error);
+
       return NextResponse.json({ error: 'Failed to delete applet' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error in applet deletion:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

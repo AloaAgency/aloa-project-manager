@@ -24,7 +24,6 @@ export default function AuthGuard({
   const checkAuth = async () => {
     try {
       // Get profile from API (server-side auth is more reliable)
-      console.log('Checking authentication via API...');
 
       const response = await fetch('/api/auth/profile', {
         credentials: 'include',
@@ -34,19 +33,10 @@ export default function AuthGuard({
       });
       const data = await response.json();
 
-      console.log('Profile API response:', data);
-      console.log('Response structure:', {
-        hasUser: !!data.user,
-        hasRole: !!data.user?.role,
-        hasProfile: !!data.user?.profile,
-        profileRole: data.user?.profile?.role,
-        userRole: data.user?.role
-      });
-
       // If API returns unauthorized, user is not authenticated
       if (!response.ok || data.error === 'Not authenticated') {
         if (requireAuth) {
-          console.log('No authenticated user, redirecting to login');
+
           router.push(`${redirectTo}?message=Please login to continue`);
         } else {
           setAuthorized(true);
@@ -56,15 +46,13 @@ export default function AuthGuard({
       }
 
       if (!response.ok || data.error) {
-        console.error('Error fetching user profile:', data.error);
+
         setError('Unable to verify user permissions: ' + (data.error || 'Unknown error'));
         setLoading(false);
         return;
       }
 
       if (!data.user || !data.user.role) {
-        console.error('No user role found in response');
-        console.error('Full data structure:', JSON.stringify(data, null, 2));
         setError('User profile incomplete. Please contact support.');
         setLoading(false);
         return;
@@ -73,41 +61,29 @@ export default function AuthGuard({
       // Get the role - prioritize the direct user.role over profile.role
       const actualRole = data.user.role || data.user.profile?.role;
       setUserRole(actualRole);
-      console.log('User role determined:', {
-        directRole: data.user.role,
-        profileRole: data.user.profile?.role,
-        actualRole: actualRole,
-        currentPath: window.location.pathname,
-        allowedRoles: allowedRoles
-      });
 
       // Check if user role is allowed
       if (allowedRoles.length > 0) {
-        console.log('Checking role access:', {
-          userRole: actualRole,
-          allowedRoles: allowedRoles,
-          isIncluded: allowedRoles.includes(actualRole)
-        });
-        
+
         const isAllowed = allowedRoles.includes(actualRole);
-        
+
         if (!isAllowed) {
-          console.log(`User role ${actualRole} not in allowed roles:`, allowedRoles);
+
           setError(`Access denied. This area is restricted to: ${allowedRoles.join(', ')}`);
           setAuthorized(false);
         } else {
-          console.log('Access granted for role:', actualRole);
+
           setAuthorized(true);
         }
       } else {
         // If no specific roles required, just check authentication
-        console.log('No specific roles required, user is authenticated');
+
         setAuthorized(true);
       }
 
       setLoading(false);
     } catch (error) {
-      console.error('Auth check error:', error);
+
       setError('An error occurred while checking permissions');
       setLoading(false);
     }

@@ -9,13 +9,13 @@ function parseMarkdown(markdown) {
     description: '',
     fields: []
   };
-  
+
   let currentSection = 'General Information';
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
-    
+
     if (trimmed.startsWith('# ')) {
       form.title = trimmed.substring(2).trim();
       // Check if next line is a description (not starting with # or ## or -)
@@ -39,16 +39,16 @@ function parseMarkdown(markdown) {
       // Format: "- type* | field_id | Label | placeholder" - Manual markdown format
       // Split by pipe first to handle properly
       const parts = trimmed.substring(2).split('|').map(p => p.trim());
-      
+
       if (parts.length >= 3) {
         const type = parts[0];
         const fieldId = parts[1];
         const label = parts[2];
         const placeholder = parts[3] || '';
-        
+
         const isRequired = type.includes('*');
         const fieldType = type.replace('*', '').trim();
-        
+
         const field = {
           type: fieldType,
           name: fieldId,
@@ -59,7 +59,7 @@ function parseMarkdown(markdown) {
           placeholder: placeholder,
           validation: { section: currentSection }
         };
-        
+
         // Collect options for select/radio/checkbox fields
         const options = [];
         for (let j = i + 1; j < lines.length; j++) {
@@ -73,7 +73,7 @@ function parseMarkdown(markdown) {
         if (options.length > 0) {
           field.options = options;
         }
-        
+
         form.fields.push(field);
       } else {
         continue;
@@ -81,29 +81,29 @@ function parseMarkdown(markdown) {
     } else if (trimmed.length > 0 && !trimmed.startsWith('#') && !trimmed.startsWith('  -')) {
       // Format: "Question? (type) *" - AI Chat format
       const aiFormatMatch = trimmed.match(/^(.+?)\s*\(([^)]+)\)\s*(\*)?$/);
-      
+
       if (aiFormatMatch) {
         const [, label, typeInfo, requiredStar] = aiFormatMatch;
         const isRequired = !!requiredStar;
-        
+
         // Parse type and options from typeInfo
         let fieldType = typeInfo;
         let options = [];
-        
+
         // Check if type includes options like "select: Option1, Option2"
         if (typeInfo.includes(':')) {
           const [type, optionsStr] = typeInfo.split(':');
           fieldType = type.trim();
           options = optionsStr.split(',').map(opt => opt.trim());
         }
-        
+
         // Generate field name from label
         const fieldName = label.trim()
           .toLowerCase()
           .replace(/[?!.]/g, '')
           .replace(/\s+/g, '_')
           .replace(/[^a-z0-9_]/g, '');
-        
+
         const field = {
           type: fieldType,
           name: fieldName,
@@ -114,16 +114,16 @@ function parseMarkdown(markdown) {
           placeholder: '',
           validation: { section: currentSection }
         };
-        
+
         if (options.length > 0) {
           field.options = options;
         }
-        
+
         form.fields.push(field);
       }
     }
   }
-  
+
   return form;
 }
 
@@ -132,35 +132,28 @@ export async function POST(request) {
     const formData = await request.formData();
     const file = formData.get('markdown');
     const projectId = formData.get('projectId');
-    
+
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
-    
+
     const markdown = await file.text();
-    console.log('=== Received markdown ===');
-    console.log(markdown);
-    console.log('========================');
-    
+
     // Log each line processing
     const lines = markdown.split('\n');
     lines.forEach((line, i) => {
       if (line.trim().startsWith('- ')) {
-        console.log(`Line ${i}: "${line}"`);
         const parts = line.trim().substring(2).split('|').map(p => p.trim());
-        console.log(`  Parts: [${parts.map(p => `"${p}"`).join(', ')}]`);
+        // Process parts if needed
       }
     });
-    
+
     const parsedForm = parseMarkdown(markdown);
-    console.log('=== Parsed form ===');
-    console.log(JSON.stringify(parsedForm, null, 2));
-    console.log('==================');
-    console.log('Field count:', parsedForm.fields.length);
+
     if (parsedForm.fields.length === 0) {
-      console.log('WARNING: No fields parsed from markdown!');
+
     }
-    
+
     // Create form in aloa_forms
     const urlId = nanoid(10);
     const { data: form, error: formError } = await supabase
@@ -185,12 +178,12 @@ export async function POST(request) {
       }])
       .select()
       .single();
-    
+
     if (formError) {
-      console.error('Error creating form:', formError);
+
       return NextResponse.json({ error: 'Failed to create form' }, { status: 500 });
     }
-    
+
     // Create fields in aloa_form_fields
     if (parsedForm.fields.length > 0) {
       const fieldsToInsert = parsedForm.fields.map(field => ({
@@ -204,28 +197,22 @@ export async function POST(request) {
         validation: field.validation,
         field_order: field.position
       }));
-      
-      console.log('=== Fields to insert ===');
-      console.log(JSON.stringify(fieldsToInsert, null, 2));
-      console.log('=======================');
-      
+
       const { error: fieldsError } = await supabase
         .from('aloa_form_fields')
         .insert(fieldsToInsert);
-      
+
       if (fieldsError) {
-        console.error('Error creating fields:', fieldsError);
-        console.error('Fields that failed:', JSON.stringify(fieldsToInsert, null, 2));
+        // Error creating form fields
         // Rollback form creation
         await supabase.from('aloa_forms').delete().eq('id', form.id);
         return NextResponse.json({ error: 'Failed to create form fields' }, { status: 500 });
       }
-      
-      console.log(`Successfully created ${fieldsToInsert.length} fields`);
+
     } else {
-      console.log('No fields to create - form will have no questions!');
+
     }
-    
+
     return NextResponse.json({
       id: form.id,
       urlId: form.url_id,
@@ -235,7 +222,7 @@ export async function POST(request) {
       fieldCount: parsedForm.fields.length
     });
   } catch (error) {
-    console.error('Error processing form upload:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

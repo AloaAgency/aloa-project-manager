@@ -14,7 +14,7 @@ function FormPage() {
   const [submitted, setSubmitted] = useState(false);
   const [startTime] = useState(Date.now());
   const [currentSection, setCurrentSection] = useState(0);
-  
+
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm();
 
   useEffect(() => {
@@ -26,7 +26,7 @@ function FormPage() {
       const data = await formAPI.getPublicForm(urlId);
       setForm(data);
     } catch (error) {
-      console.error('Error loading form:', error);
+
       toast.error('Form not found or has expired');
       setTimeout(() => navigate('/'), 2000);
     } finally {
@@ -42,11 +42,11 @@ function FormPage() {
         email: data.email,
         startTime
       });
-      
+
       setSubmitted(true);
       toast.success(response.message || 'Thank you for your submission!');
     } catch (error) {
-      console.error('Error submitting form:', error);
+
       toast.error(error.response?.data?.error || 'Failed to submit form');
     } finally {
       setSubmitting(false);
@@ -244,7 +244,7 @@ function FormPage() {
                   {section.description && (
                     <p className="text-aloa-gray mb-8 leading-relaxed">{section.description}</p>
                   )}
-                  
+
                   <div className="space-y-6">
                     {section.fields?.map((field, fieldIdx) => (
                       <div key={fieldIdx}>
@@ -276,7 +276,7 @@ function FormPage() {
                     Previous
                   </button>
                 )}
-                
+
                 {currentSection < totalSections - 1 ? (
                   <button
                     type="button"

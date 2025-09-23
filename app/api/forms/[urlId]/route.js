@@ -22,17 +22,17 @@ export async function GET(request, { params }) {
       `)
       .eq('url_id', params.urlId)
       .single();
-    
+
     if (error || !form) {
       return NextResponse.json(
         { error: 'Form not found' },
         { status: 404 }
       );
     }
-    
+
     // Sort fields by position and format response
     const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
-    
+
     // Format response for compatibility
     return NextResponse.json({
       ...form,
@@ -54,7 +54,7 @@ export async function GET(request, { params }) {
       updatedAt: form.updated_at
     });
   } catch (error) {
-    console.error('Error fetching form:', error);
+
     return NextResponse.json(
       { error: 'Failed to fetch form' },
       { status: 500 }

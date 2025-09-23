@@ -10,7 +10,7 @@ const anthropic = new Anthropic({
 export async function GET(request, { params }) {
   try {
     const { formId } = params;
-    
+
     // Check if we have a cached analysis
     const { data: cachedAnalysis, error } = await supabase
       .from('aloa_ai_analyses')
@@ -19,14 +19,14 @@ export async function GET(request, { params }) {
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
-    
+
     if (cachedAnalysis && !error) {
       return NextResponse.json({ analysis: cachedAnalysis.analysis });
     }
-    
+
     return NextResponse.json({ analysis: null });
   } catch (error) {
-    console.error('Error fetching cached analysis:', error);
+
     return NextResponse.json({ analysis: null });
   }
 }
@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const { formId } = params;
-    
+
     // Fetch form and responses
     const { data: form, error: formError } = await supabase
       .from('aloa_forms')
@@ -45,26 +45,26 @@ export async function POST(request, { params }) {
       `)
       .eq('id', formId)
       .single();
-    
+
     if (formError || !form) {
       return NextResponse.json(
         { error: 'Form not found' },
         { status: 404 }
       );
     }
-    
+
     const { data: responses, error: responsesError } = await supabase
       .from('aloa_form_responses')
       .select('*')
       .eq('aloa_form_id', formId);
-    
+
     if (responsesError || !responses || responses.length === 0) {
       return NextResponse.json(
         { error: 'No responses found' },
         { status: 404 }
       );
     }
-    
+
     // Prepare data for AI analysis
     const formStructure = {
       title: form.title,
@@ -76,9 +76,9 @@ export async function POST(request, { params }) {
         options: field.options
       }))
     };
-    
+
     const responseData = responses.map(r => r.responses);
-    
+
     // Create the prompt for Claude
     const prompt = `You are an expert analyst tasked with analyzing survey/form responses to identify patterns, consensus, conflicts, and actionable insights.
 
@@ -148,7 +148,7 @@ Important guidelines:
         }
       ]
     });
-    
+
     // Parse the AI response
     let analysis;
     try {
@@ -161,7 +161,7 @@ Important guidelines:
         throw new Error('Could not extract JSON from response');
       }
     } catch (parseError) {
-      console.error('Error parsing AI response:', parseError);
+
       // Provide a fallback analysis
       analysis = {
         executiveSummary: "Analysis is being processed. Please try again.",
@@ -174,7 +174,7 @@ Important guidelines:
         stakeholderMessage: "Analysis in progress."
       };
     }
-    
+
     // Store the analysis in the database
     const { error: insertError } = await supabase
       .from('aloa_ai_analyses')
@@ -183,15 +183,15 @@ Important guidelines:
         analysis: analysis,
         created_at: new Date().toISOString()
       });
-    
+
     if (insertError) {
-      console.error('Error caching analysis:', insertError);
+
       // Continue even if caching fails
     }
-    
+
     return NextResponse.json(analysis);
   } catch (error) {
-    console.error('Error generating AI analysis:', error);
+
     return NextResponse.json(
       { error: 'Failed to generate analysis' },
       { status: 500 }

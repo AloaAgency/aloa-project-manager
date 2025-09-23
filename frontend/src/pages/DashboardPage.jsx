@@ -19,7 +19,7 @@ function DashboardPage() {
       const data = await formAPI.getAllForms();
       setForms(data);
     } catch (error) {
-      console.error('Error loading forms:', error);
+
       toast.error('Failed to load forms');
     } finally {
       setLoading(false);
@@ -44,7 +44,7 @@ function DashboardPage() {
       toast.success('Form deleted successfully');
       loadForms();
     } catch (error) {
-      console.error('Error deleting form:', error);
+
       toast.error('Failed to delete form');
     }
   };
@@ -55,7 +55,7 @@ function DashboardPage() {
       toast.success(`Form ${!currentStatus ? 'activated' : 'deactivated'}`);
       loadForms();
     } catch (error) {
-      console.error('Error updating form:', error);
+
       toast.error('Failed to update form');
     }
   };
@@ -114,7 +114,7 @@ function DashboardPage() {
               <FileText className="h-8 w-8 text-aloa-black" />
             </div>
           </div>
-          
+
           <div className="bg-aloa-white border border-aloa-black/10 p-8">
             <div className="flex items-center justify-between">
               <div>
@@ -126,7 +126,7 @@ function DashboardPage() {
               <Eye className="h-8 w-8 text-aloa-black" />
             </div>
           </div>
-          
+
           <div className="bg-aloa-white border border-aloa-black/10 p-8">
             <div className="flex items-center justify-between">
               <div>
@@ -176,7 +176,7 @@ function DashboardPage() {
                           {form.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
-                      
+
                       <div className="flex flex-wrap gap-6 text-sm text-aloa-gray">
                         <span className="flex items-center">
                           <Calendar className="h-4 w-4 mr-2" />
@@ -205,7 +205,7 @@ function DashboardPage() {
                           <Copy className="h-4 w-4" />
                         )}
                       </button>
-                      
+
                       <a
                         href={`/form/${form.urlId}`}
                         target="_blank"
@@ -215,7 +215,7 @@ function DashboardPage() {
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
-                      
+
                       <Link
                         to={`/responses/${form._id}`}
                         className="p-3 text-aloa-black hover:bg-aloa-cream transition-colors border border-aloa-black/10"
@@ -223,7 +223,7 @@ function DashboardPage() {
                       >
                         <BarChart3 className="h-4 w-4" />
                       </Link>
-                      
+
                       <button
                         onClick={() => toggleFormStatus(form._id, form.isActive)}
                         className="p-3 text-aloa-black hover:bg-aloa-cream transition-colors border border-aloa-black/10"
@@ -231,7 +231,7 @@ function DashboardPage() {
                       >
                         <Eye className={`h-4 w-4 ${!form.isActive && 'opacity-50'}`} />
                       </button>
-                      
+
                       <button
                         onClick={() => deleteForm(form._id)}
                         className="p-3 text-red-600 hover:bg-red-50 transition-colors border border-red-600/20"

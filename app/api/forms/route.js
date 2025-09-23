@@ -6,7 +6,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('project');
-    
+
     // Build query
     let query = supabase
       .from('aloa_forms')
@@ -29,17 +29,17 @@ export async function GET(request) {
           name
         )
       `);
-    
+
     // Filter by project if specified
     if (projectId) {
       query = query.eq('project_id', projectId);
     }
-    
+
     // Execute query
     const { data: forms, error } = await query.order('created_at', { ascending: false });
-    
+
     if (error) throw error;
-    
+
     // Format the response to include responseCount and fields
     const formsWithCount = forms.map(form => ({
       ...form,
@@ -62,10 +62,10 @@ export async function GET(request) {
       })) || [],
       responseCount: form.aloa_form_responses?.[0]?.count || 0
     }));
-    
+
     return NextResponse.json(formsWithCount);
   } catch (error) {
-    console.error('Error fetching forms:', error);
+
     return NextResponse.json(
       { error: 'Failed to fetch forms' },
       { status: 500 }
@@ -76,7 +76,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    
+
     // Start a transaction by creating the form first
     const formData = {
       title: body.title,
@@ -85,15 +85,15 @@ export async function POST(request) {
       markdown_content: body.markdownContent || '', // Add markdown_content with default empty string
       project_id: body.projectId || null // Add project_id support
     };
-    
+
     const { data: form, error: formError } = await supabase
       .from('aloa_forms')
       .insert([formData])
       .select()
       .single();
-    
+
     if (formError) throw formError;
-    
+
     // If there are fields, insert them
     if (body.fields && body.fields.length > 0) {
       const fieldsToInsert = body.fields.map((field, index) => ({
@@ -107,25 +107,25 @@ export async function POST(request) {
         validation: field.validation || null,
         field_order: index
       }));
-      
+
       const { error: fieldsError } = await supabase
         .from('aloa_form_fields')
         .insert(fieldsToInsert);
-      
+
       if (fieldsError) {
         // Rollback by deleting the form
         await supabase.from('aloa_forms').delete().eq('id', form.id);
         throw fieldsError;
       }
     }
-    
+
     return NextResponse.json({
       ...form,
       _id: form.id,
       urlId: form.url_id
     });
   } catch (error) {
-    console.error('Error creating form:', error);
+
     return NextResponse.json(
       { error: 'Failed to create form' },
       { status: 500 }

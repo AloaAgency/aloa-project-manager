@@ -15,13 +15,13 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error updating applet:', error);
+
       return NextResponse.json({ error: 'Failed to update applet' }, { status: 500 });
     }
 
     return NextResponse.json({ applet });
   } catch (error) {
-    console.error('Error in applet update:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -37,13 +37,13 @@ export async function DELETE(request, { params }) {
       .eq('id', appletId);
 
     if (error) {
-      console.error('Error deleting applet:', error);
+
       return NextResponse.json({ error: 'Failed to delete applet' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error in applet deletion:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

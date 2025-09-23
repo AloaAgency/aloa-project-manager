@@ -42,7 +42,7 @@ export default function FormBuilderModal({
       const lines = markdown.split('\n');
       const titleLine = lines.find(line => line.startsWith('#'));
       const title = titleLine ? titleLine.replace(/^#+\s*/, '') : 'Untitled Form';
-      
+
       // Find description (first non-title, non-empty line)
       const descriptionLine = lines.find(line => 
         line.trim() && !line.startsWith('#') && !line.startsWith('##')
@@ -63,7 +63,7 @@ export default function FormBuilderModal({
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to create form');
       }
@@ -96,7 +96,7 @@ export default function FormBuilderModal({
             return;
           }
         } catch (attachError) {
-          console.error('Error attaching form to projectlet:', attachError);
+
           // Continue even if attachment fails
         }
       }
@@ -105,7 +105,7 @@ export default function FormBuilderModal({
       onFormCreated && onFormCreated(data);
       onClose();
     } catch (error) {
-      console.error('Form creation error:', error);
+
       toast.error(error.message || 'Failed to create form');
     } finally {
       setIsCreating(false);
@@ -183,7 +183,7 @@ export default function FormBuilderModal({
             return;
           }
         } catch (attachError) {
-          console.error('Error attaching form to projectlet:', attachError);
+
           // Continue even if attachment fails
         }
       }
@@ -192,7 +192,7 @@ export default function FormBuilderModal({
       onFormCreated && onFormCreated(data);
       onClose();
     } catch (error) {
-      console.error('Markdown upload error:', error);
+
       toast.error(error.message || 'Failed to upload markdown file');
     } finally {
       setUploadingMarkdown(false);
@@ -209,7 +209,7 @@ export default function FormBuilderModal({
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      
+
       // Check for section headers
       if (line.startsWith('## Section:')) {
         currentSection = line.replace('## Section:', '').trim();
@@ -220,18 +220,18 @@ export default function FormBuilderModal({
       if (line.startsWith('- ')) {
         // Split by pipe to handle all parts properly
         const parts = line.substring(2).split('|').map(p => p.trim());
-        
+
         if (parts.length >= 3) {
           // Extract type and required flag
           const typeStr = parts[0];
           const required = typeStr.includes('*');
           const type = typeStr.replace('*', '').trim().toLowerCase();
-          
+
           // Extract field name, label, and placeholder
           const fieldId = parts[1];
           const label = parts[2];
           const placeholder = parts.length >= 4 ? parts[3] : '';
-          
+
           const field = {
             type: type,
             required: required,

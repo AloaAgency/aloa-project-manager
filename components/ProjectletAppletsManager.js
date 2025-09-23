@@ -131,10 +131,10 @@ export default function ProjectletAppletsManager({
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`
       );
       const data = await response.json();
-      console.log('Fetched applets:', data.applets);
+
       setApplets(data.applets || []);
     } catch (error) {
-      console.error('Error fetching applets:', error);
+
     } finally {
       setLoading(false);
     }
@@ -146,15 +146,14 @@ export default function ProjectletAppletsManager({
       const data = await response.json();
       setLibraryApplets(data.applets || []);
     } catch (error) {
-      console.error('Error fetching library applets:', error);
+
     }
   };
 
   const addAppletFromLibrary = async (libraryApplet) => {
     // Add all applets directly, including form applets with null form_id for inline configuration
     try {
-      console.log('Adding applet from library:', libraryApplet);
-      
+
       const appletData = {
         library_applet_id: libraryApplet.id,
         name: libraryApplet.name,
@@ -201,8 +200,6 @@ export default function ProjectletAppletsManager({
         };
       }
 
-      console.log('Sending applet data to API:', appletData);
-      
       const response = await fetch(
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`,
         {
@@ -214,7 +211,7 @@ export default function ProjectletAppletsManager({
 
       if (response.ok) {
         const createdApplet = await response.json();
-        console.log('Created applet response:', createdApplet);
+
         toast.success('Applet added successfully');
         fetchApplets();
         setShowAddApplet(false);
@@ -225,7 +222,7 @@ export default function ProjectletAppletsManager({
         }
       }
     } catch (error) {
-      console.error('Error adding applet:', error);
+
       toast.error('Failed to add applet');
     }
   };
@@ -242,7 +239,7 @@ export default function ProjectletAppletsManager({
       setShowFormConfig(false);
       setShowAIFormBuilder(true);
     } catch (error) {
-      console.error('Error loading project knowledge:', error);
+
       // Show modal anyway, just without project context
       setShowFormConfig(false);
       setShowAIFormBuilder(true);
@@ -297,7 +294,7 @@ export default function ProjectletAppletsManager({
         }
       }
     } catch (error) {
-      console.error('Error uploading markdown:', error);
+
       toast.error(error.message || 'Failed to upload markdown file');
     } finally {
       setUploadingMarkdown(false);
@@ -351,7 +348,7 @@ export default function ProjectletAppletsManager({
         }
       }
     } catch (error) {
-      console.error('Error attaching form to applet:', error);
+
       toast.error('Failed to attach form to applet');
     }
   };
@@ -361,7 +358,7 @@ export default function ProjectletAppletsManager({
       // Create form from AI-generated markdown
       const blob = new Blob([markdown], { type: 'text/markdown' });
       const file = new File([blob], 'ai-generated-form.md', { type: 'text/markdown' });
-      
+
       const formData = new FormData();
       formData.append('markdown', file);
       formData.append('projectId', projectId);
@@ -409,7 +406,7 @@ export default function ProjectletAppletsManager({
       setShowAIFormBuilder(false);
       setSelectedLibraryApplet(null);
     } catch (error) {
-      console.error('Form creation error:', error);
+
       toast.error(error.message || 'Failed to create form');
     }
   };
@@ -447,7 +444,7 @@ export default function ProjectletAppletsManager({
         toast.success('Form attached successfully');
       }
     } catch (error) {
-      console.error('Error attaching form:', error);
+
       toast.error('Failed to attach form');
     }
   };
@@ -472,7 +469,7 @@ export default function ProjectletAppletsManager({
         setEditingApplet(null);
       }
     } catch (error) {
-      console.error('Error updating applet:', error);
+
       toast.error('Failed to update applet');
     }
   };
@@ -493,7 +490,7 @@ export default function ProjectletAppletsManager({
         fetchApplets();
       }
     } catch (error) {
-      console.error('Error updating applet status:', error);
+
       toast.error('Failed to update status');
     }
   };
@@ -514,7 +511,7 @@ export default function ProjectletAppletsManager({
         fetchApplets();
       }
     } catch (error) {
-      console.error('Error deleting applet:', error);
+
       toast.error('Failed to delete applet');
     }
   };
@@ -601,7 +598,7 @@ export default function ProjectletAppletsManager({
           </div>
         ) : (
           applets.map((applet, index) => {
-            console.log(`Rendering applet ${index}:`, applet.name, 'Type:', applet.type);
+
             const Icon = APPLET_ICONS[applet.type] || FileText;
             const colorClass = APPLET_COLORS[applet.type] || 'bg-gray-100 text-gray-700';
             const isExpanded = expandedApplet === applet.id;
@@ -638,7 +635,7 @@ export default function ProjectletAppletsManager({
                           <h4 className="font-bold">{applet.name}</h4>
                         )}
                       </div>
-                      
+
                       {applet.description && (
                         <p className="text-sm opacity-75 mt-1">{applet.description}</p>
                       )}
@@ -705,7 +702,7 @@ export default function ProjectletAppletsManager({
                                   setShowFormConfig(true);
                                   setFormConfigMode('create');
                                 } else if (e.target.value) {
-                                  console.log('Updating applet form_id:', applet.id, 'to:', e.target.value);
+
                                   updateApplet(applet.id, { 
                                     form_id: e.target.value,
                                     config: { 
@@ -729,7 +726,7 @@ export default function ProjectletAppletsManager({
                                 ))}
                               </optgroup>
                             </select>
-                            
+
                             {/* Form action icons */}
                             {applet.form_id && (
                               <div className="flex items-center space-x-1">
@@ -802,14 +799,14 @@ export default function ProjectletAppletsManager({
                         <div className="text-xs">Type: "{applet.type || 'NULL'}"</div>
                         <div className="text-xs">Is Link Submission? {applet.name === 'Link Submission' ? 'YES' : 'NO'}</div>
                       </div>
-                      
+
                       {/* Original link submission logic */}
                       {(() => {
                         // Check if this is a link submission applet based on type, name, or description
                         const isLinkSubmission = applet.type === 'link_submission' || 
                                                 applet.name === 'Link Submission' ||
                                                 applet.description?.includes('Share deliverables and resources');
-                        
+
                         if (isLinkSubmission) {
                           return (
                             <div className="mt-3 p-3 border-2 border-blue-500 bg-blue-50 rounded-lg">
@@ -829,7 +826,7 @@ export default function ProjectletAppletsManager({
                                 placeholder="Enter heading (e.g., Project Deliverables)"
                               />
                             </div>
-                            
+
                             {/* Description */}
                             <div>
                               <label className="text-xs font-medium text-gray-700 block mb-1">Description</label>
@@ -843,7 +840,7 @@ export default function ProjectletAppletsManager({
                                 placeholder="Add description or instructions..."
                               />
                             </div>
-                            
+
                             {/* Links section */}
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
@@ -861,7 +858,7 @@ export default function ProjectletAppletsManager({
                                   + Add Link
                                 </button>
                               </div>
-                              
+
                               {(applet.config?.links || []).length === 0 ? (
                                 <div className="text-xs text-gray-500 italic p-2 bg-gray-50 rounded">
                                   No links added yet. Click "Add Link" to get started.
@@ -941,7 +938,7 @@ export default function ProjectletAppletsManager({
                                 </div>
                               )}
                             </div>
-                            
+
                             {/* Allow acknowledgment checkbox */}
                             <div className="flex items-center p-2 bg-gray-50 rounded">
                               <input
@@ -1106,7 +1103,7 @@ export default function ProjectletAppletsManager({
                   );
                 })}
               </div>
-              
+
               <p className="text-sm text-gray-500 text-center mt-4">
                 Click any applet to add it to your projectlet
               </p>
@@ -1313,7 +1310,7 @@ export default function ProjectletAppletsManager({
                                         const response = await fetch(`/api/aloa-forms/${form.id}`, {
                                           method: 'DELETE'
                                         });
-                                        
+
                                         if (response.ok) {
                                           const data = await response.json();
                                           toast.success('Form deleted successfully');
@@ -1331,7 +1328,7 @@ export default function ProjectletAppletsManager({
                                           }
                                         }
                                       } catch (error) {
-                                        console.error('Error deleting form:', error);
+
                                         toast.error('Failed to delete form');
                                       }
                                     }
@@ -1394,7 +1391,7 @@ export default function ProjectletAppletsManager({
                 </button>
               </div>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-6">
               {projectKnowledge && projectKnowledge.stats && projectKnowledge.stats.totalDocuments > 0 && (
                 <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
@@ -1412,7 +1409,7 @@ export default function ProjectletAppletsManager({
                   </div>
                 </div>
               )}
-              
+
               <AIChatFormBuilder 
                 onMarkdownGenerated={handleAIFormGenerated}
                 projectContext={projectKnowledge?.project?.ai_context}

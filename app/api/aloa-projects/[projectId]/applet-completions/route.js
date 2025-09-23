@@ -9,8 +9,6 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url);
     const appletId = searchParams.get('appletId');
 
-    console.log('Applet completions GET request:', { projectId, appletId });
-
     if (appletId) {
       // Get completion data for a specific applet from aloa_applet_progress
       // Include both completed AND in_progress to show dotted avatars
@@ -28,14 +26,8 @@ export async function GET(request, { params }) {
         .eq('applet_id', appletId)
         .in('status', ['completed', 'in_progress']);
 
-      console.log('Fetched completions from aloa_applet_progress:', {
-        appletId,
-        count: completions?.length || 0,
-        completions
-      });
-
       if (completionsError) {
-        console.error('Error fetching completions:', completionsError);
+
         return NextResponse.json({ error: 'Failed to fetch completions' }, { status: 500 });
       }
 
@@ -73,7 +65,6 @@ export async function GET(request, { params }) {
         }
       }
 
-
       // For palette cleanser applets, fetch the interaction data
       let completionsWithProfiles = [];
 
@@ -84,14 +75,9 @@ export async function GET(request, { params }) {
         .eq('id', appletId)
         .single();
 
-      console.log('Checking applet type for palette data:', {
-        appletId,
-        appletType: appletData?.type,
-        appletName: appletData?.name,
-        isPaletteCleanser: appletData?.type === 'palette_cleanser',
-        nameContainsPalette: appletData?.name?.toLowerCase().includes('palette'),
-        appletError
-      });
+      if (appletError) {
+        return NextResponse.json({ error: 'Failed to fetch applet data' }, { status: 500 });
+      }
 
       // Check both type and name for palette cleanser identification
       const isPaletteCleanser = appletData?.type === 'palette_cleanser' ||
@@ -119,16 +105,10 @@ export async function GET(request, { params }) {
             .limit(1);
 
           if (interactionError) {
-            console.error('Error fetching palette interaction:', interactionError);
+            // Handle interaction error
           }
 
           const paletteData = interactions?.[0]?.data || {};
-          console.log(`Palette data for user ${profile.full_name || profile.email}:`, {
-            hasData: !!interactions?.[0],
-            dataKeys: Object.keys(paletteData),
-            paletteRatings: paletteData.paletteRatings,
-            finalSelections: paletteData.finalSelections
-          });
 
           return {
             ...completion,
@@ -174,14 +154,6 @@ export async function GET(request, { params }) {
         ? Math.round((completedCount / totalStakeholders) * 100)
         : 0;
 
-      console.log('Completion calculation:', {
-        appletId,
-        totalStakeholders,
-        completedCount,
-        percentage,
-        stakeholderCount: stakeholders?.length || 0
-      });
-
       return NextResponse.json({
         completions: completionsWithProfiles,
         percentage,
@@ -202,14 +174,14 @@ export async function GET(request, { params }) {
         .eq('project_id', projectId);
 
       if (error) {
-        console.error('Error fetching completions:', error);
+
         return NextResponse.json({ error: 'Failed to fetch completions' }, { status: 500 });
       }
 
       return NextResponse.json(completions || []);
     }
   } catch (error) {
-    console.error('Error in applet-completions GET:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -268,13 +240,13 @@ export async function POST(request, { params }) {
       .single();
 
     if (completionError) {
-      console.error('Error creating completion:', completionError);
+
       return NextResponse.json({ error: 'Failed to record completion' }, { status: 500 });
     }
 
     return NextResponse.json(completion);
   } catch (error) {
-    console.error('Error in applet-completions POST:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -26,7 +26,7 @@ export async function DELETE(request, { params }) {
       .eq('id', formId);
 
     if (deleteError) {
-      console.error('Error deleting form:', deleteError);
+
       return NextResponse.json(
         { error: 'Failed to delete form' },
         { status: 500 }
@@ -39,7 +39,7 @@ export async function DELETE(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in DELETE /api/aloa-forms/[formId]:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -96,7 +96,7 @@ export async function GET(request, { params }) {
     return NextResponse.json(form);
 
   } catch (error) {
-    console.error('Error in GET /api/aloa-forms/[formId]:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -118,7 +118,7 @@ export async function PUT(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error updating form:', error);
+
       return NextResponse.json(
         { error: 'Failed to update form' },
         { status: 500 }
@@ -128,7 +128,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(form);
 
   } catch (error) {
-    console.error('Error in PUT /api/aloa-forms/[formId]:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

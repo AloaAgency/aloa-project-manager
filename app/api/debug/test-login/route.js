@@ -7,17 +7,17 @@ export const dynamic = 'force-dynamic';
 export async function POST(request) {
   try {
     const { email, password } = await request.json();
-    
+
     if (!email || !password) {
       return NextResponse.json({ 
         error: 'Email and password required' 
       }, { status: 400 });
     }
-    
+
     const cookieStore = cookies();
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-    
+
     // Log what we're using (without exposing full credentials)
     const debugInfo = {
       url: url ? url.substring(0, 30) + '...' : 'missing',
@@ -25,9 +25,7 @@ export async function POST(request) {
       keyPrefix: key ? key.substring(0, 20) + '...' : 'missing',
       keyLength: key?.length || 0
     };
-    
-    console.log('Test login attempt with:', debugInfo);
-    
+
     const supabase = createServerClient(
       url,
       key,
@@ -59,21 +57,15 @@ export async function POST(request) {
         }
       }
     );
-    
+
     // Try to sign in
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
-    
+
     if (error) {
-      console.error('Login error details:', {
-        message: error.message,
-        status: error.status,
-        code: error.code,
-        name: error.name
-      });
-      
+
       return NextResponse.json({
         error: error.message,
         errorDetails: {
@@ -84,7 +76,7 @@ export async function POST(request) {
         debugInfo
       });
     }
-    
+
     return NextResponse.json({
       success: true,
       hasUser: !!data?.user,
@@ -92,9 +84,9 @@ export async function POST(request) {
       userEmail: data?.user?.email,
       debugInfo
     });
-    
+
   } catch (error) {
-    console.error('Test login error:', error);
+
     return NextResponse.json({
       error: error.message,
       serverError: true

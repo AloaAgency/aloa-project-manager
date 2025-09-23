@@ -3189,7 +3189,6 @@ function AdminProjectPageContent() {
                                                 toast.success('Form selected');
                                               }
                                             } catch (error) {
-                                              console.error('Error updating applet:', error);
                                               toast.error('Failed to update form selection');
                                             }
                                           }}

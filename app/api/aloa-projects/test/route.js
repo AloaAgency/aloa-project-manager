@@ -24,7 +24,7 @@ export async function GET() {
         status: 'FAILED',
         error: 'Supabase client not initialized - check environment variables'
       };
-      
+
       return NextResponse.json({
         success: false,
         message: 'Supabase client not initialized',
@@ -117,7 +117,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Test endpoint error:', error);
+
     return NextResponse.json({
       success: false,
       message: 'Test endpoint error',

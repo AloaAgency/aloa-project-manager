@@ -68,14 +68,7 @@ export async function GET(request, { params }) {
       applets: projectlet.applets?.sort((a, b) => a.order_index - b.order_index).map(applet => {
         // Debug log for Pig applet
         if (applet.name?.toLowerCase().includes('pig')) {
-          // Server - Pig applet config: {
-            id: applet.id,
-            name: applet.name,
-            config: applet.config,
-            configType: typeof applet.config,
-            configFiles: applet.config?.files,
-            configFilesType: typeof applet.config?.files
-          });
+          // Log Pig applet configuration for debugging
         }
         return applet;
       }) || []
@@ -91,19 +84,7 @@ export async function GET(request, { params }) {
     if (progressError) {
     }
 
-    // User progress fetched for GET: {
-      userId,
-      projectId,
-      count: userProgress?.length,
-      paletteProgress: userProgress?.filter(p => {
-        const applet = sortedProjectlets.flatMap(pl => pl.applets).find(a => a.id === p.applet_id);
-        return applet?.type === 'palette_cleanser';
-      }).map(p => ({
-        appletId: p.applet_id,
-        status: p.status,
-        completed_at: p.completed_at
-      }))
-    });
+    // User progress fetched for GET - processing palette progress
 
     // Create a map of user progress by applet ID
     const progressMap = {};
@@ -125,14 +106,7 @@ export async function GET(request, { params }) {
 
           // Debug log for palette cleanser
           if (applet.type === 'palette_cleanser') {
-            // Palette cleanser progress applied: {
-              appletId: applet.id,
-              name: applet.name,
-              progressStatus: userAppletProgress.status,
-              progressCompletedAt: userAppletProgress.completed_at,
-              appliedUserStatus: applet.user_status,
-              appliedUserCompletedAt: applet.user_completed_at
-            });
+            // Palette cleanser progress applied for debugging
           }
         } else {
           applet.user_status = 'not_started';
@@ -197,16 +171,6 @@ export async function GET(request, { params }) {
     }
 
     // Debug: Log all projectlets and their status
-    // All projectlets: sortedProjectlets.map(p => {{
-      name: p.name,
-      status: p.status,
-      appletCount: p.applets.length,
-      applets: p.applets.map(a => ({
-        name: a.name,
-        user_status: a.user_status,
-        type: a.type
-      }))
-    })));
 
     // For locked projectlets with no applets, estimate they will have at least 1 applet each
     // This ensures they're counted in the overall project scope
@@ -296,13 +260,6 @@ export async function POST(request, { params }) {
 
 
     // Update user-specific applet progress
-    // Calling update_applet_progress with: {
-      p_applet_id: appletId,
-      p_user_id: userId,
-      p_project_id: projectId,
-      p_status: finalStatus,
-      p_completion_percentage: completionPercentage
-    });
 
     const { data: userProgress, error: progressError } = await supabase
       .rpc('update_applet_progress', {
@@ -345,14 +302,7 @@ export async function POST(request, { params }) {
       }
     }
 
-    // User progress updated successfully: {
-      userProgress,
-      status: finalStatus,
-      completion: completionPercentage,
-      appletId,
-      userId,
-      completed_at: userProgress?.completed_at
-    });
+    // User progress updated successfully
 
     // For form applets, update status based on form state
     if (interactionType === 'form_submit' && status === 'completed') {
@@ -483,12 +433,7 @@ export async function POST(request, { params }) {
         .eq('user_id', userId)
         .single();
 
-      // Verification after update: {
-        appletId,
-        userId,
-        savedStatus: verifyData?.status,
-        savedCompletedAt: verifyData?.completed_at
-      });
+      // Verification after update completed
     }
 
     return NextResponse.json({

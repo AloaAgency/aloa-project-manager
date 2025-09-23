@@ -62,7 +62,7 @@ export async function GET(request, { params }) {
     const { data: knowledge, error: knowledgeError } = await knowledgeQuery;
 
     if (knowledgeError) {
-      console.error('Error fetching knowledge:', knowledgeError);
+
       return NextResponse.json({ error: 'Failed to fetch knowledge' }, { status: 500 });
     }
 
@@ -152,7 +152,7 @@ export async function GET(request, { params }) {
       });
 
     if (cacheError) {
-      console.error('Error caching context:', cacheError);
+
     }
 
     return NextResponse.json({
@@ -160,7 +160,7 @@ export async function GET(request, { params }) {
       cached: false
     });
   } catch (error) {
-    console.error('Error building AI context:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -175,13 +175,13 @@ export async function DELETE(request, { params }) {
       .eq('project_id', projectId);
 
     if (error) {
-      console.error('Error clearing context cache:', error);
+
       return NextResponse.json({ error: 'Failed to clear cache' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: 'Context cache cleared' });
   } catch (error) {
-    console.error('Error in context DELETE:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -649,7 +649,7 @@ export default function PaletteCleanserModal({
         return data.email;
       }
     } catch (error) {
-      console.error('Error fetching user email:', error);
+
     }
     return null;
   };
@@ -668,17 +668,16 @@ export default function PaletteCleanserModal({
             // Brand colors are now in project.brand_colors (extracted from metadata)
             if (knowledgeData.project?.brand_colors && Array.isArray(knowledgeData.project.brand_colors)) {
               projectBrandColors = knowledgeData.project.brand_colors;
-              console.log('Loaded brand colors from project:', projectBrandColors);
+
             }
           }
         } catch (error) {
-          console.error('Error fetching project brand colors:', error);
+
         }
 
         // First check if we have form_progress data from the applet prop
         if (applet && applet.form_progress) {
           const savedData = applet.form_progress;
-          console.log('Loading from applet.form_progress:', savedData);
 
           // Restore all the saved state
           setCurrentStep(savedData.currentStep || 0);
@@ -732,7 +731,6 @@ export default function PaletteCleanserModal({
 
           if (submissionResponse.ok) {
             const submissionData = await submissionResponse.json();
-            console.log('Submission response:', submissionData);
 
             // The API returns { interactions: [...] } and we need the first item's data
             if (submissionData && submissionData.interactions && submissionData.interactions.length > 0) {
@@ -756,17 +754,10 @@ export default function PaletteCleanserModal({
               setShowBrandAssessment(false); // Skip brand assessment when editing
 
               // Check if this was already completed
-              console.log('Checking if already completed:', {
-                appletId: applet.id,
-                user_completed_at: applet.user_completed_at,
-                user_status: applet.user_status,
-                submissionData,
-                hasSubmission: !!submissionData
-              });
 
               // Check both user_completed_at and if we have submission data
               if (applet.user_completed_at || submissionData) {
-                console.log('Setting wasAlreadyCompleted to true');
+
                 setWasAlreadyCompleted(true);
               }
 
@@ -791,7 +782,6 @@ export default function PaletteCleanserModal({
                 setShowSummary(true);
               }
 
-              console.log('Loaded existing palette data:', savedData);
               return;
             }
           }
@@ -845,14 +835,14 @@ export default function PaletteCleanserModal({
         // Always pre-populate brand colors from project if they exist and we haven't loaded saved data
         // This ensures brand colors from admin panel are shown to the client
         if (projectBrandColors.length > 0 && !hasLoadedData) {
-          console.log('Pre-populating brand colors from project:', projectBrandColors);
+
           setBrandColors(projectBrandColors);
           // Don't set hasBrandColors automatically - let user go through the flow
           // This way they still answer the questions but see their colors pre-filled
           toast.info(`Your brand colors have been loaded: ${projectBrandColors.join(', ')}`);
         }
       } catch (error) {
-        console.error('Error loading progress:', error);
+
       }
     };
 
@@ -862,12 +852,6 @@ export default function PaletteCleanserModal({
   // Auto-save progress function
   const saveProgress = async () => {
     if (isSaving) return;
-
-    console.log('PaletteCleanser auto-save triggered:', {
-      wasAlreadyCompleted,
-      statusToSend: wasAlreadyCompleted ? 'completed' : 'in_progress',
-      appletId: applet.id
-    });
 
     setIsSaving(true);
     try {
@@ -907,7 +891,7 @@ export default function PaletteCleanserModal({
 
       setLastSaved(new Date());
     } catch (error) {
-      console.error('Error saving progress:', error);
+
     } finally {
       setIsSaving(false);
     }
@@ -1167,14 +1151,6 @@ export default function PaletteCleanserModal({
     setIsSubmitting(true);
 
     try {
-      console.log('Submitting palette preferences:', {
-        backgroundPreference,
-        finalSelections,
-        paletteRatings,
-        noneSelected,
-        isEditingPrevious,
-        userId
-      });
 
       const responseData = {
         backgroundPreference,
@@ -1216,16 +1192,11 @@ export default function PaletteCleanserModal({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to save to applet-interactions:', errorData);
+
         throw new Error(errorData.error || 'Failed to save preferences');
       }
 
       // Also update progress tracking - ensure we mark as completed
-      console.log('Updating progress for palette cleanser:', {
-        appletId: applet.id,
-        userId,
-        status: 'completed'
-      });
 
       const progressResponse = await fetch(`/api/aloa-projects/${projectId}/client-view`, {
         method: 'POST',
@@ -1243,12 +1214,11 @@ export default function PaletteCleanserModal({
 
       if (!progressResponse.ok) {
         const errorText = await progressResponse.text();
-        console.error('Failed to update progress:', errorText);
+
         throw new Error('Failed to update progress status');
       }
 
       const progressResult = await progressResponse.json();
-      console.log('Progress update response:', progressResult);
 
       // Wait a bit longer to ensure database transaction completes
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -1260,7 +1230,7 @@ export default function PaletteCleanserModal({
         onComplete();
       }
     } catch (error) {
-      console.error('Error saving palette preferences:', error);
+
       toast.error('Failed to save preferences');
     } finally {
       setIsSubmitting(false);

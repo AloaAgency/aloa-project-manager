@@ -51,7 +51,7 @@ export async function GET(request) {
     const { data: templates, error } = await query;
 
     if (error) {
-      console.error('Error fetching templates:', error);
+
       return NextResponse.json({ error: 'Failed to fetch templates' }, { status: 500 });
     }
 
@@ -63,7 +63,7 @@ export async function GET(request) {
 
     return NextResponse.json({ templates: formattedTemplates });
   } catch (error) {
-    console.error('Error in GET /api/projectlet-templates:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -71,7 +71,6 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    console.log('POST /api/projectlet-templates - Starting');
 
     const cookieStore = await cookies();
 
@@ -94,12 +93,11 @@ export async function POST(request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      console.error('Authentication error:', authError || 'No user found');
+
       return NextResponse.json({ error: 'Unauthorized - Please log in' }, { status: 401 });
     }
 
     const userId = user.id;
-    console.log('Authenticated user:', userId);
 
     // Validate required fields
     if (!body.name || !body.template_data) {
@@ -121,14 +119,13 @@ export async function POST(request) {
       .single();
 
     if (error) {
-      console.error('Error creating template:', error);
+
       return NextResponse.json({ error: 'Failed to create template: ' + error.message }, { status: 500 });
     }
 
-    console.log('Template created successfully:', template.id);
     return NextResponse.json({ template });
   } catch (error) {
-    console.error('Error in POST /api/projectlet-templates:', error);
+
     return NextResponse.json({ error: 'Internal server error: ' + error.message }, { status: 500 });
   }
 }
@@ -192,13 +189,13 @@ export async function DELETE(request) {
       .eq('id', templateId);
 
     if (error) {
-      console.error('Error deleting template:', error);
+
       return NextResponse.json({ error: 'Failed to delete template' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error in DELETE /api/projectlet-templates:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

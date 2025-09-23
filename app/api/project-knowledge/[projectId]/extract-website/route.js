@@ -140,8 +140,6 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
 
-    console.log(`Extracting website content from ${url} for project ${projectId}`);
-
     let response;
     try {
       response = await fetch(url, {
@@ -150,7 +148,7 @@ export async function POST(request, { params }) {
         }
       });
     } catch (fetchError) {
-      console.error('Error fetching website:', fetchError);
+
       return NextResponse.json({
         error: 'Failed to fetch website',
         details: fetchError.message
@@ -282,7 +280,7 @@ export async function POST(request, { params }) {
         .insert(knowledgeItems);
 
       if (insertError) {
-        console.error('Error inserting knowledge items:', insertError);
+
         return NextResponse.json({
           error: 'Failed to save knowledge',
           details: insertError.message
@@ -315,7 +313,6 @@ export async function POST(request, { params }) {
       }
     });
   } catch (error) {
-    console.error('Error in website extraction:', error);
 
     await supabase
       .from('aloa_knowledge_extraction_queue')

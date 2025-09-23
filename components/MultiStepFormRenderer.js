@@ -23,7 +23,7 @@ export default function MultiStepFormRenderer({
 }) {
   // Generate a unique storage key for this form (don't use localStorage in modal mode)
   const storageKey = `formProgress_${form._id || form.urlId}`;
-  
+
   // Initialize state from localStorage or props if available
   const [currentSection, setCurrentSection] = useState(() => {
     if (isModal && initialSection !== undefined) {
@@ -35,7 +35,7 @@ export default function MultiStepFormRenderer({
     }
     return 0;
   });
-  
+
   const [formData, setFormData] = useState(() => {
     if (isModal && initialData) {
       return initialData;
@@ -46,12 +46,12 @@ export default function MultiStepFormRenderer({
     }
     return {};
   });
-  
+
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [hasRestoredData, setHasRestoredData] = useState(false);
-  
+
   // Check if we restored saved data
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -63,28 +63,28 @@ export default function MultiStepFormRenderer({
       }
     }
   }, [storageKey]);
-  
+
   // Auto-save form data to localStorage whenever it changes
   useEffect(() => {
     if (!isModal && typeof window !== 'undefined' && !submitted) {
       localStorage.setItem(`${storageKey}_data`, JSON.stringify(formData));
     }
   }, [formData, storageKey, submitted, isModal]);
-  
+
   // Auto-save current section to localStorage
   useEffect(() => {
     if (!isModal && typeof window !== 'undefined' && !submitted) {
       localStorage.setItem(`${storageKey}_section`, currentSection.toString());
     }
   }, [currentSection, storageKey, submitted, isModal]);
-  
+
   // Call progress change callback for modal mode
   useEffect(() => {
     if (isModal && onProgressChange && !submitted) {
       onProgressChange(formData, currentSection);
     }
   }, [formData, currentSection, isModal, onProgressChange, submitted]);
-  
+
   // Clear saved data after successful submission
   useEffect(() => {
     if (submitted && typeof window !== 'undefined') {
@@ -96,10 +96,10 @@ export default function MultiStepFormRenderer({
   // Group fields by section
   // Ensure form.fields exists and is an array
   if (!form || !form.fields || !Array.isArray(form.fields)) {
-    console.error('Form fields are missing or invalid:', form);
+
     return <div>Error: Form fields not properly loaded</div>;
   }
-  
+
   const sections = form.fields.reduce((acc, field) => {
     const sectionName = field.section || 'General Information';
     if (!acc[sectionName]) {
@@ -130,19 +130,18 @@ export default function MultiStepFormRenderer({
 
   const handleNext = (e) => {
     e?.preventDefault();
-    console.log('handleNext called - currentSection:', currentSection, 'sectionNames:', sectionNames);
-    
+
     if (!validateSection()) {
-      console.log('Validation failed');
+
       return;
     }
-    
+
     if (currentSection < sectionNames.length - 1) {
-      console.log('Moving to next section:', currentSection + 1);
+
       setCurrentSection(currentSection + 1);
       setErrors({});
     } else {
-      console.log('Already at last section');
+
     }
   };
 
@@ -155,26 +154,24 @@ export default function MultiStepFormRenderer({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateSection()) return;
 
     setIsSubmitting(true);
-    console.log('Submitting form data:', formData);
-    console.log('Form ID:', form._id);
-    
+
     // If in modal mode with onComplete callback, use that instead
     if (isModal && onComplete) {
       try {
         await onComplete(formData);
         setSubmitted(true);
       } catch (error) {
-        console.error('Submit error:', error);
+
       } finally {
         setIsSubmitting(false);
       }
       return;
     }
-    
+
     // Otherwise, use the normal submission flow
     try {
       // Get CSRF token from cookie
@@ -182,7 +179,7 @@ export default function MultiStepFormRenderer({
         .split('; ')
         .find(row => row.startsWith('csrf-token='))
         ?.split('=')[1];
-      
+
       const response = await fetch('/api/aloa-responses', {
         method: 'POST',
         headers: { 
@@ -198,14 +195,14 @@ export default function MultiStepFormRenderer({
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Response saved successfully:', result);
+
         setSubmitted(true);
       } else {
         const error = await response.text();
-        console.error('Failed to save response:', error);
+
       }
     } catch (error) {
-      console.error('Submit error:', error);
+
     } finally {
       setIsSubmitting(false);
     }
@@ -218,7 +215,7 @@ export default function MultiStepFormRenderer({
       if (!value || (Array.isArray(value) && value.length === 0)) {
         return <div className="text-gray-500 italic">No response provided</div>;
       }
-      
+
       // Format the value based on field type
       let displayValue = value;
       if (Array.isArray(value)) {
@@ -241,14 +238,14 @@ export default function MultiStepFormRenderer({
           </div>
         );
       }
-      
+
       return (
         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
           <p className="text-gray-800">{displayValue}</p>
         </div>
       );
     }
-    
+
     const commonProps = {
       id: field.name,
       name: field.name,
@@ -267,10 +264,10 @@ export default function MultiStepFormRenderer({
       case 'number':
       case 'date':
         return <Input type={field.type} {...commonProps} />;
-      
+
       case 'textarea':
         return <Textarea {...commonProps} />;
-      
+
       case 'select':
         return (
           <Select.Root value={formData[field.name] || ''} onValueChange={(value) => setFormData({ ...formData, [field.name]: value })}>
@@ -302,7 +299,7 @@ export default function MultiStepFormRenderer({
             </Select.Portal>
           </Select.Root>
         );
-      
+
       case 'radio':
         return (
           <RadioGroup.Root
@@ -329,7 +326,7 @@ export default function MultiStepFormRenderer({
             ))}
           </RadioGroup.Root>
         );
-      
+
       case 'checkbox':
       case 'multiselect':
         // If no options, show a message
@@ -340,14 +337,14 @@ export default function MultiStepFormRenderer({
             </div>
           );
         }
-        
+
         return (
           <div className="space-y-2">
             {field.options.map((option) => {
               // Ensure formData[field.name] is an array
               const currentValues = Array.isArray(formData[field.name]) ? formData[field.name] : [];
               const isChecked = currentValues.includes(option);
-              
+
               return (
                 <div key={option} className="flex items-center space-x-2">
                   <Checkbox.Root
@@ -384,7 +381,7 @@ export default function MultiStepFormRenderer({
             })}
           </div>
         );
-      
+
       case 'rating':
         const maxRating = field.validation?.max || 5;
         const currentRating = parseInt(formData[field.name]) || 0;
@@ -409,7 +406,7 @@ export default function MultiStepFormRenderer({
             ))}
           </div>
         );
-      
+
       case 'multiselect':
         const selectedValues = formData[field.name] || [];
         return (
@@ -441,10 +438,10 @@ export default function MultiStepFormRenderer({
             ))}
           </div>
         );
-      
+
       case 'phone':
         return <Input type="tel" {...commonProps} />;
-      
+
       default:
         return <Input type="text" {...commonProps} />;
     }
@@ -481,7 +478,7 @@ export default function MultiStepFormRenderer({
           </p>
         </motion.div>
       )}
-      
+
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex justify-between mb-3">

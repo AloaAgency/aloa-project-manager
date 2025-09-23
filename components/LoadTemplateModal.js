@@ -54,7 +54,7 @@ export default function LoadTemplateModal({
         setCurrentUserId(data.profile?.id);
       }
     } catch (error) {
-      console.error('Error fetching user:', error);
+
     }
   };
 
@@ -68,7 +68,7 @@ export default function LoadTemplateModal({
       const data = await response.json();
       setTemplates(data.templates || []);
     } catch (error) {
-      console.error('Error fetching templates:', error);
+
       toast.error('Failed to load templates');
       setTemplates([]);
     } finally {
@@ -136,7 +136,7 @@ export default function LoadTemplateModal({
         }, 500);
       }
     } catch (error) {
-      console.error('Error applying template:', error);
+
       toast.error('Failed to apply template');
     } finally {
       setApplying(false);
@@ -163,7 +163,7 @@ export default function LoadTemplateModal({
       fetchTemplates(); // Refresh the list
       setSelectedTemplate(null);
     } catch (error) {
-      console.error('Error deleting template:', error);
+
       toast.error('Failed to delete template');
     } finally {
       setDeletingTemplate(null);

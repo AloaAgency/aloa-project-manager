@@ -10,7 +10,7 @@ export async function PATCH(request) {
         { status: 503 }
       );
     }
-    
+
     const { formIds, projectId } = await request.json();
 
     if (!formIds || !Array.isArray(formIds) || formIds.length === 0) {
@@ -31,7 +31,7 @@ export async function PATCH(request) {
       .in('id', formIds);
 
     if (error) {
-      console.error('Error updating forms:', error);
+
       return NextResponse.json(
         { error: 'Failed to update forms' },
         { status: 500 }
@@ -43,7 +43,7 @@ export async function PATCH(request) {
       message: `Successfully updated ${formIds.length} form(s)` 
     });
   } catch (error) {
-    console.error('Error in bulk assign:', error);
+
     return NextResponse.json(
       { error: 'Failed to bulk assign project' },
       { status: 500 }

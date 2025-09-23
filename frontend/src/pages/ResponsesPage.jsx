@@ -27,13 +27,13 @@ function ResponsesPage() {
         responseAPI.getResponses(formId, currentPage),
         responseAPI.getResponseStats(formId)
       ]);
-      
+
       setForm(formData);
       setResponses(responsesData.responses);
       setPagination(responsesData.pagination);
       setStats(statsData);
     } catch (error) {
-      console.error('Error loading data:', error);
+
       toast.error('Failed to load responses');
     } finally {
       setLoading(false);
@@ -53,7 +53,7 @@ function ResponsesPage() {
       window.URL.revokeObjectURL(url);
       toast.success('Responses exported successfully');
     } catch (error) {
-      console.error('Error exporting responses:', error);
+
       toast.error('Failed to export responses');
     }
   };
@@ -68,7 +68,7 @@ function ResponsesPage() {
       toast.success('Response deleted successfully');
       loadData();
     } catch (error) {
-      console.error('Error deleting response:', error);
+
       toast.error('Failed to delete response');
     }
   };
@@ -107,7 +107,7 @@ function ResponsesPage() {
               {stats?.summary?.totalResponses || 0} total responses
             </p>
           </div>
-          
+
           <div className="flex gap-3">
             <button
               onClick={exportResponses}
@@ -184,7 +184,7 @@ function ResponsesPage() {
                 {Object.entries(stats?.fieldStats || {}).map(([fieldName, fieldData]) => (
                   <div key={fieldName} className="border-b border-gray-100 last:border-0 pb-4 last:pb-0">
                     <h4 className="font-medium text-gray-900 mb-2">{fieldData.label}</h4>
-                    
+
                     {fieldData.distribution ? (
                       <div className="space-y-2">
                         {Object.entries(fieldData.distribution).map(([option, count]) => (
@@ -261,7 +261,7 @@ function ResponsesPage() {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
-                    
+
                     <div className="grid gap-3">
                       {form?.sections?.map((section) => (
                         <div key={section.title}>

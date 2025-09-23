@@ -70,7 +70,7 @@ export default function AdminNotifications({ projectId }) {
           setLastCheck(new Date().toISOString());
         }
       } catch (error) {
-        console.error('Error fetching notifications:', error);
+
       }
     };
 
@@ -96,9 +96,9 @@ export default function AdminNotifications({ projectId }) {
         <p class="text-sm opacity-90">${notification.message}</p>
       </div>
     `;
-    
+
     document.body.appendChild(toast);
-    
+
     // Remove after 5 seconds
     setTimeout(() => {
       toast.classList.add('animate-slide-down');
@@ -117,36 +117,32 @@ export default function AdminNotifications({ projectId }) {
       ));
       setUnreadCount(Math.max(0, unreadCount - 1));
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+
     }
   };
 
   const markAllAsRead = async () => {
-    console.log('Mark all as read clicked');
-    console.log('Current notifications:', notifications);
-    console.log('Project ID:', projectId);
 
     try {
       // Mark all unread notifications as read
       const unreadNotifications = notifications.filter(n => !n.read);
-      console.log('Unread notifications to mark:', unreadNotifications);
 
       if (unreadNotifications.length === 0) {
-        console.log('No unread notifications to mark');
+
         return;
       }
 
       const responses = await Promise.all(
         unreadNotifications.map(async (n) => {
           const url = `/api/aloa-projects/${projectId}/notifications/${n.id}/read`;
-          console.log('Marking as read:', url);
+
           const response = await fetch(url, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             }
           });
-          console.log('Response status:', response.status);
+
           return response;
         })
       );
@@ -156,30 +152,26 @@ export default function AdminNotifications({ projectId }) {
       if (allSuccessful) {
         setNotifications(notifications.map(n => ({ ...n, read: true })));
         setUnreadCount(0);
-        console.log('All notifications marked as read');
+
       } else {
-        console.error('Some notifications failed to mark as read');
+
         responses.forEach(async (r, i) => {
           if (!r.ok) {
             const error = await r.text();
-            console.error(`Failed for notification ${unreadNotifications[i].id}:`, error);
+
           }
         });
       }
     } catch (error) {
-      console.error('Error marking all as read:', error);
+
     }
   };
 
   const clearAll = async () => {
-    console.log('Clear all clicked');
-    console.log('Project ID:', projectId);
-    console.log('Notifications to clear:', notifications);
 
     try {
       // Clear all notifications
       const url = `/api/aloa-projects/${projectId}/notifications/clear`;
-      console.log('Clearing at URL:', url);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -188,24 +180,22 @@ export default function AdminNotifications({ projectId }) {
         }
       });
 
-      console.log('Clear response status:', response.status);
-
       if (response.ok) {
         setNotifications([]);
         setUnreadCount(0);
-        console.log('All notifications cleared successfully');
+
       } else {
         const errorText = await response.text();
-        console.error('Failed to clear notifications:', errorText);
+
         try {
           const error = JSON.parse(errorText);
-          console.error('Error details:', error);
+
         } catch (e) {
-          console.error('Raw error:', errorText);
+
         }
       }
     } catch (error) {
-      console.error('Error clearing notifications:', error);
+
     }
   };
 
@@ -229,7 +219,7 @@ export default function AdminNotifications({ projectId }) {
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
-    
+
     if (minutes < 1) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
@@ -344,7 +334,7 @@ export default function AdminNotifications({ projectId }) {
             opacity: 1;
           }
         }
-        
+
         @keyframes slide-down {
           from {
             transform: translateY(0);
@@ -355,11 +345,11 @@ export default function AdminNotifications({ projectId }) {
             opacity: 0;
           }
         }
-        
+
         .animate-slide-up {
           animation: slide-up 0.3s ease-out;
         }
-        
+
         .animate-slide-down {
           animation: slide-down 0.3s ease-out;
         }

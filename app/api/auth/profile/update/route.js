@@ -54,12 +54,11 @@ export async function POST(request) {
 
     // Get the updates from request body
     const updates = await request.json();
-    console.log('Profile update request for user:', user.id, 'updates:', updates);
 
     // Use service role to update profile (bypasses RLS)
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
     if (!serviceKey) {
-      console.error('No service role key available');
+
       return NextResponse.json(
         { error: 'Server configuration error' },
         { status: 500 }
@@ -83,14 +82,12 @@ export async function POST(request) {
       .single();
 
     if (updateError) {
-      console.error('Error updating profile:', updateError);
+
       return NextResponse.json(
         { error: 'Failed to update profile: ' + updateError.message },
         { status: 500 }
       );
     }
-
-    console.log('Profile updated successfully:', updatedProfile);
 
     return NextResponse.json({
       data: updatedProfile,
@@ -98,7 +95,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Server error:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

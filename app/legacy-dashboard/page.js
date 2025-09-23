@@ -43,7 +43,7 @@ function Dashboard() {
       const data = await response.json();
       setForms(data);
     } catch (error) {
-      console.error('Error fetching forms:', error);
+
       toast.error('Failed to load forms');
     } finally {
       setLoading(false);
@@ -56,7 +56,7 @@ function Dashboard() {
       const data = await response.json();
       setProjects(data);
     } catch (error) {
-      console.error('Error fetching projects:', error);
+
     }
   };
 
@@ -85,7 +85,7 @@ function Dashboard() {
       setBulkProjectId('');
       fetchForms();
     } catch (error) {
-      console.error('Error assigning forms:', error);
+
       toast.error('Failed to assign forms to project');
     } finally {
       setIsAssigning(false);
@@ -103,7 +103,7 @@ function Dashboard() {
   const toggleFormStatus = async (formId, currentStatus) => {
     const isClosing = currentStatus !== false;
     const action = isClosing ? 'close' : 'reopen';
-    
+
     if (!confirm(`Are you sure you want to ${action} this form?`)) {
       return;
     }
@@ -125,7 +125,7 @@ function Dashboard() {
       toast.success(isClosing ? 'Form closed successfully' : 'Form reopened successfully');
       fetchForms();
     } catch (error) {
-      console.error('Error toggling form status:', error);
+
       toast.error('Failed to update form status');
     }
   };
@@ -147,7 +147,7 @@ function Dashboard() {
       toast.success('Form deleted successfully');
       fetchForms();
     } catch (error) {
-      console.error('Error deleting form:', error);
+
       toast.error('Failed to delete form');
     }
   };
@@ -391,11 +391,11 @@ function Dashboard() {
             <h2 className="text-2xl font-display font-bold text-aloa-black mb-4 uppercase tracking-wider">
               Assign Forms to Project
             </h2>
-            
+
             <p className="text-sm text-aloa-gray mb-4">
               Move {selectedForms.length} selected form(s) to a project
             </p>
-            
+
             <div className="mb-6">
               <label className="block text-sm font-medium text-aloa-gray mb-2">
                 Select Project
@@ -413,7 +413,7 @@ function Dashboard() {
                 ))}
               </select>
             </div>
-            
+
             <div className="flex gap-3">
               <button
                 onClick={() => {

@@ -7,14 +7,14 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const formId = searchParams.get('formId');
-    
+
     if (!formId) {
       return NextResponse.json(
         { error: 'Form ID is required' },
         { status: 400 }
       );
     }
-    
+
     // Validate UUID format to prevent SQL injection
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(formId)) {
@@ -23,7 +23,7 @@ export async function GET(request) {
         { status: 400 }
       );
     }
-    
+
     // Fetch responses with their answers joined with field names
     const { data: responses, error } = await supabase
       .from('aloa_form_responses')
@@ -40,9 +40,9 @@ export async function GET(request) {
       `)
       .eq('form_id', formId)
       .order('submitted_at', { ascending: false });
-    
+
     if (error) throw error;
-    
+
     // Format responses for compatibility - create plain object for data
     const formattedResponses = responses.map(response => {
       const dataObject = {};
@@ -58,7 +58,7 @@ export async function GET(request) {
           }
         }
       });
-      
+
       return {
         ...response,
         _id: response.id,
@@ -67,10 +67,10 @@ export async function GET(request) {
         data: dataObject
       };
     });
-    
+
     return NextResponse.json(formattedResponses);
   } catch (error) {
-    console.error('Error fetching responses:', error);
+
     return NextResponse.json(
       { error: 'Failed to fetch responses' },
       { status: 500 }
@@ -81,7 +81,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    
+
     // Validate form ID
     if (!body.formId) {
       return NextResponse.json(
@@ -89,7 +89,7 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    
+
     // Validate UUID format to prevent SQL injection
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(body.formId)) {
@@ -98,77 +98,74 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    
+
     // Verify CSRF token for state-changing operations
     const csrfToken = request.headers.get('X-CSRF-Token');
     const cookieToken = request.cookies.get('csrf-token')?.value;
-    
+
     if (!csrfToken || !cookieToken || csrfToken !== cookieToken) {
       return NextResponse.json(
         { error: 'Invalid CSRF token' },
         { status: 403 }
       );
     }
-    
+
     // First, create the response record
     const responseData = {
       form_id: body.formId
     };
-    
+
     const { data: response, error: responseError } = await supabase
       .from('aloa_form_responses')
       .insert([responseData])
       .select()
       .single();
-    
+
     if (responseError) throw responseError;
-    
+
     // Get the form fields to map field names to IDs
     const { data: fields, error: fieldsError } = await supabase
       .from('aloa_form_fields')
       .select('id, field_name')
       .eq('form_id', body.formId);
-    
+
     if (fieldsError) throw fieldsError;
-    
+
     // Create a map of field names to IDs
     const fieldMap = new Map();
     fields.forEach(field => {
       fieldMap.set(field.field_name, field.id);
     });
-    
+
     // Get field details for validation
     const { data: fieldDetails, error: fieldDetailsError } = await supabase
       .from('aloa_form_fields')
       .select('id, field_name, field_type, required, validation')
       .eq('form_id', body.formId);
-    
+
     if (fieldDetailsError) throw fieldDetailsError;
-    
+
     // Create field detail map
     const fieldDetailMap = new Map();
     fieldDetails.forEach(field => {
       fieldDetailMap.set(field.field_name, field);
     });
-    
+
     // Convert and sanitize the form data
     const dataToStore = body.data instanceof Map 
       ? body.data
       : new Map(Object.entries(body.data || {}));
-    
-    console.log('Form data received:', body.data);
-    console.log('Field mapping:', Array.from(fieldMap.entries()));
-    
+
     const answers = [];
     const errors = [];
-    
+
     dataToStore.forEach((value, fieldName) => {
       const fieldId = fieldMap.get(fieldName);
       const fieldDetail = fieldDetailMap.get(fieldName);
-      
+
       if (fieldId && value !== undefined && value !== null && value !== '') {
         let sanitizedValue;
-        
+
         try {
           // Sanitize based on field type
           switch (fieldDetail?.field_type) {
@@ -207,23 +204,22 @@ export async function POST(request) {
               }
               break;
           }
-          
+
           answers.push({
             response_id: response.id,
             field_id: fieldId,
             value: sanitizedValue
           });
-          console.log(`Storing sanitized answer for field ${fieldName} (ID: ${fieldId})`);
         } catch (error) {
           errors.push(`Invalid value for field ${fieldName}: ${error.message}`);
         }
       } else if (!fieldId) {
-        console.warn(`Field name '${fieldName}' not found in field map`);
+
       } else if (fieldDetail?.required && !value) {
         errors.push(`Required field ${fieldName} is missing`);
       }
     });
-    
+
     // Check for validation errors
     if (errors.length > 0) {
       // Rollback by deleting the response
@@ -233,25 +229,25 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    
+
     // Insert all answers
     if (answers.length > 0) {
-      console.log(`Inserting ${answers.length} answers for response ${response.id}`);
+
       const { error: answersError } = await supabase
         .from('aloa_form_response_answers')
         .insert(answers);
-      
+
       if (answersError) {
-        console.error('Error inserting answers:', answersError);
+
         // Rollback by deleting the response
         await supabase.from('aloa_form_responses').delete().eq('id', response.id);
         throw answersError;
       }
-      console.log('Answers inserted successfully');
+
     } else {
-      console.warn('No answers to insert - form data may be empty');
+
     }
-    
+
     // Fetch the form details for the email
     const { data: form, error: formError } = await supabase
       .from('aloa_forms')
@@ -268,7 +264,7 @@ export async function POST(request) {
       `)
       .eq('id', body.formId)
       .single();
-    
+
     if (!formError && form) {
       // Send email notification
       try {
@@ -281,18 +277,18 @@ export async function POST(request) {
           responses: body.data,
           recipientEmail: form.notification_email || 'ross@aloa.agency'
         });
-        
+
         if (emailResult.success) {
-          console.log('Email notification sent successfully');
+
         } else {
-          console.error('Failed to send email notification:', emailResult.error);
+
         }
       } catch (emailError) {
-        console.error('Error sending email notification:', emailError);
+
         // Don't fail the response submission if email fails
       }
     }
-    
+
     return NextResponse.json({
       ...response,
       _id: response.id,
@@ -300,7 +296,7 @@ export async function POST(request) {
       submittedAt: response.submitted_at
     });
   } catch (error) {
-    console.error('Error creating response:', error);
+
     return NextResponse.json(
       { error: 'Failed to save response' },
       { status: 500 }

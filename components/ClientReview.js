@@ -85,7 +85,7 @@ export default function ClientReview({
         }, 5000); // Longer celebration for approval
       }
     } catch (error) {
-      console.error('Error approving review:', error);
+
     } finally {
       setIsSubmitting(false);
     }
@@ -137,7 +137,7 @@ export default function ClientReview({
         }
       }
     } catch (error) {
-      console.error('Error requesting revision:', error);
+
     } finally {
       setIsSubmitting(false);
     }

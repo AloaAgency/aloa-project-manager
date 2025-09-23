@@ -33,7 +33,7 @@ router.post('/upload', upload.single('markdown'), async (req, res) => {
     // Parse markdown content
     const markdownContent = req.file.buffer.toString('utf-8');
     const formData = parseMarkdown(markdownContent);
-    
+
     // Validate structure
     const validation = validateFormStructure(formData);
     if (!validation.valid) {
@@ -67,7 +67,7 @@ router.post('/upload', upload.single('markdown'), async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Upload error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });
@@ -76,14 +76,14 @@ router.post('/upload', upload.single('markdown'), async (req, res) => {
 router.post('/create', async (req, res) => {
   try {
     const { markdown, settings, expiresAt, createdBy } = req.body;
-    
+
     if (!markdown) {
       return res.status(400).json({ error: 'Markdown content is required' });
     }
 
     // Parse markdown content
     const formData = parseMarkdown(markdown);
-    
+
     // Validate structure
     const validation = validateFormStructure(formData);
     if (!validation.valid) {
@@ -117,7 +117,7 @@ router.post('/create', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Create error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });
@@ -153,7 +153,7 @@ router.get('/public/:urlId', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get form error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });
@@ -162,7 +162,7 @@ router.get('/public/:urlId', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { createdBy = 'anonymous', includeInactive = false } = req.query;
-    
+
     const query = { createdBy };
     if (!includeInactive) {
       query.isActive = true;
@@ -174,7 +174,7 @@ router.get('/', async (req, res) => {
 
     res.json(forms);
   } catch (error) {
-    console.error('Get forms error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });
@@ -183,7 +183,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const form = await Form.findById(req.params.id);
-    
+
     if (!form) {
       return res.status(404).json({ error: 'Form not found' });
     }
@@ -205,7 +205,7 @@ router.get('/:id', async (req, res) => {
       stats: responseStats[0] || { total: 0, lastSubmission: null }
     });
   } catch (error) {
-    console.error('Get form details error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });
@@ -214,7 +214,7 @@ router.get('/:id', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const { settings, isActive, expiresAt } = req.body;
-    
+
     const form = await Form.findByIdAndUpdate(
       req.params.id,
       {
@@ -233,7 +233,7 @@ router.patch('/:id', async (req, res) => {
 
     res.json(form);
   } catch (error) {
-    console.error('Update form error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });
@@ -242,20 +242,20 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const form = await Form.findById(req.params.id);
-    
+
     if (!form) {
       return res.status(404).json({ error: 'Form not found' });
     }
 
     // Delete all responses
     await Response.deleteMany({ formId: form._id });
-    
+
     // Delete form
     await form.deleteOne();
 
     res.json({ success: true, message: 'Form and responses deleted' });
   } catch (error) {
-    console.error('Delete form error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });

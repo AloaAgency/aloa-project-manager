@@ -24,7 +24,6 @@ export default function FormResponseModal({ isOpen, onClose, formId, userId, use
       if (!responseRes.ok) throw new Error('Failed to fetch response');
 
       const responseData = await responseRes.json();
-      console.log('Response data received:', responseData);
 
       // The API returns { responses: [...] } format
       if (responseData.responses && responseData.responses.length > 0) {
@@ -46,7 +45,7 @@ export default function FormResponseModal({ isOpen, onClose, formId, userId, use
         setError('No response found for this user');
       }
     } catch (error) {
-      console.error('Error fetching response:', error);
+
       setError('Failed to load response');
     } finally {
       setLoading(false);

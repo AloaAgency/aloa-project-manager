@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const cookieStore = cookies();
-    
+
     // Log environment info for debugging
     const envInfo = {
       hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -17,7 +17,7 @@ export async function GET() {
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV
     };
-    
+
     // Create Supabase client
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -26,11 +26,11 @@ export async function GET() {
         cookies: {
           get(name) {
             const value = cookieStore.get(name)?.value;
-            console.log(`Getting cookie ${name}:`, value ? 'exists' : 'missing');
+
             return value;
           },
           set(name, value, options) {
-            console.log(`Setting cookie ${name} with options:`, options);
+
             cookieStore.set({ 
               name, 
               value, 
@@ -42,7 +42,7 @@ export async function GET() {
             });
           },
           remove(name, options) {
-            console.log(`Removing cookie ${name}`);
+
             cookieStore.set({ 
               name, 
               value: '', 

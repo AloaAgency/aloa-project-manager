@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 export async function GET(request, { params }) {
   try {
     const { projectId } = params;
-    
+
     // Get recent applet interactions from clients (exclude system role)
     const { data: interactions, error } = await supabase
       .from('aloa_applet_interactions')
@@ -28,7 +28,7 @@ export async function GET(request, { params }) {
       .limit(50);
 
     if (error) {
-      console.error('Error fetching interactions:', error);
+
       return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
     }
 
@@ -103,7 +103,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({ notifications });
   } catch (error) {
-    console.error('Error in notifications route:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -132,13 +132,13 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error creating notification:', error);
+
       return NextResponse.json({ error: 'Failed to create notification' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, notification: interaction });
   } catch (error) {
-    console.error('Error in notification creation:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

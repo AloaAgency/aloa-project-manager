@@ -13,7 +13,6 @@ async function testAPI() {
     });
 
     const loginData = await loginResponse.json();
-    console.log('Login response:', loginData.success ? 'Success' : 'Failed');
 
     // Extract cookies from login response
     const cookies = loginResponse.headers.raw()['set-cookie'];
@@ -27,14 +26,13 @@ async function testAPI() {
     });
 
     const usersData = await usersResponse.json();
-    
+
     // Find John G
     const johnG = usersData.users?.find(u => u.email === 'exabyte@me.com');
-    
-    console.log('\n=== John G from API ===');
-    console.log(JSON.stringify(johnG, null, 2));
+
+    );
   } catch (error) {
-    console.error('Error:', error);
+
   }
 }
 

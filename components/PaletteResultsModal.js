@@ -87,11 +87,6 @@ export default function PaletteResultsModal({
     };
   }, [onClose]);
 
-  // Debug logging
-  console.log('PaletteResultsModal - responseData:', responseData);
-  console.log('PaletteResultsModal - typeof responseData:', typeof responseData);
-  console.log('PaletteResultsModal - responseData keys:', responseData ? Object.keys(responseData) : 'null');
-
   if (!responseData) return null;
 
   // Handle amalgamated view for multiple participants

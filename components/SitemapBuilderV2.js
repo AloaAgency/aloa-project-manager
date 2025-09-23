@@ -154,7 +154,7 @@ const SitemapBuilderV2 = ({
         await onAutoSave(sitemap);
         setLastSaved(new Date());
       } catch (error) {
-        console.error('Auto-save failed:', error);
+
       }
       setTimeout(() => setIsSaving(false), 1000);
     }, 2000);

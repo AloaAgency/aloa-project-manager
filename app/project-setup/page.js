@@ -51,7 +51,7 @@ export default function ProjectSetupPage() {
       // Redirect to the project dashboard
       router.push(`/project/${data.project.id}/dashboard`);
     } catch (error) {
-      console.error('Error creating project:', error);
+
       setError(error.message || 'Failed to create project. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -93,7 +93,7 @@ export default function ProjectSetupPage() {
                 <FileText className="w-6 h-6 mr-2" />
                 Project Information
               </h2>
-              
+
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -134,7 +134,7 @@ export default function ProjectSetupPage() {
                 <User className="w-6 h-6 mr-2" />
                 Client Information
               </h2>
-              
+
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -177,7 +177,7 @@ export default function ProjectSetupPage() {
                 <Calendar className="w-6 h-6 mr-2" />
                 Project Timeline
               </h2>
-              
+
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -218,7 +218,7 @@ export default function ProjectSetupPage() {
               <h2 className="text-2xl font-bold text-black mb-6">
                 Project Scope
               </h2>
-              
+
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -264,7 +264,7 @@ export default function ProjectSetupPage() {
                 <Video className="w-6 h-6 mr-2" />
                 Introduction Video
               </h2>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Video URL (Optional)

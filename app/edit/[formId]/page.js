@@ -27,16 +27,16 @@ function EditFormPageContent() {
     try {
       // ONLY use aloa_forms
       const response = await fetch(`/api/aloa-forms/${params.formId}`);
-      
+
       if (!response.ok) throw new Error('Failed to fetch form');
-      
+
       const data = await response.json();
       setForm(data);
       setFields(data.aloa_form_fields || []);
       setFormTitle(data.title || '');
       setFormDescription(data.description || '');
     } catch (error) {
-      console.error('Error fetching form:', error);
+
       toast.error('Failed to load form');
       router.push('/dashboard');
     } finally {
@@ -78,20 +78,20 @@ function EditFormPageContent() {
 
     const draggedField = fields[draggedItem];
     const newFields = [...fields];
-    
+
     // Remove dragged item
     newFields.splice(draggedItem, 1);
-    
+
     // Insert at new position
     const adjustedIndex = draggedItem < dropIndex ? dropIndex - 1 : dropIndex;
     newFields.splice(adjustedIndex, 0, draggedField);
-    
+
     // Update field_order for all fields
     const reorderedFields = newFields.map((field, index) => ({
       ...field,
       field_order: index
     }));
-    
+
     setFields(reorderedFields);
     setDraggedItem(null);
     setHasChanges(true);
@@ -125,11 +125,11 @@ function EditFormPageContent() {
       });
 
       if (!response.ok) throw new Error('Failed to update form');
-      
+
       toast.success('Form updated successfully!');
       setHasChanges(false);
     } catch (error) {
-      console.error('Error updating form:', error);
+
       toast.error('Failed to update form');
     } finally {
       setSaving(false);
@@ -214,7 +214,7 @@ function EditFormPageContent() {
                 />
               </div>
             </div>
-            
+
             {/* Description */}
             <div className="flex items-start gap-3">
               <Edit2 className="w-5 h-5 text-aloa-black mt-2" />
@@ -258,7 +258,7 @@ function EditFormPageContent() {
                     {index + 1}
                   </div>
                 </div>
-                
+
                 <div className="flex-1 space-y-4">
                   {/* Field Label */}
                   <div>
@@ -340,7 +340,7 @@ function EditFormPageContent() {
                         <span className="text-aloa-gray">Required field</span>
                       </label>
                     )}
-                    
+
                     {field.section && (
                       <div className="text-aloa-gray">
                         Section: <span className="font-medium text-aloa-black">{field.section}</span>

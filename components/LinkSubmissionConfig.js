@@ -12,7 +12,7 @@ export default function LinkSubmissionConfig({ applet, projectId, projectletId, 
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  
+
   // Reset state when applet changes
   useEffect(() => {
     setHeading(applet.config?.heading || 'Project Deliverables');
@@ -78,7 +78,7 @@ export default function LinkSubmissionConfig({ applet, projectId, projectletId, 
     setHasChanges(true);
     setSaved(false);
   };
-  
+
   // Save all changes
   const handleSave = async () => {
     setSaving(true);
@@ -108,7 +108,7 @@ export default function LinkSubmissionConfig({ applet, projectId, projectletId, 
         setTimeout(() => setSaved(false), 2000);
       }
     } catch (error) {
-      console.error('Error saving applet:', error);
+
     } finally {
       setSaving(false);
     }
@@ -184,7 +184,7 @@ export default function LinkSubmissionConfig({ applet, projectId, projectletId, 
               />
             </div>
           ))}
-          
+
           {/* Add new link button */}
           <button
             onClick={handleAddLink}
@@ -209,7 +209,7 @@ export default function LinkSubmissionConfig({ applet, projectId, projectletId, 
           Allow client acknowledgment
         </label>
       </div>
-      
+
       {/* Save button */}
       <div className="flex items-center justify-between pt-2 border-t">
         <div className="text-xs text-gray-600">

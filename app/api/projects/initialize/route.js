@@ -128,7 +128,7 @@ export async function POST(request) {
       .single();
 
     if (projectError) {
-      console.error('Error creating project:', projectError);
+
       return NextResponse.json(
         { error: 'Failed to create project' },
         { status: 500 }
@@ -151,7 +151,7 @@ export async function POST(request) {
       .insert(projectlets);
 
     if (projectletsError) {
-      console.error('Error creating projectlets:', projectletsError);
+
       // Don't fail the whole operation, projectlets can be added later
     }
 
@@ -171,7 +171,7 @@ export async function POST(request) {
       }]);
 
     if (teamError) {
-      console.error('Error adding team member:', teamError);
+
     }
 
     // Add admins as team members (you can customize these emails)
@@ -217,7 +217,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error initializing project:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

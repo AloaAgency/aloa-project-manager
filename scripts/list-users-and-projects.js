@@ -7,40 +7,35 @@ const supabase = createClient(
 );
 
 async function listUsersAndProjects() {
-  console.log('\n=== USERS ===\n');
-  
+
   // List all users
   const { data: users, error: usersError } = await supabase
     .from('aloa_user_profiles')
     .select('id, email, full_name, role')
     .order('created_at', { ascending: false });
-  
+
   if (usersError) {
-    console.error('Error fetching users:', usersError);
+
   } else {
     users?.forEach(user => {
-      console.log(`${user.full_name} (${user.email}) - Role: ${user.role}`);
+      - Role: ${user.role}`);
     });
   }
-  
-  console.log('\n=== PROJECTS ===\n');
-  
+
   // List all projects
   const { data: projects, error: projectsError } = await supabase
     .from('aloa_projects')
     .select('id, project_name, status')
     .order('created_at', { ascending: false });
-  
+
   if (projectsError) {
-    console.error('Error fetching projects:', projectsError);
+
   } else {
     projects?.forEach(project => {
-      console.log(`${project.project_name} (${project.id}) - Status: ${project.status}`);
+      - Status: ${project.status}`);
     });
   }
-  
-  console.log('\n=== PROJECT MEMBERS ===\n');
-  
+
   // List all project members
   const { data: members, error: membersError } = await supabase
     .from('aloa_project_members')
@@ -52,15 +47,15 @@ async function listUsersAndProjects() {
       aloa_user_profiles (email, full_name)
     `)
     .order('created_at', { ascending: false });
-  
+
   if (membersError) {
-    console.error('Error fetching members:', membersError);
+
   } else {
     members?.forEach(member => {
       const userName = member.aloa_user_profiles?.full_name || 'Unknown';
       const userEmail = member.aloa_user_profiles?.email || 'Unknown';
       const projectName = member.aloa_projects?.project_name || 'Unknown';
-      console.log(`${userName} (${userEmail}) - Project: ${projectName} - Role: ${member.project_role}`);
+      - Project: ${projectName} - Role: ${member.project_role}`);
     });
   }
 }

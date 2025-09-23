@@ -18,13 +18,13 @@ export async function POST(request, { params }) {
       .eq('project_id', projectId);
 
     if (error) {
-      console.error('Error clearing notifications:', error);
+
       return NextResponse.json({ error: 'Failed to clear notifications' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error clearing notifications:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

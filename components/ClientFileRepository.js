@@ -57,7 +57,7 @@ export default function ClientFileRepository({ projectId, canUpload = true, canD
         setFiles(data.files || []);
       }
     } catch (error) {
-      console.error('Error fetching files:', error);
+
       toast.error('Failed to load files');
     } finally {
       setLoading(false);
@@ -127,7 +127,7 @@ export default function ClientFileRepository({ projectId, canUpload = true, canD
         fileInputRef.current.value = '';
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
+
       toast.error('Failed to upload file');
     } finally {
       setUploading(false);
@@ -157,7 +157,7 @@ export default function ClientFileRepository({ projectId, canUpload = true, canD
         window.open(data.publicUrl, '_blank');
       }
     } catch (error) {
-      console.error('Error downloading file:', error);
+
       toast.error('Failed to download file');
     }
   };
@@ -186,7 +186,7 @@ export default function ClientFileRepository({ projectId, canUpload = true, canD
       await fetchFiles();
       toast.success('File deleted successfully');
     } catch (error) {
-      console.error('Error deleting file:', error);
+
       toast.error('Failed to delete file');
     }
   };

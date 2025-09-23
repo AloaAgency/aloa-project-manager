@@ -15,7 +15,7 @@ export async function GET(request, { params }) {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching stakeholders:', error);
+
       return NextResponse.json(
         { error: 'Failed to fetch stakeholders' },
         { status: 500 }
@@ -49,7 +49,7 @@ export async function GET(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in stakeholders GET:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -85,7 +85,7 @@ export async function POST(request, { params }) {
         if (inviteResponse.ok) {
           const inviteData = await inviteResponse.json();
           userId = inviteData.user?.id;
-          
+
           // If it's a client-type role, assign them to this project
           const clientRoles = ['client', 'client_admin', 'client_participant'];
           if (clientRoles.includes(body.user_role) || !body.user_role) {
@@ -100,18 +100,18 @@ export async function POST(request, { params }) {
                 projectId: projectId
               })
             });
-            
+
             if (!assignResponse.ok) {
-              console.error('Failed to assign user to project');
+
             }
           }
         } else {
           const errorData = await inviteResponse.json();
-          console.error('Failed to create user account:', errorData);
+
           // Continue without user account if creation fails
         }
       } catch (error) {
-        console.error('Error creating user account:', error);
+
         // Continue without user account if creation fails
       }
     }
@@ -164,7 +164,7 @@ export async function POST(request, { params }) {
     }
 
     if (error) {
-      console.error('Error creating stakeholder:', error);
+
       return NextResponse.json(
         { error: 'Failed to create stakeholder' },
         { status: 500 }
@@ -203,7 +203,7 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in stakeholder POST:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -217,7 +217,7 @@ export async function PATCH(request, { params }) {
     const { projectId } = params;
     const { searchParams } = new URL(request.url);
     const stakeholderId = searchParams.get('stakeholderId');
-    
+
     if (!stakeholderId) {
       return NextResponse.json(
         { error: 'Stakeholder ID required' },
@@ -226,7 +226,7 @@ export async function PATCH(request, { params }) {
     }
 
     const body = await request.json();
-    
+
     // Handle user account creation if requested for existing stakeholder
     let userId = body.user_id;
     if (body.create_user && body.email && !body.user_id) {
@@ -249,7 +249,7 @@ export async function PATCH(request, { params }) {
         if (inviteResponse.ok) {
           const inviteData = await inviteResponse.json();
           userId = inviteData.user?.id;
-          
+
           // If it's a client-type role, assign them to this project
           const clientRoles = ['client', 'client_admin', 'client_participant'];
           if (clientRoles.includes(body.user_role) || !body.user_role) {
@@ -264,20 +264,20 @@ export async function PATCH(request, { params }) {
                 projectId: projectId
               })
             });
-            
+
             if (!assignResponse.ok) {
-              console.error('Failed to assign user to project');
+
             }
           }
         } else {
           const errorData = await inviteResponse.json();
-          console.error('Failed to create user account:', errorData);
+
         }
       } catch (error) {
-        console.error('Error creating user account:', error);
+
       }
     }
-    
+
     // Remove undefined values
     const updateData = {};
     if (userId !== undefined) updateData.user_id = userId;
@@ -327,7 +327,7 @@ export async function PATCH(request, { params }) {
     }
 
     if (error) {
-      console.error('Error updating stakeholder:', error);
+
       return NextResponse.json(
         { error: 'Failed to update stakeholder' },
         { status: 500 }
@@ -343,7 +343,7 @@ export async function PATCH(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in stakeholder PATCH:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -372,7 +372,7 @@ export async function DELETE(request, { params }) {
       .eq('project_id', projectId);
 
     if (error) {
-      console.error('Error deleting stakeholder:', error);
+
       return NextResponse.json(
         { error: 'Failed to delete stakeholder' },
         { status: 500 }
@@ -388,7 +388,7 @@ export async function DELETE(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in stakeholder DELETE:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

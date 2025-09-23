@@ -68,7 +68,7 @@ export default function AIContentNarrative({
         }
       }
     } catch (error) {
-      console.error('Error acknowledging narrative:', error);
+
     }
   };
 

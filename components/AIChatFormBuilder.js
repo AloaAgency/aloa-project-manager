@@ -6,17 +6,17 @@ import { Send, Bot, User, Loader2, Wand2, RefreshCw, Copy, CheckCircle } from 'l
 export default function AIChatFormBuilder({ onMarkdownGenerated, projectContext, projectName }) {
   const getInitialMessage = () => {
     let baseMessage = "Hi! I'm your AI form builder assistant.";
-    
+
     if (projectName) {
       baseMessage += ` I'm here to help you create a form for "${projectName}".`;
     }
-    
+
     if (projectContext) {
       baseMessage += ` I have access to the project's context and knowledge base, so I can create forms that are specifically tailored to your project needs.`;
     }
-    
+
     baseMessage += "\n\nDescribe the form you'd like to create, and I'll generate it for you. You can ask me to:\n\n• Create forms for specific purposes (e.g., 'Create a job application form')\n• Add or modify fields (e.g., 'Add a rating field for customer satisfaction')\n• Organize sections (e.g., 'Group contact info in one section')\n• Refine the form until it's perfect!\n\nWhat kind of form would you like to create?";
-    
+
     return baseMessage;
   };
 
@@ -71,7 +71,7 @@ export default function AIChatFormBuilder({ onMarkdownGenerated, projectContext,
       if (!response.ok) throw new Error('Failed to get AI response');
 
       const data = await response.json();
-      
+
       setMessages((prev) => [
         ...prev,
         {
@@ -85,7 +85,7 @@ export default function AIChatFormBuilder({ onMarkdownGenerated, projectContext,
         setGeneratedMarkdown(data.markdown);
       }
     } catch (error) {
-      console.error('Chat error:', error);
+
       setMessages((prev) => [
         ...prev,
         {
@@ -242,7 +242,7 @@ export default function AIChatFormBuilder({ onMarkdownGenerated, projectContext,
             {generatedMarkdown ? 'Your form is ready!' : 'Form will appear here'}
           </p>
         </div>
-        
+
         <div className="flex-1 p-4 overflow-y-auto">
           {generatedMarkdown ? (
             <pre className="text-xs font-mono bg-gray-50 p-4 rounded-lg overflow-x-auto">

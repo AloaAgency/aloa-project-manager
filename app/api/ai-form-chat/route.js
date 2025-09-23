@@ -39,7 +39,7 @@ async function getProjectContext(projectId) {
     formatted += '\n=== END PROJECT CONTEXT ===\n\n';
     return formatted;
   } catch (error) {
-    console.error('Error fetching project context:', error);
+
     return '';
   }
 }
@@ -149,18 +149,18 @@ export async function POST(request) {
     });
 
     const responseText = response.content[0].text;
-    
+
     // Extract markdown if present in the response
     let extractedMarkdown = '';
     let cleanMessage = responseText;
-    
+
     // Check if response contains markdown code block - more flexible regex
     const markdownMatch = responseText.match(/```(?:markdown)?\s*\n?([\s\S]*?)```/);
     if (markdownMatch) {
       extractedMarkdown = markdownMatch[1].trim();
       // Remove the markdown code block from the message shown to user
       cleanMessage = responseText.replace(/```(?:markdown)?\s*\n?[\s\S]*?```/g, '').trim();
-      
+
       // If there's no other text, add a helpful message
       if (!cleanMessage || cleanMessage.length < 5) {
         cleanMessage = '✅ I\'ve generated your form! You can see it in the preview panel on the right. Feel free to ask for any modifications.';
@@ -185,10 +185,10 @@ export async function POST(request) {
         const messageLines = [];
         let inForm = false;
         let formEnded = false;
-        
+
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
-          
+
           // Start capturing form when we see a heading
           if (line.startsWith('#') && !formEnded) {
             inForm = true;
@@ -206,7 +206,7 @@ export async function POST(request) {
             messageLines.push(line);
           }
         }
-        
+
         if (formLines.length > 0) {
           extractedMarkdown = formLines.join('\n').trim();
           cleanMessage = messageLines.join('\n').trim() || '✅ I\'ve created your form! Check the preview panel.';
@@ -222,26 +222,25 @@ export async function POST(request) {
       markdown: finalMarkdown,
     });
   } catch (error) {
-    console.error('AI chat error:', error);
-    
+
     // Fallback to using a simpler model if the main one fails
     if (error.message?.includes('model')) {
       try {
         const { messages } = await request.json();
         const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-        
+
         // Generate a simple form based on keywords
         const simpleMarkdown = generateSimpleForm(lastUserMessage?.content || '');
-        
+
         return NextResponse.json({
           message: 'I\'ve created a basic form structure for you. Feel free to ask me to modify any part of it!',
           markdown: simpleMarkdown,
         });
       } catch (fallbackError) {
-        console.error('Fallback error:', fallbackError);
+
       }
     }
-    
+
     return NextResponse.json(
       { error: 'Failed to generate form. Please try again.' },
       { status: 500 }
@@ -251,7 +250,7 @@ export async function POST(request) {
 
 function generateSimpleForm(userInput) {
   const input = userInput.toLowerCase();
-  
+
   // Detect form type based on keywords
   if (input.includes('contact') || input.includes('get in touch')) {
     return `# Contact Form

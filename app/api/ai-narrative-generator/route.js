@@ -61,15 +61,12 @@ export async function POST(request) {
   try {
     const { formId, pageName, projectId } = await request.json();
 
-    console.log('AI Narrative Generator called with:', { formId, pageName, projectId });
-
     if (!formId) {
-      console.log('No form ID provided');
+
       return NextResponse.json({ error: 'Form ID is required' }, { status: 400 });
     }
 
     const supabase = createClient();
-    console.log('Supabase client created');
 
     // Get the form and its responses - check aloa_forms first (where project forms are stored)
     let form = null;
@@ -77,18 +74,12 @@ export async function POST(request) {
     let fields = [];
 
     // Try aloa_forms table first (this is where project forms are actually stored)
-    console.log('Checking aloa_forms for form ID:', formId);
+
     let { data: aloaForm, error: aloaFormError } = await supabase
       .from('aloa_forms')
       .select('*')
       .eq('id', formId)
       .single();
-
-    console.log('Aloa forms result:', JSON.stringify({
-      found: !!aloaForm,
-      errorCode: aloaFormError?.code,
-      errorMessage: aloaFormError?.message
-    }, null, 2));
 
     if (aloaForm) {
       form = aloaForm;
@@ -101,7 +92,6 @@ export async function POST(request) {
         .order('field_order', { ascending: true });
 
       fields = formFields || [];
-      console.log(`Found ${fields.length} fields for form ${formId}`);
 
       // Get responses from aloa_form_responses with stakeholder importance
       const { data: aloaResponses } = await supabase
@@ -124,15 +114,14 @@ export async function POST(request) {
         .order('submitted_at', { ascending: false }); // Then by submission time
 
       responses = aloaResponses || [];
-      console.log(`Found ${responses.length} responses for form ${formId}`);
 
       // Log the first response if it exists
       if (responses.length > 0) {
-        console.log('First response data:', JSON.stringify(responses[0].responses, null, 2));
+        // First response available for processing
       }
     } else {
       // Try aloa_project_forms table (legacy)
-      console.log('Checking aloa_project_forms for form ID:', formId);
+
       const { data: projectForm, error: projectFormError } = await supabase
         .from('aloa_project_forms')
         .select('*')
@@ -151,7 +140,7 @@ export async function POST(request) {
         fields = projectForm.fields_structure || [];
       } else {
         // Try regular forms table as last resort
-        console.log('Checking regular forms table for form ID:', formId);
+
         const { data: regularForm, error: regularFormError } = await supabase
           .from('forms')
           .select('*')
@@ -159,7 +148,7 @@ export async function POST(request) {
           .single();
 
         if (!regularForm) {
-          console.log('Form not found in any table. Creating mock form data for testing.');
+
           // Create mock form data for testing
           form = {
             title: 'Test Form',
@@ -201,7 +190,7 @@ export async function POST(request) {
           }
         }
       } catch (error) {
-        console.error('Error fetching project context:', error);
+
       }
     }
 
@@ -220,7 +209,7 @@ export async function POST(request) {
 
     // If we have no responses, create sample content for testing
     if (responses.length === 0) {
-      console.log('No responses found, using sample content for testing');
+
       formContent += 'SAMPLE CONTENT FOR TESTING:\n';
       formContent += '\nBUSINESS NAME: Glid Digital Solutions\n';
       formContent += '\nVALUE PROPOSITION: We help businesses transform their digital presence with modern, user-focused web experiences.\n';
@@ -333,7 +322,7 @@ export async function POST(request) {
         };
       }
     } catch (parseError) {
-      console.error('Error parsing AI response:', parseError);
+
       // Fallback to a structured format
       narrativeContent = {
         "Introduction": "Welcome to our " + (pageName || 'page'),
@@ -352,7 +341,7 @@ export async function POST(request) {
     return NextResponse.json(narrativeContent);
 
   } catch (error) {
-    console.error('Error generating narrative:', error);
+
     return NextResponse.json(
       { error: 'Failed to generate narrative content' },
       { status: 500 }

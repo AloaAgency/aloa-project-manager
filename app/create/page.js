@@ -23,13 +23,13 @@ function CreateFormPageContent() {
 
   useEffect(() => {
     fetchProjects();
-    
+
     // Check if project is passed in URL
     const projectId = searchParams.get('project');
     const projectNameParam = searchParams.get('projectName');
     const projectletIdParam = searchParams.get('projectlet');
     const projectletNameParam = searchParams.get('projectletName');
-    
+
     if (projectId) {
       setSelectedProject(projectId);
       if (projectNameParam) {
@@ -37,7 +37,7 @@ function CreateFormPageContent() {
       }
       fetchProjectKnowledge(projectId);
     }
-    
+
     if (projectletIdParam) {
       setProjectletId(projectletIdParam);
       if (projectletNameParam) {
@@ -52,7 +52,7 @@ function CreateFormPageContent() {
       const data = await response.json();
       setProjects(data);
     } catch (error) {
-      console.error('Error fetching projects:', error);
+
     }
   };
 
@@ -62,18 +62,18 @@ function CreateFormPageContent() {
       const data = await response.json();
       setProjectKnowledge(data);
     } catch (error) {
-      console.error('Error fetching project knowledge:', error);
+
     }
   };
 
   const handleMarkdownGenerated = async (markdown) => {
     setIsUploading(true);
-    
+
     try {
       // Create a Blob from the markdown string
       const blob = new Blob([markdown], { type: 'text/markdown' });
       const file = new File([blob], 'ai-generated-form.md', { type: 'text/markdown' });
-      
+
       const formData = new FormData();
       formData.append('markdown', file);
       if (selectedProject) {
@@ -85,7 +85,7 @@ function CreateFormPageContent() {
         .split('; ')
         .find(row => row.startsWith('csrf-token='))
         ?.split('=')[1];
-      
+
       const response = await fetch('/api/aloa-forms/upload', {
         method: 'POST',
         headers: {
@@ -133,7 +133,7 @@ function CreateFormPageContent() {
             return;
           }
         } catch (attachError) {
-          console.error('Error attaching form to projectlet:', attachError);
+
           // Continue with normal flow even if attachment fails
         }
       }
@@ -141,7 +141,7 @@ function CreateFormPageContent() {
       toast.success('Form created successfully!');
       router.push(`/forms/${data.urlId}`);
     } catch (error) {
-      console.error('Form creation error:', error);
+
       toast.error(error.message || 'Failed to create form');
     } finally {
       setIsUploading(false);
@@ -167,7 +167,7 @@ function CreateFormPageContent() {
         .split('; ')
         .find(row => row.startsWith('csrf-token='))
         ?.split('=')[1];
-      
+
       const response = await fetch('/api/aloa-forms/upload', {
         method: 'POST',
         headers: {
@@ -185,7 +185,7 @@ function CreateFormPageContent() {
       toast.success('Form created successfully!');
       router.push(`/forms/${data.urlId}`);
     } catch (error) {
-      console.error('Upload error:', error);
+
       toast.error(error.message || 'Failed to create form');
       setUploadedFile(null);
     } finally {
@@ -258,7 +258,7 @@ function CreateFormPageContent() {
                   'This form will be attached to the selected projectlet' :
                   'Organize your form into a project for better management'}
               </p>
-              
+
               {projectKnowledge && projectKnowledge.stats && projectKnowledge.stats.totalDocuments > 0 && (
                 <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
                   <div className="flex items-start">
@@ -343,7 +343,7 @@ function CreateFormPageContent() {
                 `}
               >
                 <input {...getInputProps()} />
-                
+
                 {isUploading ? (
                   <div className="flex flex-col items-center">
                     <div className="w-16 h-16 mx-auto mb-4 bg-purple-600 rounded-full animate-pulse" />

@@ -7,16 +7,11 @@ const supabase = createClient(
 );
 
 async function testAssignProject() {
-  console.log('\n=== Testing Project Assignment ===\n');
-  
+
   // Test the query that's failing
   const userId = 'beafc89b-1721-4d7c-9e33-67c64d27e211'; // John G
   const projectId = '0cb872ed-3c22-4b3d-92e7-f1b9d542d63a'; // Test project
-  
-  console.log('Testing for existing assignment...');
-  console.log('User ID:', userId);
-  console.log('Project ID:', projectId);
-  
+
   try {
     // Check if assignment already exists
     const { data: existingAssignment, error: checkError } = await supabase
@@ -25,31 +20,30 @@ async function testAssignProject() {
       .eq('project_id', projectId)
       .eq('user_id', userId)
       .single();
-    
+
     if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking existing assignment:', checkError);
+
       return;
     }
-    
+
     if (existingAssignment) {
-      console.log('Assignment already exists:', existingAssignment);
-      
+
       // Try to remove it first
-      console.log('\nRemoving existing assignment...');
+
       const { error: deleteError } = await supabase
         .from('aloa_project_members')
         .delete()
         .eq('id', existingAssignment.id);
-      
+
       if (deleteError) {
-        console.error('Error removing assignment:', deleteError);
+
         return;
       }
-      console.log('✓ Removed existing assignment');
+
     }
-    
+
     // Now try to add the assignment
-    console.log('\nAdding new assignment...');
+
     const { data: newMember, error: insertError } = await supabase
       .from('aloa_project_members')
       .insert({
@@ -65,22 +59,14 @@ async function testAssignProject() {
       })
       .select()
       .single();
-    
+
     if (insertError) {
-      console.error('Error adding assignment:', insertError);
-      console.error('Error details:', {
-        code: insertError.code,
-        message: insertError.message,
-        details: insertError.details,
-        hint: insertError.hint
-      });
+
       return;
     }
-    
-    console.log('✓ Successfully added assignment:', newMember);
-    
+
   } catch (error) {
-    console.error('Unexpected error:', error);
+
   }
 }
 

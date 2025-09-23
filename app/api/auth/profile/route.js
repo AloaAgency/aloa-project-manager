@@ -45,7 +45,7 @@ export async function GET() {
 
     // Get the current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
+
     if (userError || !user) {
       return NextResponse.json(
         { error: 'Not authenticated' },
@@ -57,24 +57,24 @@ export async function GET() {
     // Use service role to bypass RLS issues
     let profile = null;
     let profileError = null;
-    
+
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
     if (serviceKey) {
       const serviceSupabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         serviceKey
       );
-      
+
       // First try by email (more reliable for super_admin)
       const { data: profileByEmail, error: emailError } = await serviceSupabase
         .from('aloa_user_profiles')
         .select('*')
         .eq('email', user.email)
         .single();
-      
+
       if (profileByEmail) {
         profile = profileByEmail;
-        console.log('Profile found by email:', user.email, 'role:', profileByEmail.role);
+
       } else {
         // Fallback to ID if email not found
         const { data: profileById, error: idError } = await serviceSupabase
@@ -82,11 +82,11 @@ export async function GET() {
           .select('*')
           .eq('id', user.id)
           .single();
-        
+
         profile = profileById;
         profileError = idError;
         if (profile) {
-          console.log('Profile found by ID:', user.id, 'role:', profile.role);
+
         }
       }
     } else {
@@ -96,14 +96,13 @@ export async function GET() {
         .select('*')
         .eq('email', user.email)
         .single();
-      
+
       profile = data;
       profileError = error;
     }
 
     if (profileError) {
-      console.error('Error fetching profile:', profileError);
-      
+
       // If profile doesn't exist, return user data with default role
       if (profileError.code === 'PGRST116') {
         return NextResponse.json({
@@ -114,7 +113,7 @@ export async function GET() {
           }
         });
       }
-      
+
       return NextResponse.json(
         { error: 'Failed to fetch profile: ' + profileError.message },
         { status: 500 }
@@ -131,7 +130,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Server error:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

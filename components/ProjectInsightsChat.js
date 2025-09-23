@@ -70,7 +70,6 @@ export default function ProjectInsightsChat({ projectId }) {
         timestamp: new Date()
       }]);
     } catch (error) {
-      console.error('Error getting insights:', error);
 
       let errorMessage = 'Sorry, I encountered an error analyzing the project data.';
 

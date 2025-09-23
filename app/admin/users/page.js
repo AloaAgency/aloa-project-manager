@@ -63,16 +63,16 @@ export default function UsersManagementPage() {
     try {
       setLoading(true);
       const response = await fetch('/api/auth/users');
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch users');
       }
-      
+
       const data = await response.json();
-      console.log('Users data from API:', data.users);
+
       setUsers(data.users || []);
     } catch (err) {
-      console.error('Error fetching users:', err);
+
       setError('Failed to load users');
     } finally {
       setLoading(false);
@@ -82,14 +82,14 @@ export default function UsersManagementPage() {
   const fetchProjects = async () => {
     try {
       const response = await fetch('/api/aloa-projects');
-      
+
       if (response.ok) {
         const data = await response.json();
-        console.log('Fetched projects:', data.projects); // Debug log
+         // Debug log
         setProjects(data.projects || []);
       }
     } catch (err) {
-      console.error('Error fetching projects:', err);
+
     }
   };
 

@@ -39,7 +39,7 @@ export async function POST(request) {
           .single();
 
         if (folderError) {
-          console.error('Error creating folder:', folderError);
+
           return NextResponse.json({ error: 'Failed to create folder' }, { status: 500 });
         }
 
@@ -76,9 +76,6 @@ export async function POST(request) {
 
       // Upload file to Supabase Storage
       const fileBuffer = await file.arrayBuffer();
-      console.log('Uploading file to storage path:', storagePath);
-      console.log('File size:', file.size, 'bytes');
-      console.log('File type:', file.type);
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('project-files')
@@ -88,19 +85,13 @@ export async function POST(request) {
         });
 
       if (uploadError) {
-        console.error('Error uploading file to storage:', uploadError);
-        console.error('Storage path attempted:', storagePath);
-        console.error('Full error object:', JSON.stringify(uploadError, null, 2));
         return NextResponse.json({ error: 'Failed to upload file', details: uploadError.message }, { status: 500 });
       }
 
       // Check if upload actually succeeded
       if (!uploadData || !uploadData.path) {
-        console.error('Upload returned no data, likely failed silently');
         return NextResponse.json({ error: 'Upload failed - no data returned' }, { status: 500 });
       }
-
-      console.log('File uploaded successfully:', JSON.stringify(uploadData, null, 2));
 
       // Verify the file actually exists in storage
       const { data: existsData, error: existsError } = await supabase.storage
@@ -110,18 +101,14 @@ export async function POST(request) {
           search: sanitizedName
         });
 
-      console.log('File exists check:', existsData ? 'Files found: ' + existsData.length : 'No files found');
       if (existsError) {
-        console.error('Error checking if file exists:', existsError);
+
       }
 
       // Get public URL for the file
       const { data: { publicUrl } } = supabase.storage
         .from('project-files')
         .getPublicUrl(storagePath);
-
-      console.log('Generated public URL:', publicUrl);
-      console.log('Storage path:', storagePath);
 
       // Create database record
       const { data: fileRecord, error: dbError } = await supabase
@@ -151,7 +138,7 @@ export async function POST(request) {
         .single();
 
       if (dbError) {
-        console.error('Error creating file record:', dbError);
+
         // Clean up uploaded file
         await supabase.storage.from('project-files').remove([storagePath]);
         return NextResponse.json({ error: 'Failed to create file record' }, { status: 500 });
@@ -200,11 +187,11 @@ export async function POST(request) {
             });
 
           // Try immediate extraction with debug logging
-          console.log('Attempting knowledge extraction for file:', fileRecord.id, fileRecord.file_name);
+
           const extractor = new KnowledgeExtractor(projectId);
           await extractor.extractFromFile(fileRecord.id);
         } catch (extractError) {
-          console.error('Error triggering knowledge extraction:', extractError);
+
           // Don't fail the upload if extraction fails
         }
       }
@@ -270,7 +257,7 @@ export async function POST(request) {
       .single();
 
     if (error) {
-      console.error('Error creating project file record:', error);
+
       return NextResponse.json({ error: 'Failed to create file record' }, { status: 500 });
     }
 
@@ -311,7 +298,7 @@ export async function POST(request) {
 
     return NextResponse.json({ file });
   } catch (error) {
-    console.error('Error in project files route:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -359,13 +346,13 @@ export async function GET(request) {
       .order('file_name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching project files:', error);
+
       return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 });
     }
 
     return NextResponse.json({ files: files || [] });
   } catch (error) {
-    console.error('Error in project files route:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -397,11 +384,11 @@ export async function DELETE(request) {
           .remove([pathToDelete]);
 
         if (storageError) {
-          console.error('Storage deletion error:', storageError);
+
           // Continue anyway - maybe file is already gone
         }
       } catch (err) {
-        console.error('Storage deletion failed:', err);
+
       }
     }
 
@@ -412,7 +399,7 @@ export async function DELETE(request) {
       .eq('id', fileId);
 
     if (error) {
-      console.error('Error deleting project file:', error);
+
       return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
     }
 
@@ -437,7 +424,7 @@ export async function DELETE(request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error in project files route:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -478,7 +465,7 @@ export async function PATCH(request) {
       .single();
 
     if (error) {
-      console.error('Error updating project file:', error);
+
       return NextResponse.json({ error: 'Failed to update file' }, { status: 500 });
     }
 
@@ -503,7 +490,7 @@ export async function PATCH(request) {
 
     return NextResponse.json({ file });
   } catch (error) {
-    console.error('Error in project files route:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

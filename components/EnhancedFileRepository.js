@@ -84,7 +84,7 @@ export default function EnhancedFileRepository({
       const result = await response.json();
 
       if (result.error) {
-        console.error('Error fetching files:', result.error);
+
         return;
       }
 
@@ -98,7 +98,7 @@ export default function EnhancedFileRepository({
       setFolders(folderItems);
       setFiles(fileItems);
     } catch (error) {
-      console.error('Error fetching contents:', error);
+
       toast.error('Failed to load files');
     } finally {
       setLoading(false);
@@ -143,7 +143,7 @@ export default function EnhancedFileRepository({
         const percent = ((uploadedFiles.indexOf(file) + 1) / uploadedFiles.length) * 100;
         setUploadProgress(Math.round(percent));
       } catch (error) {
-        console.error('Error uploading file:', error);
+
         toast.error(`Failed to upload ${file.name}: ${error.message}`);
       }
     }
@@ -188,7 +188,7 @@ export default function EnhancedFileRepository({
       setShowNewFolderDialog(false);
       setNewFolderName('');
     } catch (error) {
-      console.error('Error creating folder:', error);
+
       toast.error('Failed to create folder');
     }
   };
@@ -210,7 +210,7 @@ export default function EnhancedFileRepository({
       toast.success('File moved successfully');
       if (onFileChange) onFileChange();
     } catch (error) {
-      console.error('Error moving file:', error);
+
       toast.error('Failed to move file');
     }
   };
@@ -260,7 +260,7 @@ export default function EnhancedFileRepository({
         toast.success('Download started');
       }
     } catch (error) {
-      console.error('Error downloading file:', error);
+
       toast.error('Failed to download file');
     }
   };
@@ -279,7 +279,7 @@ export default function EnhancedFileRepository({
       toast.success(`${item.is_folder ? 'Folder' : 'File'} deleted successfully`);
       if (onFileChange) onFileChange();
     } catch (error) {
-      console.error('Error deleting:', error);
+
       toast.error(`Failed to delete ${item.is_folder ? 'folder' : 'file'}`);
     }
   };
@@ -309,7 +309,7 @@ export default function EnhancedFileRepository({
       setRenameItem(null);
       setNewName('');
     } catch (error) {
-      console.error('Error renaming:', error);
+
       toast.error(`Failed to rename ${renameItem.is_folder ? 'folder' : 'file'}`);
     }
   };
@@ -406,20 +406,16 @@ export default function EnhancedFileRepository({
 
   const getFileUrl = (file) => {
     // Debug logging
-    console.log('Getting URL for file:', file.file_name, {
-      url: file.url,
-      storage_path: file.storage_path
-    });
 
     if (file.url) {
-      console.log('Using file.url:', file.url);
+
       return file.url;
     }
     if (file.storage_path) {
       const { data } = supabase.storage
         .from(STORAGE_BUCKET)
         .getPublicUrl(file.storage_path);
-      console.log('Generated public URL:', data?.publicUrl);
+
       return data?.publicUrl || null;
     }
     return null;

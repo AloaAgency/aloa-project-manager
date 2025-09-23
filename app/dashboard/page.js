@@ -47,7 +47,7 @@ export default function DashboardRedirect() {
           router.push(`/project/${memberData.project_id}/dashboard`);
         } else {
           // Client with no project - show error
-          console.error('Client has no project assigned');
+
           router.push('/auth/login?error=no-project');
         }
       } else {

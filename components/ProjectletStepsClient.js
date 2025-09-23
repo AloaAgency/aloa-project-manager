@@ -46,7 +46,7 @@ export default function ProjectletStepsClient({
       const data = await response.json();
       setSteps(data.steps || []);
     } catch (error) {
-      console.error('Error fetching steps:', error);
+
     } finally {
       setLoading(false);
     }
@@ -91,7 +91,7 @@ export default function ProjectletStepsClient({
         {steps.map((step, index) => {
           const Icon = STEP_TYPE_ICONS[step.type] || FileText;
           const isClickable = projectletStatus !== 'completed' && projectletStatus !== 'locked';
-          
+
           return (
             <div 
               key={step.id}
@@ -119,7 +119,7 @@ export default function ProjectletStepsClient({
                     <Circle className="w-5 h-5 text-gray-400" />
                   )}
                 </div>
-                
+
                 <div className="flex-1">
                   <div className="flex items-center">
                     <Icon className="w-4 h-4 mr-2 text-gray-600" />

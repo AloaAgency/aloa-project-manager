@@ -120,7 +120,6 @@ export async function POST(request) {
     }
 
     // Upload new avatar using service role client
-    console.log('Attempting to upload file:', fileName, 'size:', file.size, 'type:', file.type);
 
     const { data: uploadData, error: uploadError } = await serviceSupabase.storage
       .from('avatars')
@@ -131,20 +130,12 @@ export async function POST(request) {
       });
 
     if (uploadError) {
-      console.error('Error uploading avatar:', uploadError);
-      console.error('Upload error details:', {
-        message: uploadError.message,
-        statusCode: uploadError.statusCode,
-        error: uploadError.error,
-        details: uploadError.details
-      });
+
       return NextResponse.json(
         { error: `Failed to upload avatar: ${uploadError.message}` },
         { status: 500 }
       );
     }
-
-    console.log('Avatar uploaded successfully:', uploadData);
 
     // Get public URL
     const { data: { publicUrl } } = serviceSupabase.storage
@@ -152,7 +143,6 @@ export async function POST(request) {
       .getPublicUrl(fileName);
 
     // Update user profile with new avatar URL (using the service client we already have)
-    console.log('Updating avatar URL for user:', user.id, 'to:', publicUrl);
 
     const { data: updatedData, error: updateError } = await serviceSupabase
       .from('aloa_user_profiles')
@@ -165,7 +155,7 @@ export async function POST(request) {
       .single();
 
     if (updateError) {
-      console.error('Error updating profile:', updateError);
+
       // Try to delete the uploaded file since profile update failed
       await serviceSupabase.storage.from('avatars').remove([fileName]);
 
@@ -175,15 +165,13 @@ export async function POST(request) {
       );
     }
 
-    console.log('Avatar URL updated successfully:', updatedData);
-
     return NextResponse.json({
       avatar_url: publicUrl,
       message: 'Avatar uploaded successfully'
     });
 
   } catch (error) {
-    console.error('Server error:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -282,7 +270,7 @@ export async function DELETE(request) {
     });
 
   } catch (error) {
-    console.error('Server error:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

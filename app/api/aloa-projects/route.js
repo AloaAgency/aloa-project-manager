@@ -3,10 +3,6 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET(request) {
   try {
-    // Debug logging
-    console.log('Projects API called at:', new Date().toISOString());
-    console.log('Environment:', process.env.VERCEL_ENV || 'local');
-
     // Fetch all projects with their stats
     const { data: projects, error, count } = await supabase
       .from('aloa_projects')
@@ -25,15 +21,7 @@ export async function GET(request) {
       `, { count: 'exact' })
       .order('created_at', { ascending: false });
 
-    console.log('Supabase query result:', {
-      error: error?.message || null,
-      projectCount: projects?.length || 0,
-      exactCount: count,
-      firstProjectId: projects?.[0]?.id?.substring(0, 8) || 'none'
-    });
-
     if (error) {
-      console.error('Error fetching projects:', error);
       return NextResponse.json(
         { error: 'Failed to fetch projects' },
         { status: 500 }
@@ -65,7 +53,6 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error('Error in projects route:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

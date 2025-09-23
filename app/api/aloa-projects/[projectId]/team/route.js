@@ -26,7 +26,7 @@ export async function GET(request, { params }) {
       .neq('project_role', 'viewer'); // Exclude client stakeholders (viewers)
 
     if (error) {
-      console.error('Error fetching team:', error);
+
       return NextResponse.json(
         { error: 'Failed to fetch team members' },
         { status: 500 }
@@ -51,7 +51,7 @@ export async function GET(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in team route:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -64,8 +64,6 @@ export async function POST(request, { params }) {
     const { projectId } = params;
     const body = await request.json();
     const { user_id, project_role } = body;
-
-    console.log('Adding team member:', { projectId, user_id, project_role });
 
     if (!user_id || !project_role) {
       return NextResponse.json(
@@ -104,7 +102,7 @@ export async function POST(request, { params }) {
         .single();
 
       if (updateError) {
-        console.error('Error updating team member:', updateError);
+
         return NextResponse.json(
           { error: 'Failed to update team member' },
           { status: 500 }
@@ -147,8 +145,7 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error adding team member:', error);
-      console.error('Error details:', error.message, error.code);
+
       return NextResponse.json(
         { error: error.message || 'Failed to add team member' },
         { status: 500 }
@@ -170,7 +167,7 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error adding team member:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -201,7 +198,7 @@ export async function DELETE(request, { params }) {
       .eq('project_id', projectId);
 
     if (error) {
-      console.error('Error removing team member:', error);
+
       return NextResponse.json(
         { error: 'Failed to remove team member' },
         { status: 500 }
@@ -214,7 +211,7 @@ export async function DELETE(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error removing team member:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -10,7 +10,7 @@ export async function DELETE(request, { params }) {
         { status: 503 }
       );
     }
-    
+
     const { projectId } = params;
 
     // First, unassign all forms from this project (set them to uncategorized)
@@ -20,7 +20,7 @@ export async function DELETE(request, { params }) {
       .eq('project_id', projectId);
 
     if (updateError) {
-      console.error('Error updating forms:', updateError);
+
       return NextResponse.json(
         { error: 'Failed to update forms' },
         { status: 500 }
@@ -34,7 +34,7 @@ export async function DELETE(request, { params }) {
       .eq('id', projectId);
 
     if (deleteError) {
-      console.error('Error deleting project:', deleteError);
+
       return NextResponse.json(
         { error: 'Failed to delete project' },
         { status: 500 }
@@ -43,7 +43,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting project:', error);
+
     return NextResponse.json(
       { error: 'Failed to delete project' },
       { status: 500 }
@@ -60,7 +60,7 @@ export async function PATCH(request, { params }) {
         { status: 503 }
       );
     }
-    
+
     const { projectId } = params;
     const body = await request.json();
     const { name, description } = body;
@@ -80,7 +80,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error updating project:', error);
+
       return NextResponse.json(
         { error: 'Failed to update project' },
         { status: 500 }
@@ -89,7 +89,7 @@ export async function PATCH(request, { params }) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error updating project:', error);
+
     return NextResponse.json(
       { error: 'Failed to update project' },
       { status: 500 }

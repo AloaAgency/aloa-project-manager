@@ -47,13 +47,13 @@ function AdminProjectsPageContent() {
     try {
       const response = await fetch('/api/aloa-projects');
       const data = await response.json();
-      
+
       if (data.projects) {
         setProjects(data.projects);
         calculateStats(data.projects);
       }
     } catch (error) {
-      console.error('Error fetching projects:', error);
+
     } finally {
       setLoading(false);
     }
@@ -134,7 +134,7 @@ function AdminProjectsPageContent() {
       setDeleteModal({ isOpen: false, project: null });
       setDeleteConfirmation('');
     } catch (error) {
-      console.error('Error deleting project:', error);
+
       setDeleteError(error.message || 'Failed to delete project');
     } finally {
       setIsDeleting(false);

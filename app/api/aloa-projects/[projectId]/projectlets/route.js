@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
     try {
       supabase = createServiceClient();
     } catch (serviceError) {
-      console.error('Failed to create service client, using regular client:', serviceError.message);
+
       const { supabase: fallbackClient } = await import('@/lib/supabase');
       supabase = fallbackClient;
       if (!supabase) {
@@ -37,7 +37,7 @@ export async function GET(request, { params }) {
       .order('order_index', { ascending: true });
 
     if (error) {
-      console.error('Error fetching projectlets:', error);
+
       return NextResponse.json(
         { error: 'Failed to fetch projectlets' },
         { status: 500 }
@@ -64,7 +64,7 @@ export async function GET(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in projectlets route:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -83,7 +83,7 @@ export async function POST(request, { params }) {
     try {
       supabase = createServiceClient();
     } catch (serviceError) {
-      console.error('Failed to create service client, using regular client:', serviceError.message);
+
       // Fall back to importing the regular client
       const { supabase: fallbackClient } = await import('@/lib/supabase');
       supabase = fallbackClient;
@@ -120,16 +120,7 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error creating projectlet:', {
-        error,
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        projectId,
-        name: name || `New Projectlet ${newOrderIndex + 1}`,
-        type: type || 'design'
-      });
+
       return NextResponse.json(
         { error: 'Failed to create projectlet', details: error.message },
         { status: 500 }
@@ -153,11 +144,7 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error creating projectlet - caught exception:', {
-      error: error.message,
-      stack: error.stack,
-      projectId: params.projectId
-    });
+
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
@@ -172,10 +159,8 @@ export async function PATCH(request, { params }) {
     const body = await request.json();
     const { projectletId, status, metadata } = body;
 
-    console.log('PATCH request received:', { projectId, projectletId, status, metadata });
-
     if (!projectletId || !status) {
-      console.error('Missing required fields:', { projectletId, status });
+
       return NextResponse.json(
         { error: 'projectletId and status are required' },
         { status: 400 }
@@ -187,7 +172,7 @@ export async function PATCH(request, { params }) {
     try {
       supabase = createServiceClient();
     } catch (serviceError) {
-      console.error('Failed to create service client, using regular client:', serviceError.message);
+
       const { supabase: fallbackClient } = await import('@/lib/supabase');
       supabase = fallbackClient;
       if (!supabase) {
@@ -202,8 +187,6 @@ export async function PATCH(request, { params }) {
       ...(status === 'completed' && { completion_date: new Date().toISOString() })
     };
 
-    console.log('Updating projectlet with:', { projectletId, projectId, updateData });
-
     const { data: updatedProjectlet, error: updateError } = await supabase
       .from('aloa_projectlets')
       .update(updateData)
@@ -213,20 +196,12 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (updateError) {
-      console.error('Error updating projectlet:', updateError);
-      console.error('Update error details:', {
-        code: updateError.code,
-        message: updateError.message,
-        details: updateError.details,
-        hint: updateError.hint
-      });
+
       return NextResponse.json(
         { error: 'Failed to update projectlet', details: updateError.message },
         { status: 500 }
       );
     }
-
-    console.log('Projectlet updated successfully:', updatedProjectlet);
 
     // If projectlet is completed, check if we need to unlock the next one
     if (status === 'completed') {
@@ -278,7 +253,7 @@ export async function PATCH(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error updating projectlet:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -305,7 +280,7 @@ export async function PUT(request, { params }) {
     try {
       supabase = createServiceClient();
     } catch (serviceError) {
-      console.error('Failed to create service client, using regular client:', serviceError.message);
+
       const { supabase: fallbackClient } = await import('@/lib/supabase');
       supabase = fallbackClient;
       if (!supabase) {
@@ -331,7 +306,7 @@ export async function PUT(request, { params }) {
       .single();
 
     if (updateError) {
-      console.error('Error updating projectlet details:', updateError);
+
       return NextResponse.json(
         { error: 'Failed to update projectlet details' },
         { status: 500 }
@@ -407,7 +382,7 @@ export async function PUT(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error updating projectlet details:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -426,7 +401,7 @@ export async function DELETE(request, { params }) {
     try {
       supabase = createServiceClient();
     } catch (serviceError) {
-      console.error('Failed to create service client, using regular client:', serviceError.message);
+
       const { supabase: fallbackClient } = await import('@/lib/supabase');
       supabase = fallbackClient;
       if (!supabase) {
@@ -449,7 +424,7 @@ export async function DELETE(request, { params }) {
       .eq('project_id', params.projectId); // Extra safety check
 
     if (error) {
-      console.error('Error deleting projectlet:', error);
+
       return NextResponse.json(
         { error: 'Failed to delete projectlet' },
         { status: 500 }
@@ -462,7 +437,7 @@ export async function DELETE(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in DELETE projectlet:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
