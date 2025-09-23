@@ -126,7 +126,6 @@ function ClientDashboard() {
           setUserRole(profile.role);
         }
       } else {
-        console.error('No authenticated user found:', error);
         // Fallback to localStorage for anonymous users (shouldn't happen with AuthGuard)
         const storedUserId = localStorage.getItem('client_user_id');
         if (storedUserId) {
@@ -186,12 +185,11 @@ function ClientDashboard() {
 
   const fetchProjectData = async () => {
     try {
-      console.log('fetchProjectData called with userId:', userId);
       // Fetch project data and projectlets from client-view endpoint with user ID
       const response = await fetch(`/api/aloa-projects/${params.projectId}/client-view?userId=${userId}`);
       const data = await response.json();
 
-      console.log('fetchProjectData response received:', {
+      // Response received: {
         projectlets: data.projectlets?.length,
         totalApplets: data.projectlets?.reduce((sum, p) => sum + (p.applets?.length || 0), 0)
       });
@@ -209,7 +207,7 @@ function ClientDashboard() {
 
           // Debug logging for palette cleanser applets
           if (applet.type === 'palette_cleanser') {
-            console.log('Palette Cleanser Fetch Data:', {
+            // Palette Cleanser Fetch Data: {
               appletId: applet.id,
               name: applet.name,
               user_status: applet.user_status,
@@ -232,7 +230,6 @@ function ClientDashboard() {
           }
         });
       });
-      console.log('Setting completedApplets from server:', Array.from(completed));
       setCompletedApplets(completed);
       
       // Fetch all form responses for this user to properly track submissions
@@ -258,12 +255,9 @@ function ClientDashboard() {
           }
         }
         setUserFormResponses(formResponses);
-        console.log('User form responses loaded:', formResponses);
       } catch (error) {
-        console.error('Error fetching form responses:', error);
       }
     } catch (error) {
-      console.error('Error fetching project:', error);
     } finally {
       setLoading(false);
     }
@@ -315,7 +309,6 @@ function ClientDashboard() {
       const formId = applet.form_id || applet.config?.form_id;
       
       if (!formId) {
-        console.error('No form_id found for applet:', applet);
         alert('This form is not properly configured. Please contact support.');
         return;
       }
@@ -327,7 +320,6 @@ function ClientDashboard() {
       let previousResponses = null;
       if (userHasCompleted && userFormResponses[formId]) {
         previousResponses = userFormResponses[formId].response_data;
-        console.log('Loaded previous responses for', isViewOnly ? 'viewing' : 'editing', ':', previousResponses);
       }
       
       // Use form data from applet if available, otherwise fetch
@@ -354,9 +346,6 @@ function ClientDashboard() {
           }))
         };
         
-        console.log('Transformed preloaded form:', transformedForm);
-        console.log('Form fields count:', transformedForm.fields?.length);
-        console.log('Form fields:', transformedForm.fields);
         setFormData(transformedForm);
         setSelectedApplet({ ...applet, projectlet, form_id: applet.form_id || applet.config?.form_id });
         
@@ -376,7 +365,6 @@ function ClientDashboard() {
             throw new Error(`Failed to fetch form: ${formRes.status}`);
           }
           const form = await formRes.json();
-          console.log('Fetched form:', form);
           
           // Transform the form data to match MultiStepFormRenderer's expected structure
           const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
@@ -399,7 +387,6 @@ function ClientDashboard() {
             }))
           };
           
-          console.log('Transformed form:', transformedForm);
           setFormData(transformedForm);
           setSelectedApplet({ ...applet, projectlet, form_id: formId });
           
@@ -413,7 +400,6 @@ function ClientDashboard() {
           
           setShowFormModal(true);
         } catch (error) {
-          console.error('Error fetching form:', error);
           alert('Unable to load the form. Please try again later.');
         }
       }
@@ -423,7 +409,7 @@ function ClientDashboard() {
       setShowLinkSubmissionModal(true);
     } else if (isFileUpload) {
       // Handle file upload applet
-      console.log('Debug - File Upload Click:', {
+      // File Upload Click: {
         appletId: applet.id,
         appletName: applet.name,
         appletType: applet.type,
@@ -444,17 +430,13 @@ function ClientDashboard() {
             if (typeof filesField === 'string') {
               try {
                 configFiles = JSON.parse(filesField);
-                console.log('Debug - Parsed files from string config:', configFiles);
               } catch (e) {
-                console.error('Failed to parse files string:', e, 'Raw string:', filesField);
                 configFiles = [];
               }
             } else if (Array.isArray(filesField)) {
               configFiles = filesField;
-              console.log('Debug - Files already array in config:', configFiles);
             } else if (typeof filesField === 'object') {
               // Handle object format - might be a single file or an object with array property
-              console.log('Debug - Files is an object:', filesField);
               // Check if it's an object with a files array inside
               if (filesField.files && Array.isArray(filesField.files)) {
                 configFiles = filesField.files;
@@ -464,14 +446,10 @@ function ClientDashboard() {
                 // Try to extract values from object
                 configFiles = Object.values(filesField);
               }
-              console.log('Debug - Extracted from object:', configFiles);
             } else {
-              console.log('Debug - Config files is unknown type:', typeof filesField, filesField);
             }
           } else {
-            console.log('Debug - No files in applet config (checked both files and attached_files)');
           }
-          console.log('Debug - Final config files:', configFiles);
 
           // Also fetch from aloa_project_files table
           const response = await fetch(`/api/project-files?applet_id=${applet.id}`);
@@ -480,7 +458,6 @@ function ClientDashboard() {
           if (response.ok) {
             const data = await response.json();
             apiFiles = data.files || [];
-            console.log('Debug - Files from API:', apiFiles);
           }
 
           // Merge both sources
@@ -502,7 +479,6 @@ function ClientDashboard() {
             }
           });
 
-          console.log('Debug - Total files combined:', allFiles);
 
           // Update the applet with all files
           const updatedApplet = {
@@ -514,7 +490,7 @@ function ClientDashboard() {
             }
           };
 
-          console.log('Debug - Updated applet before setting:', {
+          // Updated applet before setting: {
             id: updatedApplet.id,
             name: updatedApplet.name,
             configFiles: updatedApplet.config?.files,
@@ -524,7 +500,6 @@ function ClientDashboard() {
           setSelectedApplet(updatedApplet);
           setShowFileUploadModal(true);
         } catch (error) {
-          console.error('Error fetching files:', error);
           // Still show modal with config files if fetch fails
           setSelectedApplet({ ...applet, projectlet });
           setShowFileUploadModal(true);
@@ -590,7 +565,7 @@ function ClientDashboard() {
       });
 
       if (!responseResult.ok) {
-        console.error('Failed to submit form response:', await responseResult.text());
+        // Failed to submit form response
       }
 
       // Mark applet as completed for this user

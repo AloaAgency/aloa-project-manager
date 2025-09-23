@@ -381,7 +381,7 @@ function AdminProjectPageContent() {
         }
       }
     } catch (error) {
-      console.error('Error fetching project file count:', error);
+      // Silently handle file count fetch error
     }
   };
 
@@ -410,13 +410,12 @@ function AdminProjectPageContent() {
       const knowledgeResponse = await fetch(`/api/project-knowledge/${params.projectId}`);
       if (knowledgeResponse.ok) {
         const knowledgeData = await knowledgeResponse.json();
-        console.log('Knowledge data received:', knowledgeData);
         setProjectKnowledgeCount(knowledgeData.stats?.total || 0);
       } else {
-        console.error('Knowledge API failed:', knowledgeResponse.status);
+        // Knowledge API failed, silently continue
       }
     } catch (error) {
-      console.error('Error fetching knowledge base:', error);
+      // Silently handle knowledge base fetch error
     }
   };
 
@@ -492,7 +491,6 @@ function AdminProjectPageContent() {
         toast.error('Failed to save knowledge base');
       }
     } catch (error) {
-      console.error('Error saving knowledge:', error);
       toast.error('Error saving knowledge base');
     } finally {
       setKnowledgeSaving(false);
@@ -520,7 +518,6 @@ function AdminProjectPageContent() {
 
       if (!uploadResponse.ok) {
         const error = await uploadResponse.text();
-        console.error('Upload error:', error);
         throw new Error('Failed to upload file');
       }
 
@@ -544,7 +541,6 @@ function AdminProjectPageContent() {
         setShowKnowledgeUpload(false);
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
       toast.error('Failed to upload file');
     } finally {
       setUploadingKnowledge(false);
@@ -564,7 +560,6 @@ function AdminProjectPageContent() {
         fetchKnowledgeBase();
       }
     } catch (error) {
-      console.error('Error deleting knowledge:', error);
       toast.error('Failed to delete knowledge document');
     }
   };
@@ -576,7 +571,7 @@ function AdminProjectPageContent() {
       const data = await response.json();
       setStakeholders(data.stakeholders || []);
     } catch (error) {
-      console.error('Error fetching stakeholders:', error);
+      // Silently handle stakeholder fetch error
     }
   };
 
@@ -585,7 +580,6 @@ function AdminProjectPageContent() {
       const response = await fetch('/api/auth/users');
 
       if (!response.ok) {
-        console.error('Failed to fetch users:', response.status, response.statusText);
         return;
       }
 
@@ -594,7 +588,6 @@ function AdminProjectPageContent() {
       // Set all users - we'll filter them where they're used
       setAvailableUsers(data.users || []);
     } catch (error) {
-      console.error('Error fetching available users:', error);
       // Ensure we always have an array, even on error
       setAvailableUsers([]);
     }
@@ -634,7 +627,6 @@ function AdminProjectPageContent() {
         });
       }
     } catch (error) {
-      console.error('Error saving stakeholder:', error);
       toast.error('Failed to save stakeholder');
     }
   };
@@ -652,7 +644,6 @@ function AdminProjectPageContent() {
         fetchStakeholders();
       }
     } catch (error) {
-      console.error('Error deleting stakeholder:', error);
       toast.error('Failed to delete stakeholder');
     }
   };
@@ -666,7 +657,7 @@ function AdminProjectPageContent() {
       const data = await response.json();
       setProjectletApplets(prev => ({ ...prev, [projectletId]: data.applets || [] }));
     } catch (error) {
-      console.error('Error fetching applets:', error);
+      // Silently handle applet fetch error
     } finally {
       setLoadingApplets(prev => ({ ...prev, [projectletId]: false }));
     }
@@ -676,11 +667,10 @@ function AdminProjectPageContent() {
     try {
       const formsRes = await fetch(`/api/aloa-forms?project=${params.projectId}`);
       const formsData = await formsRes.json();
-      console.log('Available forms from API:', formsData);
       setAvailableForms(formsData || []);
       setProjectForms(formsData || []);
     } catch (error) {
-      console.error('Error fetching project forms:', error);
+      // Silently handle project forms fetch error
     }
   };
 
@@ -739,7 +729,6 @@ function AdminProjectPageContent() {
         throw new Error('Failed to toggle form status');
       }
     } catch (error) {
-      console.error('Error toggling form status:', error);
       const toast = document.createElement('div');
       toast.className = 'fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
       toast.textContent = `Failed to ${action} form`;
@@ -776,7 +765,6 @@ function AdminProjectPageContent() {
         toast.error(error.error || 'Failed to add team member');
       }
     } catch (error) {
-      console.error('Error adding team member:', error);
       toast.error('Failed to add team member');
     }
   };
@@ -799,7 +787,6 @@ function AdminProjectPageContent() {
         toast.error(error.error || 'Failed to remove team member');
       }
     } catch (error) {
-      console.error('Error removing team member:', error);
       toast.error('Failed to remove team member');
     }
   };
@@ -925,7 +912,6 @@ function AdminProjectPageContent() {
       }
 
       // For same projectlet reordering
-      console.log('Reordering applets:', updatedApplets);
       const response = await fetch(
         `/api/aloa-projects/${params.projectId}/projectlets/${sourceProjectletId}/applets/reorder`,
         {
@@ -940,13 +926,11 @@ function AdminProjectPageContent() {
         toast.success('Applet reordered successfully');
       } else {
         const errorData = await response.json();
-        console.error('Reorder failed:', errorData);
         toast.error(errorData.error || 'Failed to reorder applet');
         // Revert local state on error
         fetchProjectletApplets(sourceProjectletId);
       }
     } catch (error) {
-      console.error('Error handling applet drop:', error);
       toast.error('Failed to reorder applet');
     }
   };
@@ -995,7 +979,6 @@ function AdminProjectPageContent() {
       // Fetch forms for this project
       await fetchProjectForms();
     } catch (error) {
-      console.error('Error fetching project data:', error);
     } finally {
       setLoading(false);
     }
@@ -1025,7 +1008,6 @@ function AdminProjectPageContent() {
         fetchProjectData();
       }
     } catch (error) {
-      console.error('Error saving projectlet:', error);
     }
   };
 
@@ -1043,7 +1025,6 @@ function AdminProjectPageContent() {
       const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets/${projectletId}/applets`);
       if (response.ok) {
         const data = await response.json();
-        console.log(`Fetched ${data.applets?.length || 0} applets for projectlet ${projectletId}:`, data.applets);
 
         // Fetch completion data for each applet with rate limiting
         // Process applets in batches of 3 with a delay to avoid rate limiting
@@ -1062,7 +1043,6 @@ function AdminProjectPageContent() {
                 );
                 if (completionRes.ok) {
                   const completionData = await completionRes.json();
-                  console.log(`Completion data for applet ${applet.id} (${applet.name}):`, completionData);
                   const enrichedApplet = {
                     ...applet,
                     completions: completionData.completions || [],
@@ -1070,16 +1050,15 @@ function AdminProjectPageContent() {
                     totalStakeholders: completionData.totalStakeholders || 0,
                     completedCount: completionData.completedCount || 0
                   };
-                  console.log('Enriched applet data:', enrichedApplet);
                   return enrichedApplet;
                 } else if (completionRes.status === 429) {
-                  console.warn(`Rate limited for applet ${applet.id}, returning without completion data`);
+                  // Rate limited, returning without completion data
                   return applet;
                 } else {
-                  console.error(`Failed to fetch completion data for applet ${applet.id}:`, completionRes.status);
+                  // Failed to fetch completion data
                 }
               } catch (error) {
-                console.error('Error fetching completion data for applet:', error);
+                // Error fetching completion data
               }
               return applet;
             })
@@ -1098,10 +1077,10 @@ function AdminProjectPageContent() {
           [projectletId]: appletsWithCompletions
         }));
       } else {
-        console.error('Failed to fetch applets:', response.status);
+        // Failed to fetch applets
       }
     } catch (error) {
-      console.error('Error fetching applets:', error);
+      // Silently handle applet fetch error
     } finally {
       setLoadingApplets(prev => ({ ...prev, [projectletId]: false }));
     }
@@ -1143,7 +1122,6 @@ function AdminProjectPageContent() {
       setTimeout(() => toast.remove(), 3000);
       
     } catch (error) {
-      console.error('Error adding applet:', error);
       const toast = document.createElement('div');
       toast.className = 'fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
       toast.textContent = 'Failed to add applet';
@@ -1154,7 +1132,6 @@ function AdminProjectPageContent() {
 
   const updateProjectletStatus = async (projectletId, newStatus) => {
     try {
-      console.log('Updating projectlet status:', { projectletId, newStatus, projectId: params.projectId });
 
       const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
         method: 'PATCH',
@@ -1167,18 +1144,16 @@ function AdminProjectPageContent() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Status update successful:', result);
         // Show success feedback
         toast.success(`Status updated to ${newStatus.replace('_', ' ')}`);
         // Refresh projectlets
         fetchProjectData();
       } else {
         const errorData = await response.text();
-        console.error('Failed to update status:', response.status, errorData);
+        // Failed to update status
         toast.error('Failed to update status');
       }
     } catch (error) {
-      console.error('Error updating projectlet:', error);
       toast.error('Error updating status');
     }
   };
@@ -1205,7 +1180,6 @@ function AdminProjectPageContent() {
         toast.success('Name updated');
       }
     } catch (error) {
-      console.error('Error updating name:', error);
       toast.error('Failed to update name');
     }
   };
@@ -1227,7 +1201,6 @@ function AdminProjectPageContent() {
         setShowActionMenu(null);
       }
     } catch (error) {
-      console.error('Error deleting projectlet:', error);
       toast.error('Failed to delete projectlet');
     }
   };
@@ -1268,7 +1241,6 @@ function AdminProjectPageContent() {
       setShowBulkActions(false);
       fetchProjectData();
     } catch (error) {
-      console.error('Error during bulk delete:', error);
       toast.error('Failed to delete projectlets');
     }
   };
@@ -1330,7 +1302,6 @@ function AdminProjectPageContent() {
         toast.error('Failed to update project information');
       }
     } catch (error) {
-      console.error('Error updating project info:', error);
       toast.error('Failed to update project information');
     }
   };
@@ -1367,13 +1338,11 @@ function AdminProjectPageContent() {
         setShowActionMenu(null);
       }
     } catch (error) {
-      console.error('Error duplicating projectlet:', error);
       toast.error('Failed to duplicate projectlet');
     }
   };
 
   const addProjectlet = async () => {
-    console.log('Adding new projectlet...');
     try {
       const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
         method: 'POST',
@@ -1387,7 +1356,6 @@ function AdminProjectPageContent() {
 
       if (response.ok) {
         const { projectlet } = await response.json();
-        console.log('New projectlet created:', projectlet);
         // Add the new projectlet to the list
         setProjectlets(prevProjectlets => [...prevProjectlets, projectlet]);
         // Initialize empty applets for the new projectlet
@@ -1398,11 +1366,10 @@ function AdminProjectPageContent() {
         toast.success('Projectlet added successfully');
       } else {
         const error = await response.json();
-        console.error('Failed to create projectlet:', error);
+        // Failed to create projectlet
         toast.error(error.error || 'Failed to add projectlet');
       }
     } catch (error) {
-      console.error('Error creating projectlet:', error);
       toast.error('Failed to add projectlet');
     }
   };
@@ -1448,7 +1415,6 @@ function AdminProjectPageContent() {
           throw new Error('Failed to update order');
         }
       } catch (error) {
-        console.error('Error updating order:', error);
         toast.error('Failed to update order');
         fetchProjectData(); // Revert on error
       }
@@ -2422,7 +2388,6 @@ function AdminProjectPageContent() {
                             )}
 
                             {applets.map((applet, appletIndex) => {
-                              console.log('Rendering applet:', applet.name, 'totalStakeholders:', applet.totalStakeholders, 'completedCount:', applet.completedCount);
                               const Icon = APPLET_ICONS[applet.type] || FileText;
                               const formId = applet.form_id || applet.config?.form_id;
                               const form = formId ? availableForms.find(f => f.id === formId) : null;
@@ -2566,7 +2531,6 @@ function AdminProjectPageContent() {
                                                     setShowFormResponseModal(true);
                                                   } else if (applet.type === 'sitemap') {
                                                     // Fetch the user's sitemap data
-                                                    console.log('Sitemap avatar clicked:', completion);
                                                     try {
                                                       const userEmail = completion.user?.email || completion.user_id;
                                                       const response = await fetch(
@@ -2589,7 +2553,7 @@ function AdminProjectPageContent() {
                                                         });
                                                         setShowSitemapViewerModal(true);
                                                       } else {
-                                                        console.error('Response not ok:', response.status);
+                                                        // Response not ok
                                                         // Fallback to showing current applet config
                                                         setSelectedSitemapData({
                                                           userName: completion.user?.full_name || completion.user?.email || 'Unknown User',
@@ -2604,7 +2568,7 @@ function AdminProjectPageContent() {
                                                         setShowSitemapViewerModal(true);
                                                       }
                                                     } catch (error) {
-                                                      console.error('Error fetching user sitemap data:', error);
+                                                      // Error fetching user sitemap data
                                                       // Fallback to showing the current applet config
                                                       setSelectedSitemapData({
                                                         userName: completion.user?.full_name || completion.user?.email || 'Unknown User',
@@ -2620,9 +2584,6 @@ function AdminProjectPageContent() {
                                                     }
                                                   } else if (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) {
                                                     // Show palette results modal
-                                                    console.log('Admin clicking palette avatar - completion:', completion);
-                                                    console.log('Admin clicking palette avatar - completion.data:', completion.data);
-                                                    console.log('Admin clicking palette avatar - data keys:', completion.data ? Object.keys(completion.data) : 'no data');
                                                     setSelectedPaletteData({
                                                       userName: completion.user?.full_name || completion.user?.email || 'User',
                                                       responseData: completion.data || {}
@@ -2716,7 +2677,6 @@ function AdminProjectPageContent() {
                                                   fetchProjectletApplets(projectlet.id);
                                                 }
                                               } catch (error) {
-                                                console.error('Error deleting applet:', error);
                                               }
                                             }
                                           }}
@@ -2787,7 +2747,6 @@ function AdminProjectPageContent() {
                                                 toast.success(applet.config?.locked ? 'Sitemap unlocked' : 'Sitemap locked');
                                               }
                                             } catch (error) {
-                                              console.error('Error toggling lock:', error);
                                               toast.error('Failed to update lock status');
                                             }
                                           }}
@@ -2835,7 +2794,6 @@ function AdminProjectPageContent() {
                                                 fetchProjectletApplets(projectlet.id);
                                               }
                                             } catch (error) {
-                                              console.error('Error updating instructions:', error);
                                             }
                                           }}
                                           className="w-full mt-1 px-2 py-1 border rounded text-sm"
@@ -2885,7 +2843,6 @@ function AdminProjectPageContent() {
                                                   fetchProjectletApplets(projectlet.id);
                                                 }
                                               } catch (error) {
-                                                console.error('Error updating applet:', error);
                                               }
                                             }
                                           }}
@@ -3066,7 +3023,6 @@ function AdminProjectPageContent() {
                                                 fetchProjectletApplets(projectlet.id);
                                               }
                                             } catch (error) {
-                                              console.error('Error updating palette lock status:', error);
                                             }
                                           }}
                                           className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
@@ -3137,7 +3093,6 @@ function AdminProjectPageContent() {
                                                 fetchProjectletApplets(projectlet.id);
                                               }
                                             } catch (error) {
-                                              console.error('Error updating tone lock status:', error);
                                             }
                                           }}
                                           className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
@@ -3296,7 +3251,6 @@ function AdminProjectPageContent() {
                                                   throw new Error('Failed to save report');
                                                 }
                                               } catch (error) {
-                                                console.error('Error generating AI report:', error);
                                                 toast.error(error.message || 'Failed to generate AI insights', { id: 'ai-report' });
                                               }
                                             }}
@@ -3399,7 +3353,6 @@ function AdminProjectPageContent() {
                                                 toast.success(newLockedState ? 'Report published to client' : 'Report set to draft mode');
                                               }
                                             } catch (error) {
-                                              console.error('Error toggling lock:', error);
                                               toast.error('Failed to update report status');
                                             }
                                           }}
@@ -3520,8 +3473,6 @@ function AdminProjectPageContent() {
                                           <button
                                             onClick={async () => {
                                               try {
-                                                console.log('Generate Narrative clicked. Applet config:', applet.config);
-                                                console.log('Form ID being sent:', applet.config.formId);
 
                                                 toast.loading('Generating narrative content...', { id: 'ai-narrative' });
 
@@ -3566,7 +3517,6 @@ function AdminProjectPageContent() {
                                                   throw new Error('Failed to save narrative');
                                                 }
                                               } catch (error) {
-                                                console.error('Error generating narrative:', error);
                                                 toast.error(error.message || 'Failed to generate narrative', { id: 'ai-narrative' });
                                               }
                                             }}
@@ -3730,7 +3680,6 @@ function AdminProjectPageContent() {
                                                 fetchProjectletApplets(projectlet.id);
                                               }
                                             } catch (error) {
-                                              console.error('Error updating review header:', error);
                                             }
                                           }}
                                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -3764,7 +3713,6 @@ function AdminProjectPageContent() {
                                                 fetchProjectletApplets(projectlet.id);
                                               }
                                             } catch (error) {
-                                              console.error('Error updating review description:', error);
                                             }
                                           }}
                                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -3847,7 +3795,6 @@ function AdminProjectPageContent() {
                                                 fetchProjectletApplets(projectlet.id);
                                               }
                                             } catch (error) {
-                                              console.error('Error updating review lock status:', error);
                                             }
                                           }}
                                           className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
@@ -4281,7 +4228,6 @@ function AdminProjectPageContent() {
                                   }
                                 }
                               } catch (error) {
-                                console.error('Error deleting form:', error);
                                 toast.error('Failed to delete form');
                               }
                             }
@@ -5200,7 +5146,6 @@ function AdminProjectPageContent() {
                     });
                     window.location.href = `/create?${formData.toString()}`;
                   } catch (error) {
-                    console.error('Error creating form:', error);
                   }
                 }}
                 projectContext={knowledgeBase}
@@ -5620,7 +5565,6 @@ function AdminProjectPageContent() {
                       throw new Error('Failed to update report');
                     }
                   } catch (error) {
-                    console.error('Error updating report:', error);
                     toast.error('Failed to update report');
                   }
                 }}
@@ -5777,7 +5721,6 @@ function AdminProjectPageContent() {
                       throw new Error('Failed to update content');
                     }
                   } catch (error) {
-                    console.error('Error updating narrative:', error);
                     toast.error(error.message || 'Failed to update narrative content');
                   }
                 }}
