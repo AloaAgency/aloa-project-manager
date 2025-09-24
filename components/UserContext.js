@@ -166,30 +166,63 @@ export function UserProvider({ children }) {
     }, 30 * 60 * 1000); // 30 minutes
 
     // Also refresh session when window regains focus
+    // More aggressive for Safari private mode which may clear sessions
     const handleFocus = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('[UserContext] Window focused, checking session');
 
-      if (error || !session) {
-        setUser(null);
-        setProfile(null);
-        router.push('/auth/login');
-      } else if (session?.user) {
-        // Session is valid, update user if needed
-        if (!user || user.id !== session.user.id) {
-          setUser(session.user);
-          const profileData = await fetchProfileFromAPI();
-          setProfile(profileData);
+      try {
+        // First try to get the current session
+        let { data: { session }, error } = await supabase.auth.getSession();
+
+        // If no session or error, try refreshing
+        if (error || !session) {
+          console.log('[UserContext] No session on focus, attempting refresh');
+          const refreshResult = await supabase.auth.refreshSession();
+          session = refreshResult.data?.session;
         }
+
+        if (!session) {
+          // Only redirect to login if we're not on an auth page
+          if (!window.location.pathname.startsWith('/auth/')) {
+            console.log('[UserContext] Session refresh failed, clearing state');
+            setUser(null);
+            setProfile(null);
+            // Don't immediately redirect in Safari private mode, give user a chance to refresh
+            if (!/safari/i.test(navigator.userAgent) || !/webkit/i.test(navigator.userAgent)) {
+              router.push('/auth/login');
+            }
+          }
+        } else if (session?.user) {
+          // Session is valid, update user if needed
+          if (!user || user.id !== session.user.id) {
+            console.log('[UserContext] Session valid, updating user');
+            setUser(session.user);
+            const profileData = await fetchProfileFromAPI();
+            setProfile(profileData);
+          }
+        }
+      } catch (error) {
+        console.error('[UserContext] Error handling focus:', error);
       }
     };
 
     window.addEventListener('focus', handleFocus);
+
+    // For Safari private mode, also check on visibility change
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleFocus();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       mounted = false;
       subscription?.unsubscribe();
       clearInterval(refreshInterval);
       window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [router, fetchProfileFromAPI, supabase]);
 
