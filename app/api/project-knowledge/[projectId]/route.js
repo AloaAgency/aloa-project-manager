@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
+import { handleRLSError, handleDatabaseError } from '@/lib/rlsErrorHandler';
 
 export async function GET(request, { params }) {
   try {
@@ -30,8 +31,21 @@ export async function GET(request, { params }) {
     const { data: knowledge, error } = await query;
 
     if (error) {
-
-      // Return empty results instead of error to avoid breaking the UI
+      // Check if it's an RLS error
+      const rlsResponse = handleRLSError(error);
+      if (rlsResponse) {
+        // For RLS errors, return empty results to avoid breaking the UI
+        console.warn('RLS policy violation in project knowledge GET:', error);
+        return NextResponse.json({
+          knowledge: [],
+          stats: {
+            total: 0,
+            categoryCounts: {}
+          }
+        });
+      }
+      // For other errors, return empty results as well
+      console.error('Database error in project knowledge GET:', error);
       return NextResponse.json({
         knowledge: [],
         stats: {
@@ -98,8 +112,7 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) {
-
-      return NextResponse.json({ error: 'Failed to create knowledge' }, { status: 500 });
+      return handleDatabaseError(error, 'Failed to create knowledge');
     }
 
     await supabase
@@ -135,8 +148,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-
-      return NextResponse.json({ error: 'Failed to update knowledge' }, { status: 500 });
+      return handleDatabaseError(error, 'Failed to update knowledge');
     }
 
     await supabase
@@ -170,8 +182,7 @@ export async function DELETE(request, { params }) {
       .eq('project_id', projectId);
 
     if (error) {
-
-      return NextResponse.json({ error: 'Failed to delete knowledge' }, { status: 500 });
+      return handleDatabaseError(error, 'Failed to delete knowledge');
     }
 
     await supabase

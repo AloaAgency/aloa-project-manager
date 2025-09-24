@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
+import { handleDatabaseError } from '@/lib/rlsErrorHandler';
 
 export async function GET(request, { params }) {
   try {
@@ -14,11 +15,7 @@ export async function GET(request, { params }) {
       .single();
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to fetch project' },
-        { status: 500 }
-      );
+      return handleDatabaseError(error, 'Failed to fetch project');
     }
 
     if (!project) {
@@ -52,11 +49,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to update project' },
-        { status: 500 }
-      );
+      return handleDatabaseError(error, 'Failed to update project');
     }
 
     // Automatically extract knowledge from the updated project
@@ -91,11 +84,7 @@ export async function DELETE(request, { params }) {
       .eq('id', projectId);
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to delete project' },
-        { status: 500 }
-      );
+      return handleDatabaseError(error, 'Failed to delete project');
     }
 
     return NextResponse.json({ success: true });

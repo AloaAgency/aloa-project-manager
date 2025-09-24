@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { handleDatabaseError } from '@/lib/rlsErrorHandler';
 
 // Force dynamic rendering for routes that use cookies
 export const dynamic = 'force-dynamic';
@@ -65,8 +66,7 @@ export async function GET(request) {
     const { data: users, error: usersError } = await query;
 
     if (usersError) {
-
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+      return handleDatabaseError(usersError, 'Failed to fetch users');
     }
 
     // Get project assignments for all client-type users
@@ -194,12 +194,9 @@ export async function POST(request) {
       });
 
     if (profileError) {
-
       // Try to delete the user if profile creation failed
       await supabase.auth.admin.deleteUser(newUser.user.id);
-      return NextResponse.json({ 
-        error: 'Failed to create user profile' 
-      }, { status: 500 });
+      return handleDatabaseError(profileError, 'Failed to create user profile');
     }
 
     // If role is client and project_id is provided, add them as stakeholder
@@ -295,8 +292,7 @@ export async function PATCH(request) {
         .eq('id', user_id);
 
       if (updateError) {
-
-        return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+        return handleDatabaseError(updateError, 'Failed to update user');
       }
     }
 
@@ -308,8 +304,7 @@ export async function PATCH(request) {
       );
 
       if (emailError) {
-
-        return NextResponse.json({ error: 'Failed to update email' }, { status: 500 });
+        return handleDatabaseError(emailError, 'Failed to update email');
       }
 
       // Also update email in profiles table
@@ -327,8 +322,7 @@ export async function PATCH(request) {
       );
 
       if (passwordError) {
-
-        return NextResponse.json({ error: 'Failed to update password' }, { status: 500 });
+        return handleDatabaseError(passwordError, 'Failed to update password');
       }
     }
 
@@ -391,8 +385,7 @@ export async function DELETE(request) {
     const { error: deleteError } = await supabase.auth.admin.deleteUser(user_id);
 
     if (deleteError) {
-
-      return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
+      return handleDatabaseError(deleteError, 'Failed to delete user');
     }
 
     return NextResponse.json({ success: true });
