@@ -265,7 +265,8 @@ function AdminProjectPageContent() {
     }
   });
 
-  // Collapsible sections state
+  // Collapsible sections state - initialize from localStorage
+  const [knowledgeBaseCollapsed, setKnowledgeBaseCollapsed] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({
     projectInfo: false,
     fileRepository: false,
@@ -329,6 +330,36 @@ function AdminProjectPageContent() {
     fetchAvailableUsers();
     fetchProjectFileCount();
   }, [params.projectId]);
+
+  // Load collapsed state from localStorage on mount
+  useEffect(() => {
+    const storageKey = `project-${params.projectId}-knowledge-collapse`;
+    const savedState = localStorage.getItem(storageKey);
+
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState);
+        setKnowledgeBaseCollapsed(parsed.mainCollapsed || false);
+        setCollapsedSections(parsed.sections || {
+          projectInfo: false,
+          fileRepository: false,
+          clientReferences: false
+        });
+      } catch (e) {
+        console.error('Error loading collapsed state:', e);
+      }
+    }
+  }, [params.projectId]);
+
+  // Save collapsed state to localStorage whenever it changes
+  useEffect(() => {
+    const storageKey = `project-${params.projectId}-knowledge-collapse`;
+    const stateToSave = {
+      mainCollapsed: knowledgeBaseCollapsed,
+      sections: collapsedSections
+    };
+    localStorage.setItem(storageKey, JSON.stringify(stateToSave));
+  }, [knowledgeBaseCollapsed, collapsedSections, params.projectId]);
 
   // Close action menu when clicking outside
   useEffect(() => {
@@ -1584,8 +1615,11 @@ function AdminProjectPageContent() {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Knowledge Base Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-xl shadow-lg mb-8 overflow-hidden">
+          <button
+            onClick={() => setKnowledgeBaseCollapsed(!knowledgeBaseCollapsed)}
+            className="w-full p-6 hover:opacity-80 transition-opacity flex items-center justify-between"
+          >
             <div className="flex items-center">
               <Brain className="w-6 h-6 mr-2 text-purple-600" />
               <h2 className="text-2xl font-bold">Project Knowledge Base</h2>
@@ -1595,27 +1629,29 @@ function AdminProjectPageContent() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
               {Object.keys(knowledgePendingChanges).length > 0 && (
                 <button
-                  onClick={handleKnowledgeSave}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleKnowledgeSave();
+                  }}
                   disabled={knowledgeSaving}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2">
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 mr-3">
                   <Save className="w-4 h-4" />
                   {knowledgeSaving ? 'Saving...' : 'Save Changes'}
                 </button>
               )}
-              <button
-                onClick={() => setShowKnowledgeUpload(true)}
-                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Document
-              </button>
+              {knowledgeBaseCollapsed ? (
+                <ChevronDown className="w-5 h-5 text-gray-500" />
+              ) : (
+                <ChevronUp className="w-5 h-5 text-gray-500" />
+              )}
             </div>
-          </div>
+          </button>
 
-          {knowledgeBase && (
+          {!knowledgeBaseCollapsed && knowledgeBase && (
+            <div className="px-6 pb-6">
             <>
               {/* Project Information Section - Collapsible */}
               <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
@@ -1978,6 +2014,7 @@ function AdminProjectPageContent() {
                 </div>
               </div>
             </>
+            </div>
           )}
         </div>
 
