@@ -70,8 +70,9 @@ const handleClick = useCallback(() => {
 
 ## Phase 2: Bundle Size Reduction (2-3 hours each)
 
-### 2.1 Implement Dynamic Imports
+### 2.1 Implement Dynamic Imports ✅
 **Priority: MEDIUM | Impact: HIGH | Risk: MEDIUM**
+**Status: COMPLETED**
 
 #### Convert Heavy Components to Dynamic Loading:
 ```javascript
@@ -82,11 +83,15 @@ const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
 });
 ```
 
-#### Priority Components:
-1. PDF generation (`jsPDF`)
-2. Rich text editors
-3. Chart/visualization libraries
-4. AI chat interfaces
+#### Completed Implementations:
+1. ✅ PDF generation (`jsPDF`) - Converted to async dynamic import in `/lib/pdfGenerator.js`
+2. ✅ AI chat interfaces - `AIChatFormBuilder` now uses dynamic imports in:
+   - `/app/create/page.js`
+   - `/components/FormBuilderModal.js`
+   - `/app/admin/project/[projectId]/page.js` (already dynamic)
+   - `/components/ProjectletAppletsManager.js` (already dynamic)
+3. ✅ Heavy modal components - `SitemapBuilderV2` already using dynamic imports
+4. ✅ Project insights - `ProjectInsightsChat` already using dynamic imports
 
 ### 2.2 Optimize Dependencies
 **Priority: MEDIUM | Impact: MEDIUM | Risk: LOW**
@@ -160,8 +165,15 @@ const debouncedSave = useMemo(
 
 ## Phase 4: API & Network Optimization (2-3 hours each)
 
-### 4.1 Implement API Response Caching
+### 4.1 Implement API Response Caching ✅
 **Priority: HIGH | Impact: HIGH | Risk: LOW**
+**Status: COMPLETED**
+
+#### Implemented in the following API routes:
+- `/api/aloa-applets/library` - 5 min cache (s-maxage=300)
+- `/api/forms/by-id/[formId]` - 2 min cache (s-maxage=120)
+- `/api/aloa-projects/[projectId]` - 30 sec cache (private, max-age=30)
+- `/api/project-knowledge/[projectId]` - 1 min cache (s-maxage=60)
 
 #### Add to API routes:
 ```javascript
@@ -301,7 +313,7 @@ export const revalidate = 3600; // Revalidate every hour
 - [ ] Day 5: Measure baseline metrics
 
 ### Week 2: Bundle Optimization
-- [ ] Day 1-2: Phase 2.1 (Dynamic imports)
+- [x] Day 1-2: Phase 2.1 (Dynamic imports) ✅ COMPLETED
 - [ ] Day 3-4: Phase 2.2 (Dependency optimization)
 - [ ] Day 5: Bundle analysis and cleanup
 
@@ -311,7 +323,7 @@ export const revalidate = 3600; // Revalidate every hour
 - [ ] Day 5: Performance testing
 
 ### Week 4: Network & API
-- [ ] Day 1-2: Phase 4.1 (API caching)
+- [x] Day 1-2: Phase 4.1 (API caching) ✅ COMPLETED
 - [ ] Day 3-4: Phase 4.2 (SWR implementation)
 - [ ] Day 5: Network waterfall analysis
 

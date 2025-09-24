@@ -3,10 +3,16 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
+import dynamic from 'next/dynamic';
 import { Upload, FileText, Check, AlertCircle, Bot, Wand2, Folder, Brain } from 'lucide-react';
 import toast from 'react-hot-toast';
-import AIChatFormBuilder from '@/components/AIChatFormBuilder';
 import AuthGuard from '@/components/AuthGuard';
+
+// Dynamic import for AIChatFormBuilder to reduce initial bundle size
+const AIChatFormBuilder = dynamic(() => import('@/components/AIChatFormBuilder'), {
+  loading: () => <div className="flex items-center justify-center p-12">Loading AI chat...</div>,
+  ssr: false
+});
 
 function CreateFormPageContent() {
   const router = useRouter();

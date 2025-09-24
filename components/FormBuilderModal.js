@@ -1,9 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import dynamic from 'next/dynamic';
 import { X, Brain, Wand2, FileUp, Bot } from 'lucide-react';
-import AIChatFormBuilder from './AIChatFormBuilder';
 import toast from 'react-hot-toast';
+
+// Dynamic import for AIChatFormBuilder to reduce initial bundle size
+const AIChatFormBuilder = dynamic(() => import('./AIChatFormBuilder'), {
+  loading: () => <div className="flex items-center justify-center p-12">Loading AI chat...</div>,
+  ssr: false
+});
 
 function FormBuilderModal({
   isOpen,

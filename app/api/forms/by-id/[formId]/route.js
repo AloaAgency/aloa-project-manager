@@ -34,7 +34,7 @@ export async function GET(request, { params }) {
     const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
 
     // Format response for compatibility
-    return NextResponse.json({
+    const response = NextResponse.json({
       ...form,
       _id: form.id,
       urlId: form.url_id,
@@ -49,6 +49,10 @@ export async function GET(request, { params }) {
       createdAt: form.created_at,
       updatedAt: form.updated_at
     });
+
+    // Add caching headers - form definitions rarely change, cache for 2 minutes
+    response.headers.set('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
+    return response;
   } catch (error) {
 
     return NextResponse.json(

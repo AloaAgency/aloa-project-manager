@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { User, LogOut, Settings, Users, FileText, BarChart3, Plus, Sparkles } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import UserAvatar from '@/components/UserAvatar';
 
 export default function Navigation() {
   const { user, profile, signOut, isSuperAdmin, isProjectAdmin, isTeamMember, loading, refreshAuth } = useUser();
   const pathname = usePathname();
+  const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [hasAttemptedRefresh, setHasAttemptedRefresh] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
@@ -98,6 +100,29 @@ export default function Navigation() {
     }
   }, [loading, user, hasAttemptedRefresh, isRecovering, pathname, refreshAuth]);
 
+  // For protected pages (admin/dashboard), always show at least a minimal nav
+  // This prevents the nav from completely disappearing in Safari private mode
+  const isProtectedPage = pathname.startsWith('/admin/') ||
+                         pathname.startsWith('/dashboard') ||
+                         pathname.startsWith('/project/') ||
+                         pathname.startsWith('/create') ||
+                         pathname.startsWith('/edit/') ||
+                         pathname.startsWith('/responses/');
+
+  // Handle session loss on protected pages - clear session and redirect to login
+  useEffect(() => {
+    if (!loading && !user && isProtectedPage && !pathname.startsWith('/auth/')) {
+      console.log('[Navigation] Session lost on protected page, clearing and redirecting to login');
+      const handleSessionLoss = async () => {
+        // Clear any lingering session data
+        await signOut();
+        // Redirect to login page
+        router.push('/auth/login');
+      };
+      handleSessionLoss();
+    }
+  }, [loading, user, isProtectedPage, pathname, signOut, router]);
+
   // Don't show navigation on auth pages
   if (pathname.startsWith('/auth/')) {
     console.log('[Navigation] On auth page, hiding nav');
@@ -110,15 +135,6 @@ export default function Navigation() {
     return <div className="h-16 bg-aloa-black border-b-2 border-aloa-black" />;
   }
 
-  // For protected pages (admin/dashboard), always show at least a minimal nav
-  // This prevents the nav from completely disappearing in Safari private mode
-  const isProtectedPage = pathname.startsWith('/admin/') ||
-                         pathname.startsWith('/dashboard') ||
-                         pathname.startsWith('/project/') ||
-                         pathname.startsWith('/create') ||
-                         pathname.startsWith('/edit/') ||
-                         pathname.startsWith('/responses/');
-
   // Don't show navigation if user is not authenticated and we're done loading
   // UNLESS we're on a protected page (which means they were authenticated to get there)
   if (!loading && !user && !isProtectedPage) {
@@ -127,9 +143,9 @@ export default function Navigation() {
   }
 
   // If we're on a protected page but lost the user session (Safari private mode issue)
-  // Show a minimal nav with refresh prompt
+  // Show a brief loading state while redirecting
   if (!user && isProtectedPage) {
-    console.log('[Navigation] On protected page but no user session, showing recovery nav');
+    console.log('[Navigation] On protected page but no user session, showing redirect message');
     return (
       <nav className="bg-aloa-black border-b-2 border-aloa-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -139,13 +155,7 @@ export default function Navigation() {
                 Aloa®
               </Link>
               <span className="ml-4 text-sm text-gray-400">
-                Session expired -
-                <button
-                  onClick={() => window.location.reload()}
-                  className="ml-2 text-aloa-cream underline hover:no-underline"
-                >
-                  Refresh page
-                </button>
+                Redirecting to login...
               </span>
             </div>
           </div>

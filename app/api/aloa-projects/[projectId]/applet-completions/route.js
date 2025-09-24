@@ -140,13 +140,24 @@ export async function GET(request, { params }) {
         });
       }
 
+      // Check if this applet type requires Client Admin only (decision applets)
+      const decisionAppletTypes = ['client_review', 'review', 'signoff', 'sitemap', 'sitemap_builder'];
+      const isDecisionApplet = decisionAppletTypes.includes(appletData?.type);
+
       // Get client stakeholders for completion tracking
-      const { data: stakeholders, error: stakeholdersError } = await supabase
+      // For decision applets, only count Client Admin stakeholders
+      let stakeholdersQuery = supabase
         .from('aloa_client_stakeholders')
         .select('*')
         .eq('project_id', projectId);
 
-      // Count unique stakeholders
+      if (isDecisionApplet) {
+        stakeholdersQuery = stakeholdersQuery.eq('role', 'client_admin');
+      }
+
+      const { data: stakeholders, error: stakeholdersError } = await stakeholdersQuery;
+
+      // Count unique stakeholders (filtered appropriately for applet type)
       const totalStakeholders = stakeholders?.length || 0;
       // Only count completed ones for the percentage, not in_progress
       const completedCount = completions?.filter(c => c.status === 'completed').length || 0;
