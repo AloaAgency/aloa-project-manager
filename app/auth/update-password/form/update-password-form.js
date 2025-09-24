@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase-browser';
+import { createClient } from '@/lib/supabase-auth';
 import { Lock, AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function UpdatePasswordForm({ initialSession }) {

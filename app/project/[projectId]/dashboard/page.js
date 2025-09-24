@@ -31,7 +31,7 @@ import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
 import AuthGuard from '@/components/AuthGuard';
 import useEscapeKey from '@/hooks/useEscapeKey';
-import { createClient } from '@/lib/supabase-browser';
+import { createClient } from '@/lib/supabase-auth';
 
 // Dynamic imports for heavy components
 const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), { ssr: false });

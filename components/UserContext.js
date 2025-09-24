@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-auth';
 
@@ -10,8 +10,14 @@ export function UserProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [supabase, setSupabase] = useState(() => {
+    // Initialize client immediately if we're in browser
+    if (typeof window !== 'undefined') {
+      return createClient();
+    }
+    return null;
+  });
   const router = useRouter();
-  const supabase = createClient();
 
   // Helper function to fetch profile using API (which uses service role)
   const fetchProfileFromAPI = useCallback(async () => {
@@ -35,6 +41,12 @@ export function UserProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
+
+    // If we don't have a client yet (SSR), exit early
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
 
     // Get initial user
     const getUser = async () => {
@@ -179,9 +191,10 @@ export function UserProvider({ children }) {
       clearInterval(refreshInterval);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [router, supabase, fetchProfileFromAPI]);
+  }, [router, fetchProfileFromAPI, supabase]);
 
   const signOut = async () => {
+    if (!supabase) return;
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -222,7 +235,7 @@ export function UserProvider({ children }) {
   };
 
   const hasProjectRole = async (projectId, requiredRole) => {
-    if (!user) return false;
+    if (!user || !supabase) return false;
 
     try {
       const { data } = await supabase
@@ -247,6 +260,7 @@ export function UserProvider({ children }) {
 
   // Add a manual refresh function
   const refreshAuth = async () => {
+    if (!supabase) return;
 
     setLoading(true);
     try {
