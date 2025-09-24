@@ -32,6 +32,7 @@ export async function GET(request, { params }) {
           name,
           description,
           type,
+          access_type,
           order_index,
           config,
           form_id,

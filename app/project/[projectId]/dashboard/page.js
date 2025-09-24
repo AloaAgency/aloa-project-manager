@@ -79,6 +79,45 @@ function ClientDashboard() {
   const [currentUser, setCurrentUser] = useState(null); // Track current user for chat
   const [unreadCount, setUnreadCount] = useState(0); // Track unread messages
 
+  // Helper function to check if user can access an applet based on role
+  const canUserAccessApplet = (applet) => {
+    // If no access_type is defined, default to 'input' (accessible to all)
+    const accessType = applet.access_type || getAppletAccessType(applet);
+
+    // Client participants can only access 'input' type applets
+    if (userRole === 'client_participant' && accessType !== 'input') {
+      return false;
+    }
+
+    // Client admins and clients can access all applet types
+    // (client_admin, client, and other roles have full access)
+    return true;
+  };
+
+  // Helper to get appropriate access type for unconfigured applets
+  const getAppletAccessType = (applet) => {
+    // If access_type is already set, use it
+    if (applet.access_type) {
+      return applet.access_type;
+    }
+
+    // Otherwise, determine based on applet type
+    const type = applet.type;
+
+    // DECISION type applets (including sitemap to avoid duplicate inputs)
+    if (['client_review', 'review', 'signoff', 'approval', 'sitemap', 'sitemap_builder'].includes(type)) {
+      return 'decision';
+    }
+
+    // ADMINISTRATIVE type applets
+    if (['invoice', 'contract', 'payment', 'billing'].includes(type)) {
+      return 'administrative';
+    }
+
+    // Default to INPUT type (accessible to all)
+    return 'input';
+  };
+
   // ESC key handlers for modals
   useEscapeKey(() => {
     setShowFormModal(false);
@@ -852,6 +891,11 @@ function ClientDashboard() {
                     <div className="space-y-3">
                       {applets
                         .filter(applet => {
+                          // First check if user has access based on role
+                          if (!canUserAccessApplet(applet)) {
+                            return false;
+                          }
+
                           // Filter out form applets that don't have a form_id configured
                           if (applet.type === 'form') {
                             const formId = applet.form_id || applet.config?.form_id;
@@ -974,8 +1018,10 @@ function ClientDashboard() {
                             buttonState = 'locked';
                             statusMessage = 'Review locked';
                           } else {
-                            buttonState = userRole === 'client_admin' ? 'not-started' : 'locked';
-                            statusMessage = userRole === 'client_admin' ? 'Review & approve work' : 'Client Admin access required';
+                            // Since client_participant users won't see this applet (filtered out),
+                            // we can assume anyone seeing it has permission
+                            buttonState = 'not-started';
+                            statusMessage = 'Review & approve work';
                           }
                         } else if (applet.type === 'ai_form_results') {
                           const reportIsLocked = applet.config?.locked === true;
