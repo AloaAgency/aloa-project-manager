@@ -50,16 +50,21 @@ const handleClick = useCallback(() => {
 }, [dependencies]);
 ```
 
-### 1.3 Optimize Database Queries
+### 1.3 Optimize Database Queries ✅
 **Priority: HIGH | Impact: HIGH | Risk: LOW**
+**Status: COMPLETED**
 
-#### Add Database Indexes (run one at a time in Supabase):
+#### Add Database Indexes (run in Supabase SQL Editor):
 ```sql
--- /supabase/performance_indexes.sql
-CREATE INDEX IF NOT EXISTS idx_aloa_projects_status ON aloa_projects(status);
-CREATE INDEX IF NOT EXISTS idx_aloa_projectlets_project_order ON aloa_projectlets(project_id, order_index);
-CREATE INDEX IF NOT EXISTS idx_aloa_applet_progress_user_applet ON aloa_applet_progress(user_id, applet_id);
-CREATE INDEX IF NOT EXISTS idx_aloa_project_knowledge_project ON aloa_project_knowledge(project_id, category);
+-- ✅ COMPLETED: File created at /supabase/performance_indexes.sql
+-- This file includes:
+-- - Core indexes for frequently queried tables
+-- - Composite indexes for common join patterns
+-- - Filtered indexes for specific query optimizations
+-- - Additional performance indexes for user lookups, timeline events, and knowledge queries
+-- - ANALYZE commands to update table statistics
+
+-- Run the script in Supabase SQL Editor to apply all indexes
 ```
 
 ## Phase 2: Bundle Size Reduction (2-3 hours each)
@@ -291,7 +296,7 @@ export const revalidate = 3600; // Revalidate every hour
 ### Week 1: Foundation
 - [x] Day 1-2: Phase 1.1 (Next.js config) ✅ COMPLETED
 - [x] Day 1-2: Phase 1.2 (memoization) ✅ PARTIALLY COMPLETED (SitemapBuilderV2, ProjectletAppletsManager)
-- [ ] Day 3-4: Phase 1.3 (Database indexes)
+- [x] Day 3-4: Phase 1.3 (Database indexes) ✅ COMPLETED
 - [ ] Day 5: Measure baseline metrics
 
 ### Week 2: Bundle Optimization
