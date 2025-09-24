@@ -146,6 +146,11 @@ const ProjectInsightsChat = dynamic(() => import('@/components/ProjectInsightsCh
   ssr: false
 });
 
+// Dynamically import Chat Interface
+const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
+  ssr: false
+});
+
 function AdminProjectPageContent() {
   const params = useParams();
   const router = useRouter();
@@ -241,6 +246,9 @@ function AdminProjectPageContent() {
     submittedAt: null
   });
   const [showClientReviewModal, setShowClientReviewModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [selectedClientReviewData, setSelectedClientReviewData] = useState({
     userName: null,
     status: null,
@@ -329,6 +337,12 @@ function AdminProjectPageContent() {
     fetchStakeholders();
     fetchAvailableUsers();
     fetchProjectFileCount();
+    fetchCurrentUser();
+    fetchUnreadCount();
+
+    // Poll for unread count every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
   }, [params.projectId]);
 
   // Load collapsed state from localStorage on mount
@@ -385,6 +399,7 @@ function AdminProjectPageContent() {
         setShowSitemapViewerModal(false);
         setShowToneOfVoiceModal(false);
         setShowClientReviewModal(false);
+        setShowChatModal(false);
         setSelectedResponseData(null);
         setSelectedPaletteData(null);
         setSelectedSitemapData(null);
@@ -608,6 +623,30 @@ function AdminProjectPageContent() {
       setStakeholders(data.stakeholders || []);
     } catch (error) {
       // Silently handle stakeholder fetch error
+    }
+  };
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUser(data.user);
+      }
+    } catch (error) {
+      // Silently handle error
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await fetch(`/api/chat/${params.projectId}/unread`);
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
     }
   };
 
@@ -5899,6 +5938,59 @@ function AdminProjectPageContent() {
 
       {/* Project Insights Chat */}
       <ProjectInsightsChat projectId={params.projectId} />
+
+      {/* Floating Chat Button - Fixed to bottom-right */}
+      <button
+        onClick={() => {
+          setShowChatModal(true);
+          setUnreadCount(0); // Reset count when opening
+        }}
+        className="fixed bottom-8 left-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all hover:scale-110 z-50 group"
+        style={{ position: 'fixed', bottom: '2rem', left: '2rem', zIndex: 50 }}
+        title="Open Project Chat"
+      >
+        <MessageSquare className="h-6 w-6" />
+
+        {/* Unread Count Badge */}
+        {unreadCount > 0 && (
+          <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full min-w-[24px] h-6 flex items-center justify-center px-1.5 text-xs font-bold animate-pulse">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </div>
+        )}
+
+        {/* Attention Animation Ring */}
+        {unreadCount > 0 && (
+          <div className="absolute inset-0 rounded-full border-4 border-red-500 animate-ping opacity-75"></div>
+        )}
+      </button>
+
+      {/* Chat Modal */}
+      {showChatModal && currentUser && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[80vh] flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Project Communication
+              </h2>
+              <button
+                onClick={() => setShowChatModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ChatInterface
+                projectId={params.projectId}
+                currentUser={currentUser}
+                isClientView={false}
+                onMessagesRead={() => fetchUnreadCount()}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
