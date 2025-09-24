@@ -11,7 +11,9 @@ A gamified project management system specifically for Aloa web design projects. 
 ### Daily Branch Workflow
 **IMPORTANT: Follow this strict branching strategy:**
 
-1. **Create daily branch with naming convention**: `YYYY_MM_DD - Feature Name` (e.g., `2025_09_18 - Add User Authentication`)
+1. **Create daily branch with naming convention**: `YYYY_MM_DD_Feature_Name` (e.g., `2025_09_18_Add_User_Authentication`)
+   - Use underscores instead of spaces or hyphens between words
+   - No spaces allowed in branch names (Git doesn't support them)
 2. **For multiple PRs per day**: Each new feature gets its own branch with descriptive name
 3. **Never switch branches during work** - All work stays on the current branch until PR is merged
 4. **After PR merge**: User will confirm merge and provide the next feature name for new branch
@@ -27,7 +29,7 @@ A gamified project management system specifically for Aloa web design projects. 
 Example workflow (user-driven):
 ```bash
 # User says: "Create today's branch for adding user authentication"
-git checkout -b "2025_09_18 - Add User Authentication"
+git checkout -b "2025_09_18_Add_User_Authentication"
 
 # Work on this feature...
 
@@ -37,12 +39,12 @@ git checkout -b "2025_09_18 - Add User Authentication"
 # After merge - User says: "I've merged the PR, create a new branch for fixing navigation bugs"
 git checkout main
 git pull
-git checkout -b "2025_09_18 - Fix Navigation Bugs"
+git checkout -b "2025_09_18_Fix_Navigation_Bugs"
 
 # Next day - User says: "Create today's branch for implementing search feature"
 git checkout main
 git pull
-git checkout -b "2025_09_19 - Implement Search Feature"
+git checkout -b "2025_09_19_Implement_Search_Feature"
 ```
 
 This workflow ensures clean daily snapshots with full user control over merges and deployments.
