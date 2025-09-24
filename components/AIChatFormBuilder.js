@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { Send, Bot, User, Loader2, Wand2, RefreshCw, Copy, CheckCircle } from 'lucide-react';
 
-export default function AIChatFormBuilder({ onMarkdownGenerated, projectContext, projectName }) {
+function AIChatFormBuilder({ onMarkdownGenerated, projectContext, projectName }) {
   const getInitialMessage = () => {
     let baseMessage = "Hi! I'm your AI form builder assistant.";
 
@@ -42,7 +42,7 @@ export default function AIChatFormBuilder({ onMarkdownGenerated, projectContext,
     scrollToBottom();
   }, [messages]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
@@ -98,37 +98,37 @@ export default function AIChatFormBuilder({ onMarkdownGenerated, projectContext,
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [input, isLoading, messages, generatedMarkdown, projectContext, projectName]);
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
-  };
+  }, [handleSubmit]);
 
-  const copyMarkdown = () => {
+  const copyMarkdown = useCallback(() => {
     navigator.clipboard.writeText(generatedMarkdown);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
+  }, [generatedMarkdown]);
 
-  const useMarkdown = () => {
+  const useMarkdown = useCallback(() => {
     if (onMarkdownGenerated && generatedMarkdown) {
       onMarkdownGenerated(generatedMarkdown);
     }
-  };
+  }, [onMarkdownGenerated, generatedMarkdown]);
 
-  const resetChat = () => {
+  const resetChat = useCallback(() => {
     setMessages([
       {
         role: 'assistant',
-        content: "Hi! I'm your AI form builder assistant. Describe the form you'd like to create, and I'll generate it for you.",
+        content: getInitialMessage(),
         timestamp: new Date(),
       }
     ]);
     setGeneratedMarkdown('');
-  };
+  }, []);
 
   return (
     <div className="flex gap-6 h-[600px]">
@@ -291,3 +291,13 @@ export default function AIChatFormBuilder({ onMarkdownGenerated, projectContext,
     </div>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+// Only re-render if the key props change
+export default memo(AIChatFormBuilder, (prevProps, nextProps) => {
+  return (
+    prevProps.projectContext === nextProps.projectContext &&
+    prevProps.projectName === nextProps.projectName &&
+    prevProps.onMarkdownGenerated === nextProps.onMarkdownGenerated
+  );
+});
