@@ -8,15 +8,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const cookieStore = cookies();
-    
+
     // Log environment variables (safely)
-    console.log('Test auth endpoint - Environment check:', {
-      hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      hasPublishableKey: !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      urlValue: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      keyUsed: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'ANON_KEY' : 'PUBLISHABLE_KEY'
-    });
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -38,15 +31,15 @@ export async function GET() {
         cookies: {
           get(name) {
             const cookie = cookieStore.get(name);
-            console.log(`Getting cookie ${name}:`, cookie ? 'found' : 'not found');
+
             return cookie?.value;
           },
           set(name, value, options) {
-            console.log(`Setting cookie ${name}`);
+
             cookieStore.set({ name, value, ...options });
           },
           remove(name, options) {
-            console.log(`Removing cookie ${name}`);
+
             cookieStore.set({ name, value: '', ...options });
           }
         }
@@ -54,11 +47,11 @@ export async function GET() {
     );
 
     // Try to get user
-    console.log('Attempting to get user...');
+
     const { data: { user }, error } = await supabase.auth.getUser();
-    
+
     if (error) {
-      console.log('Error getting user:', error);
+
       return NextResponse.json({
         authenticated: false,
         error: error.message,
@@ -67,7 +60,7 @@ export async function GET() {
     }
 
     if (!user) {
-      console.log('No user found');
+
       return NextResponse.json({
         authenticated: false,
         message: 'No user session found',
@@ -75,7 +68,6 @@ export async function GET() {
       });
     }
 
-    console.log('User found:', user.email);
     return NextResponse.json({
       authenticated: true,
       user: {
@@ -86,7 +78,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Test auth error:', error);
+
     return NextResponse.json({
       error: 'Internal server error',
       message: error.message

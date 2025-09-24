@@ -93,7 +93,7 @@ export default function FileUploadConfigWithSelector({
       setFolders(folderItems);
       setAvailableFiles(fileItems);
     } catch (error) {
-      console.error('Error fetching files:', error);
+
       toast.error('Failed to load project files');
     } finally {
       setLoadingFiles(false);
@@ -151,7 +151,7 @@ export default function FileUploadConfigWithSelector({
 
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
-      console.error('Error saving configuration:', error);
+
       toast.error('Failed to save configuration');
     } finally {
       setSaving(false);

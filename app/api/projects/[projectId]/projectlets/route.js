@@ -24,7 +24,7 @@ export async function GET(request, { params }) {
       .order('sequence_order', { ascending: true });
 
     if (error) {
-      console.error('Error fetching projectlets:', error);
+
       return NextResponse.json(
         { error: 'Failed to fetch projectlets' },
         { status: 500 }
@@ -51,7 +51,7 @@ export async function GET(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in projectlets route:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -79,7 +79,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (updateError) {
-      console.error('Error updating projectlet:', updateError);
+
       return NextResponse.json(
         { error: 'Failed to update projectlet' },
         { status: 500 }
@@ -136,7 +136,7 @@ export async function PATCH(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error updating projectlet:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -42,7 +42,7 @@ export default function FileUploadConfigStorage({
       max_file_size: applet.config?.max_file_size || 100,
       allowed_file_types: applet.config?.allowed_file_types || ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'zip', 'mp4', 'mov', 'ai', 'psd', 'sketch', 'fig']
     };
-    
+
     const hasChanges = JSON.stringify(config) !== JSON.stringify(originalConfig);
     setHasChanges(hasChanges);
     if (hasChanges) setSaved(false);
@@ -71,7 +71,7 @@ export default function FileUploadConfigStorage({
 
     try {
       let fileData = {};
-      
+
       // Decide storage method based on file size
       if (file.size <= MAX_BASE64_SIZE) {
         // Small file: use base64
@@ -82,7 +82,7 @@ export default function FileUploadConfigStorage({
         });
         reader.readAsDataURL(file);
         const base64String = await base64Promise;
-        
+
         fileData = {
           id: Date.now().toString(),
           name: file.name,
@@ -93,14 +93,14 @@ export default function FileUploadConfigStorage({
           uploaded_at: new Date().toISOString(),
           uploaded_by: 'admin'
         };
-        
+
         setUploadProgress(100);
       } else {
         // Large file: use Supabase Storage
         const timestamp = Date.now();
         const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const storagePath = `projects/${projectId}/${config.category}/${timestamp}_${safeName}`;
-        
+
         // Upload to Supabase Storage
         const { data, error } = await supabase.storage
           .from(STORAGE_BUCKET)
@@ -157,7 +157,7 @@ export default function FileUploadConfigStorage({
             })
           });
         } catch (dbError) {
-          console.log('Database logging skipped:', dbError);
+
           // Continue anyway - file is uploaded
         }
       }
@@ -170,7 +170,7 @@ export default function FileUploadConfigStorage({
 
       toast.success(`File uploaded successfully ${file.size > MAX_BASE64_SIZE ? '(stored in cloud)' : '(stored locally)'}`);
     } catch (error) {
-      console.error('Error uploading file:', error);
+
       toast.error('Failed to upload file');
     } finally {
       setUploading(false);
@@ -180,7 +180,7 @@ export default function FileUploadConfigStorage({
 
   const removeFile = async (fileId) => {
     const file = config.files.find(f => f.id === fileId);
-    
+
     if (file && file.storage_type === 'supabase' && file.storage_path) {
       // Try to delete from Supabase Storage
       try {
@@ -188,7 +188,7 @@ export default function FileUploadConfigStorage({
           .from(STORAGE_BUCKET)
           .remove([file.storage_path]);
       } catch (error) {
-        console.error('Error deleting file from storage:', error);
+
         // Continue anyway - maybe file is already gone
       }
     }
@@ -204,7 +204,7 @@ export default function FileUploadConfigStorage({
 
   const handleSave = async () => {
     setSaving(true);
-    
+
     try {
       const response = await fetch(
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets/${applet.id}`,
@@ -220,11 +220,11 @@ export default function FileUploadConfigStorage({
       setHasChanges(false);
       setSaved(true);
       toast.success('File upload configuration saved');
-      
+
       // Reset saved indicator after 3 seconds
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
-      console.error('Error saving configuration:', error);
+
       toast.error('Failed to save configuration');
     } finally {
       setSaving(false);
@@ -245,7 +245,7 @@ export default function FileUploadConfigStorage({
     const docExts = ['pdf', 'doc', 'docx', 'txt'];
     const videoExts = ['mp4', 'mov', 'avi', 'webm'];
     const designExts = ['ai', 'psd', 'sketch', 'fig', 'xd'];
-    
+
     if (imageExts.includes(ext)) return '🖼️';
     if (docExts.includes(ext)) return '📄';
     if (videoExts.includes(ext)) return '🎬';
@@ -338,7 +338,7 @@ export default function FileUploadConfigStorage({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Uploaded Files
           </label>
-          
+
           {/* Existing Files */}
           {config.files.length > 0 && (
             <div className="space-y-2 mb-3">

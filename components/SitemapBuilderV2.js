@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Map, Plus, X, ChevronRight, ChevronDown, Edit2, Trash2, Check, Home, Info, Users, Phone, ShoppingBag, FileText, Settings, Mail, Search, Menu, Navigation, Link } from 'lucide-react';
+import { debounce } from '../lib/debounce';
 
 const SitemapBuilderV2 = ({
   config = {},
@@ -133,7 +134,23 @@ const SitemapBuilderV2 = ({
     setPageCount(counts);
   }, [sitemap]);
 
-  // Auto-save with debounce
+  // Create debounced auto-save function
+  const debouncedAutoSave = useMemo(
+    () => debounce(async (sitemapData) => {
+      setIsSaving(true);
+      try {
+        await onAutoSave(sitemapData);
+        setLastSaved(new Date());
+      } catch (error) {
+        console.error('Auto-save error:', error);
+      } finally {
+        setTimeout(() => setIsSaving(false), 1000);
+      }
+    }, 2000),
+    [onAutoSave]
+  );
+
+  // Auto-save with proper debouncing
   useEffect(() => {
     if (!onAutoSave || isLocked) return;
 
@@ -147,22 +164,15 @@ const SitemapBuilderV2 = ({
     if (prevSitemapRef.current === currentSitemapStr) return;
 
     prevSitemapRef.current = currentSitemapStr;
+    debouncedAutoSave(sitemap);
 
-    const timer = setTimeout(async () => {
-      setIsSaving(true);
-      try {
-        await onAutoSave(sitemap);
-        setLastSaved(new Date());
-      } catch (error) {
-        console.error('Auto-save failed:', error);
-      }
-      setTimeout(() => setIsSaving(false), 1000);
-    }, 2000);
+    // Cleanup: cancel any pending saves on unmount
+    return () => {
+      debouncedAutoSave.cancel?.();
+    };
+  }, [sitemap, debouncedAutoSave, isLocked, onAutoSave]);
 
-    return () => clearTimeout(timer);
-  }, [sitemap, onAutoSave, isLocked]);
-
-  const handleDragStart = (e, item, fromSection) => {
+  const handleDragStart = useCallback((e, item, fromSection) => {
     if (item.name === 'Home' || item.id === '1' || isLocked) {
       e.preventDefault();
       return;
@@ -172,14 +182,14 @@ const SitemapBuilderV2 = ({
     setDraggedItem(dragData);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', e.target.innerHTML);
-  };
+  }, [isLocked]);
 
-  const handleDragOver = (e) => {
+  const handleDragOver = useCallback((e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-  };
+  }, []);
 
-  const handleDrop = (e, toSection, toIndex) => {
+  const handleDrop = useCallback((e, toSection, toIndex) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -280,12 +290,12 @@ const SitemapBuilderV2 = ({
 
     setDraggedItem(null);
     setDragOverInfo(null);
-  };
+  }, [draggedItem, isLocked, projectScope.main_pages, projectScope.aux_pages, pageCount]);
 
-  const handleDragEnd = () => {
+  const handleDragEnd = useCallback(() => {
     setDraggedItem(null);
     setDragOverInfo(null);
-  };
+  }, []);
 
   const deletePage = (pageId, section) => {
     if (isLocked || pageId === '1') return;
@@ -318,12 +328,12 @@ const SitemapBuilderV2 = ({
     setEditName('');
   };
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (isLocked) return;
     if (typeof onSave === 'function') {
       onSave(sitemap);
     }
-  };
+  }, [isLocked, onSave, sitemap]);
 
   const renderPage = (page, section, index) => {
     const isHome = page.name === 'Home' || page.id === '1';
@@ -568,4 +578,18 @@ const SitemapBuilderV2 = ({
   );
 };
 
-export default SitemapBuilderV2;
+// Memoize component to prevent unnecessary re-renders during drag operations
+const arePropsEqual = (prevProps, nextProps) => {
+  return (
+    prevProps.isLocked === nextProps.isLocked &&
+    prevProps.appletId === nextProps.appletId &&
+    prevProps.projectId === nextProps.projectId &&
+    prevProps.userId === nextProps.userId &&
+    prevProps.websiteUrl === nextProps.websiteUrl &&
+    JSON.stringify(prevProps.config) === JSON.stringify(nextProps.config) &&
+    JSON.stringify(prevProps.projectScope) === JSON.stringify(nextProps.projectScope) &&
+    JSON.stringify(prevProps.initialData) === JSON.stringify(nextProps.initialData)
+  );
+};
+
+export default React.memo(SitemapBuilderV2, arePropsEqual);

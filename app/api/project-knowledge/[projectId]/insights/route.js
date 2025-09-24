@@ -9,10 +9,31 @@ const anthropic = new Anthropic({
 export async function POST(request, { params }) {
   try {
     const { projectId } = params;
+
+    // Validate projectId format (UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!projectId || !uuidRegex.test(projectId)) {
+      return NextResponse.json({ error: 'Invalid project ID format' }, { status: 400 });
+    }
+
     const { question } = await request.json();
 
-    if (!question) {
-      return NextResponse.json({ error: 'Question is required' }, { status: 400 });
+    // Input validation and sanitization
+    if (!question || typeof question !== 'string') {
+      return NextResponse.json({ error: 'Question is required and must be a string' }, { status: 400 });
+    }
+
+    // Limit question length to prevent abuse
+    const MAX_QUESTION_LENGTH = 500;
+    if (question.length > MAX_QUESTION_LENGTH) {
+      return NextResponse.json({ error: `Question must be ${MAX_QUESTION_LENGTH} characters or less` }, { status: 400 });
+    }
+
+    // Basic sanitization - remove potential control characters
+    const sanitizedQuestion = question.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
+
+    if (!sanitizedQuestion) {
+      return NextResponse.json({ error: 'Question cannot be empty' }, { status: 400 });
     }
 
     // For now, skip auth check to get it working
@@ -35,7 +56,6 @@ export async function POST(request, { params }) {
       .order('importance_score', { ascending: false });
 
     if (knowledgeError) {
-      console.error('Error fetching knowledge:', knowledgeError);
       // If table doesn't exist or other error, use empty knowledge
       knowledge = [];
     }
@@ -61,8 +81,6 @@ export async function POST(request, { params }) {
 
     // Build project metadata as additional context
     const projectMetadata = [];
-
-    console.log('Project data:', JSON.stringify(project, null, 2));
 
     if (project) {
       // Handle both old and new column names
@@ -128,13 +146,8 @@ export async function POST(request, { params }) {
       }
     }
 
-    console.log('Knowledge items found:', knowledge?.length || 0);
-    console.log('Project metadata items:', projectMetadata.length);
-    console.log('Project metadata:', projectMetadata);
-
     // Handle case where no extracted knowledge exists yet (but we still have project metadata)
     if ((!knowledge || knowledge.length === 0) && projectMetadata.length === 0) {
-      console.log('No data available - returning empty response');
       return NextResponse.json({
         answer: "I don't have enough project data yet to provide insights. As the team collects more information through forms, applets, and file uploads, I'll be able to analyze the project and answer your questions.",
         sources: [],
@@ -231,11 +244,6 @@ export async function POST(request, { params }) {
       }
     }
 
-    // Log what we're sending to the AI for debugging
-    console.log('Sending to AI - Project metadata:', projectMetadata);
-    console.log('Sending to AI - Context sections:', contextSections.length);
-    console.log('Sending to AI - Detailed data keys:', Object.keys(detailedData));
-
     const systemPrompt = `You are an AI assistant analyzing a web design project for Aloa Agency. You have access to all collected project knowledge including client preferences, requirements, and feedback.
 
 Your role is to provide insightful analysis to help the agency team understand:
@@ -279,7 +287,7 @@ Remember: You are analyzing a SPECIFIC project with SPECIFIC details. Always dem
       messages: [
         {
           role: 'user',
-          content: question
+          content: sanitizedQuestion
         }
       ]
     });
@@ -309,8 +317,6 @@ Remember: You are analyzing a SPECIFIC project with SPECIFIC details. Always dem
     });
 
   } catch (error) {
-    console.error('Error generating insights:', error);
-    console.error('Error stack:', error.stack);
 
     // Check if it's an Anthropic API error
     if (error.message?.includes('API key') || error.status === 401) {

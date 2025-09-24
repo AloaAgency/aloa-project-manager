@@ -16,13 +16,13 @@ export async function GET(request, { params }) {
         base_knowledge,
         ai_context,
         knowledge_updated_at,
-        metadata
+        metadata,
+        client_references
       `)
       .eq('id', projectId)
       .single();
 
     if (projectError) {
-      console.error('Error fetching project:', projectError);
       return NextResponse.json(
         { error: 'Failed to fetch project' },
         { status: 500 }
@@ -38,7 +38,7 @@ export async function GET(request, { params }) {
       .order('created_at', { ascending: false });
 
     if (knowledgeError) {
-      console.error('Error fetching knowledge:', knowledgeError);
+      // Handle knowledge error - currently just continue
     }
 
     // Get insights
@@ -50,7 +50,7 @@ export async function GET(request, { params }) {
       .order('confidence', { ascending: false });
 
     if (insightsError) {
-      console.error('Error fetching insights:', insightsError);
+      // Handle insights error - currently just continue
     }
 
     // Get stakeholders
@@ -62,13 +62,14 @@ export async function GET(request, { params }) {
       .order('is_primary', { ascending: false });
 
     if (stakeholdersError) {
-      console.error('Error fetching stakeholders:', stakeholdersError);
+      // Handle stakeholders error - currently just continue
     }
 
     // Extract brand_colors from metadata and add to project object
     const projectWithBrandColors = project ? {
       ...project,
-      brand_colors: project.metadata?.brand_colors || []
+      brand_colors: project.metadata?.brand_colors || [],
+      client_references: project.client_references || []
     } : {};
 
     return NextResponse.json({
@@ -85,7 +86,6 @@ export async function GET(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in knowledge route:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -121,7 +121,6 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error creating knowledge:', error);
       return NextResponse.json(
         { error: 'Failed to create knowledge document' },
         { status: 500 }
@@ -137,7 +136,6 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error creating knowledge:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -151,16 +149,12 @@ export async function PATCH(request, { params }) {
     const { projectId } = params;
     const body = await request.json();
 
-    console.log('PATCH knowledge base - received body:', JSON.stringify(body, null, 2));
-    console.log('PATCH knowledge base - projectId:', projectId);
-
     // Create service client that bypasses RLS
     let supabase;
     try {
       supabase = createServiceClient();
-      console.log('Service client created successfully');
+
     } catch (clientError) {
-      console.error('Failed to create service client:', clientError);
       return NextResponse.json(
         { error: 'Failed to initialize database client' },
         { status: 500 }
@@ -171,6 +165,7 @@ export async function PATCH(request, { params }) {
     if (body.existing_url !== undefined) updateData.existing_url = body.existing_url;
     if (body.google_drive_url !== undefined) updateData.google_drive_url = body.google_drive_url;
     if (body.base_knowledge !== undefined) updateData.base_knowledge = body.base_knowledge;
+    if (body.client_references !== undefined) updateData.client_references = body.client_references;
 
     // Handle brand_colors by storing in metadata field
     if (body.brand_colors !== undefined) {
@@ -179,24 +174,19 @@ export async function PATCH(request, { params }) {
       updateData.brand_colors = body.brand_colors;
     }
 
-    console.log('PATCH knowledge base - updateData:', JSON.stringify(updateData, null, 2));
-
     // First verify the project exists
     const { data: existingProject, error: fetchError } = await supabase
       .from('aloa_projects')
-      .select('id, project_name, existing_url, google_drive_url, base_knowledge, metadata')
+      .select('id, project_name, existing_url, google_drive_url, base_knowledge, metadata, client_references')
       .eq('id', projectId)
       .single();
 
     if (fetchError) {
-      console.error('Error fetching project:', fetchError);
       return NextResponse.json(
         { error: 'Project not found' },
         { status: 404 }
       );
     }
-
-    console.log('Found project:', existingProject?.project_name);
 
     // If we have brand_colors, merge them into metadata
     if (updateData.brand_colors !== undefined) {
@@ -219,10 +209,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error updating project knowledge - full details:');
-      console.error('Error object:', JSON.stringify(error, null, 2));
-      console.error('Update data was:', JSON.stringify(updateData, null, 2));
-      console.error('Project ID was:', projectId);
+
       return NextResponse.json(
         { error: error.message || 'Failed to update project knowledge' },
         { status: 500 }
@@ -234,11 +221,10 @@ export async function PATCH(request, { params }) {
       updateData.existing_url !== undefined ||
       updateData.google_drive_url !== undefined ||
       updateData.base_knowledge !== undefined ||
-      body.brand_colors !== undefined;
+      body.brand_colors !== undefined ||
+      body.client_references !== undefined;
 
     if (hasContentChanges) {
-      console.log('Triggering knowledge extraction for changed content');
-
       // Queue extraction for website URL if it was updated
       if (updateData.existing_url) {
         await supabase
@@ -320,6 +306,33 @@ export async function PATCH(request, { params }) {
             onConflict: 'project_id,source_type,source_id'
           });
       }
+
+      // Store client references knowledge if updated
+      if (body.client_references !== undefined) {
+        const referencesContent = body.client_references.length > 0
+          ? body.client_references.map(ref => `- ${ref.name}: ${ref.url}`).join('\n')
+          : 'No client references provided';
+
+        await supabase
+          .from('aloa_project_knowledge')
+          .upsert([{
+            project_id: projectId,
+            source_type: 'manual',
+            source_id: 'client_references',
+            source_name: 'Client Reference Sites',
+            content_type: 'references',
+            content: referencesContent,
+            content_summary: `Client reference websites: ${body.client_references.map(r => r.name).join(', ') || 'None'}`,
+            category: 'inspiration',
+            tags: ['manual', 'references', 'design', 'inspiration'],
+            importance_score: 8,
+            extracted_by: 'system',
+            extraction_confidence: 1.0,
+            is_current: true
+          }], {
+            onConflict: 'project_id,source_type,source_id'
+          });
+      }
     }
 
     return NextResponse.json({
@@ -329,9 +342,6 @@ export async function PATCH(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in PATCH handler:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Error message:', error.message);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }
@@ -361,7 +371,6 @@ export async function DELETE(request, { params }) {
       .eq('project_id', projectId);
 
     if (error) {
-      console.error('Error deleting knowledge:', error);
       return NextResponse.json(
         { error: 'Failed to delete knowledge document' },
         { status: 500 }
@@ -377,7 +386,6 @@ export async function DELETE(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error deleting knowledge:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

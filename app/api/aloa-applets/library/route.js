@@ -24,13 +24,13 @@ export async function GET(request) {
     const { data: applets, error } = await query;
 
     if (error) {
-      console.error('Error fetching applet library:', error);
+
       return NextResponse.json({ error: 'Failed to fetch applet library' }, { status: 500 });
     }
 
     return NextResponse.json({ applets: applets || [] });
   } catch (error) {
-    console.error('Error in applet library route:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -60,13 +60,13 @@ export async function POST(request) {
       .single();
 
     if (error) {
-      console.error('Error creating library applet:', error);
+
       return NextResponse.json({ error: 'Failed to create library applet' }, { status: 500 });
     }
 
     return NextResponse.json({ applet });
   } catch (error) {
-    console.error('Error in library applet creation:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -88,13 +88,13 @@ export async function PUT(request) {
       .single();
 
     if (error) {
-      console.error('Error updating library applet:', error);
+
       return NextResponse.json({ error: 'Failed to update library applet' }, { status: 500 });
     }
 
     return NextResponse.json({ applet });
   } catch (error) {
-    console.error('Error in library applet update:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -55,11 +55,11 @@ export async function POST(request) {
     // Check if user already exists
     const { data: existingUsers } = await serviceSupabase.auth.admin.listUsers();
     const existingUser = existingUsers?.users?.find(u => u.email === email);
-    
+
     let userId;
-    
+
     if (existingUser) {
-      console.log('User already exists, updating password and profile');
+
       // User already exists, update their password
       const { data: updatedUser, error: updateError } = await serviceSupabase.auth.admin.updateUserById(
         existingUser.id,
@@ -71,14 +71,14 @@ export async function POST(request) {
           }
         }
       );
-      
+
       if (updateError) {
-        console.error('Error updating existing user:', updateError);
+
         return NextResponse.json({ 
           error: updateError.message || 'Failed to update account' 
         }, { status: 400 });
       }
-      
+
       userId = existingUser.id;
     } else {
       // Create new user
@@ -92,30 +92,24 @@ export async function POST(request) {
       });
 
       if (createError) {
-        console.error('Error creating user:', createError);
+
         return NextResponse.json({ 
           error: createError.message || 'Failed to create account' 
         }, { status: 400 });
       }
-      
+
       userId = newUser.user.id;
     }
 
     // Create or update the profile
-    console.log('Creating/updating profile for user:', {
-      id: userId,
-      email: email,
-      full_name,
-      role: invitation.role
-    });
-    
+
     // Check if profile already exists
     const { data: existingProfile } = await serviceSupabase
       .from('aloa_user_profiles')
       .select('id')
       .eq('id', userId)
       .single();
-    
+
     if (existingProfile) {
       // Update existing profile
       const { error: profileError } = await serviceSupabase
@@ -128,9 +122,9 @@ export async function POST(request) {
           is_active: true
         })
         .eq('id', userId);
-      
+
       if (profileError) {
-        console.error('Error updating profile:', profileError);
+
         return NextResponse.json({ 
           error: `Failed to update user profile: ${profileError.message}` 
         }, { status: 500 });
@@ -155,14 +149,7 @@ export async function POST(request) {
         });
 
       if (profileError) {
-        console.error('Error creating profile:', profileError);
-        console.error('Profile error details:', {
-          code: profileError.code,
-          message: profileError.message,
-          details: profileError.details,
-          hint: profileError.hint
-        });
-        
+
         // Only delete user if we just created them
         if (!existingUser) {
           await serviceSupabase.auth.admin.deleteUser(userId);
@@ -175,8 +162,7 @@ export async function POST(request) {
 
     // Add project associations based on role
     if (invitation.project_id) {
-      console.log('Adding project association for user:', userId, 'to project:', invitation.project_id);
-      
+
       if (invitation.role === 'client') {
         // Check if association already exists
         const { data: existingMember } = await serviceSupabase
@@ -185,7 +171,7 @@ export async function POST(request) {
           .eq('project_id', invitation.project_id)
           .eq('user_id', userId)
           .single();
-        
+
         if (!existingMember) {
           // Add as project member for client
           const { error: memberError } = await serviceSupabase
@@ -197,17 +183,12 @@ export async function POST(request) {
             });
 
           if (memberError) {
-            console.error('Error adding project member:', memberError);
-            console.error('Member error details:', {
-              code: memberError.code,
-              message: memberError.message,
-              details: memberError.details
-            });
+
           } else {
-            console.log('Successfully added client to project');
+
           }
         } else {
-          console.log('Client already associated with project');
+
         }
       } else if (invitation.role === 'project_admin' || invitation.role === 'team_member') {
         // Add to project team for admins and team members
@@ -220,7 +201,7 @@ export async function POST(request) {
           });
 
         if (teamError) {
-          console.error('Error adding to project team:', teamError);
+
         }
       }
 
@@ -249,7 +230,7 @@ export async function POST(request) {
       .eq('id', invitation.id);
 
     if (updateError) {
-      console.error('Error updating invitation:', updateError);
+
       // Don't fail the operation
     }
 
@@ -265,7 +246,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Accept invitation API error:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -5,7 +5,7 @@ export async function PATCH(request, { params }) {
   try {
     const { formId } = params;
     const body = await request.json();
-    
+
     // Update the form status - using 'status' field which exists in the database
     const newStatus = body.is_active === false ? 'closed' : 'active';
     const { data, error } = await supabase
@@ -17,22 +17,22 @@ export async function PATCH(request, { params }) {
       .eq('id', formId)
       .select()
       .single();
-    
+
     if (error) {
-      console.error('Error updating form status:', error);
+
       return NextResponse.json(
         { error: 'Failed to update form status' },
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json({
       success: true,
       form: data
     });
-    
+
   } catch (error) {
-    console.error('Error in PATCH /api/aloa-forms/[formId]/toggle-status:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -39,7 +39,7 @@ export async function POST(request, { params }) {
     // If a template is specified, fetch it
     let templateData = null;
     if (templateId) {
-      console.log('Fetching template with ID:', templateId);
+
       const { data: template, error: templateError } = await supabase
         .from('aloa_projectlet_templates')
         .select('*')
@@ -49,9 +49,9 @@ export async function POST(request, { params }) {
       if (!templateError && template) {
         templateData = template;
         const appletCount = template.template_data?.applets?.length || 0;
-        console.log('Template found:', template.name, 'with', appletCount, 'applets from template_data');
+
       } else {
-        console.log('Template not found or error:', templateError);
+
       }
     }
 
@@ -62,8 +62,7 @@ export async function POST(request, { params }) {
     const templateApplets = templateData?.template_data?.applets || [];
 
     if (templateId && templateApplets.length === 0) {
-      console.log('Warning: Template ID provided but no applets found in template_data.applets');
-      console.log('Template data structure:', JSON.stringify(templateData, null, 2));
+      // Template has no applets to process
     }
 
     for (const page of pages) {
@@ -88,14 +87,14 @@ export async function POST(request, { params }) {
         .single();
 
       if (projectletError) {
-        console.error('Error creating projectlet:', projectletError);
+
         continue;
       }
 
       createdProjectlets.push(newProjectlet);
 
       if (templateData && templateApplets.length > 0) {
-        console.log('Creating', templateApplets.length, 'applets for projectlet', newProjectlet.name);
+
         const appletsToCreate = templateApplets.map(templateApplet => ({
           projectlet_id: newProjectlet.id,
           type: templateApplet.type,
@@ -113,7 +112,7 @@ export async function POST(request, { params }) {
             .insert(appletsToCreate);
 
           if (appletsError) {
-            console.error('Error creating applets for projectlet:', appletsError);
+
           }
         }
       }
@@ -145,7 +144,7 @@ export async function POST(request, { params }) {
 
             // Apply template to subpage projectlet if available
             if (templateData && templateApplets.length > 0) {
-              console.log('Creating', templateApplets.length, 'applets for sub-projectlet', newSubProjectlet.name);
+
               const subAppletsToCreate = templateApplets.map(templateApplet => ({
                 projectlet_id: newSubProjectlet.id,
                 type: templateApplet.type,
@@ -163,7 +162,7 @@ export async function POST(request, { params }) {
                   .insert(subAppletsToCreate);
 
                 if (subAppletsError) {
-                  console.error('Error creating applets for sub-projectlet:', subAppletsError);
+
                 }
               }
             }
@@ -179,7 +178,7 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error creating projectlets from sitemap:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

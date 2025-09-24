@@ -17,7 +17,7 @@ export async function PATCH(request, { params }) {
       .eq('id', formId);
 
     if (formError) {
-      console.error('Error updating form:', formError);
+
       return NextResponse.json(
         { error: 'Failed to update form' },
         { status: 500 }
@@ -45,7 +45,7 @@ export async function PATCH(request, { params }) {
           .eq('id', field.id);
 
         if (fieldError) {
-          console.error('Error updating field:', fieldError);
+
         }
       } else {
         // Insert new field
@@ -66,7 +66,7 @@ export async function PATCH(request, { params }) {
           });
 
         if (fieldError) {
-          console.error('Error inserting field:', fieldError);
+
         }
       }
     }
@@ -81,7 +81,7 @@ export async function PATCH(request, { params }) {
         .not('id', 'in', `(${fieldIds.join(',')})`);
 
       if (deleteError) {
-        console.error('Error deleting removed fields:', deleteError);
+
       }
     } else {
       // If no fields have IDs, delete all existing fields for this form
@@ -91,14 +91,14 @@ export async function PATCH(request, { params }) {
         .eq('aloa_form_id', formId);
 
       if (deleteError) {
-        console.error('Error deleting all fields:', deleteError);
+
       }
     }
 
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('Error in PATCH /api/aloa-forms/[formId]/edit-fields:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

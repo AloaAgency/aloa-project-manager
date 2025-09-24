@@ -27,7 +27,6 @@ const CreateFromSitemapModal = ({ projectId, onClose, onSuccess }) => {
         if (!response.ok) throw new Error('Failed to fetch sitemap applets');
 
         const data = await response.json();
-        console.log('Sitemap applets response:', data);
         setSitemapApplets(data.applets || []);
       } catch (err) {
         setError(err.message);
@@ -42,7 +41,7 @@ const CreateFromSitemapModal = ({ projectId, onClose, onSuccess }) => {
         const data = await response.json();
         setTemplates(data.templates || []);
       } catch (err) {
-        console.error('Error fetching templates:', err);
+        // Silently handle template fetch error
       } finally {
         setIsLoading(false);
       }

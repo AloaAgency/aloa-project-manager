@@ -64,7 +64,7 @@ export default function ProjectletStepsManager({
       const data = await response.json();
       setSteps(data.steps || []);
     } catch (error) {
-      console.error('Error fetching steps:', error);
+
     } finally {
       setLoading(false);
     }
@@ -93,7 +93,7 @@ export default function ProjectletStepsManager({
         });
       }
     } catch (error) {
-      console.error('Error adding step:', error);
+
     }
   };
 
@@ -109,7 +109,7 @@ export default function ProjectletStepsManager({
         fetchSteps();
       }
     } catch (error) {
-      console.error('Error deleting step:', error);
+
     }
   };
 
@@ -122,7 +122,7 @@ export default function ProjectletStepsManager({
       });
       fetchSteps();
     } catch (error) {
-      console.error('Error updating step:', error);
+
     }
   };
 
@@ -170,7 +170,7 @@ export default function ProjectletStepsManager({
                     <GripVertical className="w-4 h-4 text-gray-400 mr-2" />
                     <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
                   </div>
-                  
+
                   <div className="flex-1">
                     <div className="flex items-center">
                       <Icon className="w-4 h-4 mr-2 text-gray-600" />
@@ -186,22 +186,22 @@ export default function ProjectletStepsManager({
                         {step.status || 'pending'}
                       </span>
                     </div>
-                    
+
                     {step.description && (
                       <p className="text-sm text-gray-600 mt-1">{step.description}</p>
                     )}
-                    
+
                     <div className="flex items-center space-x-4 mt-2">
                       <span className="text-xs bg-gray-100 px-2 py-1 rounded">
                         {STEP_TYPE_LABELS[step.type]}
                       </span>
-                      
+
                       {step.form_id && (
                         <button className="text-xs text-blue-600 hover:underline">
                           View Form
                         </button>
                       )}
-                      
+
                       {step.link_url && (
                         <a 
                           href={step.link_url} 
@@ -212,7 +212,7 @@ export default function ProjectletStepsManager({
                           Open Link →
                         </a>
                       )}
-                      
+
                       {step.completed_at && (
                         <span className="text-xs text-gray-500">
                           Completed {new Date(step.completed_at).toLocaleDateString()}
@@ -220,7 +220,7 @@ export default function ProjectletStepsManager({
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2 ml-4">
                     <select
                       value={step.status || 'pending'}
@@ -232,7 +232,7 @@ export default function ProjectletStepsManager({
                       <option value="completed">Completed</option>
                       <option value="skipped">Skipped</option>
                     </select>
-                    
+
                     <button
                       onClick={() => deleteStep(step.id)}
                       className="text-red-600 hover:bg-red-50 p-2 rounded"
@@ -252,7 +252,7 @@ export default function ProjectletStepsManager({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-lg font-semibold mb-4">Add New Step</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -266,7 +266,7 @@ export default function ProjectletStepsManager({
                   placeholder="e.g., Fill out design preferences"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Type
@@ -281,7 +281,7 @@ export default function ProjectletStepsManager({
                   ))}
                 </select>
               </div>
-              
+
               {newStep.type === 'form' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -304,7 +304,7 @@ export default function ProjectletStepsManager({
                   </p>
                 </div>
               )}
-              
+
               {newStep.type === 'link' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -322,7 +322,7 @@ export default function ProjectletStepsManager({
                   </p>
                 </div>
               )}
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description (optional)
@@ -335,7 +335,7 @@ export default function ProjectletStepsManager({
                   placeholder="Brief description of what needs to be done"
                 />
               </div>
-              
+
               <div>
                 <label className="flex items-center">
                   <input
@@ -348,7 +348,7 @@ export default function ProjectletStepsManager({
                 </label>
               </div>
             </div>
-            
+
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => {

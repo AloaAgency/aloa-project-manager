@@ -84,7 +84,7 @@ const SitemapBuilder = ({
       await onAutoSave(data);
       setLastSaved(new Date());
     } catch (error) {
-      console.error('Auto-save failed:', error);
+
     } finally {
       setIsSaving(false);
     }
@@ -230,9 +230,7 @@ const SitemapBuilder = ({
   };
 
   const handleSave = () => {
-    console.log('handleSave called, isLocked:', isLocked);
-    console.log('onSave function:', onSave);
-    console.log('sitemap data:', sitemap);
+
     if (isLocked) return;
     onSave(sitemap);
   };

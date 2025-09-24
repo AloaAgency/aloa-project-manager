@@ -20,12 +20,6 @@ export default async function UpdatePasswordPage() {
 
   // Check if we have a valid session server-side
   const { data: { session }, error } = await supabase.auth.getSession();
-  
-  console.log('Server-side session check:', {
-    hasSession: !!session,
-    error,
-    userEmail: session?.user?.email
-  });
 
   // If no session, redirect to reset password page
   if (!session) {

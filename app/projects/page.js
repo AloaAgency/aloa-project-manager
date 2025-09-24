@@ -40,14 +40,14 @@ function Projects() {
         fetch('/api/aloa-projects'),
         fetch('/api/aloa-projects')
       ]);
-      
+
       const formData = await formResponse.json();
       const aloaData = await aloaResponse.json();
-      
+
       setFormProjects(formData || []);
       setAloaProjects(aloaData.projects || []);
     } catch (error) {
-      console.error('Error fetching projects:', error);
+
       toast.error('Failed to load projects');
     } finally {
       setLoading(false);
@@ -75,7 +75,7 @@ function Projects() {
       setNewProject({ name: '', description: '' });
       fetchAllProjects();
     } catch (error) {
-      console.error('Error creating project:', error);
+
       toast.error('Failed to create project');
     } finally {
       setCreating(false);
@@ -97,7 +97,7 @@ function Projects() {
       toast.success('Project deleted successfully');
       fetchAllProjects();
     } catch (error) {
-      console.error('Error deleting project:', error);
+
       toast.error('Failed to delete project');
     }
   };
@@ -208,7 +208,7 @@ function Projects() {
                     'completed': 'bg-green-100 text-green-700',
                     'on_hold': 'bg-red-100 text-red-700'
                   };
-                  
+
                   return (
                     <div
                       key={project.id}
@@ -224,7 +224,7 @@ function Projects() {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="mb-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                           statusColors[project.status] || 'bg-gray-100 text-gray-700'
@@ -232,7 +232,7 @@ function Projects() {
                           {project.status?.replace(/_/g, ' ')}
                         </span>
                       </div>
-                      
+
                       <div className="mb-4">
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-gray-600">Progress</span>
@@ -245,7 +245,7 @@ function Projects() {
                           />
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between text-sm text-gray-600">
                         <div className="flex items-center">
                           <Users className="w-4 h-4 mr-1" />
@@ -261,7 +261,7 @@ function Projects() {
                           </span>
                         </div>
                       </div>
-                      
+
                       <div className="mt-4 pt-4 border-t flex space-x-2">
                         <button
                           onClick={(e) => {
@@ -339,7 +339,7 @@ function Projects() {
                         </button>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center justify-between text-sm text-gray-600">
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4" />
@@ -351,7 +351,7 @@ function Projects() {
                         {formatDate(project.created_at)}
                       </span>
                     </div>
-                    
+
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -377,7 +377,7 @@ function Projects() {
             <h2 className="text-2xl font-bold mb-6">
               Create Form Project
             </h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -392,7 +392,7 @@ function Projects() {
                   autoFocus
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description (optional)
@@ -406,7 +406,7 @@ function Projects() {
                 />
               </div>
             </div>
-            
+
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => {

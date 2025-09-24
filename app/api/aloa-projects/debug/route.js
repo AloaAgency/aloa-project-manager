@@ -95,7 +95,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error('Debug API Error:', error);
+
     return NextResponse.json({
       success: false,
       error: error.message,

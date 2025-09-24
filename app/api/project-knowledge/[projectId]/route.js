@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
+import { handleRLSError, handleDatabaseError } from '@/lib/rlsErrorHandler';
 
 export async function GET(request, { params }) {
   try {
@@ -9,8 +10,6 @@ export async function GET(request, { params }) {
     const categories = searchParams.get('categories')?.split(',');
     const search = searchParams.get('search');
     const limit = parseInt(searchParams.get('limit') || '50');
-
-    console.log('Fetching knowledge for project:', projectId);
 
     let query = supabase
       .from('aloa_project_knowledge')
@@ -31,20 +30,22 @@ export async function GET(request, { params }) {
 
     const { data: knowledge, error } = await query;
 
-    console.log('Knowledge query result:', {
-      count: knowledge?.length || 0,
-      error: error?.message || null,
-      projectId: projectId,
-      queryDetails: {
-        categories: categories,
-        search: search,
-        limit: limit
-      }
-    });
-
     if (error) {
-      console.error('Error fetching knowledge:', error);
-      // Return empty results instead of error to avoid breaking the UI
+      // Check if it's an RLS error
+      const rlsResponse = handleRLSError(error);
+      if (rlsResponse) {
+        // For RLS errors, return empty results to avoid breaking the UI
+        console.warn('RLS policy violation in project knowledge GET:', error);
+        return NextResponse.json({
+          knowledge: [],
+          stats: {
+            total: 0,
+            categoryCounts: {}
+          }
+        });
+      }
+      // For other errors, return empty results as well
+      console.error('Database error in project knowledge GET:', error);
       return NextResponse.json({
         knowledge: [],
         stats: {
@@ -69,7 +70,7 @@ export async function GET(request, { params }) {
       }
     });
   } catch (error) {
-    console.error('Error in knowledge GET:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -111,8 +112,7 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error creating knowledge:', error);
-      return NextResponse.json({ error: 'Failed to create knowledge' }, { status: 500 });
+      return handleDatabaseError(error, 'Failed to create knowledge');
     }
 
     await supabase
@@ -122,7 +122,7 @@ export async function POST(request, { params }) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error in knowledge POST:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -148,8 +148,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error updating knowledge:', error);
-      return NextResponse.json({ error: 'Failed to update knowledge' }, { status: 500 });
+      return handleDatabaseError(error, 'Failed to update knowledge');
     }
 
     await supabase
@@ -159,7 +158,7 @@ export async function PATCH(request, { params }) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error in knowledge PATCH:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -183,8 +182,7 @@ export async function DELETE(request, { params }) {
       .eq('project_id', projectId);
 
     if (error) {
-      console.error('Error deleting knowledge:', error);
-      return NextResponse.json({ error: 'Failed to delete knowledge' }, { status: 500 });
+      return handleDatabaseError(error, 'Failed to delete knowledge');
     }
 
     await supabase
@@ -194,7 +192,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error in knowledge DELETE:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

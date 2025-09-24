@@ -9,7 +9,7 @@ function AcceptInviteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
-  
+
   const [invitation, setInvitation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -26,7 +26,7 @@ function AcceptInviteContent() {
       setLoading(false);
       return;
     }
-    
+
     fetchInvitation();
   }, [token]);
 
@@ -45,7 +45,7 @@ function AcceptInviteContent() {
       setInvitation(data.invitation);
       setLoading(false);
     } catch (err) {
-      console.error('Error fetching invitation:', err);
+
       setError('Failed to load invitation');
       setLoading(false);
     }
@@ -91,7 +91,7 @@ function AcceptInviteContent() {
       }
 
       setSuccess('Account created successfully! Redirecting to login...');
-      
+
       // Redirect to login after a short delay
       setTimeout(() => {
         router.push('/auth/login');

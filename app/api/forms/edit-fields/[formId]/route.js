@@ -12,17 +12,17 @@ export async function PATCH(request, { params }) {
         // DO NOT update url_id - keep the existing URL stable
         updated_at: new Date().toISOString()
       };
-      
+
       if (title !== undefined) updateData.title = title;
       if (description !== undefined) updateData.description = description;
-      
+
       const { error: formUpdateError } = await supabase
         .from('aloa_forms')
         .update(updateData)
         .eq('id', formId);
-      
+
       if (formUpdateError) {
-        console.error('Error updating form:', formUpdateError);
+
         return NextResponse.json(
           { error: 'Failed to update form' },
           { status: 500 }
@@ -37,7 +37,7 @@ export async function PATCH(request, { params }) {
       .eq('form_id', formId);
 
     if (fetchError) {
-      console.error('Error fetching existing fields:', fetchError);
+
       return NextResponse.json(
         { error: 'Failed to fetch existing fields' },
         { status: 500 }
@@ -56,7 +56,7 @@ export async function PATCH(request, { params }) {
         .in('id', fieldsToDelete.map(f => f.id));
 
       if (deleteError) {
-        console.error('Error deleting fields:', deleteError);
+
         return NextResponse.json(
           { error: 'Failed to delete fields' },
           { status: 500 }
@@ -92,11 +92,11 @@ export async function PATCH(request, { params }) {
     });
 
     const results = await Promise.all(updatePromises);
-    
+
     // Check for errors
     const errors = results.filter(result => result.error);
     if (errors.length > 0) {
-      console.error('Update errors:', errors);
+
       return NextResponse.json(
         { error: 'Failed to update some fields' },
         { status: 500 }
@@ -105,7 +105,7 @@ export async function PATCH(request, { params }) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error updating form fields:', error);
+
     return NextResponse.json(
       { error: 'Failed to update form fields' },
       { status: 500 }

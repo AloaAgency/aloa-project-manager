@@ -1,16 +1,20 @@
 'use client';
 
+import Image from 'next/image';
+
 export default function UserAvatar({ user, size = 'sm', showName = false, className = '' }) {
-  // Size mappings
-  const sizeClasses = {
-    xs: 'w-6 h-6 text-xs',
-    sm: 'w-8 h-8 text-sm',
-    md: 'w-10 h-10 text-base',
-    lg: 'w-12 h-12 text-lg',
-    xl: 'w-16 h-16 text-xl'
+  // Size mappings with pixel values for Image component
+  const sizeConfig = {
+    xs: { className: 'w-6 h-6 text-xs', pixels: 24 },
+    sm: { className: 'w-8 h-8 text-sm', pixels: 32 },
+    md: { className: 'w-10 h-10 text-base', pixels: 40 },
+    lg: { className: 'w-12 h-12 text-lg', pixels: 48 },
+    xl: { className: 'w-16 h-16 text-xl', pixels: 64 }
   };
 
-  const sizeClass = sizeClasses[size] || sizeClasses.sm;
+  const currentSize = sizeConfig[size] || sizeConfig.sm;
+  const sizeClass = currentSize.className;
+  const imageSize = currentSize.pixels;
 
   // Get initials from name or email
   const getInitials = () => {
@@ -50,11 +54,17 @@ export default function UserAvatar({ user, size = 'sm', showName = false, classN
   return (
     <div className={`inline-flex items-center gap-2 ${className}`}>
       {user?.avatar_url ? (
-        <img
-          src={user.avatar_url}
-          alt={displayName}
-          className={`${sizeClass} rounded-full object-cover border-2 border-white shadow-sm`}
-        />
+        <div className={`relative ${sizeClass} rounded-full overflow-hidden border-2 border-white shadow-sm`}>
+          <Image
+            src={user.avatar_url}
+            alt={displayName}
+            width={imageSize}
+            height={imageSize}
+            className="object-cover"
+            loading="lazy"
+            unoptimized
+          />
+        </div>
       ) : (
         <div
           className={`${sizeClass} rounded-full flex items-center justify-center text-white font-medium border-2 border-white shadow-sm`}

@@ -52,7 +52,7 @@ export async function POST(request, { params }) {
       result
     });
   } catch (error) {
-    console.error('Error extracting knowledge:', error);
+
     return NextResponse.json({
       error: 'Failed to extract knowledge',
       details: error.message
@@ -72,7 +72,7 @@ export async function GET(request, { params }) {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('Error fetching extraction queue:', error);
+
       return NextResponse.json({ error: 'Failed to fetch queue' }, { status: 500 });
     }
 
@@ -88,7 +88,7 @@ export async function GET(request, { params }) {
       stats
     });
   } catch (error) {
-    console.error('Error in extraction queue GET:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

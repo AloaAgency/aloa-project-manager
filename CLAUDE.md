@@ -53,7 +53,10 @@ This workflow ensures clean daily snapshots with full user control over merges a
 npm run dev          # Start development server on localhost:3000
 npm run build        # Build for production
 npm run start        # Start production server
-npm run lint         # Run Next.js linting
+npm run lint         # Run Biome linting and formatting checks
+npm run lint:fix     # Fix linting and formatting issues with Biome
+npm run format       # Format all files with Biome
+npm run format:check # Check formatting without making changes
 ```
 
 ### Important: Fresh Build After Merging

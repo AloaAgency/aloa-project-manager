@@ -19,7 +19,6 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    console.log('Starting login for:', email);
 
     try {
       // Use server-side API route for login
@@ -35,18 +34,11 @@ export default function LoginPage() {
       });
       
       const result = await response.json();
-      console.log('Login API response:', result);
       
       if (!response.ok || result.error) {
-        console.error('Login error:', result.error);
         setError(result.error || 'Login failed');
         setLoading(false);
       } else if (result.success) {
-        console.log('Login successful, full result:', result);
-        console.log('User object:', result.user);
-        console.log('User role:', result.user?.role);
-        console.log('Client project:', result.clientProject);
-        console.log('Has client project?', !!result.clientProject);
         
         // If we have a session, set it in the client and verify it
         if (result.session) {
@@ -55,7 +47,6 @@ export default function LoginPage() {
 
           // Set the session
           await supabase.auth.setSession(result.session);
-          console.log('Session set in client');
 
           // Wait a moment for session to propagate
           await new Promise(resolve => setTimeout(resolve, 200));
@@ -64,7 +55,6 @@ export default function LoginPage() {
           const { data: { session: verifiedSession } } = await supabase.auth.getSession();
 
           if (!verifiedSession) {
-            console.warn('Session not verified after setting, retrying...');
             // Try setting session again
             await supabase.auth.setSession(result.session);
             await new Promise(resolve => setTimeout(resolve, 300));
@@ -72,14 +62,12 @@ export default function LoginPage() {
             // Check one more time
             const { data: { session: retriedSession } } = await supabase.auth.getSession();
             if (!retriedSession) {
-              console.error('Failed to establish session after retry');
               setError('Session could not be established. Please try logging in again.');
               setLoading(false);
               return;
             }
           }
 
-          console.log('Session verified successfully');
         }
 
         // Additional delay for private/incognito tabs to ensure cookies are written
@@ -88,46 +76,33 @@ export default function LoginPage() {
         // Role-based redirection
         const userRole = result.user?.role;
 
-        console.log('Determining redirect for user:', {
-          email: result.user?.email,
-          role: userRole,
-          hasClientProject: !!result.clientProject,
-          clientProjectId: result.clientProject?.id
-        });
 
         // Use window.location.href for a full page refresh to ensure cookies are properly set
         if (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member') {
           // Admin users go to admin projects page
-          console.log('Redirecting admin user to /admin/projects');
           window.location.href = '/admin/projects';
         } else if (['client', 'client_admin', 'client_participant'].includes(userRole)) {
           // Client users - check for project
           if (result.clientProject?.id) {
-            console.log('Redirecting client to project dashboard:', result.clientProject.id);
             window.location.href = `/project/${result.clientProject.id}/dashboard`;
           } else {
             // Client without a project - should not have access to admin areas
-            console.error('Client has no project assigned');
             setError('No project assigned to your account. Please contact your administrator.');
             setLoading(false);
             return;
           }
         } else if (!userRole) {
           // No role found - likely a new user or data issue
-          console.error('No user role found, defaulting to /admin/projects');
           window.location.href = '/admin/projects';
         } else {
           // Unexpected role - log error but still redirect somewhere safe
-          console.error('Unexpected user role:', userRole, '- redirecting to /admin/projects');
           window.location.href = '/admin/projects';
         }
       } else {
-        console.error('Unexpected result:', result);
         setError('Login failed - please try again');
         setLoading(false);
       }
     } catch (err) {
-      console.error('Unexpected error during login:', err);
       setError('An unexpected error occurred: ' + err.message);
       setLoading(false);
     }

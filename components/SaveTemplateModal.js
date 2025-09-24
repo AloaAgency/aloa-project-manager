@@ -120,7 +120,7 @@ export default function SaveTemplateModal({
       setTemplateCategory('page');
       setIsPublic(false);
     } catch (error) {
-      console.error('Error saving template:', error);
+
       toast.error('Failed to save template');
     } finally {
       setSaving(false);

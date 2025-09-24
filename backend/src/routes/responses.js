@@ -75,7 +75,7 @@ router.post('/submit/:urlId', async (req, res) => {
       responseId: response._id
     });
   } catch (error) {
-    console.error('Submit response error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });
@@ -92,7 +92,7 @@ router.get('/form/:formId', async (req, res) => {
     }
 
     const query = { formId };
-    
+
     if (shouldExport === 'true') {
       // Export all responses
       const responses = await Response.find(query)
@@ -101,7 +101,7 @@ router.get('/form/:formId', async (req, res) => {
 
       // Format for CSV export
       const csvData = formatResponsesForExport(form, responses);
-      
+
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename="${form.title}-responses.csv"`);
       return res.send(csvData);
@@ -126,7 +126,7 @@ router.get('/form/:formId', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get responses error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });
@@ -168,11 +168,11 @@ router.get('/stats/:formId', async (req, res) => {
     // Field-level statistics
     const fieldStats = {};
     const responses = await Response.find({ formId: form._id }).lean();
-    
+
     form.sections.forEach(section => {
       section.fields.forEach(field => {
         const fieldAnswers = responses.map(r => r.answers.get(field.name)).filter(Boolean);
-        
+
         if (field.type === 'select' || field.type === 'radio') {
           // Count option selections
           const optionCounts = {};
@@ -222,7 +222,7 @@ router.get('/stats/:formId', async (req, res) => {
       formTitle: form.title
     });
   } catch (error) {
-    console.error('Get stats error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });
@@ -231,7 +231,7 @@ router.get('/stats/:formId', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const response = await Response.findById(req.params.id);
-    
+
     if (!response) {
       return res.status(404).json({ error: 'Response not found' });
     }
@@ -245,7 +245,7 @@ router.delete('/:id', async (req, res) => {
 
     res.json({ success: true, message: 'Response deleted' });
   } catch (error) {
-    console.error('Delete response error:', error);
+
     res.status(500).json({ error: error.message });
   }
 });
@@ -267,7 +267,7 @@ function formatResponsesForExport(form, responses) {
       new Date(response.submittedAt).toISOString(),
       response.respondentInfo?.email || ''
     ];
-    
+
     form.sections.forEach(section => {
       section.fields.forEach(field => {
         const answer = response.answers[field.name];
@@ -278,10 +278,10 @@ function formatResponsesForExport(form, responses) {
         }
       });
     });
-    
+
     row.push(response.metadata?.timeSpent || '');
     row.push(response.respondentInfo?.ipAddress || '');
-    
+
     return row;
   });
 

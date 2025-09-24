@@ -28,7 +28,7 @@ export async function GET() {
     const { data: buckets, error: listError } = await supabase.storage.listBuckets();
 
     if (listError) {
-      console.error('Error listing buckets:', listError);
+
       return NextResponse.json({ error: 'Failed to list buckets', details: listError }, { status: 500 });
     }
 
@@ -44,7 +44,7 @@ export async function GET() {
       });
 
       if (createError) {
-        console.error('Error creating bucket:', createError);
+
         return NextResponse.json({
           error: 'Failed to create bucket',
           details: createError.message
@@ -63,7 +63,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Setup error:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

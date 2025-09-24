@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    
+
     // Create Supabase client with service role
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -25,7 +25,7 @@ export async function GET() {
 
     // Check if user is authenticated
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     const debugInfo = {
       authenticated: !!user,
       authError: authError?.message || null,
@@ -36,14 +36,14 @@ export async function GET() {
     // Try to get user's profile
     let profileData = null;
     let profileError = null;
-    
+
     if (user) {
       const { data, error } = await supabase
         .from('aloa_user_profiles')
         .select('*')
         .eq('id', user.id)
         .single();
-      
+
       profileData = data;
       profileError = error;
     }
@@ -80,7 +80,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Test users error:', error);
+
     return NextResponse.json({ 
       error: 'Internal server error',
       details: error.message 

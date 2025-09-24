@@ -7,9 +7,7 @@ const supabase = createClient(
 );
 
 async function fixClientProjectAssociation(clientEmail, projectName) {
-  console.log(`\nFixing project association for client: ${clientEmail}`);
-  console.log(`Project: ${projectName}\n`);
-  
+
   try {
     // 1. Find the user
     const { data: profile, error: profileError } = await supabase
@@ -17,43 +15,30 @@ async function fixClientProjectAssociation(clientEmail, projectName) {
       .select('*')
       .eq('email', clientEmail)
       .single();
-    
+
     if (profileError || !profile) {
-      console.error('User not found:', clientEmail);
+
       return;
     }
-    
-    console.log('Found user:', {
-      id: profile.id,
-      email: profile.email,
-      role: profile.role,
-      full_name: profile.full_name
-    });
-    
+
     // 2. Find the project
     const { data: project, error: projectError } = await supabase
       .from('aloa_projects')
       .select('*')
       .ilike('project_name', `%${projectName}%`)
       .single();
-    
+
     if (projectError || !project) {
-      console.error('Project not found:', projectName);
+
       // List available projects
       const { data: projects } = await supabase
         .from('aloa_projects')
         .select('id, project_name');
-      console.log('\nAvailable projects:');
-      projects?.forEach(p => console.log(`- ${p.project_name} (${p.id})`));
+
+      projects?.forEach(p => `));
       return;
     }
-    
-    console.log('Found project:', {
-      id: project.id,
-      name: project.project_name,
-      status: project.status
-    });
-    
+
     // 3. Check existing association
     const { data: existingMember } = await supabase
       .from('aloa_project_members')
@@ -61,14 +46,14 @@ async function fixClientProjectAssociation(clientEmail, projectName) {
       .eq('user_id', profile.id)
       .eq('project_id', project.id)
       .single();
-    
+
     if (existingMember) {
-      console.log('\n✓ Association already exists:', existingMember);
+
       return;
     }
-    
+
     // 4. Create the association
-    console.log('\nCreating project association...');
+
     const { data: newMember, error: insertError } = await supabase
       .from('aloa_project_members')
       .insert({
@@ -83,14 +68,12 @@ async function fixClientProjectAssociation(clientEmail, projectName) {
       })
       .select()
       .single();
-    
+
     if (insertError) {
-      console.error('Error creating association:', insertError);
+
       return;
     }
-    
-    console.log('✓ Successfully created association:', newMember);
-    
+
     // 5. Add timeline entry
     await supabase
       .from('aloa_project_timeline')
@@ -105,12 +88,9 @@ async function fixClientProjectAssociation(clientEmail, projectName) {
           manual_fix: true
         }
       });
-    
-    console.log('✓ Added timeline entry');
-    console.log('\n✅ Client project association fixed successfully!');
-    
+
   } catch (error) {
-    console.error('Error:', error);
+
   }
 }
 

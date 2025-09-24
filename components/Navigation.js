@@ -15,21 +15,13 @@ export default function Navigation() {
 
   // Debug logging for navigation visibility
   useEffect(() => {
-    console.log('Navigation Debug:', {
-      pathname,
-      loading,
-      hasUser: !!user,
-      hasProfile: !!profile,
-      userEmail: user?.email,
-      profileRole: profile?.role,
-      hasAttemptedRefresh
-    });
+
   }, [pathname, loading, user, profile, hasAttemptedRefresh]);
 
   // Attempt refresh once if we have no user after initial load
   useEffect(() => {
     if (!loading && !user && !hasAttemptedRefresh && !pathname.startsWith('/auth/')) {
-      console.log('Navigation: No user found after loading, attempting one-time refresh');
+
       setHasAttemptedRefresh(true);
       refreshAuth();
     }
@@ -37,38 +29,38 @@ export default function Navigation() {
 
   // Don't show navigation on auth pages
   if (pathname.startsWith('/auth/')) {
-    console.log('Navigation: Hiding on auth page');
+
     return null;
   }
 
   // Show loading state while checking auth (only on client)
   if (loading) {
-    console.log('Navigation: Showing loading state');
+
     return <div className="h-16 bg-aloa-black border-b-2 border-aloa-black" />;
   }
 
   // Don't show navigation if user is not authenticated and we're done loading
   if (!loading && !user) {
-    console.log('Navigation: No user, hiding navigation');
+
     return null;
   }
 
   // If we have a user but no profile yet, still show navigation with basic info
   // This is better UX than hiding the navigation entirely
   if (user && !profile) {
-    console.log('Navigation: User exists but no profile, showing basic navigation');
+
     // Continue with rendering, we'll use user.email as fallback
   }
 
   // Safety check - if we somehow have neither user nor loading state, hide nav
   if (!user) {
-    console.log('Navigation: No user data available');
+
     return null;
   }
 
   // Different nav items for admins vs clients
   const isAdmin = profile?.role === 'super_admin' || profile?.role === 'project_admin' || profile?.role === 'team_member';
-  
+
   const navItems = isAdmin ? [
     { href: '/admin/projects', label: 'Projects', icon: BarChart3 },
     { href: '/admin/forms', label: 'Forms', icon: FileText },
@@ -87,7 +79,7 @@ export default function Navigation() {
             <Link href={isAdmin ? "/admin/projects" : "/dashboard"} className="flex items-center px-2 py-2 text-aloa-cream font-bold text-xl">
               Aloa®
             </Link>
-            
+
             <div className="hidden sm:ml-6 sm:flex sm:space-x-4">
               {navItems.map((item) => {
                 const Icon = item.icon;

@@ -12,8 +12,6 @@ export async function POST(request) {
     const cookieStore = await cookies();
     const body = await request.json();
     const { user_id, project_id, role = 'client' } = body;
-    
-    console.log('Assign project request:', { user_id, project_id, role });
 
     if (!user_id || !project_id) {
       return NextResponse.json({ 
@@ -35,7 +33,7 @@ export async function POST(request) {
         }
       }
     );
-    
+
     // Create service role client for database operations (bypasses RLS)
     const supabase = createServiceClient();
 
@@ -99,13 +97,7 @@ export async function POST(request) {
       });
 
     if (memberError) {
-      console.error('Error adding project member:', memberError);
-      console.error('Error details:', {
-        code: memberError.code,
-        message: memberError.message,
-        details: memberError.details,
-        hint: memberError.hint
-      });
+
       return NextResponse.json({ 
         error: `Failed to assign user to project: ${memberError.message}` 
       }, { status: 500 });
@@ -125,7 +117,7 @@ export async function POST(request) {
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('Assign project API error:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -158,7 +150,7 @@ export async function DELETE(request) {
         }
       }
     );
-    
+
     // Create service role client for database operations (bypasses RLS)
     const supabase = createServiceClient();
 
@@ -199,7 +191,7 @@ export async function DELETE(request) {
       .eq('user_id', user_id);
 
     if (deleteError) {
-      console.error('Error removing project member:', deleteError);
+
       return NextResponse.json({ 
         error: 'Failed to remove user from project' 
       }, { status: 500 });
@@ -219,7 +211,7 @@ export async function DELETE(request) {
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('Remove from project API error:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

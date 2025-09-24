@@ -32,11 +32,11 @@ export async function DELETE(request, { params }) {
           .remove([fileData.storage_path]);
 
         if (storageError) {
-          console.error('Storage deletion error:', storageError);
+
           // Continue anyway - maybe file is already gone
         }
       } catch (err) {
-        console.error('Storage deletion failed:', err);
+
       }
     }
 
@@ -47,7 +47,7 @@ export async function DELETE(request, { params }) {
       .eq('id', fileId);
 
     if (error) {
-      console.error('Error deleting project file:', error);
+
       return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
     }
 
@@ -72,7 +72,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error in project files route:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -93,13 +93,13 @@ export async function GET(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error fetching project file:', error);
+
       return NextResponse.json({ error: 'Failed to fetch file' }, { status: 500 });
     }
 
     return NextResponse.json({ file });
   } catch (error) {
-    console.error('Error in project files route:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

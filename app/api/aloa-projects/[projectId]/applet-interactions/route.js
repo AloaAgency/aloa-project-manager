@@ -9,8 +9,6 @@ export async function POST(request, { params }) {
     const body = await request.json();
     const { appletId, userId, type, data } = body;
 
-    console.log('Saving applet interaction:', { projectId, appletId, userId, type, data });
-
     if (!appletId || !type || !data) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -74,23 +72,16 @@ export async function POST(request, { params }) {
     }
 
     if (error) {
-      console.error('Error saving interaction:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      });
+
       return NextResponse.json({
         error: 'Failed to save interaction',
         details: error.message || error.code
       }, { status: 500 });
     }
 
-    console.log('Interaction saved successfully:', savedInteraction);
     return NextResponse.json({ success: true, interaction: savedInteraction });
   } catch (error) {
-    console.error('Error in applet-interactions POST:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -103,8 +94,6 @@ export async function GET(request, { params }) {
     const userEmail = searchParams.get('userEmail');
     const userId = searchParams.get('userId');
     const type = searchParams.get('type') || 'submission';
-
-    console.log('Fetching applet interaction:', { projectId, appletId, userEmail, userId, type });
 
     if (!appletId) {
       return NextResponse.json({ error: 'Applet ID is required' }, { status: 400 });
@@ -138,16 +127,14 @@ export async function GET(request, { params }) {
     const { data, error } = await query;
 
     if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-      console.error('Error fetching interaction:', error);
+
       return NextResponse.json({ error: 'Failed to fetch interaction' }, { status: 500 });
     }
-
-    console.log('Found interaction data:', data);
 
     // Return in the format expected by the frontend
     return NextResponse.json({ interactions: data || [] });
   } catch (error) {
-    console.error('Error in applet-interactions GET:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -20,7 +20,7 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in PDF generation endpoint:', error);
+
     return NextResponse.json(
       { error: 'Failed to process PDF request' },
       { status: 500 }

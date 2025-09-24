@@ -10,7 +10,7 @@ export async function POST(request) {
     const csrfToken = request.headers.get('X-CSRF-Token');
     const cookieToken = request.cookies.get('csrf-token')?.value;
     const isAiGenerated = request.headers.get('X-AI-Generated') === 'true';
-    
+
     // Only enforce CSRF if not AI-generated or if tokens exist
     if (!isAiGenerated && (!csrfToken || !cookieToken || csrfToken !== cookieToken)) {
       return NextResponse.json(
@@ -18,18 +18,18 @@ export async function POST(request) {
         { status: 403 }
       );
     }
-    
+
     const formData = await request.formData();
     const file = formData.get('markdown');
     const projectId = formData.get('projectId');
-    
+
     if (!file) {
       return NextResponse.json(
         { error: 'No file uploaded' },
         { status: 400 }
       );
     }
-    
+
     // Validate file upload
     try {
       validateFileUpload(file, {
@@ -43,10 +43,10 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    
+
     // Read and validate content
     const content = await file.text();
-    
+
     // Check for potentially malicious content
     if (content.includes('<script') || content.includes('javascript:') || 
         content.includes('onerror=') || content.includes('onclick=')) {
@@ -55,7 +55,7 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    
+
     // Limit content size
     if (content.length > 100000) { // 100KB of text
       return NextResponse.json(
@@ -63,10 +63,10 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    
+
     try {
       const formStructure = parseMarkdownToForm(content);
-      
+
       // Sanitize form data
       const formToInsert = {
         title: sanitizeText(formStructure.title).substring(0, 200),
@@ -75,15 +75,15 @@ export async function POST(request) {
         markdown_content: content, // Store the original markdown content
         project_id: projectId || null // Add project_id if provided
       };
-      
+
       const { data: form, error: formError } = await supabase
         .from('aloa_forms')
         .insert([formToInsert])
         .select()
         .single();
-      
+
       if (formError) throw formError;
-      
+
       // Insert the fields if any
       if (formStructure.fields && formStructure.fields.length > 0) {
         // Sanitize and validate fields
@@ -91,11 +91,11 @@ export async function POST(request) {
           // Validate field type
           const allowedTypes = ['text', 'email', 'tel', 'url', 'number', 'date', 
                                'textarea', 'select', 'radio', 'checkbox', 'multiselect', 'rating'];
-          
+
           if (!allowedTypes.includes(field.type)) {
             throw new Error(`Invalid field type: ${field.type}`);
           }
-          
+
           return {
             form_id: form.id,
             field_label: sanitizeText(field.label).substring(0, 200),
@@ -112,32 +112,32 @@ export async function POST(request) {
             field_order: Math.min(Math.max(0, index), 1000) // Limit field order
           };
         });
-        
+
         const { error: fieldsError } = await supabase
           .from('aloa_form_fields')
           .insert(fieldsToInsert);
-        
+
         if (fieldsError) {
           // Rollback by deleting the form
           await supabase.from('aloa_forms').delete().eq('id', form.id);
           throw fieldsError;
         }
       }
-      
+
       return NextResponse.json({
         _id: form.id,
         urlId: form.url_id,
         title: form.title
       });
     } catch (parseError) {
-      console.error('Parsing error:', parseError);
+
       return NextResponse.json(
         { error: parseError.message || 'Invalid markdown format' },
         { status: 400 }
       );
     }
   } catch (error) {
-    console.error('Error processing upload:', error);
+
     return NextResponse.json(
       { error: 'Failed to process upload' },
       { status: 500 }

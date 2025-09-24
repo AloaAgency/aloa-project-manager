@@ -48,7 +48,7 @@ export default function ClientAppletRenderer({
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isCompleted, setIsCompleted] = useState(applet.status === 'completed');
-  
+
   const Icon = APPLET_ICONS[applet.type] || FileText;
 
   // Handle completion of applet action
@@ -75,7 +75,7 @@ export default function ClientAppletRenderer({
         }
       }
     } catch (error) {
-      console.error('Error completing applet:', error);
+
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +95,7 @@ export default function ClientAppletRenderer({
                 {applet.client_instructions || 'Please fill out the form below to proceed.'}
               </p>
             </div>
-            
+
             {applet.form_id ? (
               <div className="bg-white rounded-lg p-6 border-2 border-gray-200">
                 <a
@@ -130,7 +130,7 @@ export default function ClientAppletRenderer({
                 {applet.client_instructions || 'Please upload the required files below.'}
               </p>
             </div>
-            
+
             <div className="bg-white rounded-lg p-6 border-2 border-dashed border-gray-300 text-center">
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-3" />
               <p className="text-gray-600 mb-4">
@@ -158,14 +158,14 @@ export default function ClientAppletRenderer({
                 {applet.client_instructions || 'Please review the content and provide your approval.'}
               </p>
             </div>
-            
+
             <div className="bg-white rounded-lg p-6 border-2 border-gray-200">
               <div className="space-y-4">
                 {/* Content to review would go here */}
                 <div className="bg-gray-50 p-4 rounded">
                   <p className="text-gray-600">Review content will be displayed here</p>
                 </div>
-                
+
                 <div className="flex gap-3">
                   <button
                     onClick={() => handleComplete({ approved: true })}
@@ -200,7 +200,7 @@ export default function ClientAppletRenderer({
                 {applet.client_instructions || 'Please provide your final approval to proceed.'}
               </p>
             </div>
-            
+
             <div className="bg-white rounded-lg p-6 border-2 border-gray-200">
               <div className="space-y-4">
                 <div className="bg-gray-50 p-4 rounded">
@@ -209,7 +209,7 @@ export default function ClientAppletRenderer({
                     and approve moving forward with the next phase.
                   </p>
                 </div>
-                
+
                 <button
                   onClick={() => handleComplete({ signed_off: true, timestamp: new Date().toISOString() })}
                   disabled={isLoading || isCompleted}

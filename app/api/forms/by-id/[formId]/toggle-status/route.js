@@ -10,7 +10,7 @@ export async function PATCH(request, { params }) {
         { status: 503 }
       );
     }
-    
+
     const { formId } = params;
     const { is_active, closed_message } = await request.json();
 
@@ -33,7 +33,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error updating form status:', error);
+
       return NextResponse.json(
         { error: 'Failed to update form status' },
         { status: 500 }
@@ -46,7 +46,7 @@ export async function PATCH(request, { params }) {
       message: is_active ? 'Form reopened successfully' : 'Form closed successfully'
     });
   } catch (error) {
-    console.error('Error toggling form status:', error);
+
     return NextResponse.json(
       { error: 'Failed to toggle form status' },
       { status: 500 }

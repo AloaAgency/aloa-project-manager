@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { handleDatabaseError } from '@/lib/rlsErrorHandler';
 
 // Force dynamic rendering for routes that use cookies
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request) {
   try {
     const cookieStore = await cookies();
-    
+
     // Create Supabase client with service role for bypassing RLS
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -65,15 +66,14 @@ export async function GET(request) {
     const { data: users, error: usersError } = await query;
 
     if (usersError) {
-      console.error('Error fetching users:', usersError);
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+      return handleDatabaseError(usersError, 'Failed to fetch users');
     }
 
     // Get project assignments for all client-type users
     const clientRoles = ['client', 'client_admin', 'client_participant'];
     const clientIds = users.filter(u => clientRoles.includes(u.role)).map(u => u.id);
     let projectAssignments = {};
-    
+
     if (clientIds.length > 0) {
       // Create a service client to bypass RLS for fetching project members
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -81,16 +81,14 @@ export async function GET(request) {
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         serviceKey
       );
-      
+
       // Get from aloa_project_members table (where we actually store client assignments)
       const { data: members, error: membersError } = await serviceClient
         .from('aloa_project_members')
         .select('user_id, project_id, aloa_projects(id, project_name, client_name)')
         .in('user_id', clientIds)
         .eq('project_role', 'viewer'); // Clients are stored as 'viewer' role
-      
-      console.log('Members query with service client:', { members, error: membersError });
-      
+
       if (members) {
         members.forEach(m => {
           if (!projectAssignments[m.user_id]) {
@@ -107,16 +105,10 @@ export async function GET(request) {
       projects: projectAssignments[user.id] || []
     }));
 
-    // Debug: Log John G's data specifically
-    const johnG = usersWithProjects.find(u => u.email === 'exabyte@me.com');
-    if (johnG) {
-      console.log('John G data being sent:', JSON.stringify(johnG, null, 2));
-    }
 
     return NextResponse.json({ users: usersWithProjects });
 
   } catch (error) {
-    console.error('Users API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -142,7 +134,7 @@ export async function POST(request) {
         error: 'Invalid role. Must be one of: ' + validRoles.join(', ') 
       }, { status: 400 });
     }
-    
+
     // Create Supabase client with service role
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -185,7 +177,7 @@ export async function POST(request) {
     });
 
     if (createError) {
-      console.error('Error creating user:', createError);
+
       return NextResponse.json({ 
         error: createError.message || 'Failed to create user' 
       }, { status: 400 });
@@ -202,12 +194,9 @@ export async function POST(request) {
       });
 
     if (profileError) {
-      console.error('Error creating profile:', profileError);
       // Try to delete the user if profile creation failed
       await supabase.auth.admin.deleteUser(newUser.user.id);
-      return NextResponse.json({ 
-        error: 'Failed to create user profile' 
-      }, { status: 500 });
+      return handleDatabaseError(profileError, 'Failed to create user profile');
     }
 
     // If role is client and project_id is provided, add them as stakeholder
@@ -222,7 +211,7 @@ export async function POST(request) {
         });
 
       if (stakeholderError) {
-        console.error('Error adding stakeholder:', stakeholderError);
+
         // Don't fail the whole operation, just log the error
       }
     }
@@ -239,7 +228,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Create user API error:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -289,7 +278,7 @@ export async function PATCH(request) {
     // Update the profile
     const allowedUpdates = ['full_name', 'role'];
     const profileUpdates = {};
-    
+
     for (const key of allowedUpdates) {
       if (updates[key] !== undefined) {
         profileUpdates[key] = updates[key];
@@ -303,8 +292,7 @@ export async function PATCH(request) {
         .eq('id', user_id);
 
       if (updateError) {
-        console.error('Error updating profile:', updateError);
-        return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+        return handleDatabaseError(updateError, 'Failed to update user');
       }
     }
 
@@ -316,8 +304,7 @@ export async function PATCH(request) {
       );
 
       if (emailError) {
-        console.error('Error updating email:', emailError);
-        return NextResponse.json({ error: 'Failed to update email' }, { status: 500 });
+        return handleDatabaseError(emailError, 'Failed to update email');
       }
 
       // Also update email in profiles table
@@ -335,15 +322,14 @@ export async function PATCH(request) {
       );
 
       if (passwordError) {
-        console.error('Error updating password:', passwordError);
-        return NextResponse.json({ error: 'Failed to update password' }, { status: 500 });
+        return handleDatabaseError(passwordError, 'Failed to update password');
       }
     }
 
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('Update user API error:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -399,14 +385,13 @@ export async function DELETE(request) {
     const { error: deleteError } = await supabase.auth.admin.deleteUser(user_id);
 
     if (deleteError) {
-      console.error('Error deleting user:', deleteError);
-      return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
+      return handleDatabaseError(deleteError, 'Failed to delete user');
     }
 
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('Delete user API error:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

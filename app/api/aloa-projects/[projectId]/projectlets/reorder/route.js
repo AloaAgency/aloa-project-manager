@@ -14,7 +14,7 @@ export async function POST(request, { params }) {
       .order('order_index', { ascending: true });
 
     if (fetchError) {
-      console.error('Error fetching projectlets:', fetchError);
+
       return NextResponse.json(
         { error: 'Failed to fetch projectlets' },
         { status: 500 }
@@ -50,7 +50,7 @@ export async function POST(request, { params }) {
         .eq('id', update.id);
 
       if (updateError) {
-        console.error('Error updating projectlet order:', updateError);
+
         return NextResponse.json(
           { error: 'Failed to update projectlet order' },
           { status: 500 }
@@ -75,7 +75,7 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error reordering projectlets:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

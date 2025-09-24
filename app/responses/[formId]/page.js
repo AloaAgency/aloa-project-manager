@@ -38,7 +38,7 @@ function ResponsesPage() {
       setForm(formData);
       setResponses(responsesData.responses || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
+
       toast.error('Failed to load responses');
       router.push('/dashboard');
     } finally {
@@ -64,7 +64,7 @@ function ResponsesPage() {
       // Remove the deleted response from the list
       setResponses(responses.filter(r => r.id !== responseId));
     } catch (error) {
-      console.error('Error deleting response:', error);
+
       toast.error('Failed to delete response');
     }
   };
@@ -202,19 +202,19 @@ function ResponsesPage() {
                         f.name?.toLowerCase().includes('email') || 
                         f.label?.toLowerCase().includes('email')
                       );
-                      
+
                       const nameValue = nameField ? 
                         (response.response_data instanceof Map ? 
                           response.response_data.get(nameField.name) : 
                           (response.response_data ? response.response_data[nameField.name] : response.data[nameField.name])) : null;
-                      
+
                       const emailValue = emailField ? 
                         (response.response_data instanceof Map ? 
                           response.response_data.get(emailField.name) : 
                           (response.response_data ? response.response_data[emailField.name] : response.data[emailField.name])) : null;
-                      
+
                       const displayValue = nameValue || emailValue;
-                      
+
                       if (displayValue) {
                         return (
                           <p className="text-xs font-body text-aloa-gray mt-1">
@@ -263,7 +263,7 @@ function ResponsesPage() {
                         if (!value || (Array.isArray(value) && value.length === 0)) {
                           return null;
                         }
-                        
+
                         return (
                           <div key={field.id} className="bg-aloa-sand p-3">
                             <p className="text-xs font-display uppercase tracking-wider text-aloa-gray mb-1">

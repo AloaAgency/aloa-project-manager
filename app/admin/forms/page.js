@@ -45,13 +45,13 @@ function AdminFormsPageContent() {
     try {
       const response = await fetch('/api/aloa-forms');
       const data = await response.json();
-      
+
       if (data.forms) {
         setForms(data.forms);
         calculateStats(data.forms);
       }
     } catch (error) {
-      console.error('Error fetching forms:', error);
+
     } finally {
       setLoading(false);
     }
@@ -82,7 +82,7 @@ function AdminFormsPageContent() {
         fetchForms();
       }
     } catch (error) {
-      console.error('Error deleting form:', error);
+
     }
   };
 
@@ -96,7 +96,7 @@ function AdminFormsPageContent() {
         fetchForms();
       }
     } catch (error) {
-      console.error('Error duplicating form:', error);
+
     }
   };
 
@@ -178,7 +178,7 @@ function AdminFormsPageContent() {
               <FileText className="w-10 h-10 text-gray-400" />
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
@@ -188,7 +188,7 @@ function AdminFormsPageContent() {
               <CheckCircle className="w-10 h-10 text-green-400" />
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
@@ -198,7 +198,7 @@ function AdminFormsPageContent() {
               <Edit className="w-10 h-10 text-yellow-400" />
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
@@ -208,7 +208,7 @@ function AdminFormsPageContent() {
               <XCircle className="w-10 h-10 text-red-400" />
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
@@ -233,7 +233,7 @@ function AdminFormsPageContent() {
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
               />
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Filter className="w-5 h-5 text-gray-600" />
               <select
@@ -247,7 +247,7 @@ function AdminFormsPageContent() {
                 <option value="closed">Closed</option>
               </select>
             </div>
-            
+
             <button
               onClick={() => router.push('/create')}
               className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 flex items-center"
@@ -263,7 +263,7 @@ function AdminFormsPageContent() {
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-bold">All Forms ({filteredForms.length})</h2>
           </div>
-          
+
           {filteredForms.length === 0 ? (
             <div className="p-12 text-center">
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -398,7 +398,7 @@ function AdminFormsPageContent() {
               Use AI to quickly generate forms based on your requirements
             </p>
           </button>
-          
+
           <button
             onClick={() => router.push('/dashboard')}
             className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow text-left group"
@@ -409,7 +409,7 @@ function AdminFormsPageContent() {
               View and manage all forms in the standard dashboard
             </p>
           </button>
-          
+
           <button
             onClick={() => {
               const csvContent = forms.map(f => 

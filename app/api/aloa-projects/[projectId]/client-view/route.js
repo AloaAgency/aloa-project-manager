@@ -8,7 +8,6 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId') || 'anonymous';
     
-    console.log(`Fetching client view for project: ${projectId}, user: ${userId}`);
 
     // Fetch project details
     const { data: project, error: projectError } = await supabase
@@ -18,7 +17,6 @@ export async function GET(request, { params }) {
       .single();
 
     if (projectError) {
-      console.error('Error fetching project:', projectError);
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
@@ -61,7 +59,6 @@ export async function GET(request, { params }) {
       .order('order_index', { ascending: true });
 
     if (projectletsError) {
-      console.error('Error fetching projectlets:', projectletsError);
       return NextResponse.json({ error: 'Failed to fetch projectlets' }, { status: 500 });
     }
 
@@ -71,14 +68,7 @@ export async function GET(request, { params }) {
       applets: projectlet.applets?.sort((a, b) => a.order_index - b.order_index).map(applet => {
         // Debug log for Pig applet
         if (applet.name?.toLowerCase().includes('pig')) {
-          console.log('Server - Pig applet config:', {
-            id: applet.id,
-            name: applet.name,
-            config: applet.config,
-            configType: typeof applet.config,
-            configFiles: applet.config?.files,
-            configFilesType: typeof applet.config?.files
-          });
+          // Log Pig applet configuration for debugging
         }
         return applet;
       }) || []
@@ -92,22 +82,9 @@ export async function GET(request, { params }) {
       .eq('user_id', userId);
 
     if (progressError) {
-      console.error('Error fetching user progress:', progressError);
     }
 
-    console.log('User progress fetched for GET:', {
-      userId,
-      projectId,
-      count: userProgress?.length,
-      paletteProgress: userProgress?.filter(p => {
-        const applet = sortedProjectlets.flatMap(pl => pl.applets).find(a => a.id === p.applet_id);
-        return applet?.type === 'palette_cleanser';
-      }).map(p => ({
-        appletId: p.applet_id,
-        status: p.status,
-        completed_at: p.completed_at
-      }))
-    });
+    // User progress fetched for GET - processing palette progress
 
     // Create a map of user progress by applet ID
     const progressMap = {};
@@ -129,21 +106,13 @@ export async function GET(request, { params }) {
 
           // Debug log for palette cleanser
           if (applet.type === 'palette_cleanser') {
-            console.log('Palette cleanser progress applied:', {
-              appletId: applet.id,
-              name: applet.name,
-              progressStatus: userAppletProgress.status,
-              progressCompletedAt: userAppletProgress.completed_at,
-              appliedUserStatus: applet.user_status,
-              appliedUserCompletedAt: applet.user_completed_at
-            });
+            // Palette cleanser progress applied for debugging
           }
         } else {
           applet.user_status = 'not_started';
           applet.user_completion_percentage = 0;
 
           if (applet.type === 'palette_cleanser') {
-            console.log('No progress found for palette cleanser:', applet.id);
           }
         }
         if (applet.type === 'form' && applet.form_id) {
@@ -202,16 +171,6 @@ export async function GET(request, { params }) {
     }
 
     // Debug: Log all projectlets and their status
-    console.log('All projectlets:', sortedProjectlets.map(p => ({
-      name: p.name,
-      status: p.status,
-      appletCount: p.applets.length,
-      applets: p.applets.map(a => ({
-        name: a.name,
-        user_status: a.user_status,
-        type: a.type
-      }))
-    })));
 
     // For locked projectlets with no applets, estimate they will have at least 1 applet each
     // This ensures they're counted in the overall project scope
@@ -229,9 +188,7 @@ export async function GET(request, { params }) {
       p.applets.forEach(a => {
         if (a.user_status === 'completed' || a.user_status === 'approved') {
           completedCount++;
-          console.log(`Counting as completed: ${a.name} (status: ${a.user_status})`);
         } else {
-          console.log(`Not completed: ${a.name} (status: ${a.user_status})`);
         }
       });
     });
@@ -240,7 +197,6 @@ export async function GET(request, { params }) {
     // Calculate progress based on estimated total to include locked projectlets in scope
     const progressPercentage = estimatedTotalApplets > 0 ? Math.round((completedApplets / estimatedTotalApplets) * 100) : 0;
     
-    console.log(`Calculation Debug - Total Projectlets: ${sortedProjectlets.length} (${sortedProjectlets.filter(p => p.status === 'locked').length} locked), Estimated Total Applets: ${estimatedTotalApplets}, Completed: ${completedApplets}, Percentage: ${progressPercentage}%`);
     
     // Also track projectlet completion for reference
     const totalProjectlets = sortedProjectlets.length;
@@ -258,7 +214,6 @@ export async function GET(request, { params }) {
       }
     }
 
-    console.log(`Client view data - Applets: ${completedApplets}/${estimatedTotalApplets} (${progressPercentage}%), Projectlets: ${completedProjectlets}/${totalProjectlets}`);
 
     return NextResponse.json({ 
       project,
@@ -270,7 +225,6 @@ export async function GET(request, { params }) {
       }
     });
   } catch (error) {
-    console.error('Error in client-view route:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -281,7 +235,6 @@ export async function POST(request, { params }) {
     const { projectId } = params;
     const { appletId, status, interactionType, data, userId = 'anonymous' } = await request.json();
 
-    console.log(`Client interaction - Project: ${projectId}, Applet: ${appletId}, User: ${userId}, Type: ${interactionType}, Status: ${status}`);
 
     // Get stakeholder importance if userId is a valid UUID
     let stakeholderImportance = 5; // Default importance
@@ -298,7 +251,6 @@ export async function POST(request, { params }) {
       if (stakeholder) {
         stakeholderImportance = stakeholder.importance_score || 5;
         stakeholderId = stakeholder.id;
-        console.log(`Found stakeholder importance: ${stakeholderImportance} for user ${userId}`);
       }
     }
 
@@ -306,16 +258,8 @@ export async function POST(request, { params }) {
     const finalStatus = (interactionType === 'palette_submit' || interactionType === 'submission') ? 'completed' : status;
     const completionPercentage = finalStatus === 'completed' ? 100 : (status === 'in_progress' ? 50 : null);
 
-    console.log(`Updating progress with: status=${finalStatus}, completion=${completionPercentage}`);
 
     // Update user-specific applet progress
-    console.log('Calling update_applet_progress with:', {
-      p_applet_id: appletId,
-      p_user_id: userId,
-      p_project_id: projectId,
-      p_status: finalStatus,
-      p_completion_percentage: completionPercentage
-    });
 
     const { data: userProgress, error: progressError } = await supabase
       .rpc('update_applet_progress', {
@@ -327,17 +271,14 @@ export async function POST(request, { params }) {
         p_form_progress: data?.form_progress || null
       });
 
-    console.log('RPC response:', { userProgress, progressError });
 
     if (progressError) {
-      console.error('Error updating user progress:', progressError);
       return NextResponse.json({ error: 'Failed to update progress' }, { status: 500 });
     }
 
     // Verify the update actually happened
     if (finalStatus === 'completed' && userProgress) {
       if (!userProgress.completed_at) {
-        console.warn('WARNING: RPC returned but completed_at is null!');
         // Try to update directly as a fallback
         const { data: directUpdate, error: directError } = await supabase
           .from('aloa_applet_progress')
@@ -355,22 +296,13 @@ export async function POST(request, { params }) {
           .single();
 
         if (directError) {
-          console.error('Direct update also failed:', directError);
         } else {
-          console.log('Direct update succeeded:', directUpdate);
           userProgress.completed_at = directUpdate.completed_at;
         }
       }
     }
 
-    console.log('User progress updated successfully:', {
-      userProgress,
-      status: finalStatus,
-      completion: completionPercentage,
-      appletId,
-      userId,
-      completed_at: userProgress?.completed_at
-    });
+    // User progress updated successfully
 
     // For form applets, update status based on form state
     if (interactionType === 'form_submit' && status === 'completed') {
@@ -404,7 +336,6 @@ export async function POST(request, { params }) {
           .eq('id', appletId);
         
         if (appletError) {
-          console.error('Error updating applet status:', appletError);
         }
       }
     } else if (status === 'completed' && interactionType !== 'form_submit') {
@@ -421,7 +352,6 @@ export async function POST(request, { params }) {
         .eq('id', appletId);
       
       if (appletError) {
-        console.error('Error updating applet default status:', appletError);
       }
     }
 
@@ -439,7 +369,6 @@ export async function POST(request, { params }) {
       .single();
 
     if (interactionError) {
-      console.error('Error recording interaction:', interactionError);
       // Don't fail the request if interaction logging fails
     } else if (interactionRecord) {
       // Trigger knowledge extraction for completed interactions
@@ -455,7 +384,6 @@ export async function POST(request, { params }) {
             })
           });
         } catch (extractError) {
-          console.error('Error triggering knowledge extraction:', extractError);
           // Don't fail the request if extraction fails
         }
       }
@@ -488,7 +416,6 @@ export async function POST(request, { params }) {
             .update({ status: 'completed' })
             .eq('id', applet.projectlet_id);
           
-          console.log(`Projectlet ${applet.projectlet_id} marked as completed`);
         }
       }
     }
@@ -506,12 +433,7 @@ export async function POST(request, { params }) {
         .eq('user_id', userId)
         .single();
 
-      console.log('Verification after update:', {
-        appletId,
-        userId,
-        savedStatus: verifyData?.status,
-        savedCompletedAt: verifyData?.completed_at
-      });
+      // Verification after update completed
     }
 
     return NextResponse.json({
@@ -519,7 +441,6 @@ export async function POST(request, { params }) {
       progress: userProgress
     });
   } catch (error) {
-    console.error('Error in client interaction:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

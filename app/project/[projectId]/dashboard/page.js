@@ -111,7 +111,7 @@ function ClientDashboard() {
     const getAuthenticatedUser = async () => {
       const supabase = createClient();
       const { data: { user }, error } = await supabase.auth.getUser();
-      
+
       if (user) {
         setUserId(user.id);
 
@@ -126,7 +126,6 @@ function ClientDashboard() {
           setUserRole(profile.role);
         }
       } else {
-        console.error('No authenticated user found:', error);
         // Fallback to localStorage for anonymous users (shouldn't happen with AuthGuard)
         const storedUserId = localStorage.getItem('client_user_id');
         if (storedUserId) {
@@ -138,7 +137,7 @@ function ClientDashboard() {
         }
       }
     };
-    
+
     getAuthenticatedUser();
   }, []);
 
@@ -186,15 +185,11 @@ function ClientDashboard() {
 
   const fetchProjectData = async () => {
     try {
-      console.log('fetchProjectData called with userId:', userId);
       // Fetch project data and projectlets from client-view endpoint with user ID
       const response = await fetch(`/api/aloa-projects/${params.projectId}/client-view?userId=${userId}`);
       const data = await response.json();
 
-      console.log('fetchProjectData response received:', {
-        projectlets: data.projectlets?.length,
-        totalApplets: data.projectlets?.reduce((sum, p) => sum + (p.applets?.length || 0), 0)
-      });
+      // Response received - processing project data
 
       setProject(data.project);
       setProjectlets(data.projectlets || []);
@@ -209,15 +204,7 @@ function ClientDashboard() {
 
           // Debug logging for palette cleanser applets
           if (applet.type === 'palette_cleanser') {
-            console.log('Palette Cleanser Fetch Data:', {
-              appletId: applet.id,
-              name: applet.name,
-              user_status: applet.user_status,
-              user_completed_at: applet.user_completed_at,
-              user_started_at: applet.user_started_at,
-              isLocked: applet.config?.locked,
-              willBeInCompletedSet: status === 'completed' || status === 'approved'
-            });
+            // Palette Cleanser data logged for debugging
           }
 
           if (status === 'completed' || status === 'approved') {
@@ -232,9 +219,8 @@ function ClientDashboard() {
           }
         });
       });
-      console.log('Setting completedApplets from server:', Array.from(completed));
       setCompletedApplets(completed);
-      
+
       // Fetch all form responses for this user to properly track submissions
       try {
         const formIds = new Set();
@@ -245,7 +231,7 @@ function ClientDashboard() {
             }
           });
         });
-        
+
         // Fetch responses for all forms
         const formResponses = {};
         for (const formId of formIds) {
@@ -258,12 +244,9 @@ function ClientDashboard() {
           }
         }
         setUserFormResponses(formResponses);
-        console.log('User form responses loaded:', formResponses);
       } catch (error) {
-        console.error('Error fetching form responses:', error);
       }
     } catch (error) {
-      console.error('Error fetching project:', error);
     } finally {
       setLoading(false);
     }
@@ -313,29 +296,27 @@ function ClientDashboard() {
     if (applet.type === 'form') {
       // Check for form_id in multiple places
       const formId = applet.form_id || applet.config?.form_id;
-      
+
       if (!formId) {
-        console.error('No form_id found for applet:', applet);
         alert('This form is not properly configured. Please contact support.');
         return;
       }
-      
+
       // Set view-only mode if form is locked (isViewOnly parameter is true)
       setIsFormViewOnly(isViewOnly);
-      
+
       // If user has already completed this form, get their previous responses
       let previousResponses = null;
       if (userHasCompleted && userFormResponses[formId]) {
         previousResponses = userFormResponses[formId].response_data;
-        console.log('Loaded previous responses for', isViewOnly ? 'viewing' : 'editing', ':', previousResponses);
       }
-      
+
       // Use form data from applet if available, otherwise fetch
       if (applet.form) {
         // Transform the preloaded form data to match MultiStepFormRenderer's expected structure
         const form = applet.form;
         const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
-        
+
         const transformedForm = {
           ...form,
           _id: form.id,
@@ -353,13 +334,10 @@ function ClientDashboard() {
             validation: field.validation
           }))
         };
-        
-        console.log('Transformed preloaded form:', transformedForm);
-        console.log('Form fields count:', transformedForm.fields?.length);
-        console.log('Form fields:', transformedForm.fields);
+
         setFormData(transformedForm);
         setSelectedApplet({ ...applet, projectlet, form_id: applet.form_id || applet.config?.form_id });
-        
+
         // If we have previous responses, set them as saved progress
         if (previousResponses) {
           setFormProgress(prev => ({
@@ -367,7 +345,7 @@ function ClientDashboard() {
             [formId]: { data: previousResponses }
           }));
         }
-        
+
         setShowFormModal(true);
       } else {
         try {
@@ -376,11 +354,10 @@ function ClientDashboard() {
             throw new Error(`Failed to fetch form: ${formRes.status}`);
           }
           const form = await formRes.json();
-          console.log('Fetched form:', form);
-          
+
           // Transform the form data to match MultiStepFormRenderer's expected structure
           const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
-          
+
           const transformedForm = {
             ...form,
             _id: form.id,
@@ -398,11 +375,10 @@ function ClientDashboard() {
               validation: field.validation
             }))
           };
-          
-          console.log('Transformed form:', transformedForm);
+
           setFormData(transformedForm);
           setSelectedApplet({ ...applet, projectlet, form_id: formId });
-          
+
           // If we have previous responses, set them as saved progress
           if (previousResponses) {
             setFormProgress(prev => ({
@@ -410,10 +386,9 @@ function ClientDashboard() {
               [formId]: { data: previousResponses }
             }));
           }
-          
+
           setShowFormModal(true);
         } catch (error) {
-          console.error('Error fetching form:', error);
           alert('Unable to load the form. Please try again later.');
         }
       }
@@ -423,14 +398,6 @@ function ClientDashboard() {
       setShowLinkSubmissionModal(true);
     } else if (isFileUpload) {
       // Handle file upload applet
-      console.log('Debug - File Upload Click:', {
-        appletId: applet.id,
-        appletName: applet.name,
-        appletType: applet.type,
-        appletConfig: applet.config,
-        configFiles: applet.config?.files,
-        configFilesType: typeof applet.config?.files
-      });
 
       // Files can be in two places: config.files or aloa_project_files table
       const fetchFiles = async () => {
@@ -444,17 +411,13 @@ function ClientDashboard() {
             if (typeof filesField === 'string') {
               try {
                 configFiles = JSON.parse(filesField);
-                console.log('Debug - Parsed files from string config:', configFiles);
               } catch (e) {
-                console.error('Failed to parse files string:', e, 'Raw string:', filesField);
                 configFiles = [];
               }
             } else if (Array.isArray(filesField)) {
               configFiles = filesField;
-              console.log('Debug - Files already array in config:', configFiles);
             } else if (typeof filesField === 'object') {
               // Handle object format - might be a single file or an object with array property
-              console.log('Debug - Files is an object:', filesField);
               // Check if it's an object with a files array inside
               if (filesField.files && Array.isArray(filesField.files)) {
                 configFiles = filesField.files;
@@ -464,14 +427,10 @@ function ClientDashboard() {
                 // Try to extract values from object
                 configFiles = Object.values(filesField);
               }
-              console.log('Debug - Extracted from object:', configFiles);
             } else {
-              console.log('Debug - Config files is unknown type:', typeof filesField, filesField);
             }
           } else {
-            console.log('Debug - No files in applet config (checked both files and attached_files)');
           }
-          console.log('Debug - Final config files:', configFiles);
 
           // Also fetch from aloa_project_files table
           const response = await fetch(`/api/project-files?applet_id=${applet.id}`);
@@ -480,7 +439,6 @@ function ClientDashboard() {
           if (response.ok) {
             const data = await response.json();
             apiFiles = data.files || [];
-            console.log('Debug - Files from API:', apiFiles);
           }
 
           // Merge both sources
@@ -502,8 +460,6 @@ function ClientDashboard() {
             }
           });
 
-          console.log('Debug - Total files combined:', allFiles);
-
           // Update the applet with all files
           const updatedApplet = {
             ...applet,
@@ -514,17 +470,11 @@ function ClientDashboard() {
             }
           };
 
-          console.log('Debug - Updated applet before setting:', {
-            id: updatedApplet.id,
-            name: updatedApplet.name,
-            configFiles: updatedApplet.config?.files,
-            filesCount: updatedApplet.config?.files?.length
-          });
+          // Updated applet before setting
 
           setSelectedApplet(updatedApplet);
           setShowFileUploadModal(true);
         } catch (error) {
-          console.error('Error fetching files:', error);
           // Still show modal with config files if fetch fails
           setSelectedApplet({ ...applet, projectlet });
           setShowFileUploadModal(true);
@@ -590,7 +540,7 @@ function ClientDashboard() {
       });
 
       if (!responseResult.ok) {
-        console.error('Failed to submit form response:', await responseResult.text());
+        // Failed to submit form response
       }
 
       // Mark applet as completed for this user
@@ -607,7 +557,6 @@ function ClientDashboard() {
       });
 
       if (!updateResult.ok) {
-        console.error('Failed to update applet status:', await updateResult.text());
         throw new Error('Failed to mark form as completed');
       }
 
@@ -615,7 +564,7 @@ function ClientDashboard() {
       const newCompleted = new Set(completedApplets);
       newCompleted.add(selectedApplet.id);
       setCompletedApplets(newCompleted);
-      
+
       // Update form responses state to track this submission
       const formId = selectedApplet.form_id || selectedApplet.form?.id;
       if (formId) {
@@ -626,7 +575,7 @@ function ClientDashboard() {
             submitted_at: new Date().toISOString()
           }
         }));
-        
+
         // Clear saved progress for this form since it's completed
         setFormProgress(prev => {
           const newProgress = { ...prev };
@@ -643,7 +592,7 @@ function ClientDashboard() {
       // Refresh data to get updated status from server
       fetchProjectData();
     } catch (error) {
-      console.error('Error submitting form:', error);
+
       alert('There was an error submitting the form. Please try again.');
     }
   };
@@ -678,7 +627,7 @@ function ClientDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <ConfettiCelebration show={showConfetti} duration={6000} />
-      
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -687,7 +636,7 @@ function ClientDashboard() {
               <h1 className="text-3xl font-bold text-gray-900">{project?.project_name || project?.name || 'Project Dashboard'}</h1>
               <p className="text-sm text-gray-600 mt-1">Welcome to your project workspace</p>
             </div>
-            
+
             {/* Progress Ring */}
             <div className="relative">
               <svg className="w-20 h-20 transform -rotate-90">
@@ -758,7 +707,7 @@ function ClientDashboard() {
               <CheckCircle className="w-8 h-8 text-green-500" />
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -782,7 +731,7 @@ function ClientDashboard() {
               <Clock className="w-8 h-8 text-yellow-500" />
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -794,7 +743,7 @@ function ClientDashboard() {
               <Lock className="w-8 h-8 text-gray-500" />
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -811,12 +760,12 @@ function ClientDashboard() {
           /* Projectlets Timeline */
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-900">Your Project Journey</h2>
-          
+
           {projectlets.map((projectlet, index) => {
             const isLocked = projectlet.status === 'locked';
             const isCompleted = projectlet.status === 'completed';
             const applets = projectlet.applets || [];
-            
+
             // Check if projectlet is in progress (has started applets but not all complete)
             const hasStartedApplets = applets.some(applet => {
               const status = applet.user_status || applet.status;
@@ -827,7 +776,7 @@ function ClientDashboard() {
               return status === 'completed' || status === 'approved';
             });
             const isInProgress = hasStartedApplets && !allAppletsComplete;
-            
+
             return (
               <div
                 key={projectlet.id}
@@ -861,7 +810,7 @@ function ClientDashboard() {
                         )}
                       </div>
                     </div>
-                    
+
                     {projectlet.deadline && (
                       <div className="text-sm text-gray-500">
                         Due: {new Date(projectlet.deadline).toLocaleDateString()}
@@ -892,7 +841,7 @@ function ClientDashboard() {
                         const formIsLocked = isForm && applet.form?.status === 'closed';
                         // Check actual form submissions, not just applet status
                         const userHasSubmitted = isForm && formId && userFormResponses[formId];
-                        
+
                         // Determine display state
                         let buttonState = 'available';
                         let statusMessage = null;
@@ -1045,19 +994,6 @@ function ClientDashboard() {
                           const paletteIsLocked = applet.config?.locked === true;
 
                           // Debug logging for palette cleanser
-                          console.log('Debug - Palette Cleanser State:', {
-                            appletId: applet.id,
-                            name: applet.name,
-                            user_started_at: applet.user_started_at,
-                            user_completed_at: applet.user_completed_at,
-                            isInProgress,
-                            isAppletCompleted,
-                            paletteIsLocked,
-                            buttonStateWillBe: isAppletCompleted && paletteIsLocked ? 'completed-locked' :
-                                               isAppletCompleted && !paletteIsLocked ? 'user-complete-editable' :
-                                               isInProgress && !paletteIsLocked ? 'in-progress-editing' :
-                                               paletteIsLocked ? 'locked' : 'available'
-                          });
 
                           if (isAppletCompleted && paletteIsLocked) {
                             buttonState = 'completed-locked';
@@ -1150,7 +1086,7 @@ function ClientDashboard() {
                                   ) : null}
                                 </div>
                               </div>
-                              
+
                               {buttonState === 'locked' ? (
                                 <Lock className="w-5 h-5 text-gray-500" />
                               ) : buttonState === 'user-complete-editable' ? (
@@ -1170,11 +1106,7 @@ function ClientDashboard() {
                               ) : (
                                 <div className="text-purple-600">
                                   {(() => {
-                                    console.log(`Final button text for ${applet.name}:`, {
-                                      buttonState,
-                                      type: applet.type,
-                                      isInProgress: applet.user_started_at && !applet.user_completed_at
-                                    });
+
                                     // Check if applet is in progress (started but not completed)
                                     const isInProgress = applet.user_started_at && !applet.user_completed_at;
                                     if (isInProgress) {
@@ -1247,7 +1179,7 @@ function ClientDashboard() {
                 <p className="mt-2 text-gray-600">{selectedApplet.config.description}</p>
               )}
             </div>
-            
+
             <div className="p-6">
               {selectedApplet.config?.links && selectedApplet.config.links.length > 0 ? (
                 <div className="space-y-4">
@@ -1275,7 +1207,7 @@ function ClientDashboard() {
               ) : (
                 <p className="text-gray-500 text-center py-8">No links available yet.</p>
               )}
-              
+
               {selectedApplet.config?.allow_client_acknowledgment && (
                 <div className="mt-6 pt-6 border-t">
                   {completedApplets.has(selectedApplet.id) || selectedApplet.user_status === 'completed' ? (
@@ -1306,15 +1238,15 @@ function ClientDashboard() {
                             data: { acknowledged: true, acknowledgedAt: new Date().toISOString() }
                           })
                         });
-                        
+
                         // Update local state
                         setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
                         setShowLinkSubmissionModal(false);
-                        
+
                         // Trigger confetti celebration
                         setShowConfetti(true);
                         setTimeout(() => setShowConfetti(false), 7000);
-                        
+
                         // Refresh project data
                         fetchProjectData();
                       }}
@@ -1363,29 +1295,19 @@ function ClientDashboard() {
                     try {
                       filesArray = JSON.parse(filesField);
                     } catch (e) {
-                      console.error('Failed to parse files:', e);
+
                     }
                   } else if (Array.isArray(filesField)) {
                     filesArray = filesField;
                   }
                 }
 
-                console.log('Debug - File Upload Modal Data:', {
-                  appletId: selectedApplet?.id,
-                  appletName: selectedApplet?.name,
-                  config: selectedApplet?.config,
-                  rawFiles: selectedApplet?.config?.files,
-                  parsedFiles: filesArray,
-                  filesLength: filesArray?.length,
-                  filesType: typeof selectedApplet?.config?.files
-                });
-
                 return filesArray && filesArray.length > 0 ? (
                 <div className="space-y-3">
                   {filesArray.map((file, idx) => {
                     // Handle different file structures
                     if (!file || typeof file !== 'object') {
-                      console.log('Debug - Invalid file object:', file);
+
                       return null;
                     }
                     const getFileIcon = (fileName) => {
@@ -1399,7 +1321,7 @@ function ClientDashboard() {
                       if (ext === 'zip' || ext === 'rar') return '📦';
                       return '📎';
                     };
-                    
+
                     const formatFileSize = (bytes) => {
                       if (!bytes || bytes === 0) return '0 Bytes';
                       const k = 1024;
@@ -1407,7 +1329,7 @@ function ClientDashboard() {
                       const i = Math.floor(Math.log(bytes) / Math.log(k));
                       return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
                     };
-                    
+
                     return (
                       <div key={idx} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between">
@@ -1439,10 +1361,10 @@ function ClientDashboard() {
                                     body: JSON.stringify({ id: file.id, increment_download: true })
                                   });
                                 } catch (err) {
-                                  console.log('Download tracking failed:', err);
+
                                 }
                               }
-                              
+
                               // Handle different storage types
                               if (file.storage_type === 'supabase' && file.url) {
                                 // Supabase Storage file
@@ -1469,7 +1391,7 @@ function ClientDashboard() {
                       </div>
                     );
                   })}
-                  
+
                   {/* Mark as Reviewed Button */}
                   {!completedApplets.has(selectedApplet.id) && (
                     <button
@@ -1490,9 +1412,9 @@ function ClientDashboard() {
                         });
 
                         if (!response.ok) {
-                          console.error('Failed to update applet progress');
+
                         }
-                        
+
                         // Update local state immediately
                         setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
 
@@ -1522,7 +1444,7 @@ function ClientDashboard() {
                       Mark Files as Reviewed
                     </button>
                   )}
-                  
+
                   {/* Show when already reviewed */}
                   {completedApplets.has(selectedApplet.id) && (
                     <div className="text-center py-3 bg-green-50 text-green-700 rounded-lg font-medium">
@@ -1538,7 +1460,7 @@ function ClientDashboard() {
                 </div>
               );
               })()}
-              
+
               {/* Allow client upload if enabled */}
               {selectedApplet.config?.allow_client_upload && (
                 <div className="mt-6 pt-6 border-t">
@@ -1550,7 +1472,7 @@ function ClientDashboard() {
                       onChange={async (e) => {
                         const file = e.target.files[0];
                         if (!file) return;
-                        
+
                         // TODO: Implement client file upload
                         alert('Client file upload coming soon!');
                       }}
@@ -1582,13 +1504,10 @@ function ClientDashboard() {
             setIsPaletteCleanserViewOnly(false);
           }}
           onComplete={async (data) => {
-            console.log('Palette cleanser onComplete called with data:', data);
-            console.log('Selected applet ID:', selectedApplet.id);
 
             // Update local state to show completion
             setCompletedApplets(prev => {
               const newSet = new Set([...prev, selectedApplet.id]);
-              console.log('Updated completedApplets set:', Array.from(newSet));
               return newSet;
             });
 
@@ -1603,9 +1522,7 @@ function ClientDashboard() {
 
               // Wait a bit more before refreshing to ensure database transaction is complete
               setTimeout(async () => {
-                console.log('Refreshing project data after palette completion');
                 await fetchProjectData();
-                console.log('After refresh - completedApplets:', Array.from(completedApplets));
               }, 1000); // Wait 1 second after modal closes
             }, 1500);
           }}
@@ -1639,7 +1556,7 @@ function ClientDashboard() {
                 websiteUrl={project?.metadata?.website_url}
                 onAutoSave={async (sitemapData) => {
                   // Auto-save progress
-                  console.log('onAutoSave called with:', sitemapData);
+
                   try {
                     const response = await fetch(`/api/aloa-applets/${selectedApplet.id}`, {
                       method: 'PATCH',
@@ -1653,16 +1570,15 @@ function ClientDashboard() {
                     });
 
                     if (!response.ok) {
-                      console.error('Auto-save failed - API returned:', response.status);
+
                       throw new Error(`API error: ${response.status}`);
                     }
 
                     const result = await response.json();
-                    console.log('Auto-save API call successful, response:', result);
 
                     // Update the selectedApplet with the new config
                     if (result.applet) {
-                      console.log('Updating selectedApplet with new config:', result.applet.config);
+
                       setSelectedApplet(prevApplet => ({
                         ...prevApplet,
                         config: {
@@ -1697,7 +1613,7 @@ function ClientDashboard() {
                       });
                     }
                   } catch (error) {
-                    console.error('Auto-save failed:', error);
+
                   }
                 }}
                 onSave={async (sitemapData) => {
@@ -1740,7 +1656,7 @@ function ClientDashboard() {
                       }, 1500);
                     }
                   } catch (error) {
-                    console.error('Error saving sitemap:', error);
+
                     alert('Failed to save sitemap. Please try again.');
                   }
                 }}
@@ -1873,7 +1789,7 @@ function ClientDashboard() {
                           }, 1500);
                         }
                       } catch (error) {
-                        console.error('Error acknowledging report:', error);
+
                       }
                     }}
                     className="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
@@ -1961,7 +1877,7 @@ function FormModal({ form, onSubmit, onClose, savedProgress, onProgressUpdate, i
     Object.keys(responses).forEach(key => {
       transformedResponses[key] = responses[key];
     });
-    
+
     // Call the parent onSubmit handler
     await onSubmit(transformedResponses);
     onClose();
@@ -1977,7 +1893,7 @@ function FormModal({ form, onSubmit, onClose, savedProgress, onProgressUpdate, i
           >
             <X className="w-5 h-5" />
           </button>
-          
+
           <div className="p-6">
             <MultiStepFormRenderer 
               form={form} 

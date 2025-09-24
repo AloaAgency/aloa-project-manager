@@ -23,14 +23,14 @@ async function getForm(urlId) {
       `)
       .eq('url_id', urlId)
       .single();
-    
+
     if (error || !form) {
       return null;
     }
-    
+
     // Format aloa_form response
     const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
-    
+
     return {
       ...form,
       _id: form.id,
@@ -50,14 +50,14 @@ async function getForm(urlId) {
       responseCount: 0
     };
   } catch (error) {
-    console.error('Error fetching form:', error);
+
     return null;
   }
 }
 
 export async function generateMetadata({ params }) {
   const form = await getForm(params.urlId);
-  
+
   if (!form) {
     return {
       title: 'Form Not Found - Aloa Custom Forms',
@@ -69,7 +69,7 @@ export async function generateMetadata({ params }) {
   const description = form.description || 'Please take a moment to complete this brief survey.';
   const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://custom-forms.vercel.app';
   const formUrl = `${siteUrl}/forms/${params.urlId}`;
-  
+
   return {
     title: `${title} - Aloa® Agency`,
     description: description,
@@ -108,10 +108,10 @@ export async function generateMetadata({ params }) {
 
 export default async function FormPage({ params }) {
   const form = await getForm(params.urlId);
-  
+
   if (!form) {
     notFound();
   }
-  
+
   return <FormClient initialForm={form} />;
 }

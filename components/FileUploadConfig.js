@@ -34,7 +34,7 @@ export default function FileUploadConfig({
       max_file_size: applet.config?.max_file_size || 100,
       allowed_file_types: applet.config?.allowed_file_types || ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'zip']
     };
-    
+
     const hasChanges = JSON.stringify(config) !== JSON.stringify(originalConfig);
     setHasChanges(hasChanges);
     if (hasChanges) setSaved(false);
@@ -63,10 +63,10 @@ export default function FileUploadConfig({
     try {
       // Convert file to base64 for now (until we set up proper server-side upload)
       const reader = new FileReader();
-      
+
       reader.onload = () => {
         const base64String = reader.result;
-        
+
         // Add file to config with base64 data
         const newFile = {
           id: Date.now().toString(),
@@ -95,7 +95,7 @@ export default function FileUploadConfig({
       // Read file as data URL (includes base64)
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Error uploading file:', error);
+
       toast.error('Failed to upload file');
       setUploading(false);
     }
@@ -113,7 +113,7 @@ export default function FileUploadConfig({
 
   const handleSave = async () => {
     setSaving(true);
-    
+
     try {
       const response = await fetch(
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets/${applet.id}`,
@@ -129,11 +129,11 @@ export default function FileUploadConfig({
       setHasChanges(false);
       setSaved(true);
       toast.success('File upload configuration saved');
-      
+
       // Reset saved indicator after 3 seconds
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
-      console.error('Error saving configuration:', error);
+
       toast.error('Failed to save configuration');
     } finally {
       setSaving(false);
@@ -152,7 +152,7 @@ export default function FileUploadConfig({
     const ext = fileName.split('.').pop().toLowerCase();
     const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
     const docExts = ['pdf', 'doc', 'docx', 'txt'];
-    
+
     if (imageExts.includes(ext)) return '🖼️';
     if (docExts.includes(ext)) return '📄';
     if (ext === 'zip' || ext === 'rar') return '📦';
@@ -206,7 +206,7 @@ export default function FileUploadConfig({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Uploaded Files
           </label>
-          
+
           {/* Existing Files */}
           {config.files.length > 0 && (
             <div className="space-y-2 mb-3">

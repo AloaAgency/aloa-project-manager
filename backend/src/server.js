@@ -35,18 +35,18 @@ app.get('/api/health', (req, res) => {
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/custom-forms')
   .then(() => {
-    console.log('✅ Connected to MongoDB');
+
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+
     });
   })
   .catch((error) => {
-    console.error('❌ MongoDB connection error:', error);
+
     process.exit(1);
   });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+
   res.status(500).json({ error: 'Something went wrong!' });
 });

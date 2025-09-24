@@ -5,13 +5,13 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email') || 'ross@aloa.agency';
-    
+
     // Create Supabase client with service role to bypass RLS
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
+
     // Check in aloa_user_profiles table
     const { data: profile, error: profileError } = await supabase
       .from('aloa_user_profiles')
@@ -33,7 +33,7 @@ export async function GET(request) {
           )
         `)
         .eq('user_id', profile.id);
-      
+
       projects = projectData;
     }
 
@@ -52,7 +52,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error('Error checking user:', error);
+
     return NextResponse.json({
       error: 'Failed to check user',
       details: error.message

@@ -19,13 +19,13 @@ export async function POST(request, { params }) {
       .eq('id', notificationId);
 
     if (error) {
-      console.error('Error marking notification as read:', error);
+
       return NextResponse.json({ error: 'Failed to mark as read' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error in mark-as-read route:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

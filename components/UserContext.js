@@ -28,7 +28,7 @@ export function UserProvider({ children }) {
         return data.user?.profile || null;
       }
     } catch (error) {
-      console.error('Error fetching profile from API:', error);
+      // Error fetching profile from API
     }
     return null;
   }, []);
@@ -38,40 +38,29 @@ export function UserProvider({ children }) {
 
     // Get initial user
     const getUser = async () => {
-      console.log('UserContext: Starting initial auth check');
       try {
         // First try to get the session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        console.log('UserContext: getSession result:', {
-          hasSession: !!session,
-          hasUser: !!session?.user,
-          sessionError
-        });
 
         if (sessionError) {
-          console.error('UserContext: Session error:', sessionError);
           // Try to refresh the session if there's an error
           const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
           if (refreshedSession?.user && mounted) {
-            console.log('UserContext: Session refreshed successfully');
             setUser(refreshedSession.user);
             const profileData = await fetchProfileFromAPI();
             if (mounted) {
               setProfile(profileData);
             }
           } else if (mounted) {
-            console.log('UserContext: No session after refresh, clearing state');
             setUser(null);
             setProfile(null);
           }
         } else if (session?.user) {
-          console.log('UserContext: Valid session found, setting user:', session.user.email);
           if (mounted) {
             setUser(session.user);
 
             // Get user profile using API (which uses service role to bypass RLS)
             const profileData = await fetchProfileFromAPI();
-            console.log('UserContext: Profile fetched:', profileData?.role);
 
             if (mounted) {
               setProfile(profileData);
@@ -79,19 +68,16 @@ export function UserProvider({ children }) {
           }
         } else {
           // No session, clear everything
-          console.log('UserContext: No session found, clearing state');
           if (mounted) {
             setUser(null);
             setProfile(null);
           }
         }
       } catch (error) {
-        console.error('UserContext: Error in getUser:', error);
         // On error, try one more time with refreshSession
         try {
           const { data: { session } } = await supabase.auth.refreshSession();
           if (session?.user && mounted) {
-            console.log('UserContext: Recovered session after error');
             setUser(session.user);
             const profileData = await fetchProfileFromAPI();
             if (mounted) {
@@ -99,7 +85,6 @@ export function UserProvider({ children }) {
             }
           }
         } catch (refreshError) {
-          console.error('UserContext: Failed to recover session:', refreshError);
           if (mounted) {
             setUser(null);
             setProfile(null);
@@ -107,7 +92,6 @@ export function UserProvider({ children }) {
         }
       } finally {
         if (mounted) {
-          console.log('UserContext: Loading complete');
           setLoading(false);
         }
       }
@@ -118,7 +102,6 @@ export function UserProvider({ children }) {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, { hasSession: !!session });
 
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
@@ -127,7 +110,6 @@ export function UserProvider({ children }) {
           const profileData = await fetchProfileFromAPI();
 
           setProfile(profileData);
-          console.log('UserContext (SIGNED_IN): Profile loaded', { email: session.user.email, role: profileData?.role });
         } else if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
           // If signed out OR token refresh failed (no session), clear everything
           setUser(null);
@@ -152,7 +134,6 @@ export function UserProvider({ children }) {
 
         // Handle session expiration - if no session and we have a user, clear and redirect
         if (!session && user) {
-          console.log('Session expired - logging out user');
           setUser(null);
           setProfile(null);
           router.push('/auth/login');
@@ -165,22 +146,18 @@ export function UserProvider({ children }) {
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error || !session) {
-        console.log('Session refresh failed or no session - logging out');
         setUser(null);
         setProfile(null);
         router.push('/auth/login');
       } else {
-        console.log('Session refreshed successfully');
       }
     }, 30 * 60 * 1000); // 30 minutes
 
     // Also refresh session when window regains focus
     const handleFocus = async () => {
-      console.log('Window focused - checking session');
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error || !session) {
-        console.log('Session check failed on focus - logging out');
         setUser(null);
         setProfile(null);
         router.push('/auth/login');
@@ -190,7 +167,6 @@ export function UserProvider({ children }) {
           setUser(session.user);
           const profileData = await fetchProfileFromAPI();
           setProfile(profileData);
-          console.log('Session restored on focus');
         }
       }
     };
@@ -210,7 +186,7 @@ export function UserProvider({ children }) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error) {
-      console.error('Error signing out:', error);
+
     }
   };
 
@@ -236,7 +212,7 @@ export function UserProvider({ children }) {
       setProfile(result.data);
       return { data: result.data, error: null };
     } catch (error) {
-      console.error('Error updating profile:', error);
+
       return { data: null, error };
     }
   };
@@ -257,21 +233,21 @@ export function UserProvider({ children }) {
         .single();
 
       if (!data) return false;
-      
+
       const roleHierarchy = ['viewer', 'editor', 'admin', 'owner'];
       const requiredIndex = roleHierarchy.indexOf(requiredRole);
       const userIndex = roleHierarchy.indexOf(data.project_role);
-      
+
       return userIndex >= requiredIndex;
     } catch (error) {
-      console.error('Error checking project role:', error);
+
       return false;
     }
   };
 
   // Add a manual refresh function
   const refreshAuth = async () => {
-    console.log('UserContext: Manual auth refresh requested');
+
     setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.refreshSession();
@@ -279,14 +255,14 @@ export function UserProvider({ children }) {
         setUser(session.user);
         const profileData = await fetchProfileFromAPI();
         setProfile(profileData);
-        console.log('UserContext: Manual refresh successful');
+
       } else {
         setUser(null);
         setProfile(null);
         router.push('/auth/login');
       }
     } catch (error) {
-      console.error('UserContext: Manual refresh failed:', error);
+
       setUser(null);
       setProfile(null);
       router.push('/auth/login');

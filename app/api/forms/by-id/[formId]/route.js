@@ -22,17 +22,17 @@ export async function GET(request, { params }) {
       `)
       .eq('id', params.formId)
       .single();
-    
+
     if (error || !form) {
       return NextResponse.json(
         { error: 'Form not found' },
         { status: 404 }
       );
     }
-    
+
     // Sort fields by position and format response
     const sortedFields = form.aloa_form_fields?.sort((a, b) => (a.field_order || 0) - (b.field_order || 0)) || [];
-    
+
     // Format response for compatibility
     return NextResponse.json({
       ...form,
@@ -50,7 +50,7 @@ export async function GET(request, { params }) {
       updatedAt: form.updated_at
     });
   } catch (error) {
-    console.error('Error fetching form:', error);
+
     return NextResponse.json(
       { error: 'Failed to fetch form' },
       { status: 500 }
@@ -65,7 +65,7 @@ export async function DELETE(request, { params }) {
       .from('aloa_form_responses')
       .select('id')
       .eq('form_id', params.formId);
-    
+
     if (responses && responses.length > 0) {
       const responseIds = responses.map(r => r.id);
       await supabase
@@ -73,30 +73,30 @@ export async function DELETE(request, { params }) {
         .delete()
         .in('response_id', responseIds);
     }
-    
+
     // Delete all responses for this form
     await supabase
       .from('aloa_form_responses')
       .delete()
       .eq('form_id', params.formId);
-    
+
     // Delete all fields for this form
     await supabase
       .from('aloa_form_fields')
       .delete()
       .eq('form_id', params.formId);
-    
+
     // Finally delete the form itself
     const { error } = await supabase
       .from('aloa_forms')
       .delete()
       .eq('id', params.formId);
-    
+
     if (error) throw error;
-    
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting form:', error);
+
     return NextResponse.json(
       { error: 'Failed to delete form' },
       { status: 500 }

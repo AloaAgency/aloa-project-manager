@@ -35,10 +35,10 @@ function AIAnalysisPage() {
     try {
       const response = await fetch(`/api/aloa-forms/${params.formId}`);
       if (!response.ok) throw new Error('Failed to fetch form');
-      
+
       const formData = await response.json();
       setForm(formData);
-      
+
       // Check if we have cached analysis
       const analysisRes = await fetch(`/api/ai-analysis/${params.formId}`);
       if (analysisRes.ok) {
@@ -48,7 +48,7 @@ function AIAnalysisPage() {
         }
       }
     } catch (error) {
-      console.error('Error fetching form:', error);
+
       toast.error('Failed to load form data');
       router.push('/dashboard');
     } finally {
@@ -58,29 +58,29 @@ function AIAnalysisPage() {
 
   const downloadPDF = async () => {
     if (!analysis || !form) return;
-    
+
     // Use browser's print dialog for exact page replica
     // Add a class to hide elements we don't want in the PDF
     document.body.classList.add('printing-pdf');
-    
+
     // Trigger print dialog
     window.print();
-    
+
     // Remove the class after a short delay
     setTimeout(() => {
       document.body.classList.remove('printing-pdf');
     }, 100);
-    
+
     toast.success('Opening print dialog - save as PDF for best results');
   };
 
   const generatePreview = async () => {
     try {
       const { generateEmailPreview, parseAnalysisText } = await import('@/lib/emailTemplates');
-      
+
       // For client-facing emails, format the text with the detailed sections
       const analysisText = formatAnalysisAsText(analysis, emailForm.isClientFacing);
-      
+
       // Parse the analysis object directly for better structure
       const parsedData = {
         summary: analysis.executiveSummary || '',
@@ -104,7 +104,7 @@ function AIAnalysisPage() {
           averageTime: analysis.averageTime
         }
       };
-      
+
       // Generate preview with parsed data
       const preview = {
         html: generateAnalysisEmailHTML(form.title, parsedData, emailForm.recipientName, emailForm.isClientFacing),
@@ -115,15 +115,15 @@ function AIAnalysisPage() {
           sections: []
         }
       };
-      
+
       setEmailPreview(preview);
       setShowPreview(true);
     } catch (error) {
-      console.error('Error generating preview:', error);
+
       toast.error('Failed to generate preview');
     }
   };
-  
+
   // Import the email template function at the top
   const generateAnalysisEmailHTML = (formTitle, parsedData, recipientName, isClientFacing) => {
     if (typeof window !== 'undefined') {
@@ -138,7 +138,7 @@ function AIAnalysisPage() {
       toast.error('Please enter a recipient email');
       return;
     }
-    
+
     setSendingEmail(true);
     try {
       // Create properly structured data for the email
@@ -161,10 +161,10 @@ function AIAnalysisPage() {
           consensusScore: analysis.consensusScore || 0
         }
       };
-      
+
       // Convert to text format that includes all sections
       const analysisText = JSON.stringify(emailData);
-      
+
       const response = await fetch(`/api/ai-analysis/${params.formId}/email`, {
         method: 'POST',
         headers: {
@@ -180,12 +180,12 @@ function AIAnalysisPage() {
           isClientFacing: emailForm.isClientFacing
         })
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to send email');
       }
-      
+
       toast.success('Analysis email sent successfully!');
       setShowEmailModal(false);
       setEmailForm({
@@ -196,7 +196,7 @@ function AIAnalysisPage() {
         isClientFacing: true
       });
     } catch (error) {
-      console.error('Error sending email:', error);
+
       toast.error(error.message || 'Failed to send email');
     } finally {
       setSendingEmail(false);
@@ -205,22 +205,22 @@ function AIAnalysisPage() {
 
   const formatSynthesisText = (analysisData) => {
     let text = '';
-    
+
     // Build on Strong Foundations
     if (analysisData.consensusAreas && analysisData.consensusAreas.length > 0) {
       const topConsensus = analysisData.consensusAreas[0];
       text += `**Build on Strong Foundations:** Your team's ${topConsensus.agreementPercentage || 'strong'}% agreement on ${topConsensus.topic.toLowerCase()} provides a solid foundation. This should be your north star as you move forward.\n\n`;
     }
-    
+
     // Embrace Diverse Perspectives
     if (analysisData.conflictAreas && analysisData.conflictAreas.length > 0) {
       text += `**Embrace Diverse Perspectives:** The varying viewpoints aren't obstacles but rather indicators of a thoughtful team considering multiple angles. `;
-      
+
       // Check for split patterns
       const hasHighDivergence = analysisData.conflictAreas.some(area => 
         area.viewpoints && area.viewpoints.some(vp => vp.percentage > 40 && vp.percentage < 60)
       );
-      
+
       if (hasHighDivergence) {
         text += `With relatively even splits on certain topics, consider pilot programs or A/B testing to validate different approaches.`;
       } else {
@@ -228,29 +228,29 @@ function AIAnalysisPage() {
       }
       text += `\n\n`;
     }
-    
+
     // Immediate Next Steps
     text += `**Immediate Next Steps:**\n`;
     text += `1. Focus first on areas with ${analysisData.consensusScore || 80}% or higher agreement to build momentum\n`;
     text += `2. Create working groups for areas with divergent views to develop integrated solutions\n`;
     text += `3. Establish success metrics that reflect both consensus priorities and diverse perspectives\n\n`;
-    
+
     // Key Insight
     const consensusScore = analysisData.consensusScore || 0;
     text += `**Key Insight:** Your team shows ${consensusScore}% overall alignment, which is `;
     text += consensusScore > 70 ? 'exceptionally strong' : consensusScore > 50 ? 'healthy' : 'an opportunity for further dialogue';
     text += `. The areas of difference are well-defined and manageable, suggesting a team that's thoughtfully engaged with the challenges at hand.`;
-    
+
     return text;
   };
-  
+
   const formatAnalysisAsText = (analysisData, isClientFacing = false) => {
     let text = '';
-    
+
     if (analysisData.executiveSummary) {
       text += `## Executive Summary\n${analysisData.executiveSummary}\n\n`;
     }
-    
+
     // For client-facing emails, provide detailed consensus analysis
     if (isClientFacing) {
       // Strong Agreement Areas
@@ -260,68 +260,68 @@ function AIAnalysisPage() {
           text += `### ${area.topic}\n`;
           text += `${area.description}\n`;
           text += `*${area.agreementPercentage}% of participants share this view*\n\n`;
-          
+
           // Add specific insights if available
           if (area.description.length > 50) {
             text += `This consensus suggests that ${area.topic.toLowerCase()} is a critical priority that should anchor your strategy moving forward.\n\n`;
           }
         });
       }
-      
+
       // Areas of Different Perspectives
       if (analysisData.conflictAreas && analysisData.conflictAreas.length > 0) {
         text += `## Where Perspectives Differ\n\n`;
         text += `These differences aren't roadblocks—they're opportunities to create a more comprehensive solution that addresses diverse needs:\n\n`;
-        
+
         analysisData.conflictAreas.forEach(area => {
           text += `### ${area.topic}\n\n`;
-          
+
           // Present viewpoints as equally valid perspectives
           text += `Your team has identified multiple valid approaches:\n\n`;
           area.viewpoints.forEach((vp, index) => {
             const perspective = index === 0 ? 'One perspective' : index === 1 ? 'Another view' : 'An additional approach';
             text += `**${perspective} (${vp.percentage}% of team):** ${vp.description}\n\n`;
           });
-          
+
           // Add synthesis for this specific divergence
           text += `*Synthesis:* These different viewpoints on ${area.topic.toLowerCase()} suggest an opportunity to implement a hybrid approach that leverages the strengths of each perspective.\n\n`;
         });
       }
-      
+
       // Detailed Path Forward
       text += `## Synthesis & Recommended Path Forward\n\n`;
-      
+
       // Start with specifics based on the actual data
       if (analysisData.consensusAreas && analysisData.consensusAreas.length > 0) {
         const topConsensus = analysisData.consensusAreas[0];
         text += `**Build on Strong Foundations:** Your team's ${topConsensus.agreementPercentage}% agreement on ${topConsensus.topic.toLowerCase()} provides a solid foundation. This should be your north star as you move forward.\n\n`;
       }
-      
+
       if (analysisData.conflictAreas && analysisData.conflictAreas.length > 0) {
         text += `**Embrace Diverse Perspectives:** The varying viewpoints aren't obstacles but rather indicators of a thoughtful team considering multiple angles. `;
-        
+
         // Provide specific guidance based on the divergence patterns
         const hasHighDivergence = analysisData.conflictAreas.some(area => 
           area.viewpoints.some(vp => vp.percentage > 40 && vp.percentage < 60)
         );
-        
+
         if (hasHighDivergence) {
           text += `With relatively even splits on certain topics, consider pilot programs or A/B testing to validate different approaches.\n\n`;
         } else {
           text += `With clear majority/minority splits, consider implementing the majority view while creating specific accommodations for minority concerns.\n\n`;
         }
       }
-      
+
       // Action-oriented next steps
       text += `**Immediate Next Steps:**\n`;
       text += `1. Focus first on areas with ${analysisData.consensusScore}% or higher agreement to build momentum\n`;
       text += `2. Create working groups for areas with divergent views to develop integrated solutions\n`;
       text += `3. Establish success metrics that reflect both consensus priorities and diverse perspectives\n\n`;
-      
+
       // Closing insight
       text += `**Key Insight:** Your team shows ${analysisData.consensusScore}% overall alignment, which is ${analysisData.consensusScore > 70 ? 'exceptionally strong' : analysisData.consensusScore > 50 ? 'healthy' : 'an opportunity for further dialogue'}. `;
       text += `The areas of difference are well-defined and manageable, suggesting a team that's thoughtfully engaged with the challenges at hand.\n\n`;
-      
+
     } else {
       // Internal format - keep existing structure
       if (analysisData.consensusAreas && analysisData.consensusAreas.length > 0) {
@@ -331,7 +331,7 @@ function AIAnalysisPage() {
         });
         text += '\n';
       }
-      
+
       if (analysisData.conflictAreas && analysisData.conflictAreas.length > 0) {
         text += `## Areas of Divergence\n`;
         analysisData.conflictAreas.forEach(area => {
@@ -342,7 +342,7 @@ function AIAnalysisPage() {
         });
         text += '\n';
       }
-      
+
       if (analysisData.recommendations && analysisData.recommendations.length > 0) {
         text += `## Recommendations\n`;
         analysisData.recommendations.forEach((rec, index) => {
@@ -353,12 +353,12 @@ function AIAnalysisPage() {
         text += '\n';
       }
     }
-    
+
     text += `## Response Statistics\n`;
     text += `Total Responses: ${analysisData.totalResponses}\n`;
     text += `Consensus Level: ${analysisData.consensusScore}%\n`;
     text += `Confidence Score: ${analysisData.confidence}%\n`;
-    
+
     return text;
   };
 
@@ -368,14 +368,14 @@ function AIAnalysisPage() {
       const response = await fetch(`/api/ai-analysis/${params.formId}`, {
         method: 'POST'
       });
-      
+
       if (!response.ok) throw new Error('Analysis failed');
-      
+
       const data = await response.json();
       setAnalysis(data);
       toast.success('Analysis complete!');
     } catch (error) {
-      console.error('Error running analysis:', error);
+
       toast.error('Failed to analyze responses');
     } finally {
       setAnalyzing(false);
@@ -406,19 +406,19 @@ function AIAnalysisPage() {
             </svg>
             <span>Back to Dashboard</span>
           </button>
-          
+
           <div className="text-center mb-8">
             {/* Form Title as Main Header */}
             <h1 className="text-3xl sm:text-4xl font-display font-bold text-aloa-black uppercase tracking-tight mb-2">
               {form.title}
             </h1>
-            
+
             {/* Subtitle with Response Count */}
             <p className="text-lg text-aloa-gray font-body">
               Analysis based on {analysis ? analysis.totalResponses : '...'} responses
             </p>
           </div>
-          
+
           <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
@@ -715,7 +715,7 @@ function AIAnalysisPage() {
             )}
           </motion.div>
         )}
-        
+
         {/* Email Modal */}
         {showEmailModal && (
           <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
@@ -737,7 +737,7 @@ function AIAnalysisPage() {
                   </svg>
                 </button>
               </div>
-              
+
               <div className="space-y-2 px-8 pb-8">
                 {/* Email Type Toggle */}
                 <div className="mb-6">
@@ -769,7 +769,7 @@ function AIAnalysisPage() {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="mb-5">
                   <label className="block text-sm font-display uppercase tracking-wider text-aloa-gray mb-2">
                     Recipient Email *
@@ -783,7 +783,7 @@ function AIAnalysisPage() {
                     required
                   />
                 </div>
-                
+
                 <div className="mb-5">
                   <label className="block text-sm font-display uppercase tracking-wider text-aloa-gray mb-2">
                     Recipient Name
@@ -796,7 +796,7 @@ function AIAnalysisPage() {
                     placeholder="John Doe"
                   />
                 </div>
-                
+
                 <div className="mb-5">
                   <label className="block text-sm font-display uppercase tracking-wider text-aloa-gray mb-2">
                     CC Emails (comma-separated)
@@ -809,7 +809,7 @@ function AIAnalysisPage() {
                     placeholder="cc1@example.com, cc2@example.com"
                   />
                 </div>
-                
+
                 <div className="mb-5">
                   <label className="block text-sm font-display uppercase tracking-wider text-aloa-gray mb-2">
                     Custom Subject (optional)
@@ -823,7 +823,7 @@ function AIAnalysisPage() {
                   />
                 </div>
               </div>
-              
+
               {/* Preview Section */}
               {showPreview && emailPreview && (
                 <div className="mx-8 mt-6 p-4 bg-aloa-sand border-2 border-aloa-black">
@@ -859,7 +859,7 @@ function AIAnalysisPage() {
                   </div>
                 </div>
               )}
-              
+
               <div className="flex gap-3 mt-8 px-8 pb-12">
                 <button
                   onClick={() => {

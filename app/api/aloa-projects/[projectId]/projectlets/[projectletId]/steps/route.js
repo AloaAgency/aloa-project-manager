@@ -14,7 +14,7 @@ export async function GET(request, { params }) {
       .order('sequence_order', { ascending: true });
 
     if (error) {
-      console.error('Error fetching steps:', error);
+
       return NextResponse.json(
         { error: 'Failed to fetch steps' },
         { status: 500 }
@@ -27,7 +27,7 @@ export async function GET(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in steps route:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -70,7 +70,7 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error creating step:', error);
+
       return NextResponse.json(
         { error: 'Failed to create step' },
         { status: 500 }
@@ -83,7 +83,7 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error creating step:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -120,7 +120,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-      console.error('Error updating step:', error);
+
       return NextResponse.json(
         { error: 'Failed to update step' },
         { status: 500 }
@@ -135,7 +135,7 @@ export async function PATCH(request, { params }) {
 
     const requiredSteps = allSteps?.filter(s => s.is_required) || [];
     const completedRequired = requiredSteps.filter(s => s.status === 'completed');
-    
+
     // Auto-complete projectlet if all required steps are done
     if (requiredSteps.length > 0 && completedRequired.length === requiredSteps.length) {
       // Mark projectlet as completed
@@ -199,7 +199,7 @@ export async function PATCH(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error updating step:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -229,7 +229,7 @@ export async function DELETE(request, { params }) {
       .eq('project_id', projectId);
 
     if (error) {
-      console.error('Error deleting step:', error);
+
       return NextResponse.json(
         { error: 'Failed to delete step' },
         { status: 500 }
@@ -257,7 +257,7 @@ export async function DELETE(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error deleting step:', error);
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

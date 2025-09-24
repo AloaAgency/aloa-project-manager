@@ -45,11 +45,9 @@ export async function POST(request, { params }) {
       .single();
 
     if (templateError || !template) {
-      console.error('Template fetch error:', templateError);
+
       return NextResponse.json({ error: 'Template not found' }, { status: 404 });
     }
-
-    console.log('Template data:', JSON.stringify(template.template_data, null, 2));
 
     // Check if user has access to the template
     if (!template.is_public && template.created_by !== user.id) {
@@ -124,8 +122,6 @@ export async function POST(request, { params }) {
         projectletToInsert.metadata = { color: projectletData.color };
       }
 
-      console.log('Inserting projectlet:', JSON.stringify(projectletToInsert, null, 2));
-
       const { data: newProjectlet, error: projectletError } = await supabase
         .from('aloa_projectlets')
         .insert(projectletToInsert)
@@ -133,12 +129,7 @@ export async function POST(request, { params }) {
         .single();
 
       if (projectletError) {
-        console.error('=== PROJECTLET CREATION ERROR ===');
-        console.error('Error details:', projectletError);
-        console.error('Error message:', projectletError.message);
-        console.error('Error code:', projectletError.code);
-        console.error('Error hint:', projectletError.hint);
-        console.error('=================================');
+
         return NextResponse.json({ error: 'Failed to create projectlet: ' + projectletError.message }, { status: 500 });
       }
 
@@ -161,17 +152,13 @@ export async function POST(request, { params }) {
           };
         });
 
-        console.log('Applets to insert:', JSON.stringify(appletsToInsert, null, 2));
-
         const { data: newApplets, error: appletsError } = await supabase
           .from('aloa_applets')
           .insert(appletsToInsert)
           .select();
 
         if (appletsError) {
-          console.error('Error creating applets:', appletsError);
-          console.error('Error details:', appletsError.message);
-          console.error('Error code:', appletsError.code);
+
           // Continue even if applets fail
         } else {
           createdApplets.push(...newApplets);
@@ -212,8 +199,6 @@ export async function POST(request, { params }) {
           projectletToInsert.metadata = { color: projectletData.color };
         }
 
-        console.log(`Inserting projectlet ${i + 1}/${templateData.projectlets.length}:`, JSON.stringify(projectletToInsert, null, 2));
-
         const { data: newProjectlet, error: projectletError } = await supabase
           .from('aloa_projectlets')
           .insert(projectletToInsert)
@@ -221,7 +206,7 @@ export async function POST(request, { params }) {
           .single();
 
         if (projectletError) {
-          console.error('Error creating projectlet:', projectletError);
+
           continue; // Skip to next projectlet
         }
 
@@ -244,17 +229,13 @@ export async function POST(request, { params }) {
             };
           });
 
-          console.log(`Applets to insert for projectlet ${i + 1}:`, JSON.stringify(appletsToInsert, null, 2));
-
           const { data: newApplets, error: appletsError } = await supabase
             .from('aloa_applets')
             .insert(appletsToInsert)
             .select();
 
           if (appletsError) {
-            console.error('Error creating applets for projectlet:', appletsError);
-            console.error('Error details:', appletsError.message);
-            console.error('Error code:', appletsError.code);
+
             // Continue even if applets fail
           } else {
             createdApplets.push(...newApplets);
@@ -287,7 +268,7 @@ export async function POST(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error in POST /api/projects/[projectId]/apply-template:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

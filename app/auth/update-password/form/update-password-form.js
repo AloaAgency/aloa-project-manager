@@ -15,7 +15,7 @@ export default function UpdatePasswordForm({ initialSession }) {
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
-    console.log('Starting password update...');
+
     setError(null);
     setSuccess(null);
 
@@ -32,12 +32,10 @@ export default function UpdatePasswordForm({ initialSession }) {
     }
 
     setLoading(true);
-    console.log('Validation passed, updating password...');
 
     try {
       // Use fetch to call a server-side API route for password update
-      console.log('Calling API to update password...');
-      
+
       const response = await fetch('/api/auth/update-password', {
         method: 'POST',
         headers: {
@@ -48,26 +46,25 @@ export default function UpdatePasswordForm({ initialSession }) {
           session: initialSession 
         }),
       });
-      
+
       const result = await response.json();
-      console.log('Update result:', result);
-      
+
       if (!response.ok || result.error) {
-        console.error('Password update failed:', result.error);
+
         setError(result.error || 'Failed to update password');
       } else {
-        console.log('Password updated successfully');
+
         setSuccess('Password updated successfully! Redirecting to login...');
-        
+
         setTimeout(() => {
           router.push('/auth/login?message=password_updated');
         }, 2000);
       }
     } catch (err) {
-      console.error('Unexpected error:', err);
+
       setError('An unexpected error occurred: ' + err.message);
     } finally {
-      console.log('Setting loading to false');
+
       setLoading(false);
     }
   };

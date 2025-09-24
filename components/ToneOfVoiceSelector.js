@@ -101,12 +101,10 @@ export default function ToneOfVoiceSelector({
 
   useEffect(() => {
     // Load previous selection from applet's form_progress data
-    console.log('Loading previous selection for:', { appletId: applet.id, userId });
-    console.log('Applet data:', applet);
 
     // Check if applet has form_progress from user's progress tracking
     if (applet.form_progress) {
-      console.log('Found form_progress:', applet.form_progress);
+
       if (applet.form_progress.selectedTone) {
         setSelectedTone(applet.form_progress.selectedTone);
         setSelectedEducation(applet.form_progress.educationLevel || null);
@@ -115,7 +113,7 @@ export default function ToneOfVoiceSelector({
     }
     // Also check config for backward compatibility
     else if (applet.config?.tone_selection) {
-      console.log('Found config tone_selection:', applet.config.tone_selection);
+
       setSelectedTone(applet.config.tone_selection.selectedTone);
       setSelectedEducation(applet.config.tone_selection.educationLevel || null);
       setPreviousSelection(applet.config.tone_selection);
@@ -123,9 +121,9 @@ export default function ToneOfVoiceSelector({
   }, [applet]);
 
   const handleSave = async () => {
-    console.log('Save button clicked', { selectedTone, selectedEducation });
+
     if (!selectedTone || !selectedEducation) {
-      console.log('Missing selection:', { selectedTone, selectedEducation });
+
       alert('Please select both a tone and education level');
       return;
     }
@@ -133,7 +131,7 @@ export default function ToneOfVoiceSelector({
     setLoading(true);
     try {
       // Use the standardized progress tracking endpoint
-      console.log('Saving tone selection using standardized progress tracking...');
+
       const response = await fetch(`/api/aloa-projects/${projectId}/client-view`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -154,20 +152,19 @@ export default function ToneOfVoiceSelector({
         })
       });
 
-      console.log('Response status:', response.status);
       if (response.ok) {
-        console.log('Successfully saved tone selection');
+
         // Trigger confetti celebration and let parent handle closing
         if (onComplete) {
           onComplete();
         }
       } else {
         const errorData = await response.json();
-        console.error('Save failed:', errorData);
+
         alert(`Failed to save selection: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error saving tone selection:', error);
+
       alert('An error occurred. Please try again.');
     } finally {
       setLoading(false);

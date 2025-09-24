@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    
+
     // Create Supabase client with service role to bypass RLS
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -25,7 +25,7 @@ export async function GET() {
 
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json({ 
         error: 'Not authenticated',
@@ -51,7 +51,7 @@ export async function GET() {
         .single();
       aloaProfileByEmail = emailProfile;
     }
-    
+
     // Also check old profiles table for comparison
     const { data: oldProfile } = await supabase
       .from('profiles')
@@ -76,7 +76,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Check role error:', error);
+
     return NextResponse.json({ 
       error: 'Internal server error',
       details: error.message 

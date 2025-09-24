@@ -8,9 +8,9 @@ export async function GET() {
       .from('aloa_forms')
       .select('id, title, url_id, created_at, updated_at')
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
-    
+
     return NextResponse.json({
       forms: forms.map(form => ({
         id: form.id,
@@ -22,7 +22,7 @@ export async function GET() {
       }))
     });
   } catch (error) {
-    console.error('Error fetching forms:', error);
+
     return NextResponse.json(
       { error: 'Failed to fetch forms' },
       { status: 500 }

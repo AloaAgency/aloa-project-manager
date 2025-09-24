@@ -96,7 +96,7 @@ Help us improve our services!
     setLoading(true);
     try {
       let response;
-      
+
       if (file) {
         response = await formAPI.uploadMarkdown(file);
       } else {
@@ -108,7 +108,7 @@ Help us improve our services!
         toast.success('Form created successfully!');
       }
     } catch (error) {
-      console.error('Error creating form:', error);
+
       toast.error(error.response?.data?.error || 'Failed to create form');
     } finally {
       setLoading(false);
@@ -130,7 +130,7 @@ Help us improve our services!
 
   if (createdForm) {
     const formUrl = `${window.location.origin}/form/${createdForm.urlId}`;
-    
+
     return (
       <div className="min-h-screen bg-aloa-cream p-6 md:p-12">
         <div className="max-w-2xl mx-auto">

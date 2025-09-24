@@ -21,18 +21,18 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 export async function POST(request) {
   try {
     const { email } = await request.json();
-    
+
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
     if (!supabaseAdmin) {
-      console.error('Supabase admin client not initialized');
+
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
     if (!resend) {
-      console.error('Resend not configured');
+
       return NextResponse.json({ error: 'Email service not configured' }, { status: 500 });
     }
 
@@ -47,7 +47,7 @@ export async function POST(request) {
     });
 
     if (error) {
-      console.error('Error generating recovery link:', error);
+
       // Don't reveal if user exists or not
       return NextResponse.json({ 
         success: true, 
@@ -56,7 +56,7 @@ export async function POST(request) {
     }
 
     if (!data?.properties?.action_link) {
-      console.error('No action link generated');
+
       return NextResponse.json({ error: 'Failed to generate reset link' }, { status: 500 });
     }
 
@@ -111,7 +111,7 @@ export async function POST(request) {
     });
 
     if (emailError) {
-      console.error('Error sending email:', emailError);
+
       return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 });
     }
 
@@ -121,7 +121,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Password reset error:', error);
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
