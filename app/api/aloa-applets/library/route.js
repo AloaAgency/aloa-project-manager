@@ -28,7 +28,10 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Failed to fetch applet library' }, { status: 500 });
     }
 
-    return NextResponse.json({ applets: applets || [] });
+    // Add caching headers - library rarely changes, cache for 5 minutes
+    const response = NextResponse.json({ applets: applets || [] });
+    response.headers.set('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+    return response;
   } catch (error) {
 
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

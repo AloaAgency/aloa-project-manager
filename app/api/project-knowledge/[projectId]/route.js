@@ -62,13 +62,16 @@ export async function GET(request, { params }) {
       }
     });
 
-    return NextResponse.json({
+    // Add caching headers - knowledge data is relatively stable, cache for 1 minute
+    const response = NextResponse.json({
       knowledge,
       stats: {
         total: knowledge.length,
         categoryCounts
       }
     });
+    response.headers.set('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+    return response;
   } catch (error) {
 
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
