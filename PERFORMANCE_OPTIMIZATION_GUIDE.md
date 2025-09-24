@@ -70,8 +70,9 @@ const handleClick = useCallback(() => {
 
 ## Phase 2: Bundle Size Reduction (2-3 hours each)
 
-### 2.1 Implement Dynamic Imports
+### 2.1 Implement Dynamic Imports ✅
 **Priority: MEDIUM | Impact: HIGH | Risk: MEDIUM**
+**Status: COMPLETED**
 
 #### Convert Heavy Components to Dynamic Loading:
 ```javascript
@@ -82,11 +83,15 @@ const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
 });
 ```
 
-#### Priority Components:
-1. PDF generation (`jsPDF`)
-2. Rich text editors
-3. Chart/visualization libraries
-4. AI chat interfaces
+#### Completed Implementations:
+1. ✅ PDF generation (`jsPDF`) - Converted to async dynamic import in `/lib/pdfGenerator.js`
+2. ✅ AI chat interfaces - `AIChatFormBuilder` now uses dynamic imports in:
+   - `/app/create/page.js`
+   - `/components/FormBuilderModal.js`
+   - `/app/admin/project/[projectId]/page.js` (already dynamic)
+   - `/components/ProjectletAppletsManager.js` (already dynamic)
+3. ✅ Heavy modal components - `SitemapBuilderV2` already using dynamic imports
+4. ✅ Project insights - `ProjectInsightsChat` already using dynamic imports
 
 ### 2.2 Optimize Dependencies
 **Priority: MEDIUM | Impact: MEDIUM | Risk: LOW**
@@ -308,7 +313,7 @@ export const revalidate = 3600; // Revalidate every hour
 - [ ] Day 5: Measure baseline metrics
 
 ### Week 2: Bundle Optimization
-- [ ] Day 1-2: Phase 2.1 (Dynamic imports)
+- [x] Day 1-2: Phase 2.1 (Dynamic imports) ✅ COMPLETED
 - [ ] Day 3-4: Phase 2.2 (Dependency optimization)
 - [ ] Day 5: Bundle analysis and cleanup
 
