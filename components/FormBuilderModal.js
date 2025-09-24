@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { X, Brain, Wand2, FileUp, Bot } from 'lucide-react';
 import AIChatFormBuilder from './AIChatFormBuilder';
 import toast from 'react-hot-toast';
 
-export default function FormBuilderModal({
+function FormBuilderModal({
   isOpen,
   onClose,
   projectId,
@@ -35,7 +35,7 @@ export default function FormBuilderModal({
 
   if (!isOpen) return null;
 
-  const handleMarkdownGenerated = async (markdown) => {
+  const handleMarkdownGenerated = useCallback(async (markdown) => {
     setIsCreating(true);
     try {
       // Parse the markdown to extract form details
@@ -110,9 +110,9 @@ export default function FormBuilderModal({
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [projectId, projectletId, onFormCreated, onClose]);
 
-  const handleMarkdownUpload = async (event) => {
+  const handleMarkdownUpload = useCallback(async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -199,9 +199,9 @@ export default function FormBuilderModal({
       // Reset file input
       event.target.value = '';
     }
-  };
+  }, [projectId, projectletId, onFormCreated, onClose]);
 
-  const parseMarkdownToFields = (markdown) => {
+  const parseMarkdownToFields = useCallback((markdown) => {
     const fields = [];
     const lines = markdown.split('\n');
     let currentSection = 'General Information';
@@ -263,7 +263,7 @@ export default function FormBuilderModal({
     }
 
     return fields;
-  };
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -409,3 +409,18 @@ export default function FormBuilderModal({
     </div>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+// Only re-render if key props change
+export default memo(FormBuilderModal, (prevProps, nextProps) => {
+  return (
+    prevProps.isOpen === nextProps.isOpen &&
+    prevProps.projectId === nextProps.projectId &&
+    prevProps.projectName === nextProps.projectName &&
+    prevProps.projectKnowledge === nextProps.projectKnowledge &&
+    prevProps.projectletId === nextProps.projectletId &&
+    prevProps.projectletName === nextProps.projectletName &&
+    prevProps.onFormCreated === nextProps.onFormCreated &&
+    prevProps.onClose === nextProps.onClose
+  );
+});

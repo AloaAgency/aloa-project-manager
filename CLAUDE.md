@@ -227,6 +227,22 @@ The system implements a hierarchical role-based access control with six user rol
 3. Exportable as PDF or email report
 4. Includes executive summary, metrics, recommendations
 
+## Security
+
+**CRITICAL: See `/SECURITY_FIX_PLAN.md` for comprehensive RLS (Row Level Security) implementation plan.**
+
+The application currently has critical security issues with 15 aloa_ tables missing RLS. The SECURITY_FIX_PLAN.md document contains:
+- Complete list of affected tables
+- Step-by-step implementation guide organized into 9 phases over 3 days
+- Emergency rollback procedures
+- Testing protocols
+- Helper functions and policies for all tables
+
+**Current Security Status:**
+- 15 tables without RLS enabled (allows any authenticated user to read/write all data)
+- 3 SECURITY DEFINER views that bypass RLS
+- 1 table (aloa_projects) with policies created but RLS not enabled
+
 ## Database Migrations
 
 **IMPORTANT**: All SQL migration files should be placed in the `/supabase` folder for organization and easy access. This allows users to quickly find and run SQL scripts in the Supabase SQL editor.

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AuthGuard from '@/components/AuthGuard';
-import { createClient } from '@/lib/supabase-browser';
+import { createClient } from '@/lib/supabase-auth';
 import {
   Briefcase,
   Plus,

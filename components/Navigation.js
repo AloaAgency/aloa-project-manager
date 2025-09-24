@@ -4,7 +4,7 @@ import { useUser } from '@/components/UserContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { User, LogOut, Settings, Users, FileText, BarChart3, Plus, Sparkles } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import UserAvatar from '@/components/UserAvatar';
 
 export default function Navigation() {
@@ -12,50 +12,153 @@ export default function Navigation() {
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [hasAttemptedRefresh, setHasAttemptedRefresh] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const refreshAttemptsRef = useRef(0);
+  const lastVisibilityCheckRef = useRef(Date.now());
+
+  // Detect Safari private mode
+  const isSafariPrivate = () => {
+    if (typeof window === 'undefined') return false;
+
+    const isWebkit = /webkit/i.test(navigator.userAgent);
+    const isSafari = /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent);
+
+    if (!isSafari && !isWebkit) return false;
+
+    // Check if we're in private mode by testing localStorage
+    try {
+      const test = '__safari_private_test__';
+      localStorage.setItem(test, test);
+      localStorage.removeItem(test);
+      return false;
+    } catch (e) {
+      return true;
+    }
+  };
+
+  // Enhanced visibility change handler for Safari private mode
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        const timeSinceLastCheck = now - lastVisibilityCheckRef.current;
+
+        // If page was hidden for more than 30 seconds and we have no user, try to recover
+        if (timeSinceLastCheck > 30000 && !user && !loading) {
+          console.log('[Navigation] Page became visible after being hidden, attempting session recovery');
+          setIsRecovering(true);
+          refreshAttemptsRef.current = 0; // Reset attempts for new visibility
+          await refreshAuth();
+          setIsRecovering(false);
+        }
+
+        lastVisibilityCheckRef.current = now;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user, loading, refreshAuth]);
 
   // Debug logging for navigation visibility
   useEffect(() => {
+    console.log('[Navigation] State:', {
+      pathname,
+      loading,
+      hasUser: !!user,
+      hasProfile: !!profile,
+      hasAttemptedRefresh,
+      isRecovering,
+      isSafariPrivate: isSafariPrivate()
+    });
+  }, [pathname, loading, user, profile, hasAttemptedRefresh, isRecovering]);
 
-  }, [pathname, loading, user, profile, hasAttemptedRefresh]);
-
-  // Attempt refresh once if we have no user after initial load
+  // Attempt refresh with retry logic for Safari private mode
   useEffect(() => {
-    if (!loading && !user && !hasAttemptedRefresh && !pathname.startsWith('/auth/')) {
-
+    if (!loading && !user && !hasAttemptedRefresh && !isRecovering && !pathname.startsWith('/auth/')) {
+      console.log('[Navigation] No user after initial load, attempting refresh');
       setHasAttemptedRefresh(true);
-      refreshAuth();
+
+      // More aggressive refresh for Safari private mode
+      if (isSafariPrivate()) {
+        console.log('[Navigation] Safari private mode detected, using aggressive refresh');
+        const attemptRefresh = async () => {
+          refreshAttemptsRef.current++;
+          await refreshAuth();
+
+          // Retry up to 3 times in Safari private mode
+          if (!user && refreshAttemptsRef.current < 3) {
+            setTimeout(attemptRefresh, 1000 * refreshAttemptsRef.current);
+          }
+        };
+        attemptRefresh();
+      } else {
+        refreshAuth();
+      }
     }
-  }, [loading, user, hasAttemptedRefresh, pathname, refreshAuth]);
+  }, [loading, user, hasAttemptedRefresh, isRecovering, pathname, refreshAuth]);
 
   // Don't show navigation on auth pages
   if (pathname.startsWith('/auth/')) {
-
+    console.log('[Navigation] On auth page, hiding nav');
     return null;
   }
 
-  // Show loading state while checking auth (only on client)
-  if (loading) {
-
+  // Show loading state while checking auth or recovering
+  if (loading || isRecovering) {
+    console.log('[Navigation] Loading or recovering, showing placeholder');
     return <div className="h-16 bg-aloa-black border-b-2 border-aloa-black" />;
   }
 
-  // Don't show navigation if user is not authenticated and we're done loading
-  if (!loading && !user) {
+  // For protected pages (admin/dashboard), always show at least a minimal nav
+  // This prevents the nav from completely disappearing in Safari private mode
+  const isProtectedPage = pathname.startsWith('/admin/') ||
+                         pathname.startsWith('/dashboard') ||
+                         pathname.startsWith('/project/') ||
+                         pathname.startsWith('/create') ||
+                         pathname.startsWith('/edit/') ||
+                         pathname.startsWith('/responses/');
 
+  // Don't show navigation if user is not authenticated and we're done loading
+  // UNLESS we're on a protected page (which means they were authenticated to get there)
+  if (!loading && !user && !isProtectedPage) {
+    console.log('[Navigation] No user and not on protected page, hiding nav');
     return null;
+  }
+
+  // If we're on a protected page but lost the user session (Safari private mode issue)
+  // Show a minimal nav with refresh prompt
+  if (!user && isProtectedPage) {
+    console.log('[Navigation] On protected page but no user session, showing recovery nav');
+    return (
+      <nav className="bg-aloa-black border-b-2 border-aloa-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <Link href="/" className="flex items-center px-2 py-2 text-aloa-cream font-bold text-xl">
+                Aloa®
+              </Link>
+              <span className="ml-4 text-sm text-gray-400">
+                Session expired -
+                <button
+                  onClick={() => window.location.reload()}
+                  className="ml-2 text-aloa-cream underline hover:no-underline"
+                >
+                  Refresh page
+                </button>
+              </span>
+            </div>
+          </div>
+        </div>
+      </nav>
+    );
   }
 
   // If we have a user but no profile yet, still show navigation with basic info
   // This is better UX than hiding the navigation entirely
   if (user && !profile) {
-
+    console.log('[Navigation] Have user but no profile yet, continuing with basic info');
     // Continue with rendering, we'll use user.email as fallback
-  }
-
-  // Safety check - if we somehow have neither user nor loading state, hide nav
-  if (!user) {
-
-    return null;
   }
 
   // Different nav items for admins vs clients

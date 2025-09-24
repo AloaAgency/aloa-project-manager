@@ -31,7 +31,7 @@ import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
 import AuthGuard from '@/components/AuthGuard';
 import useEscapeKey from '@/hooks/useEscapeKey';
-import { createClient } from '@/lib/supabase-browser';
+import { createClient } from '@/lib/supabase-auth';
 
 // Dynamic imports for heavy components
 const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), { ssr: false });
@@ -42,6 +42,7 @@ const ToneOfVoiceSelector = dynamic(() => import('@/components/ToneOfVoiceSelect
 const ClientReview = dynamic(() => import('@/components/ClientReview'), { ssr: false });
 const AIFormResults = dynamic(() => import('@/components/AIFormResults'), { ssr: false });
 const AIContentNarrative = dynamic(() => import('@/components/AIContentNarrative'), { ssr: false });
+const ChatInterface = dynamic(() => import('@/components/ChatInterface'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -74,6 +75,9 @@ function ClientDashboard() {
   const [isClientReviewViewOnly, setIsClientReviewViewOnly] = useState(false); // Track if client review is view-only
   const [userRole, setUserRole] = useState(null); // Track user role
   const [activeTab, setActiveTab] = useState('journey'); // Track active tab
+  const [showChatModal, setShowChatModal] = useState(false); // Track chat modal
+  const [currentUser, setCurrentUser] = useState(null); // Track current user for chat
+  const [unreadCount, setUnreadCount] = useState(0); // Track unread messages
 
   // ESC key handlers for modals
   useEscapeKey(() => {
@@ -106,6 +110,10 @@ function ClientDashboard() {
     setShowAINarrativeModal(false);
   }, showAINarrativeModal);
 
+  useEscapeKey(() => {
+    setShowChatModal(false);
+  }, showChatModal);
+
   useEffect(() => {
     // Get authenticated user's ID
     const getAuthenticatedUser = async () => {
@@ -118,12 +126,13 @@ function ClientDashboard() {
         // Fetch user profile to get role
         const { data: profile } = await supabase
           .from('aloa_user_profiles')
-          .select('role')
+          .select('*')
           .eq('id', user.id)
           .single();
 
         if (profile) {
           setUserRole(profile.role);
+          setCurrentUser(profile);
         }
       } else {
         // Fallback to localStorage for anonymous users (shouldn't happen with AuthGuard)
@@ -141,9 +150,27 @@ function ClientDashboard() {
     getAuthenticatedUser();
   }, []);
 
+  // Fetch unread message count
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await fetch(`/api/chat/${params.projectId}/unread`);
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch unread count:', error);
+    }
+  };
+
   useEffect(() => {
     if (userId) {
       fetchProjectData();
+      fetchUnreadCount();
+
+      // Poll for unread count every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
     }
   }, [params.projectId, userId]);
 
@@ -1811,6 +1838,54 @@ function ClientDashboard() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Chat Button */}
+      <button
+        onClick={() => setShowChatModal(true)}
+        className="fixed bottom-8 right-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all hover:scale-110 z-40"
+        title="Chat with Agency"
+      >
+        <MessageSquare className="h-6 w-6" />
+        {unreadCount > 0 && (
+          <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full min-w-[24px] h-6 flex items-center justify-center px-1.5 text-xs font-bold animate-pulse">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </div>
+        )}
+        {unreadCount > 0 && (
+          <div className="absolute inset-0 rounded-full border-4 border-red-500 animate-ping opacity-75"></div>
+        )}
+      </button>
+
+      {/* Chat Modal */}
+      {showChatModal && currentUser && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[80vh] flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Project Communication
+              </h2>
+              <button
+                onClick={() => setShowChatModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ChatInterface
+                projectId={params.projectId}
+                currentUser={currentUser}
+                isClientView={true}
+                onMessagesRead={() => {
+                  // Refresh unread count when messages are read
+                  fetchUnreadCount();
+                }}
+              />
             </div>
           </div>
         </div>

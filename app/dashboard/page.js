@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase-browser';
+import { createClient } from '@/lib/supabase-auth';
 
 // Dashboard redirect page - determines where to send users based on their role
 export default function DashboardRedirect() {
