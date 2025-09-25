@@ -4287,9 +4287,49 @@ function AdminProjectPageContent() {
 
                 <div>
                   <span className="text-gray-600">Status:</span>
-                  <div className="font-medium capitalize">
-                    {project?.status.replace(/_/g, ' ')}
-                  </div>
+                  <select
+                    value={project?.status || 'initiated'}
+                    onChange={async (e) => {
+                      const newStatus = e.target.value;
+                      try {
+                        const response = await fetch(`/api/aloa-projects/${params.projectId}`, {
+                          method: 'PATCH',
+                          headers: {
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({
+                            status: newStatus
+                          })
+                        });
+
+                        if (response.ok) {
+                          toast.success('Project status updated');
+                          fetchProjectData(); // Refresh project data
+                        } else {
+                          throw new Error('Failed to update status');
+                        }
+                      } catch (error) {
+                        toast.error('Failed to update project status');
+                      }
+                    }}
+                    className={`mt-1 w-full px-3 py-1 rounded-lg font-medium border-2 transition-colors cursor-pointer
+                      ${project?.status === 'initiated' ? 'bg-gray-100 text-gray-700 border-gray-300' : ''}
+                      ${project?.status === 'in_progress' ? 'bg-blue-100 text-blue-700 border-blue-300' : ''}
+                      ${project?.status === 'design_phase' ? 'bg-purple-100 text-purple-700 border-purple-300' : ''}
+                      ${project?.status === 'development_phase' ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : ''}
+                      ${project?.status === 'review' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : ''}
+                      ${project?.status === 'completed' ? 'bg-green-100 text-green-700 border-green-300' : ''}
+                      ${project?.status === 'on_hold' ? 'bg-red-100 text-red-700 border-red-300' : ''}
+                    `}
+                  >
+                    <option value="initiated">Initiated</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="design_phase">Design Phase</option>
+                    <option value="development_phase">Development Phase</option>
+                    <option value="review">Review</option>
+                    <option value="completed">Completed</option>
+                    <option value="on_hold">On Hold</option>
+                  </select>
                 </div>
 
                 <div>

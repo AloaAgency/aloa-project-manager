@@ -62,7 +62,13 @@ function AdminProjectsPageContent() {
   const calculateStats = (projectList) => {
     setStats({
       total: projectList.length,
-      active: projectList.filter(p => p.status === 'in_progress' || p.status === 'design_phase' || p.status === 'development_phase').length,
+      active: projectList.filter(p =>
+        p.status === 'initiated' ||
+        p.status === 'in_progress' ||
+        p.status === 'design_phase' ||
+        p.status === 'development_phase' ||
+        p.status === 'review'
+      ).length,
       completed: projectList.filter(p => p.status === 'completed').length,
       onHold: projectList.filter(p => p.status === 'on_hold').length
     });
@@ -80,6 +86,16 @@ function AdminProjectsPageContent() {
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
+
+  const getStatusOptions = () => [
+    { value: 'initiated', label: 'Initiated' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'design_phase', label: 'Design Phase' },
+    { value: 'development_phase', label: 'Development Phase' },
+    { value: 'review', label: 'Review' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'on_hold', label: 'On Hold' }
+  ];
 
   const formatDate = (date) => {
     if (!date) return 'Not set';
@@ -136,6 +152,41 @@ function AdminProjectsPageContent() {
       setDeleteModal({ isOpen: false, project: null });
       setDeleteConfirmation('');
       setDeleteError('');
+    }
+  };
+
+  const updateProjectStatus = async (projectId, newStatus) => {
+    try {
+      const response = await fetch(`/api/aloa-projects/${projectId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: newStatus
+        })
+      });
+
+      if (response.ok) {
+        // Update local state
+        setProjects(prevProjects =>
+          prevProjects.map(p =>
+            p.id === projectId ? { ...p, status: newStatus } : p
+          )
+        );
+
+        // Recalculate stats with updated projects
+        const updatedProjects = projects.map(p =>
+          p.id === projectId ? { ...p, status: newStatus } : p
+        );
+        calculateStats(updatedProjects);
+      } else {
+        throw new Error('Failed to update project status');
+      }
+    } catch (error) {
+      console.error('Error updating project status:', error);
+      // Refresh projects to ensure consistency
+      fetchProjects();
     }
   };
 
@@ -274,9 +325,18 @@ function AdminProjectsPageContent() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(project.status)}`}>
-                          {project.status.replace(/_/g, ' ')}
-                        </span>
+                        <select
+                          value={project.status}
+                          onChange={(e) => updateProjectStatus(project.id, e.target.value)}
+                          className={`px-2 py-1 text-xs leading-5 font-semibold rounded-full cursor-pointer border-2 border-transparent hover:border-gray-400 transition-colors ${getStatusColor(project.status)}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {getStatusOptions().map(option => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center group">
