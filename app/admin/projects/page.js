@@ -417,22 +417,22 @@ function AdminProjectsPageContent() {
             <div className="flex items-center justify-between">
               <div>
                 <FileText className="w-8 h-8 text-black mb-2" />
-                <h3 className="font-bold">Form Templates</h3>
-                <p className="text-sm text-gray-600 mt-1">Manage project form templates</p>
+                <h3 className="font-bold">Form Manager</h3>
+                <p className="text-sm text-gray-600 mt-1">Manage all forms from all projects</p>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
             </div>
           </button>
 
           <button
-            onClick={() => router.push('/admin/team')}
+            onClick={() => router.push('/admin/users')}
             className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow text-left group"
           >
             <div className="flex items-center justify-between">
               <div>
                 <Users className="w-8 h-8 text-black mb-2" />
-                <h3 className="font-bold">Team Management</h3>
-                <p className="text-sm text-gray-600 mt-1">Manage team access and roles</p>
+                <h3 className="font-bold">User Management</h3>
+                <p className="text-sm text-gray-600 mt-1">Manage user access and roles</p>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
             </div>
