@@ -53,8 +53,23 @@ export default function FormResponseModal({ isOpen, onClose, formId, userId, use
   };
 
   const getFieldLabel = (fieldName) => {
+    // First check if there's a matching field in formFields
     const field = formFields.find(f => f.field_name === fieldName);
-    return field?.field_label || fieldName;
+    if (field?.field_label) {
+      return field.field_label;
+    }
+
+    // Fallback: Create human-readable label from field name
+    // Convert snake_case or camelCase to Title Case
+    const label = fieldName
+      .replace(/_/g, ' ') // Replace underscores with spaces
+      .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+      .trim()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+
+    return label;
   };
 
   const formatFieldValue = (value) => {
