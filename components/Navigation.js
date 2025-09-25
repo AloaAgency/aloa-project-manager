@@ -113,13 +113,24 @@ export default function Navigation() {
   useEffect(() => {
     if (!loading && !user && isProtectedPage && !pathname.startsWith('/auth/')) {
       console.log('[Navigation] Session lost on protected page, clearing and redirecting to login');
-      const handleSessionLoss = async () => {
-        // Clear any lingering session data
-        await signOut();
-        // Redirect to login page
-        router.push('/auth/login');
-      };
-      handleSessionLoss();
+
+      // Immediately redirect to login - don't wait for signOut
+      router.push('/auth/login');
+
+      // Failsafe: If router.push doesn't work, use window.location
+      const redirectTimeout = setTimeout(() => {
+        if (window.location.pathname !== '/auth/login') {
+          console.log('[Navigation] Router.push failed, using window.location redirect');
+          window.location.href = '/auth/login';
+        }
+      }, 500);
+
+      // Clear session in background (non-blocking)
+      signOut().catch(err => {
+        console.error('[Navigation] Error during signOut:', err);
+      });
+
+      return () => clearTimeout(redirectTimeout);
     }
   }, [loading, user, isProtectedPage, pathname, signOut, router]);
 
