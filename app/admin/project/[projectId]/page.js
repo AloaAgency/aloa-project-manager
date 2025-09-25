@@ -742,10 +742,19 @@ function AdminProjectPageContent() {
     try {
       const formsRes = await fetch(`/api/aloa-forms?project=${params.projectId}`);
       const formsData = await formsRes.json();
-      setAvailableForms(formsData || []);
-      setProjectForms(formsData || []);
+
+      // Handle both response formats: { forms: [...] } or direct array
+      const forms = Array.isArray(formsData) ? formsData :
+                    (formsData?.forms && Array.isArray(formsData.forms)) ? formsData.forms :
+                    [];
+
+      setAvailableForms(forms);
+      setProjectForms(forms);
     } catch (error) {
-      // Silently handle project forms fetch error
+      console.error('Error fetching project forms:', error);
+      // Set empty arrays on error to prevent undefined issues
+      setAvailableForms([]);
+      setProjectForms([]);
     }
   };
 

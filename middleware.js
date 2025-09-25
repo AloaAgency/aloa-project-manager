@@ -168,8 +168,15 @@ export async function middleware(request) {
 
     // If accessing auth routes while authenticated, redirect based on role
     if (isAuthPath && user && userRole) {
+      console.log('[Middleware] User authenticated on auth page:', {
+        pathname,
+        userId: user.id,
+        userRole,
+        hasSession: !!session
+      });
       // Only redirect if we have a valid role
       if (adminRoles.includes(userRole)) {
+        console.log('[Middleware] Redirecting admin user from auth page to /admin/projects');
         return NextResponse.redirect(new URL('/admin/projects', request.url));
       }
       // For client users, let them stay on auth pages
