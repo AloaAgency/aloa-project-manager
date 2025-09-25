@@ -326,8 +326,8 @@ function AdminFormsPageContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredForms.map((form) => (
-                    <tr key={form.id} className="hover:bg-gray-50 transition-colors">
+                  {filteredForms.map((form, index) => (
+                    <tr key={form.id || `form-${index}-${form.urlId}`} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-start">
                           <div className="flex-shrink-0">
