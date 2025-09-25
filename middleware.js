@@ -227,7 +227,7 @@ export async function middleware(request) {
     "img-src 'self' data: https: blob:",
     "font-src 'self' data:",
     "connect-src 'self' https://*.supabase.co https://vercel.live wss://ws-us3.pusher.com",
-    "frame-src 'self' https://vercel.live",
+    "frame-src 'self' https://vercel.live https://player.vimeo.com https://www.youtube-nocookie.com https://www.youtube.com",
     "form-action 'self'",
     "base-uri 'self'",
     "object-src 'none'",

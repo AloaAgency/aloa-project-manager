@@ -3765,6 +3765,160 @@ function AdminProjectPageContent() {
                                     </div>
                                   )}
 
+                                  {/* Inline video applet configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'video' && (
+                                      <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                        {/* Video URL */}
+                                        <div>
+                                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Video URL
+                                          </label>
+                                          <input
+                                            type="url"
+                                            defaultValue={applet.config?.video_url || ''}
+                                            id={`video-url-${applet.id}`}
+                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            placeholder="https://vimeo.com/video/123456789 or YouTube URL"
+                                          />
+                                          <p className="text-xs text-gray-500 mt-1">
+                                            Supports Vimeo, YouTube, Cloudinary, and direct video URLs
+                                          </p>
+                                        </div>
+
+                                        {/* Title */}
+                                        <div>
+                                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Video Title
+                                          </label>
+                                          <input
+                                            type="text"
+                                            defaultValue={applet.config?.title || ''}
+                                            id={`video-title-${applet.id}`}
+                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            placeholder="Welcome Video"
+                                          />
+                                        </div>
+
+                                        {/* Description */}
+                                        <div>
+                                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Description
+                                          </label>
+                                          <textarea
+                                            defaultValue={applet.config?.description || ''}
+                                            id={`video-description-${applet.id}`}
+                                            rows={3}
+                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            placeholder="Watch this brief introduction to understand our process..."
+                                          />
+                                        </div>
+
+                                        {/* Save Button */}
+                                        <div className="flex justify-end space-x-2 pt-2 border-t">
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                const videoUrl = document.getElementById(`video-url-${applet.id}`).value;
+                                                const videoTitle = document.getElementById(`video-title-${applet.id}`).value;
+                                                const videoDescription = document.getElementById(`video-description-${applet.id}`).value;
+
+                                                const response = await fetch(
+                                                  `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                  {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                      config: {
+                                                        ...applet.config,
+                                                        video_url: videoUrl,
+                                                        title: videoTitle,
+                                                        description: videoDescription
+                                                      }
+                                                    })
+                                                  }
+                                                );
+                                                if (response.ok) {
+                                                  toast.success('Video settings saved');
+                                                  fetchProjectletApplets(projectlet.id);
+                                                }
+                                              } catch (error) {
+                                                toast.error('Failed to save video settings');
+                                              }
+                                            }}
+                                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                                          >
+                                            Save Changes
+                                          </button>
+                                        </div>
+
+                                        {/* Lock/Unlock toggle */}
+                                        <div className="flex items-center justify-between pt-2 border-t">
+                                          <div className="flex items-center space-x-2">
+                                            <span className="text-sm font-medium text-gray-700">
+                                              Status:
+                                            </span>
+                                            <span className={`text-sm font-semibold ${
+                                              applet.config?.locked
+                                                ? 'text-green-600'
+                                                : 'text-gray-500'
+                                            }`}>
+                                              {applet.config?.locked ? 'Published to Client' : 'Draft'}
+                                            </span>
+                                          </div>
+                                          <button
+                                            onClick={async () => {
+                                              const newLocked = !applet.config?.locked;
+                                              try {
+                                                const response = await fetch(
+                                                  `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                  {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                      config: {
+                                                        ...applet.config,
+                                                        locked: newLocked
+                                                      }
+                                                    })
+                                                  }
+                                                );
+                                                if (response.ok) {
+                                                  toast.success(
+                                                    newLocked
+                                                      ? 'Video published to client'
+                                                      : 'Video unpublished from client'
+                                                  );
+                                                  fetchProjectletApplets(projectlet.id);
+                                                }
+                                              } catch (error) {
+                                                toast.error('Failed to toggle publish status');
+                                              }
+                                            }}
+                                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                                              applet.config?.locked
+                                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                            }`}
+                                          >
+                                            {applet.config?.locked ? 'Unpublish' : 'Publish to Client'}
+                                          </button>
+                                        </div>
+
+                                        {/* Info text */}
+                                        <div className="text-xs text-gray-600 mt-2">
+                                          {applet.config?.locked ? (
+                                            <>
+                                              <strong>Published:</strong> Client can view and watch the video. Progress is tracked automatically.
+                                            </>
+                                          ) : (
+                                            <>
+                                              <strong>Draft:</strong> Video is hidden from client until published.
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                  )}
+
                                   {/* Inline client review configuration */}
                                   {expandedApplets[applet.id] && applet.type === 'client_review' && (
                                     <div className={`mt-3 p-3 rounded-lg space-y-3 ${
