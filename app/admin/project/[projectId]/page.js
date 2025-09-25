@@ -6139,7 +6139,10 @@ function AdminProjectPageContent() {
                 projectId={params.projectId}
                 currentUser={currentUser}
                 isClientView={false}
-                onMessagesRead={() => fetchUnreadCount()}
+                onMessagesRead={() => {
+                  // Already cleared when opening, but this ensures sync
+                  setUnreadCount(0);
+                }}
               />
             </div>
           </div>
