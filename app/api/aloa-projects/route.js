@@ -33,7 +33,7 @@ export async function GET(request) {
       const projectlets = project.aloa_projectlets || [];
       const totalProjectlets = projectlets.length;
       const completedProjectlets = projectlets.filter(p => p.status === 'completed').length;
-      const completionPercentage = totalProjectlets > 0 
+      const completionPercentage = totalProjectlets > 0
         ? Math.round((completedProjectlets / totalProjectlets) * 100)
         : 0;
 

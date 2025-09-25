@@ -87,18 +87,8 @@ function AdminProjectsPageContent() {
   };
 
   const getProgressPercentage = (project) => {
-    // This would be calculated based on completed projectlets
-    // For now, using a simple status-based calculation
-    const statusProgress = {
-      'initiated': 10,
-      'in_progress': 30,
-      'design_phase': 50,
-      'development_phase': 75,
-      'review': 90,
-      'completed': 100,
-      'on_hold': 0
-    };
-    return statusProgress[project.status] || 0;
+    // Use the actual completion percentage calculated from applet progress
+    return project.stats?.completionPercentage || 0;
   };
 
   const handleDeleteClick = (project) => {
@@ -289,16 +279,26 @@ function AdminProjectsPageContent() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                            <div 
-                              className="bg-black h-2 rounded-full"
-                              style={{ width: `${getProgressPercentage(project)}%` }}
-                            />
+                        <div className="flex items-center group">
+                          <div className="relative flex-1">
+                            <div className="flex items-center">
+                              <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                <div
+                                  className="bg-black h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${getProgressPercentage(project)}%` }}
+                                />
+                              </div>
+                              <span className="text-sm text-gray-600">
+                                {getProgressPercentage(project)}%
+                              </span>
+                            </div>
+                            {/* Tooltip on hover */}
+                            {project.stats && (
+                              <div className="absolute z-10 invisible group-hover:visible bg-black text-white text-xs rounded p-2 mt-1 whitespace-nowrap">
+                                {project.stats.completedRequiredApplets}/{project.stats.totalRequiredApplets} required applets completed
+                              </div>
+                            )}
                           </div>
-                          <span className="text-sm text-gray-600">
-                            {getProgressPercentage(project)}%
-                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
