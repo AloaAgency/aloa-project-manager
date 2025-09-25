@@ -25,7 +25,8 @@ import {
   File,
   FolderOpen,
   Home,
-  Brain
+  Brain,
+  Video
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
@@ -43,6 +44,7 @@ const ClientReview = dynamic(() => import('@/components/ClientReview'), { ssr: f
 const AIFormResults = dynamic(() => import('@/components/AIFormResults'), { ssr: false });
 const AIContentNarrative = dynamic(() => import('@/components/AIContentNarrative'), { ssr: false });
 const ChatInterface = dynamic(() => import('@/components/ChatInterface'), { ssr: false });
+const VideoApplet = dynamic(() => import('@/components/VideoApplet'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -78,6 +80,8 @@ function ClientDashboard() {
   const [showChatModal, setShowChatModal] = useState(false); // Track chat modal
   const [currentUser, setCurrentUser] = useState(null); // Track current user for chat
   const [unreadCount, setUnreadCount] = useState(0); // Track unread messages
+  const [showVideoModal, setShowVideoModal] = useState(false); // Track video modal
+  const [isVideoViewOnly, setIsVideoViewOnly] = useState(false); // Track if video is view-only
 
   // Helper function to check if user can access an applet based on role
   const canUserAccessApplet = (applet) => {
@@ -329,6 +333,7 @@ function ClientDashboard() {
     const isClientReview = applet.type === 'client_review';
     const isAIFormResults = applet.type === 'ai_form_results';
     const isAINarrativeGenerator = applet.type === 'ai_narrative_generator';
+    const isVideo = applet.type === 'video';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const paletteIsLocked = isPaletteCleanser && applet.config?.locked === true;
@@ -338,10 +343,10 @@ function ClientDashboard() {
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
 
     // Block if:
-    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-client-review, non-ai-form-results applet that's already completed
+    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-client-review, non-ai-form-results, non-video applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, client review, AI form results, and AI narrative generator should always be viewable even after completion
-    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isClientReview && !isAIFormResults && !isAINarrativeGenerator && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, client review, AI form results, AI narrative generator, and video should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isClientReview && !isAIFormResults && !isAINarrativeGenerator && !isVideo && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -581,6 +586,13 @@ function ClientDashboard() {
       // Handle AI Narrative Generator applet
       setSelectedApplet({ ...applet, projectlet });
       setShowAINarrativeModal(true);
+    } else if (applet.type === 'video') {
+      // Handle video applet
+      const videoIsLocked = applet.config?.locked === true;
+      const userAlreadyCompleted = completedApplets.has(applet.id);
+      setSelectedApplet({ ...applet, projectlet });
+      setIsVideoViewOnly(videoIsLocked && userAlreadyCompleted);
+      setShowVideoModal(true);
     }
   };
 
@@ -671,7 +683,8 @@ function ClientDashboard() {
       moodboard: Palette,
       content_gather: MessageSquare,
       sitemap: Map,
-      ai_form_results: Brain
+      ai_form_results: Brain,
+      video: Video
     };
     return icons[type] || FileText;
   };
@@ -1063,6 +1076,26 @@ function ClientDashboard() {
                             buttonState = 'locked';
                             statusMessage = 'Content not yet available';
                           }
+                        } else if (applet.type === 'video') {
+                          const videoIsLocked = applet.config?.locked === true;
+
+                          // If video is not published (locked=false), hide it from client
+                          if (!videoIsLocked) {
+                            return null; // Don't render the button at all
+                          }
+
+                          // Video is published, show appropriate state
+                          if (isAppletCompleted) {
+                            buttonState = 'completed-locked';
+                            statusMessage = completionDate ?
+                              `Watched on ${completionDate}` : 'Video completed';
+                          } else if (isInProgress) {
+                            buttonState = 'in-progress-editing';
+                            statusMessage = 'Resume watching';
+                          } else {
+                            buttonState = 'not-started';
+                            statusMessage = 'Watch video presentation';
+                          }
                         } else if (applet.type === 'palette_cleanser') {
                           const paletteIsLocked = applet.config?.locked === true;
 
@@ -1128,15 +1161,17 @@ function ClientDashboard() {
                                   buttonState === 'completed' ? 'bg-green-100' :
                                   'bg-purple-100'
                                 }`}>
-                                  {buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' || buttonState === 'link-completed' || buttonState === 'file-completed' ? (
-                                    <CheckCircle className="w-5 h-5 text-green-600" />
-                                  ) : buttonState === 'in-progress-editing' ? (
-                                    <Edit2 className="w-5 h-5 text-yellow-600" />
-                                  ) : buttonState === 'locked' ? (
-                                    <Lock className="w-5 h-5 text-gray-600" />
-                                  ) : (
-                                    <Icon className="w-5 h-5 text-purple-600" />
-                                  )}
+                                  {(() => {
+                                    const Icon = getAppletIcon(applet.type);
+                                    const iconColor = buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' || buttonState === 'link-completed' || buttonState === 'file-completed'
+                                      ? 'text-green-600'
+                                      : buttonState === 'in-progress-editing'
+                                      ? 'text-yellow-600'
+                                      : buttonState === 'locked'
+                                      ? 'text-gray-600'
+                                      : 'text-purple-600';
+                                    return <Icon className={`w-5 h-5 ${iconColor}`} />;
+                                  })()}
                                 </div>
                                 <div className="text-left">
                                   <p className="font-medium">
@@ -1150,6 +1185,8 @@ function ClientDashboard() {
                                       ? `AI Results: ${applet.config.form_title}`
                                       : applet.type === 'ai_narrative_generator' && applet.config?.pageName
                                       ? `Page Narrative Structure: ${applet.config.pageName}`
+                                      : applet.type === 'video' && applet.config?.title
+                                      ? `Video: ${applet.config.title}`
                                       : applet.name}
                                   </p>
                                   {statusMessage ? (
@@ -1984,6 +2021,34 @@ function ClientDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Video Modal */}
+      {showVideoModal && selectedApplet && (
+        <VideoApplet
+          applet={selectedApplet}
+          isViewOnly={isVideoViewOnly}
+          onClose={() => {
+            setShowVideoModal(false);
+            fetchProjectData();
+          }}
+          onComplete={() => {
+            // Update local state
+            const newCompleted = new Set(completedApplets);
+            newCompleted.add(selectedApplet.id);
+            setCompletedApplets(newCompleted);
+
+            // Show confetti
+            setShowConfetti(true);
+            setTimeout(() => {
+              setShowConfetti(false);
+              setShowVideoModal(false);
+              fetchProjectData();
+            }, 1500);
+          }}
+          projectId={params.projectId}
+          userId={userId}
+        />
       )}
     </div>
   );
