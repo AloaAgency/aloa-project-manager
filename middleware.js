@@ -105,15 +105,41 @@ export async function middleware(request) {
     // Try to get session instead of user (more reliable for middleware)
     let session = null;
     let user = null;
+    let sessionError = null;
 
     try {
       const { data, error } = await supabase.auth.getSession();
+      sessionError = error;
       if (!error && data?.session) {
         session = data.session;
         user = session.user;
       }
     } catch (e) {
       console.error('Error getting session in middleware:', e);
+      sessionError = e;
+    }
+
+    // If there's a session error, clear cookies to prevent redirect loops
+    if (sessionError) {
+      console.log('[Middleware] Session error detected, clearing cookies:', sessionError);
+      // Clear all auth-related cookies
+      const authCookies = request.cookies.getAll().filter(cookie =>
+        cookie.name.includes('sb-') ||
+        cookie.name.includes('supabase')
+      );
+
+      for (const cookie of authCookies) {
+        response.cookies.delete(cookie.name);
+      }
+
+      // If not on auth pages, redirect to login
+      if (!pathname.startsWith('/auth/')) {
+        const redirectUrl = new URL('/auth/login', request.url);
+        if (pathname !== '/' && !pathname.startsWith('/auth/')) {
+          redirectUrl.searchParams.set('redirect', pathname);
+        }
+        return NextResponse.redirect(redirectUrl);
+      }
     }
     
     // Get user profile if authenticated
