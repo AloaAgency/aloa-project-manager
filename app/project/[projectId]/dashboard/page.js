@@ -46,6 +46,7 @@ const AIFormResults = dynamic(() => import('@/components/AIFormResults'), { ssr:
 const AIContentNarrative = dynamic(() => import('@/components/AIContentNarrative'), { ssr: false });
 const ChatInterface = dynamic(() => import('@/components/ChatInterface'), { ssr: false });
 const VideoApplet = dynamic(() => import('@/components/VideoApplet'), { ssr: false });
+const CopyCollectionApplet = dynamic(() => import('@/components/CopyCollectionApplet'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -84,6 +85,8 @@ function ClientDashboard() {
   const [unreadCount, setUnreadCount] = useState(0); // Track unread messages
   const [showVideoModal, setShowVideoModal] = useState(false); // Track video modal
   const [isVideoViewOnly, setIsVideoViewOnly] = useState(false); // Track if video is view-only
+  const [showCopyCollectionModal, setShowCopyCollectionModal] = useState(false); // Track copy collection modal
+  const [isCopyCollectionViewOnly, setIsCopyCollectionViewOnly] = useState(false); // Track if copy collection is view-only
 
   // Helper function to check if user can access an applet based on role
   const canUserAccessApplet = (applet) => {
@@ -129,6 +132,11 @@ function ClientDashboard() {
     setShowFormModal(false);
     setIsFormViewOnly(false);
   }, showFormModal);
+
+  useEscapeKey(() => {
+    setShowCopyCollectionModal(false);
+    setIsCopyCollectionViewOnly(false);
+  }, showCopyCollectionModal);
 
   useEscapeKey(() => {
     setShowLinkSubmissionModal(false);
@@ -343,19 +351,21 @@ function ClientDashboard() {
     const isAIFormResults = applet.type === 'ai_form_results';
     const isAINarrativeGenerator = applet.type === 'ai_narrative_generator';
     const isVideo = applet.type === 'video';
+    const isCopyCollection = applet.type === 'copy_collection';
     const formId = applet.form_id || applet.config?.form_id;
     const formIsLocked = isForm && applet.form?.status === 'closed';
     const paletteIsLocked = isPaletteCleanser && applet.config?.locked === true;
     const sitemapIsLocked = isSitemap && applet.config?.locked === true;
     const toneOfVoiceIsLocked = isToneOfVoice && applet.config?.locked === true;
     const clientReviewIsLocked = isClientReview && applet.config?.locked === true;
+    const copyCollectionIsLocked = isCopyCollection && applet.config?.locked === true;
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
 
     // Block if:
-    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-client-review, non-ai-form-results, non-video applet that's already completed
+    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-client-review, non-ai-form-results, non-video, non-copy-collection applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, client review, AI form results, AI narrative generator, and video should always be viewable even after completion
-    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isClientReview && !isAIFormResults && !isAINarrativeGenerator && !isVideo && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, client review, AI form results, AI narrative generator, video, and copy collection should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isClientReview && !isAIFormResults && !isAINarrativeGenerator && !isVideo && !isCopyCollection && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -602,6 +612,12 @@ function ClientDashboard() {
       setSelectedApplet({ ...applet, projectlet });
       setIsVideoViewOnly(videoIsLocked && userAlreadyCompleted);
       setShowVideoModal(true);
+    } else if (isCopyCollection) {
+      // Handle copy collection applet
+      const userAlreadyCompleted = completedApplets.has(applet.id);
+      setSelectedApplet({ ...applet, projectlet });
+      setIsCopyCollectionViewOnly(copyCollectionIsLocked && userAlreadyCompleted);
+      setShowCopyCollectionModal(true);
     }
   };
 
@@ -1104,6 +1120,26 @@ function ClientDashboard() {
                           } else {
                             buttonState = 'not-started';
                             statusMessage = 'Watch video presentation';
+                          }
+                        } else if (applet.type === 'copy_collection') {
+                          const copyCollectionIsLocked = applet.config?.locked === true;
+
+                          if (isAppletCompleted && copyCollectionIsLocked) {
+                            buttonState = 'completed-locked';
+                            statusMessage = completionDate ?
+                              `Copy submitted on ${completionDate} • Locked` :
+                              'Copy submitted & locked. No longer accepting changes.';
+                          } else if (isAppletCompleted && !copyCollectionIsLocked) {
+                            buttonState = 'user-complete-editable';
+                            statusMessage = completionDate ?
+                              `Submitted on ${completionDate} • Click to edit` :
+                              'Copy submitted! Click the pencil icon to make changes.';
+                          } else if (isInProgress && !copyCollectionIsLocked) {
+                            buttonState = 'in-progress-editing';
+                            statusMessage = 'Continue providing your copy';
+                          } else if (copyCollectionIsLocked) {
+                            buttonState = 'locked';
+                            statusMessage = 'Copy collection locked - no longer accepting changes';
                           }
                         } else if (applet.type === 'palette_cleanser') {
                           const paletteIsLocked = applet.config?.locked === true;
@@ -2056,6 +2092,34 @@ function ClientDashboard() {
             setTimeout(() => {
               setShowConfetti(false);
               setShowVideoModal(false);
+              fetchProjectData();
+            }, 1500);
+          }}
+          projectId={params.projectId}
+          userId={userId}
+        />
+      )}
+
+      {/* Copy Collection Modal */}
+      {showCopyCollectionModal && selectedApplet && (
+        <CopyCollectionApplet
+          applet={selectedApplet}
+          isViewOnly={isCopyCollectionViewOnly}
+          onClose={() => {
+            setShowCopyCollectionModal(false);
+            fetchProjectData();
+          }}
+          onComplete={() => {
+            // Update local state
+            const newCompleted = new Set(completedApplets);
+            newCompleted.add(selectedApplet.id);
+            setCompletedApplets(newCompleted);
+
+            // Show confetti
+            setShowConfetti(true);
+            setTimeout(() => {
+              setShowConfetti(false);
+              setShowCopyCollectionModal(false);
               fetchProjectData();
             }, 1500);
           }}
