@@ -1,14 +1,76 @@
-import axios from 'axios';
-
 // Use environment variable for API URL, fallback to local proxy
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_CLEAN = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
 
-const api = axios.create({
-  baseURL: API_BASE,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+const buildUrl = (path, params) => {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const query = params ? `?${new URLSearchParams(params).toString()}` : '';
+  return `${API_BASE_CLEAN}${normalizedPath}${query}`;
+};
+
+const handleResponse = async (response, responseType = 'json') => {
+  if (!response.ok) {
+    let errorPayload;
+    try {
+      errorPayload = await response.clone().json();
+    } catch (_) {
+      errorPayload = await response.text();
+    }
+
+    const error = new Error(
+      typeof errorPayload === 'object' && errorPayload !== null && errorPayload.error
+        ? errorPayload.error
+        : `Request failed with status ${response.status}`
+    );
+    error.status = response.status;
+    error.payload = errorPayload;
+    throw error;
+  }
+
+  if (responseType === 'blob') {
+    return response.blob();
+  }
+
+  if (responseType === 'text') {
+    return response.text();
+  }
+
+  // Default to JSON; handle empty responses gracefully
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
+};
+
+const request = async (path, { method = 'GET', params, body, headers = {}, responseType } = {}) => {
+  const url = buildUrl(path, params);
+  const fetchOptions = {
+    method,
+    headers: {
+      ...headers,
+    },
+  };
+
+  if (body instanceof FormData) {
+    fetchOptions.body = body;
+    // Let the browser set multipart boundaries automatically
+    delete fetchOptions.headers['Content-Type'];
+  } else if (body !== undefined && body !== null) {
+    fetchOptions.body = JSON.stringify(body);
+    fetchOptions.headers['Content-Type'] = fetchOptions.headers['Content-Type'] || 'application/json';
+  }
+
+  const response = await fetch(url, fetchOptions);
+  return handleResponse(response, responseType);
+};
+
+const api = {
+  get: (path, options = {}) => request(path, { ...options, method: 'GET' }),
+  post: (path, body, options = {}) => request(path, { ...options, method: 'POST', body }),
+  patch: (path, body, options = {}) => request(path, { ...options, method: 'PATCH', body }),
+  delete: (path, options = {}) => request(path, { ...options, method: 'DELETE' })
+};
 
 // Form APIs
 export const formAPI = {
@@ -22,53 +84,42 @@ export const formAPI = {
       });
     }
 
-    const response = await api.post('/forms/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
+    return api.post('/forms/upload', formData);
   },
 
   // Create form from markdown text
   createForm: async (markdown, settings = {}) => {
-    const response = await api.post('/forms/create', {
+    return api.post('/forms/create', {
       markdown,
       settings,
     });
-    return response.data;
   },
 
   // Get form by URL ID (public)
   getPublicForm: async (urlId) => {
-    const response = await api.get(`/forms/public/${urlId}`);
-    return response.data;
+    return api.get(`/forms/public/${urlId}`);
   },
 
   // Get all forms (admin)
   getAllForms: async (createdBy = 'anonymous') => {
-    const response = await api.get('/forms', {
+    return api.get('/forms', {
       params: { createdBy }
     });
-    return response.data;
   },
 
   // Get form details with stats
   getFormDetails: async (formId) => {
-    const response = await api.get(`/forms/${formId}`);
-    return response.data;
+    return api.get(`/forms/${formId}`);
   },
 
   // Update form settings
   updateForm: async (formId, updates) => {
-    const response = await api.patch(`/forms/${formId}`, updates);
-    return response.data;
+    return api.patch(`/forms/${formId}`, updates);
   },
 
   // Delete form
   deleteForm: async (formId) => {
-    const response = await api.delete(`/forms/${formId}`);
-    return response.data;
+    return api.delete(`/forms/${formId}`);
   },
 };
 
@@ -79,7 +130,7 @@ export const responseAPI = {
     const startTime = data.startTime || Date.now();
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
 
-    const response = await api.post(`/responses/submit/${urlId}`, {
+    return api.post(`/responses/submit/${urlId}`, {
       answers: data.answers,
       email: data.email,
       metadata: {
@@ -87,36 +138,31 @@ export const responseAPI = {
         deviceType: getDeviceType(),
       },
     });
-    return response.data;
   },
 
   // Get form responses
   getResponses: async (formId, page = 1, limit = 50) => {
-    const response = await api.get(`/responses/form/${formId}`, {
+    return api.get(`/responses/form/${formId}`, {
       params: { page, limit }
     });
-    return response.data;
   },
 
   // Export responses as CSV
   exportResponses: async (formId) => {
-    const response = await api.get(`/responses/form/${formId}`, {
+    return api.get(`/responses/form/${formId}`, {
       params: { export: true },
       responseType: 'blob'
     });
-    return response.data;
   },
 
   // Get response statistics
   getResponseStats: async (formId) => {
-    const response = await api.get(`/responses/stats/${formId}`);
-    return response.data;
+    return api.get(`/responses/stats/${formId}`);
   },
 
   // Delete response
   deleteResponse: async (responseId) => {
-    const response = await api.delete(`/responses/${responseId}`);
-    return response.data;
+    return api.delete(`/responses/${responseId}`);
   },
 };
 

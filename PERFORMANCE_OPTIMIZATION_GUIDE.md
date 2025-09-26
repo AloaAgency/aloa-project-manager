@@ -103,6 +103,7 @@ const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
 
 ### 2.2 Optimize Dependencies
 **Priority: MEDIUM | Impact: MEDIUM | Risk: LOW**
+**Status: IN PROGRESS**
 
 #### Steps:
 1. Run bundle analyzer:
@@ -124,6 +125,8 @@ module.exports = withBundleAnalyzer({...config})
 - Consider `date-fns` instead of `moment`
 - Use native fetch instead of `axios` where possible
 - Lazy-load Anthropic SDK only when needed
+
+**Completed fix:** Replaced the Vite frontend’s Axios wrapper with a lightweight `fetch` implementation (`frontend/src/utils/api.js`), allowing the removal of the `axios` dependency from both workspaces.
 
 ## Phase 3: Client-Side Performance (3-4 hours each)
 
