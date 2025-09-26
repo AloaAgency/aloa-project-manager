@@ -27,6 +27,7 @@ import { CSS } from '@dnd-kit/utilities';
 import UserAvatar from '@/components/UserAvatar';
 import FormResponseModal from '@/components/FormResponseModal';
 import PaletteResultsModal from '@/components/PaletteResultsModal';
+import CopyCollectionViewModal from '@/components/CopyCollectionViewModal';
 import { 
   ArrowLeft,
   Edit,
@@ -67,7 +68,8 @@ import {
   BarChart,
   Star,
   Map,
-  Download
+  Download,
+  Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchAndExportFormResponses } from '@/lib/csvExportUtils';
@@ -263,6 +265,8 @@ function AdminProjectPageContent() {
     submittedAt: null
   });
   const [showClientReviewModal, setShowClientReviewModal] = useState(false);
+  const [showCopyCollectionModal, setShowCopyCollectionModal] = useState(false);
+  const [selectedCopyCollectionData, setSelectedCopyCollectionData] = useState(null);
   const [showChatModal, setShowChatModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -425,12 +429,14 @@ function AdminProjectPageContent() {
         setShowSitemapViewerModal(false);
         setShowToneOfVoiceModal(false);
         setShowClientReviewModal(false);
+        setShowCopyCollectionModal(false);
         setShowChatModal(false);
         setSelectedResponseData(null);
         setSelectedPaletteData(null);
         setSelectedSitemapData(null);
         setSelectedToneData(null);
         setSelectedClientReviewData(null);
+        setSelectedCopyCollectionData(null);
         setShowActionMenu(null);
       }
     };
@@ -2707,14 +2713,14 @@ function AdminProjectPageContent() {
                                               return (
                                                 <div
                                                   key={completion.user_id}
-                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.type === 'tone_of_voice' || applet.type === 'client_review' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.type === 'tone_of_voice' || applet.type === 'client_review' || applet.type === 'copy_collection' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
                                                   title={`${completion.user?.full_name || completion.user?.email || 'User'} - ${
                                                     isClientReview && isRejected ? `⚠️ REVISION REQUESTED${completion.form_progress?.revision_notes ? ': ' + completion.form_progress.revision_notes : ''}` :
                                                     isClientReview && isApproved ? '✅ APPROVED' :
                                                     isInProgress ? 'In Progress' : `Reviewed ${
                                                       completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
                                                     }`
-                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : applet.type === 'tone_of_voice' ? '\nClick to view tone selection' : applet.type === 'client_review' ? '\nClick to view review details' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
+                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : applet.type === 'tone_of_voice' ? '\nClick to view tone selection' : applet.type === 'client_review' ? '\nClick to view review details' : applet.type === 'copy_collection' ? '\nClick to view copy submission' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
                                                 onClick={async () => {
                                                   if (applet.type === 'form') {
                                                     const formId = applet.form_id || applet.config?.form_id;
@@ -2810,6 +2816,14 @@ function AdminProjectPageContent() {
                                                       appletName: applet.name
                                                     });
                                                     setShowClientReviewModal(true);
+                                                  } else if (applet.type === 'copy_collection') {
+                                                    // Show copy collection modal
+                                                    setSelectedCopyCollectionData({
+                                                      appletProgress: completion,
+                                                      stakeholder: completion.user,
+                                                      appletName: applet.name
+                                                    });
+                                                    setShowCopyCollectionModal(true);
                                                   }
                                                 }}
                                               >
@@ -3168,8 +3182,99 @@ function AdminProjectPageContent() {
                                     </div>
                                   )}
 
+                                  {/* Inline copy collection configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'copy_collection' && (
+                                    <div className="mt-2">
+                                      <div className="space-y-3">
+
+                                        {/* Form selector for fallback option */}
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                                            Form for Copy Generation (if user chooses form option)
+                                          </label>
+                                          <select
+                                            value={applet.config?.formId || ''}
+                                            onChange={async (e) => {
+                                              if (e.target.value === 'create_new') {
+                                                setShowFormBuilderModal(true);
+                                                setFormBuilderContext({
+                                                  projectletId: projectlet.id,
+                                                  projectletName: projectlet.name
+                                                });
+                                              } else {
+                                                try {
+                                                  const response = await fetch(
+                                                    `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                    {
+                                                      method: 'PATCH',
+                                                      headers: { 'Content-Type': 'application/json' },
+                                                      body: JSON.stringify({
+                                                        config: {
+                                                          ...applet.config,
+                                                          formId: e.target.value
+                                                        }
+                                                      })
+                                                    }
+                                                  );
+                                                  if (response.ok) {
+                                                    fetchProjectletApplets(projectlet.id);
+                                                  }
+                                                } catch (error) {
+                                                  console.error('Error updating form:', error);
+                                                }
+                                              }
+                                            }}
+                                            className="w-full text-sm px-2 py-1 border rounded bg-white"
+                                          >
+                                            <option value="">No form selected...</option>
+                                            <option value="create_new">✨ Create New Form with AI</option>
+                                            {availableForms
+                                              .filter((form) => form?.id)
+                                              .map((form) => (
+                                                <option key={form.id} value={form.id}>
+                                                  {form.title || 'Untitled Form'}
+                                                </option>
+                                              ))}
+                                          </select>
+                                        </div>
+
+                                        {/* Display uploaded content if available */}
+                                        {applet.form_progress?.uploadedContent && (
+                                          <div className="p-3 bg-green-50 border border-green-200 rounded">
+                                            <div className="flex items-center justify-between mb-2">
+                                              <span className="text-xs font-semibold text-green-700">
+                                                ✅ Copy Uploaded
+                                              </span>
+                                              <span className="text-xs text-gray-600">
+                                                {applet.form_progress.uploadedFileName || 'Pasted Text'}
+                                              </span>
+                                            </div>
+                                            <div className="max-h-32 overflow-y-auto bg-white p-2 rounded text-xs text-gray-600">
+                                              <pre className="whitespace-pre-wrap">
+                                                {applet.form_progress.uploadedContent.substring(0, 500)}
+                                                {applet.form_progress.uploadedContent.length > 500 && '...'}
+                                              </pre>
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* Statistics */}
+                                        <div className="flex items-center gap-4 text-xs text-gray-600">
+                                          <span>
+                                            Mode: {applet.form_progress?.mode || 'Not selected'}
+                                          </span>
+                                          {applet.form_progress?.uploadedContent && (
+                                            <span>
+                                              {applet.form_progress.uploadedContent.split(' ').length} words
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {/* Inline link submission configuration */}
-                                  {expandedApplets[applet.id] && (applet.type === 'link_submission' || 
+                                  {expandedApplets[applet.id] && (applet.type === 'link_submission' ||
                                     applet.name === 'Link Submission' ||
                                     applet.description?.includes('Share deliverables and resources')) && (
                                     <LinkSubmissionConfig
@@ -6272,6 +6377,20 @@ function AdminProjectPageContent() {
           <div className="absolute inset-0 rounded-full border-4 border-red-500 animate-ping opacity-75"></div>
         )}
       </button>
+
+      {/* Copy Collection View Modal */}
+      {showCopyCollectionModal && selectedCopyCollectionData && (
+        <CopyCollectionViewModal
+          isOpen={showCopyCollectionModal}
+          onClose={() => {
+            setShowCopyCollectionModal(false);
+            setSelectedCopyCollectionData(null);
+          }}
+          appletProgress={selectedCopyCollectionData.appletProgress}
+          stakeholder={selectedCopyCollectionData.stakeholder}
+          appletName={selectedCopyCollectionData.appletName}
+        />
+      )}
 
       {/* Chat Modal */}
       {showChatModal && currentUser && (
