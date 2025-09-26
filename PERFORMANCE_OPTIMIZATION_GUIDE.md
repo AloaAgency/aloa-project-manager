@@ -269,18 +269,25 @@ const { data, count } = await supabase
 
 ## Phase 7: Build & Deploy Optimization (1-2 hours)
 
-### 7.1 Optimize Build Process
+### 7.1 Optimize Build Process ✅ *(Fix performed)*
 **Priority: LOW | Impact: MEDIUM | Risk: LOW**
+**Status: COMPLETED**
+
+#### Summary:
+- Configured `next.config.js` to strip console statements in production builds while preserving `console.error` / `console.warn`.
+- Reduces bundle size and avoids leaking internal debug logs to browsers.
 
 ```javascript
 // next.config.js
+const isProduction = process.env.NODE_ENV === 'production';
+
 module.exports = {
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['lodash', 'date-fns'],
   },
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    removeConsole: isProduction ? { exclude: ['error', 'warn'] } : false,
   },
 }
 ```

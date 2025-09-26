@@ -1,3 +1,5 @@
+const isProduction = process.env.NODE_ENV === 'production';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -55,6 +57,9 @@ const nextConfig = {
         ],
       },
     ]
+  },
+  compiler: {
+    removeConsole: isProduction ? { exclude: ['error', 'warn'] } : false,
   },
   // Configure webpack for development
   webpack: (config, { dev, isServer }) => {
