@@ -555,8 +555,7 @@ function AdminProjectPageContent() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              source: 'manual_update',
-              data: knowledgePendingChanges
+              sourceType: 'project_metadata'
             })
           });
         }
