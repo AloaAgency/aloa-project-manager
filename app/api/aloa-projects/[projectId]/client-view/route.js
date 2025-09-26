@@ -385,7 +385,7 @@ export async function POST(request, { params }) {
       // Don't fail the request if interaction logging fails
     } else if (interactionRecord) {
       // Trigger knowledge extraction for completed interactions
-      if (status === 'completed' || interactionType === 'form_submit') {
+      if (status === 'completed' || interactionType === 'form_submit' || interactionType === 'phase_review_submission') {
         try {
           await fetch(`${request.nextUrl.origin}/api/project-knowledge/${projectId}/extract`, {
             method: 'POST',

@@ -50,7 +50,8 @@ import {
   Type,
   FileUp,
   Brain,
-  Video
+  Video,
+  Shield
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -79,7 +80,8 @@ const APPLET_ICONS = {
   client_review: CheckCircle,
   ai_form_results: Brain,
   ai_narrative_generator: Edit2,
-  video: Video
+  video: Video,
+  phase_review: Shield
 };
 
 const APPLET_COLORS = {
@@ -97,7 +99,8 @@ const APPLET_COLORS = {
   client_review: 'bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 border-emerald-300',
   ai_form_results: 'bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border-purple-300',
   ai_narrative_generator: 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 border-indigo-300',
-  video: 'bg-gradient-to-r from-rose-100 to-pink-100 text-rose-700 border-rose-300'
+  video: 'bg-gradient-to-r from-rose-100 to-pink-100 text-rose-700 border-rose-300',
+  phase_review: 'bg-gradient-to-r from-slate-100 to-blue-100 text-slate-700 border-slate-400'
 };
 
 function ProjectletAppletsManager({ 

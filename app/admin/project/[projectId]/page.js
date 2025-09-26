@@ -124,6 +124,11 @@ const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfigWith
   ssr: false
 });
 
+// Dynamically import Phase Review Config
+const PhaseReviewConfig = dynamic(() => import('@/components/PhaseReviewConfig'), {
+  ssr: false
+});
+
 const dedupeById = (items = []) => {
   const seen = new Set();
   return items.filter((item) => {
@@ -3477,6 +3482,16 @@ function AdminProjectPageContent() {
                                         </div>
                                       )}
                                     </div>
+                                  )}
+
+                                  {/* Inline phase review configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'phase_review' && (
+                                    <PhaseReviewConfig
+                                      applet={applet}
+                                      projectId={params.projectId}
+                                      projectletId={projectlet.id}
+                                      onUpdate={() => fetchProjectletApplets(projectlet.id)}
+                                    />
                                   )}
 
                                   {/* Inline AI Form Results configuration */}
