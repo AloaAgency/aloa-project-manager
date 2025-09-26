@@ -194,19 +194,26 @@ export async function middleware(request) {
 
     // If accessing auth routes while authenticated, redirect based on role
     if (isAuthPath && user && userRole) {
-      console.log('[Middleware] User authenticated on auth page:', {
-        pathname,
-        userId: user.id,
-        userRole,
-        hasSession: !!session
-      });
-      // Only redirect if we have a valid role
-      if (adminRoles.includes(userRole)) {
-        console.log('[Middleware] Redirecting admin user from auth page to /admin/projects');
-        return NextResponse.redirect(new URL('/admin/projects', request.url));
+      const hasForcedRedirect = request.nextUrl.searchParams.has('redirect');
+      if (hasForcedRedirect) {
+        console.log('[Middleware] Auth page access with redirect param detected, skipping auto-redirect to avoid loops.');
       }
-      // For client users, let them stay on auth pages
-      // The pages themselves will handle appropriate redirects
+
+      if (!hasForcedRedirect) {
+        console.log('[Middleware] User authenticated on auth page:', {
+          pathname,
+          userId: user.id,
+          userRole,
+          hasSession: !!session
+        });
+        // Only redirect if we have a valid role
+        if (adminRoles.includes(userRole)) {
+          console.log('[Middleware] Redirecting admin user from auth page to /admin/projects');
+          return NextResponse.redirect(new URL('/admin/projects', request.url));
+        }
+        // For client users, let them stay on auth pages
+        // The pages themselves will handle appropriate redirects
+      }
     }
 
     // For the root path, redirect based on auth status and role
