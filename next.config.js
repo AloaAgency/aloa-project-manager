@@ -17,6 +17,10 @@ const nextConfig = {
   },
   // Add headers for development CORS and HMR
   async headers() {
+    if (process.env.NODE_ENV !== 'development') {
+      return [];
+    }
+
     return [
       {
         // Apply these headers to all routes in development

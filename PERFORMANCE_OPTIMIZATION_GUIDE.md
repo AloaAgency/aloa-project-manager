@@ -68,6 +68,14 @@ const handleClick = useCallback(() => {
 -- Run the script in Supabase SQL Editor to apply all indexes
 ```
 
+### 1.4 Restrict Dev-Only CORS Headers ✅ *(Fix performed)*
+**Priority: MEDIUM | Impact: HIGH | Risk: LOW**
+**Status: COMPLETED**
+
+#### Summary:
+- Updated `next.config.js` so permissive `Access-Control-Allow-*` headers are applied only while running the dev server.
+- Prevents wildcard CORS headers from shipping to production, improving cacheability and reducing security exposure without affecting local DX.
+
 ## Phase 2: Bundle Size Reduction (2-3 hours each)
 
 ### 2.1 Implement Dynamic Imports ✅
