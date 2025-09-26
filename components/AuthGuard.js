@@ -36,8 +36,17 @@ export default function AuthGuard({
       // If API returns unauthorized, user is not authenticated
       if (!response.ok || data.error === 'Not authenticated') {
         if (requireAuth) {
-
-          router.push(`${redirectTo}?message=Please login to continue`);
+          // Check if we're already on the login page to avoid redirect loop
+          const currentPath = window.location.pathname;
+          if (currentPath.startsWith('/auth/')) {
+            // Already on an auth page, don't redirect again
+            setAuthorized(false);
+            setError('Your session has expired. Please login again.');
+          } else {
+            // Redirect to login page with return URL
+            const returnUrl = currentPath + window.location.search;
+            router.push(`${redirectTo}?message=Session expired, please login&redirect=${encodeURIComponent(returnUrl)}`);
+          }
         } else {
           setAuthorized(true);
         }
