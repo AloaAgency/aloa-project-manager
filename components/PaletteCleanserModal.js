@@ -41,6 +41,605 @@ const generateComplementaryColor = (hex) => {
   return rgbToHex(r, g, b);
 };
 
+const hexToHsl = (hex) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+
+  let { r, g, b } = rgb;
+  r /= 255;
+  g /= 255;
+  b /= 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (delta !== 0) {
+    s = l > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+
+    switch (max) {
+      case r:
+        h = ((g - b) / delta + (g < b ? 6 : 0));
+        break;
+      case g:
+        h = ((b - r) / delta + 2);
+        break;
+      default:
+        h = ((r - g) / delta + 4);
+        break;
+    }
+
+    h *= 60;
+  }
+
+  return { h, s, l };
+};
+
+const WARM_CATEGORIES = new Set(['red', 'orange', 'yellow', 'gold', 'pink', 'brown']);
+const COOL_CATEGORIES = new Set(['green', 'teal', 'blue', 'indigo', 'purple']);
+const NEUTRAL_CATEGORIES = new Set(['neutral', 'light', 'dark']);
+
+const COMPLEMENT_CATEGORY_MAP = {
+  red: ['green', 'teal', 'cool'],
+  orange: ['blue', 'teal', 'cool'],
+  yellow: ['blue', 'indigo', 'purple'],
+  gold: ['blue', 'cool'],
+  green: ['red', 'pink', 'warm'],
+  teal: ['orange', 'warm'],
+  blue: ['orange', 'yellow', 'warm'],
+  indigo: ['orange', 'yellow', 'warm'],
+  purple: ['yellow', 'gold', 'warm'],
+  pink: ['green', 'teal', 'cool'],
+  brown: ['blue', 'teal', 'cool'],
+  neutral: ['any'],
+  light: ['dark'],
+  dark: ['light'],
+};
+
+const CUSTOM_PAGE_DEFINITIONS = [
+  {
+    id: 'foundation',
+    title: 'Brand Foundations',
+    description: 'Starting with your brand and professional options',
+    maxPalettes: 3,
+    fallback: true,
+  },
+  {
+    id: 'modern',
+    title: 'Modern Tech',
+    description: 'Modern tech-inspired variations',
+    maxPalettes: 3,
+  },
+  {
+    id: 'warm',
+    title: 'Warm & Energetic',
+    description: 'Warm and energetic combinations',
+    maxPalettes: 3,
+  },
+  {
+    id: 'cool',
+    title: 'Cool & Calming',
+    description: 'Cool and calming tones',
+    maxPalettes: 3,
+  },
+  {
+    id: 'bold',
+    title: 'Bold Energy',
+    description: 'Bold and vibrant energy',
+    maxPalettes: 3,
+  },
+  {
+    id: 'sophisticated',
+    title: 'Sophisticated Elegance',
+    description: 'Sophisticated elegance',
+    maxPalettes: 3,
+  },
+  {
+    id: 'experimental',
+    title: 'Creative Explorations',
+    description: 'Creative experimental options',
+    maxPalettes: 3,
+  },
+];
+
+const getHueCategory = (hex) => {
+  const hsl = hexToHsl(hex);
+  if (!hsl) return 'neutral';
+
+  const { h, s, l } = hsl;
+
+  if (s < 0.15) {
+    if (l >= 0.75) return 'light';
+    if (l <= 0.25) return 'dark';
+    return 'neutral';
+  }
+
+  const hue = (h + 360) % 360;
+
+  if (hue < 15 || hue >= 345) return 'red';
+  if (hue < 40) return l < 0.55 ? 'brown' : 'orange';
+  if (hue < 65) return 'yellow';
+  if (hue < 90) return 'gold';
+  if (hue < 150) return 'green';
+  if (hue < 185) return 'teal';
+  if (hue < 225) return 'blue';
+  if (hue < 260) return 'indigo';
+  if (hue < 295) return 'purple';
+  if (hue < 330) return 'pink';
+  return 'magenta';
+};
+
+const getComplementCategories = (category) => {
+  const complements = COMPLEMENT_CATEGORY_MAP[category];
+  if (!complements) return [];
+  return complements;
+};
+
+const getBrandColorProfile = (colors = []) => {
+  if (!colors.length) {
+    return {
+      tags: new Set(['any']),
+      categories: new Set(),
+      dominantCategories: [],
+      complementCategories: new Set(),
+      temperature: 'balanced',
+      vibrancyCategory: 'balanced',
+      brightnessCategory: 'balanced',
+      isNeutralHeavy: false,
+    };
+  }
+
+  const categoryCounts = new Map();
+  const complementSet = new Set();
+
+  let warmCount = 0;
+  let coolCount = 0;
+  let neutralCount = 0;
+  let totalSaturation = 0;
+  let totalLightness = 0;
+
+  colors.forEach((color) => {
+    const hsl = hexToHsl(color);
+    if (!hsl) return;
+
+    totalSaturation += hsl.s;
+    totalLightness += hsl.l;
+
+    const category = getHueCategory(color);
+    categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+
+    if (WARM_CATEGORIES.has(category)) {
+      warmCount++;
+    } else if (COOL_CATEGORIES.has(category)) {
+      coolCount++;
+    } else {
+      neutralCount++;
+    }
+
+    getComplementCategories(category).forEach((comp) => complementSet.add(comp));
+  });
+
+  const sortedCategories = Array.from(categoryCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([category]) => category);
+
+  const avgSaturation = totalSaturation / colors.length;
+  const avgLightness = totalLightness / colors.length;
+
+  let temperature = 'balanced';
+  if (warmCount > coolCount + 1) {
+    temperature = 'warm';
+  } else if (coolCount > warmCount + 1) {
+    temperature = 'cool';
+  } else if (neutralCount >= colors.length / 2) {
+    temperature = 'neutral';
+  }
+
+  let vibrancyCategory = 'balanced';
+  if (avgSaturation >= 0.6) {
+    vibrancyCategory = 'vibrant';
+  } else if (avgSaturation <= 0.3) {
+    vibrancyCategory = 'muted';
+  }
+
+  let brightnessCategory = 'balanced';
+  if (avgLightness >= 0.65) {
+    brightnessCategory = 'light';
+  } else if (avgLightness <= 0.35) {
+    brightnessCategory = 'dark';
+  }
+
+  const tagSet = new Set(sortedCategories);
+  tagSet.add('any');
+
+  if (temperature !== 'balanced') {
+    tagSet.add(temperature);
+  }
+
+  if (vibrancyCategory !== 'balanced') {
+    tagSet.add(vibrancyCategory);
+  }
+
+  if (brightnessCategory !== 'balanced') {
+    tagSet.add(brightnessCategory);
+  }
+
+  if (sortedCategories.includes('neutral') || sortedCategories.includes('light') || sortedCategories.includes('dark')) {
+    tagSet.add('neutral');
+  }
+
+  return {
+    tags: tagSet,
+    categories: new Set(sortedCategories),
+    dominantCategories: sortedCategories,
+    complementCategories: complementSet,
+    temperature,
+    vibrancyCategory,
+    brightnessCategory,
+    isNeutralHeavy: neutralCount >= colors.length / 2,
+  };
+};
+
+const computePaletteScore = (template, profile) => {
+  if (template.requires && !template.requires.every(tag => profile.tags.has(tag))) {
+    return -Infinity;
+  }
+
+  if (template.requireOneOf && !template.requireOneOf.some(tag => profile.tags.has(tag))) {
+    return -Infinity;
+  }
+
+  const tags = template.tags || [];
+  let score = template.baseScore ?? 0;
+
+  tags.forEach((tag) => {
+    if (profile.tags.has(tag)) {
+      score += 4;
+    }
+
+    if (profile.complementCategories.has(tag)) {
+      score += 2;
+    }
+
+    if (tag === 'warm' && profile.temperature === 'warm') {
+      score += 3;
+    }
+
+    if (tag === 'cool' && profile.temperature === 'cool') {
+      score += 3;
+    }
+
+    if (tag === 'neutral' && profile.isNeutralHeavy) {
+      score += 2;
+    }
+
+    if (tag === 'vibrant' && profile.vibrancyCategory === 'vibrant') {
+      score += 2;
+    }
+
+    if (tag === 'muted' && profile.vibrancyCategory === 'muted') {
+      score += 2;
+    }
+
+    if (tag === 'light' && profile.brightnessCategory === 'light') {
+      score += 1;
+    }
+
+    if (tag === 'dark' && profile.brightnessCategory === 'dark') {
+      score += 1;
+    }
+
+    if (profile.dominantCategories.includes(tag)) {
+      score += 2;
+    }
+  });
+
+  return score;
+};
+
+const CUSTOM_PALETTE_TEMPLATES = [
+  {
+    id: 'brand-original',
+    pageId: 'foundation',
+    mood: 'Your Current Brand',
+    tags: ['any', 'brand', 'neutral'],
+    alwaysInclude: true,
+    baseScore: 5,
+    buildColors: ({ brandColors, primaryColor }) => {
+      if (brandColors.length > 1) {
+        const palette = [...brandColors];
+        while (palette.length < 5) {
+          palette.push(adjustBrightness(brandColors[palette.length % brandColors.length], (palette.length - brandColors.length) * 20));
+        }
+        return palette.slice(0, 5);
+      }
+
+      return [
+        adjustBrightness(primaryColor, -40),
+        adjustBrightness(primaryColor, -20),
+        primaryColor,
+        adjustBrightness(primaryColor, 20),
+        adjustBrightness(primaryColor, 40)
+      ];
+    }
+  },
+  {
+    id: 'navy-gold',
+    pageId: 'foundation',
+    mood: 'Executive Professional',
+    tags: ['blue', 'cool', 'professional', 'neutral'],
+    baseScore: 1,
+    buildColors: ({ primaryColor, secondaryColor, isDarkMode }) => [
+      primaryColor,
+      '#1E3A5F',
+      '#FFC107',
+      isDarkMode ? '#0D1929' : '#F8F9FA',
+      secondaryColor || '#4A6FA5',
+    ]
+  },
+  {
+    id: 'sage-terra',
+    pageId: 'foundation',
+    mood: 'Natural Harmony',
+    tags: ['green', 'warm', 'earthy', 'organic'],
+    requireOneOf: ['green', 'teal'],
+    buildColors: ({ primaryColor, secondaryColor }) => [
+      primaryColor,
+      '#87A96B',
+      '#CC6B49',
+      '#F4E4D4',
+      secondaryColor || '#6B8E6B',
+    ]
+  },
+  {
+    id: 'cyberpunk',
+    pageId: 'modern',
+    mood: 'Digital Future',
+    tags: ['purple', 'pink', 'cool', 'vibrant', 'modern'],
+    buildColors: ({ primaryColor, isDarkMode }) => [
+      primaryColor,
+      '#FF00FF',
+      '#00FFFF',
+      isDarkMode ? '#0A0A0A' : '#1A0033',
+      '#7B00FF',
+    ]
+  },
+  {
+    id: 'scandi',
+    pageId: 'modern',
+    mood: 'Clean Minimal',
+    tags: ['neutral', 'minimal', 'light', 'cool'],
+    buildColors: ({ primaryColor, secondaryColor, isDarkMode }) => [
+      primaryColor,
+      isDarkMode ? '#2C2C2C' : '#FAFAFA',
+      '#E0E0E0',
+      isDarkMode ? '#1A1A1A' : '#FFFFFF',
+      secondaryColor || '#B8B8B8',
+    ]
+  },
+  {
+    id: 'ocean',
+    pageId: 'modern',
+    mood: 'Aquatic Flow',
+    tags: ['blue', 'teal', 'cool', 'fresh'],
+    requireOneOf: ['blue', 'teal'],
+    buildColors: ({ primaryColor, isDarkMode }) => [
+      primaryColor,
+      '#006994',
+      '#00A8CC',
+      '#40E0D0',
+      isDarkMode ? '#002E3F' : '#E6F7FB',
+    ]
+  },
+  {
+    id: 'sunset',
+    pageId: 'warm',
+    mood: 'Golden Hour',
+    tags: ['warm', 'orange', 'vibrant', 'energetic'],
+    requireOneOf: ['warm', 'orange', 'red', 'yellow'],
+    buildColors: ({ primaryColor }) => [
+      primaryColor,
+      '#FF6B6B',
+      '#FFE66D',
+      '#FF9F1C',
+      '#F77F00',
+    ]
+  },
+  {
+    id: 'desert',
+    pageId: 'warm',
+    mood: 'Warm Desert',
+    tags: ['warm', 'earthy', 'brown'],
+    requireOneOf: ['warm', 'brown'],
+    buildColors: ({ primaryColor, secondaryColor }) => [
+      primaryColor,
+      '#C19A6B',
+      '#8B7355',
+      '#FFE5CC',
+      secondaryColor || '#D2691E',
+    ]
+  },
+  {
+    id: 'autumn',
+    pageId: 'warm',
+    mood: 'Fall Warmth',
+    tags: ['warm', 'brown', 'orange'],
+    requireOneOf: ['warm', 'brown'],
+    buildColors: ({ primaryColor }) => [
+      primaryColor,
+      '#D2691E',
+      '#FF7F50',
+      '#8B4513',
+      '#FFE4B5',
+    ]
+  },
+  {
+    id: 'nordic',
+    pageId: 'cool',
+    mood: 'Arctic Cool',
+    tags: ['cool', 'blue', 'light'],
+    requireOneOf: ['blue', 'teal', 'cool'],
+    buildColors: ({ primaryColor, isDarkMode }) => [
+      primaryColor,
+      '#B4D4E7',
+      '#6FA3C7',
+      isDarkMode ? '#2C3E50' : '#F0F4F8',
+      '#4A90A4',
+    ]
+  },
+  {
+    id: 'purple-haze',
+    pageId: 'cool',
+    mood: 'Royal Purple',
+    tags: ['purple', 'cool', 'luxury'],
+    requireOneOf: ['purple', 'pink', 'cool'],
+    buildColors: ({ primaryColor, secondaryColor }) => [
+      primaryColor,
+      '#9B59B6',
+      '#8E44AD',
+      '#E8DAEF',
+      secondaryColor || '#6C3483',
+    ]
+  },
+  {
+    id: 'mint',
+    pageId: 'cool',
+    mood: 'Fresh Mint',
+    tags: ['green', 'teal', 'cool', 'fresh'],
+    requireOneOf: ['green', 'teal'],
+    buildColors: ({ primaryColor, isDarkMode }) => [
+      primaryColor,
+      '#00C9A7',
+      '#4FFFB0',
+      isDarkMode ? '#003D30' : '#E8FFF8',
+      '#00A693',
+    ]
+  },
+  {
+    id: 'miami',
+    pageId: 'bold',
+    mood: 'Vibrant Energy',
+    tags: ['vibrant', 'pink', 'orange', 'energetic'],
+    buildColors: ({ primaryColor }) => [
+      primaryColor,
+      '#FF006E',
+      '#FFB700',
+      '#00D9FF',
+      '#FB5607',
+    ]
+  },
+  {
+    id: 'pop-art',
+    pageId: 'bold',
+    mood: 'Bold Pop',
+    tags: ['vibrant', 'bold', 'primary'],
+    buildColors: ({ primaryColor }) => [
+      primaryColor,
+      '#FF1744',
+      '#00E676',
+      '#FFEA00',
+      '#2979FF',
+    ]
+  },
+  {
+    id: 'electric',
+    pageId: 'bold',
+    mood: 'Electric Bold',
+    tags: ['vibrant', 'cool', 'blue', 'pink'],
+    buildColors: ({ primaryColor, isDarkMode }) => [
+      primaryColor,
+      '#FF00F5',
+      '#00FF88',
+      isDarkMode ? '#000033' : '#FFFF00',
+      '#00BFFF',
+    ]
+  },
+  {
+    id: 'black-tie',
+    pageId: 'sophisticated',
+    mood: 'Formal Elegance',
+    tags: ['neutral', 'dark', 'luxury', 'professional'],
+    buildColors: ({ primaryColor, secondaryColor, isDarkMode }) => [
+      primaryColor,
+      isDarkMode ? '#FFFFFF' : '#000000',
+      '#C0C0C0',
+      isDarkMode ? '#1C1C1C' : '#F5F5F5',
+      secondaryColor || '#808080',
+    ]
+  },
+  {
+    id: 'burgundy',
+    pageId: 'sophisticated',
+    mood: 'Wine & Cream',
+    tags: ['warm', 'red', 'luxury'],
+    requireOneOf: ['warm', 'red', 'orange'],
+    buildColors: ({ primaryColor }) => [
+      primaryColor,
+      '#800020',
+      '#FFFDD0',
+      '#4B0013',
+      '#F5E6D3',
+    ]
+  },
+  {
+    id: 'jewel',
+    pageId: 'sophisticated',
+    mood: 'Precious Gems',
+    tags: ['blue', 'green', 'purple', 'luxury', 'vibrant'],
+    buildColors: ({ primaryColor }) => [
+      primaryColor,
+      '#0F52BA',
+      '#50C878',
+      '#E0115F',
+      '#FFD700',
+    ]
+  },
+  {
+    id: 'pastel',
+    pageId: 'experimental',
+    mood: 'Soft Pastels',
+    tags: ['pastel', 'light', 'muted'],
+    buildColors: ({ primaryColor }) => [
+      primaryColor,
+      '#FFD1DC',
+      '#C7CEEA',
+      '#FFDAC1',
+      '#B5EAD7',
+    ]
+  },
+  {
+    id: 'industrial',
+    pageId: 'experimental',
+    mood: 'Urban Industrial',
+    tags: ['neutral', 'dark', 'modern'],
+    buildColors: ({ primaryColor, secondaryColor, isDarkMode }) => [
+      primaryColor,
+      '#434343',
+      '#7F7F7F',
+      isDarkMode ? '#1A1A1A' : '#ECECEC',
+      secondaryColor || '#5C5C5C',
+    ]
+  },
+  {
+    id: 'botanical',
+    pageId: 'experimental',
+    mood: 'Garden Fresh',
+    tags: ['green', 'organic', 'fresh', 'warm'],
+    requireOneOf: ['green', 'teal'],
+    buildColors: ({ primaryColor }) => [
+      primaryColor,
+      '#2E7D32',
+      '#689F38',
+      '#FDD835',
+      '#8BC34A',
+    ]
+  },
+];
+
 const generateAnalogousColors = (hex) => {
   const rgb = hexToRgb(hex);
   if (!rgb) return [hex];
@@ -83,336 +682,147 @@ const generateMonochromaticPalette = (hex, isDarkMode = false) => {
 
 // Generate all 21 custom palettes organized by pages (3 per page)
 const generateAllCustomPalettes = (brandColors, isDarkMode = false) => {
-  if (!brandColors || brandColors.length === 0) return [];
+  if (!brandColors || brandColors.length === 0) {
+    return { palettes: [], pages: [], profile: getBrandColorProfile([]) };
+  }
 
-  const allPalettes = [];
+  const profile = getBrandColorProfile(brandColors);
   const primaryColor = brandColors[0];
   const secondaryColor = brandColors[1] || null;
 
-  // Page 1: Original & Foundation (3 palettes)
+  const context = {
+    brandColors,
+    primaryColor,
+    secondaryColor,
+    isDarkMode,
+  };
 
-  // 1. Your exact brand colors
-  if (brandColors.length > 1) {
-    const brandPalette = [...brandColors];
-    while (brandPalette.length < 5) {
-      brandPalette.push(adjustBrightness(brandColors[brandPalette.length % brandColors.length], (brandPalette.length - brandColors.length) * 20));
+  const evaluatedTemplates = CUSTOM_PALETTE_TEMPLATES.map((template) => {
+    const colors = template.buildColors(context);
+    if (!colors || colors.length < 5) {
+      return null;
     }
-    allPalettes.push({
-      id: 'brand-original',
-      colors: brandPalette.slice(0, 5),
-      mood: 'Your Current Brand',
-      page: 1
-    });
-  } else {
-    // Single color with shades
-    allPalettes.push({
-      id: 'brand-original',
-      colors: [
-        adjustBrightness(primaryColor, -40),
-        adjustBrightness(primaryColor, -20),
-        primaryColor,
-        adjustBrightness(primaryColor, 20),
-        adjustBrightness(primaryColor, 40)
-      ],
-      mood: 'Your Brand Shades',
-      page: 1
-    });
+
+    const score = computePaletteScore(template, profile);
+    if (score === -Infinity && !template.alwaysInclude) {
+      return null;
+    }
+
+    return {
+      ...template,
+      colors: colors.slice(0, 5),
+      score: score === -Infinity ? (template.baseScore ?? 0) : score,
+    };
+  }).filter(Boolean);
+
+  const selectedPalettes = [];
+  const selectedPages = [];
+
+  CUSTOM_PAGE_DEFINITIONS.forEach((pageDef) => {
+    const candidates = evaluatedTemplates.filter((template) => template.pageId === pageDef.id);
+
+    if (candidates.length === 0 && !pageDef.fallback) {
+      return;
+    }
+
+    const sortedCandidates = [...candidates].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const positiveMatches = sortedCandidates.filter((template) => (template.score ?? 0) > 0 || template.alwaysInclude);
+
+    let chosen = positiveMatches.length > 0 ? positiveMatches : sortedCandidates;
+
+    if ((!chosen || chosen.length === 0) && pageDef.fallback) {
+      const fallbackTemplates = CUSTOM_PALETTE_TEMPLATES
+        .filter((template) => template.pageId === pageDef.id && template.alwaysInclude)
+        .map((template) => {
+          const colors = template.buildColors(context);
+          if (!colors || colors.length < 5) {
+            return null;
+          }
+          return {
+            ...template,
+            colors: colors.slice(0, 5),
+            score: template.baseScore ?? 0,
+          };
+        })
+        .filter(Boolean);
+
+      chosen = fallbackTemplates;
+    }
+
+    if (!chosen || chosen.length === 0) {
+      return;
+    }
+
+    const pageIndex = selectedPages.length + 1;
+    const maxPalettes = pageDef.maxPalettes || 3;
+    const finalPalettes = chosen.slice(0, maxPalettes).map((palette) => ({
+      ...palette,
+      page: pageIndex,
+      pageId: pageDef.id,
+    }));
+
+    if (finalPalettes.length > 0) {
+      selectedPages.push({
+        ...pageDef,
+        page: pageIndex,
+      });
+      selectedPalettes.push(...finalPalettes);
+    }
+  });
+
+  return {
+    palettes: selectedPalettes,
+    pages: selectedPages,
+    profile,
+  };
+};
+
+const derivePageMetas = (palettes = []) => {
+  const pageOrder = [];
+  const seen = new Map();
+
+  palettes.forEach((palette) => {
+    const fallbackPageId = palette.pageId || CUSTOM_PAGE_DEFINITIONS[Math.max((palette.page || 1) - 1, 0)]?.id || `page-${palette.page || 1}`;
+
+    if (!seen.has(fallbackPageId)) {
+      const definition = CUSTOM_PAGE_DEFINITIONS.find((def) => def.id === fallbackPageId);
+      seen.set(fallbackPageId, definition || { id: fallbackPageId, title: `Palette Group`, description: '' });
+      pageOrder.push(fallbackPageId);
+    }
+  });
+
+  return pageOrder.map((pageId, index) => {
+    const definition = CUSTOM_PAGE_DEFINITIONS.find((def) => def.id === pageId);
+    const baseMeta = seen.get(pageId) || definition || { id: pageId, title: `Palette Group ${index + 1}`, description: '' };
+    return {
+      ...baseMeta,
+      page: index + 1,
+    };
+  });
+};
+
+const normalizePalettesWithPages = (palettes = []) => {
+  if (!palettes.length) {
+    return { palettes: [], pages: [] };
   }
 
-  // 2. Navy & Gold Professional
-  allPalettes.push({
-    id: 'navy-gold',
-    colors: [
-      primaryColor,
-      '#1E3A5F',
-      '#FFC107',
-      isDarkMode ? '#0D1929' : '#F8F9FA',
-      secondaryColor || '#4A6FA5'
-    ],
-    mood: 'Executive Professional',
-    page: 1
+  const pages = derivePageMetas(palettes);
+  const pageIdToIndex = new Map(pages.map((meta) => [meta.id, meta.page]));
+
+  const normalized = palettes.map((palette) => {
+    const fallbackPageId = palette.pageId || CUSTOM_PAGE_DEFINITIONS[Math.max((palette.page || 1) - 1, 0)]?.id || `page-${palette.page || 1}`;
+    const page = pageIdToIndex.get(fallbackPageId) || 1;
+
+    return {
+      ...palette,
+      pageId: fallbackPageId,
+      page,
+    };
   });
 
-  // 3. Sage & Terracotta Earth
-  allPalettes.push({
-    id: 'sage-terra',
-    colors: [
-      primaryColor,
-      '#87A96B',
-      '#CC6B49',
-      '#F4E4D4',
-      secondaryColor || '#6B8E6B'
-    ],
-    mood: 'Natural Harmony',
-    page: 1
-  });
-
-  // Page 2: Modern Tech (3 palettes)
-
-  // 4. Cyberpunk Neon
-  allPalettes.push({
-    id: 'cyberpunk',
-    colors: [
-      primaryColor,
-      '#FF00FF',
-      '#00FFFF',
-      isDarkMode ? '#0A0A0A' : '#1A0033',
-      '#7B00FF'
-    ],
-    mood: 'Digital Future',
-    page: 2
-  });
-
-  // 5. Minimal Scandinavian
-  allPalettes.push({
-    id: 'scandi',
-    colors: [
-      primaryColor,
-      isDarkMode ? '#2C2C2C' : '#FAFAFA',
-      '#E0E0E0',
-      isDarkMode ? '#1A1A1A' : '#FFFFFF',
-      secondaryColor || '#B8B8B8'
-    ],
-    mood: 'Clean Minimal',
-    page: 2
-  });
-
-  // 6. Ocean Depths
-  allPalettes.push({
-    id: 'ocean',
-    colors: [
-      primaryColor,
-      '#006994',
-      '#00A8CC',
-      '#40E0D0',
-      isDarkMode ? '#002E3F' : '#E6F7FB'
-    ],
-    mood: 'Aquatic Flow',
-    page: 2
-  });
-
-  // Page 3: Warm Vibes (3 palettes)
-
-  // 7. Sunset Glow
-  allPalettes.push({
-    id: 'sunset',
-    colors: [
-      primaryColor,
-      '#FF6B6B',
-      '#FFE66D',
-      '#FF9F1C',
-      '#F77F00'
-    ],
-    mood: 'Golden Hour',
-    page: 3
-  });
-
-  // 8. Desert Oasis
-  allPalettes.push({
-    id: 'desert',
-    colors: [
-      primaryColor,
-      '#C19A6B',
-      '#8B7355',
-      '#FFE5CC',
-      secondaryColor || '#D2691E'
-    ],
-    mood: 'Warm Desert',
-    page: 3
-  });
-
-  // 9. Autumn Leaves
-  allPalettes.push({
-    id: 'autumn',
-    colors: [
-      primaryColor,
-      '#D2691E',
-      '#FF7F50',
-      '#8B4513',
-      '#FFE4B5'
-    ],
-    mood: 'Fall Warmth',
-    page: 3
-  });
-
-  // Page 4: Cool Tones (3 palettes)
-
-  // 10. Nordic Ice
-  allPalettes.push({
-    id: 'nordic',
-    colors: [
-      primaryColor,
-      '#B4D4E7',
-      '#6FA3C7',
-      isDarkMode ? '#2C3E50' : '#F0F4F8',
-      '#4A90A4'
-    ],
-    mood: 'Arctic Cool',
-    page: 4
-  });
-
-  // 11. Purple Haze
-  allPalettes.push({
-    id: 'purple-haze',
-    colors: [
-      primaryColor,
-      '#9B59B6',
-      '#8E44AD',
-      '#E8DAEF',
-      secondaryColor || '#6C3483'
-    ],
-    mood: 'Royal Purple',
-    page: 4
-  });
-
-  // 12. Mint Fresh
-  allPalettes.push({
-    id: 'mint',
-    colors: [
-      primaryColor,
-      '#00C9A7',
-      '#4FFFB0',
-      isDarkMode ? '#003D30' : '#E8FFF8',
-      '#00A693'
-    ],
-    mood: 'Fresh Mint',
-    page: 4
-  });
-
-  // Page 5: Bold & Energetic (3 palettes)
-
-  // 13. Miami Vice
-  allPalettes.push({
-    id: 'miami',
-    colors: [
-      primaryColor,
-      '#FF006E',
-      '#FFB700',
-      '#00D9FF',
-      '#FB5607'
-    ],
-    mood: 'Vibrant Energy',
-    page: 5
-  });
-
-  // 14. Pop Art
-  allPalettes.push({
-    id: 'pop-art',
-    colors: [
-      primaryColor,
-      '#FF1744',
-      '#00E676',
-      '#FFEA00',
-      '#2979FF'
-    ],
-    mood: 'Bold Pop',
-    page: 5
-  });
-
-  // 15. Electric Dreams
-  allPalettes.push({
-    id: 'electric',
-    colors: [
-      primaryColor,
-      '#FF00F5',
-      '#00FF88',
-      isDarkMode ? '#000033' : '#FFFF00',
-      '#00BFFF'
-    ],
-    mood: 'Electric Bold',
-    page: 5
-  });
-
-  // Page 6: Sophisticated (3 palettes)
-
-  // 16. Black Tie
-  allPalettes.push({
-    id: 'black-tie',
-    colors: [
-      primaryColor,
-      isDarkMode ? '#FFFFFF' : '#000000',
-      '#C0C0C0',
-      isDarkMode ? '#1C1C1C' : '#F5F5F5',
-      secondaryColor || '#808080'
-    ],
-    mood: 'Formal Elegance',
-    page: 6
-  });
-
-  // 17. Burgundy & Cream
-  allPalettes.push({
-    id: 'burgundy',
-    colors: [
-      primaryColor,
-      '#800020',
-      '#FFFDD0',
-      '#4B0013',
-      '#F5E6D3'
-    ],
-    mood: 'Wine & Cream',
-    page: 6
-  });
-
-  // 18. Jewel Tones
-  allPalettes.push({
-    id: 'jewel',
-    colors: [
-      primaryColor,
-      '#0F52BA',  // Sapphire
-      '#50C878',  // Emerald
-      '#E0115F',  // Ruby
-      '#FFD700'   // Gold
-    ],
-    mood: 'Precious Gems',
-    page: 6
-  });
-
-  // Page 7: Experimental (3 palettes)
-
-  // 19. Pastel Dreams
-  allPalettes.push({
-    id: 'pastel',
-    colors: [
-      primaryColor,
-      '#FFD1DC',
-      '#C7CEEA',
-      '#FFDAC1',
-      '#B5EAD7'
-    ],
-    mood: 'Soft Pastels',
-    page: 7
-  });
-
-  // 20. Industrial Steel
-  allPalettes.push({
-    id: 'industrial',
-    colors: [
-      primaryColor,
-      '#434343',
-      '#7F7F7F',
-      isDarkMode ? '#1A1A1A' : '#ECECEC',
-      secondaryColor || '#5C5C5C'
-    ],
-    mood: 'Urban Industrial',
-    page: 7
-  });
-
-  // 21. Botanical Garden
-  allPalettes.push({
-    id: 'botanical',
-    colors: [
-      primaryColor,
-      '#2E7D32',
-      '#689F38',
-      '#FDD835',
-      '#8BC34A'
-    ],
-    mood: 'Garden Fresh',
-    page: 7
-  });
-
-  return allPalettes;
+  return { palettes: normalized, pages };
 };
+
 
 // Comprehensive palette collections for better preference learning
 const PALETTE_COLLECTIONS = [
@@ -540,11 +950,17 @@ export default function PaletteCleanserModal({
   const [brandColors, setBrandColors] = useState([]);
   const [brandColorInput, setBrandColorInput] = useState('');
   const [customPalettes, setCustomPalettes] = useState([]);
+  const [customPageMetas, setCustomPageMetas] = useState([]);
   const [customPalettePage, setCustomPalettePage] = useState(1);
   const [totalCustomPages, setTotalCustomPages] = useState(0);
 
   const currentQuestion = PALETTE_COLLECTIONS[currentStep];
   const totalSteps = PALETTE_COLLECTIONS.length;
+  const currentCustomPageMeta = customPageMetas.length > 0 && customPalettePage > 0
+    ? customPageMetas[Math.min(customPalettePage - 1, customPageMetas.length - 1)]
+    : null;
+  const currentPagePalettes = customPalettes.filter(palette => palette.page === customPalettePage);
+  const ratedCurrentPageCount = currentPagePalettes.filter(palette => paletteRatings[palette.id] !== undefined).length;
 
   // Calculate progress based on the user's journey
   let progress = 0;
@@ -553,26 +969,29 @@ export default function PaletteCleanserModal({
   } else if (showSummary) {
     progress = 100; // At summary/completion
   } else if (brandColorAttachment === 'very') {
-    // For "very attached" users: brand assessment -> background -> 7 custom pages -> final selection -> summary
-    // Total steps: 1 (background) + 7 (custom palettes) + 1 (final selection) + 1 (summary) = 10 steps
-    const totalVeryAttachedSteps = 10;
+    // For "very attached" users: brand assessment -> background -> custom pages -> final selection -> summary
+    const customSteps = Math.max(totalCustomPages, 1);
+    const totalVeryAttachedSteps = 1 /* background */ + customSteps + 1 /* final selection */ + 1 /* summary */;
 
     if (!backgroundPreference) {
-      progress = 10; // At background selection (step 1/10)
+      progress = (1 / totalVeryAttachedSteps) * 100;
     } else if (customPalettes.length > 0 && !showFinalSelection) {
-      // At custom palettes (steps 2-8 out of 10)
-      const customPaletteProgress = (1 + customPalettePage) / totalVeryAttachedSteps;
-      progress = customPaletteProgress * 100;
+      const currentCustomStep = Math.min(customPalettePage, customSteps);
+      progress = ((1 + currentCustomStep) / totalVeryAttachedSteps) * 100;
     } else if (showFinalSelection) {
-      progress = 90; // At final selection (step 9/10)
+      progress = ((1 + customSteps + 1) / totalVeryAttachedSteps) * 100;
     }
   } else if (brandColorAttachment === 'somewhat' || brandColorAttachment === 'not') {
     // For other users: includes both custom and standard palettes
+    const customSteps = Math.max(totalCustomPages, 1);
+
     if (!backgroundPreference) {
       progress = 5; // At background selection
     } else if (customPalettes.length > 0 && currentStep === 0 && !showFinalSelection) {
       // At custom palettes phase
-      const customPhaseProgress = (customPalettePage * 10) + 10; // 10-70% range
+      const customPhaseProgress = totalCustomPages > 0
+        ? 10 + ((Math.min(customPalettePage, customSteps) / customSteps) * 60)
+        : 10;
       progress = customPhaseProgress;
     } else if (currentStep > 0 && !showFinalSelection) {
       // At standard palettes
@@ -619,7 +1038,9 @@ export default function PaletteCleanserModal({
         brandColorAttachment,
         brandColorInput,
         customPalettes,
+        customPageMetas,
         customPalettePage,
+        totalCustomPages,
         showBrandAssessment,
         lastUpdated: new Date().toISOString()
       };
@@ -694,8 +1115,11 @@ export default function PaletteCleanserModal({
           setBrandColors(savedData.brandColors || []);
           setBrandColorAttachment(savedData.brandColorAttachment || null);
           setBrandColorInput(savedData.brandColorInput || '');
-          setCustomPalettes(savedData.customPalettes || []);
-          setCustomPalettePage(savedData.customPalettePage || 1);
+          const normalizedInitial = normalizePalettesWithPages(savedData.customPalettes || []);
+          setCustomPalettes(normalizedInitial.palettes);
+          setCustomPageMetas(normalizedInitial.pages);
+          setTotalCustomPages(normalizedInitial.pages.length);
+          setCustomPalettePage(normalizedInitial.pages.length > 0 ? Math.min(savedData.customPalettePage || 1, normalizedInitial.pages.length) : 0);
           setHasLoadedData(true);
 
           // Skip brand assessment if we have data
@@ -708,9 +1132,11 @@ export default function PaletteCleanserModal({
           // Generate custom palettes if we have brand colors and background preference
           if (savedData.brandColors && savedData.brandColors.length > 0 && savedData.backgroundPreference) {
             const isDark = savedData.backgroundPreference === 'dark';
-            const allPalettes = generateAllCustomPalettes(savedData.brandColors, isDark);
-            setCustomPalettes(allPalettes);
-            setTotalCustomPages(7);
+            const { palettes, pages } = generateAllCustomPalettes(savedData.brandColors, isDark);
+            setCustomPalettes(palettes);
+            setCustomPageMetas(pages);
+            setTotalCustomPages(pages.length);
+            setCustomPalettePage(pages.length > 0 ? Math.min(savedData.customPalettePage || 1, pages.length) : 0);
           }
 
           if (!isViewOnly) {
@@ -745,8 +1171,21 @@ export default function PaletteCleanserModal({
               setBrandColors(savedData.brandColors || []);
               setBrandColorAttachment(savedData.brandColorAttachment || null);
               setBrandColorInput(savedData.brandColorInput || '');
-              setCustomPalettes(savedData.customPalettes || []);
-              setCustomPalettePage(savedData.customPalettePage || 1);
+              const regenerated = savedData.brandColors && savedData.brandColors.length > 0 && savedData.backgroundPreference
+                ? generateAllCustomPalettes(savedData.brandColors, savedData.backgroundPreference === 'dark')
+                : null;
+              if (regenerated && regenerated.pages.length > 0) {
+                setCustomPalettes(regenerated.palettes);
+                setCustomPageMetas(regenerated.pages);
+                setTotalCustomPages(regenerated.pages.length);
+                setCustomPalettePage(Math.min(savedData.customPalettePage || 1, regenerated.pages.length));
+              } else {
+                const normalized = normalizePalettesWithPages(savedData.customPalettes || []);
+                setCustomPalettes(normalized.palettes);
+                setCustomPageMetas(normalized.pages);
+                setTotalCustomPages(normalized.pages.length);
+                setCustomPalettePage(normalized.pages.length > 0 ? Math.min(savedData.customPalettePage || 1, normalized.pages.length) : 0);
+              }
 
               // Mark that we're editing previous data
               setIsEditingPrevious(true);
@@ -809,8 +1248,22 @@ export default function PaletteCleanserModal({
             setBrandColors(savedData.brandColors || []);
             setBrandColorAttachment(savedData.brandColorAttachment || null);
             setBrandColorInput(savedData.brandColorInput || '');
-            setCustomPalettes(savedData.customPalettes || []);
-            setCustomPalettePage(savedData.customPalettePage || 1);
+
+            const regenerated = savedData.brandColors && savedData.brandColors.length > 0 && savedData.backgroundPreference
+              ? generateAllCustomPalettes(savedData.brandColors, savedData.backgroundPreference === 'dark')
+              : null;
+            if (regenerated && regenerated.pages.length > 0) {
+              setCustomPalettes(regenerated.palettes);
+              setCustomPageMetas(regenerated.pages);
+              setTotalCustomPages(regenerated.pages.length);
+              setCustomPalettePage(Math.min(savedData.customPalettePage || 1, regenerated.pages.length));
+            } else {
+              const normalized = normalizePalettesWithPages(savedData.customPalettes || []);
+              setCustomPalettes(normalized.palettes);
+              setCustomPageMetas(normalized.pages);
+              setTotalCustomPages(normalized.pages.length);
+              setCustomPalettePage(normalized.pages.length > 0 ? Math.min(savedData.customPalettePage || 1, normalized.pages.length) : 0);
+            }
             setHasLoadedData(true);
 
             // If we have any saved data, skip the brand assessment
@@ -870,7 +1323,9 @@ export default function PaletteCleanserModal({
         brandColorAttachment,
         brandColorInput,
         customPalettes,
+        customPageMetas,
         customPalettePage,
+        totalCustomPages,
         showBrandAssessment,
         lastUpdated: new Date().toISOString()
       };
@@ -917,10 +1372,11 @@ export default function PaletteCleanserModal({
     // If user has brand colors, generate custom palettes based on their light/dark preference
     if (brandColors && brandColors.length > 0) {
       const isDark = choice === 'dark';
-      const allPalettes = generateAllCustomPalettes(brandColors, isDark);
-      setCustomPalettes(allPalettes);
-      setTotalCustomPages(7); // We have 7 pages total
-      setCustomPalettePage(1); // Start on page 1
+      const { palettes, pages } = generateAllCustomPalettes(brandColors, isDark);
+      setCustomPalettes(palettes);
+      setCustomPageMetas(pages);
+      setTotalCustomPages(pages.length);
+      setCustomPalettePage(pages.length > 0 ? 1 : 0);
     }
 
     setAnimating(true);
@@ -1104,6 +1560,7 @@ export default function PaletteCleanserModal({
       setBrandColorAttachment(null);
       setBrandColorInput('');
       setCustomPalettes([]);
+      setCustomPageMetas([]);
       setCustomPalettePage(1);
       setTotalCustomPages(0);
       // Clear saved progress
@@ -1639,7 +2096,7 @@ export default function PaletteCleanserModal({
                           Preview of custom palettes we'll create:
                         </p>
                         <div className="grid gap-2">
-                          {generateAllCustomPalettes(brandColors).slice(0, 3).map(palette => (
+                          {generateAllCustomPalettes(brandColors).palettes.slice(0, 3).map(palette => (
                             <div
                               key={palette.id}
                               className={`p-3 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} border ${
@@ -1893,32 +2350,26 @@ export default function PaletteCleanserModal({
                     : 'Let\'s explore palettes based on your brand colors'}
                 </h3>
                 <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  {customPalettePage === 1 && 'Starting with your brand and professional options'}
-                  {customPalettePage === 2 && 'Modern tech-inspired variations'}
-                  {customPalettePage === 3 && 'Warm and energetic combinations'}
-                  {customPalettePage === 4 && 'Cool and calming tones'}
-                  {customPalettePage === 5 && 'Bold and vibrant energy'}
-                  {customPalettePage === 6 && 'Sophisticated elegance'}
-                  {customPalettePage === 7 && 'Creative experimental options'}
+                  {currentCustomPageMeta?.description || ''}
                 </p>
                 <div className="flex items-center justify-center gap-2 mt-3">
-                  <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Page {customPalettePage} of {totalCustomPages}
+                <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Page {Math.min(customPalettePage, totalCustomPages)} of {totalCustomPages}
                   </span>
                   <div className="flex gap-1">
-                    {[...Array(totalCustomPages)].map((_, i) => (
+                    {customPageMetas.map((meta) => (
                       <div
-                        key={i}
+                        key={meta.id}
                         className={`w-2 h-2 rounded-full transition-all ${
-                          customPalettePage === i + 1
+                          customPalettePage === meta.page
                             ? 'bg-purple-600 w-3'
                             : 'bg-gray-300 hover:bg-gray-400 cursor-pointer'
                         }`}
                         onClick={() => {
                           // Allow jumping to already rated pages
-                          const targetPagePalettes = customPalettes.filter(p => p.page === i + 1);
-                          if (i < customPalettePage - 1 || targetPagePalettes.every(p => paletteRatings[p.id] !== undefined)) {
-                            setCustomPalettePage(i + 1);
+                          const targetPagePalettes = customPalettes.filter(p => p.page === meta.page);
+                          if (meta.page < customPalettePage || targetPagePalettes.every(p => paletteRatings[p.id] !== undefined)) {
+                            setCustomPalettePage(meta.page);
                           }
                         }}
                       />
@@ -1929,9 +2380,7 @@ export default function PaletteCleanserModal({
 
               {/* Display only 3 palettes for current page */}
               <div className="grid md:grid-cols-1 gap-6 max-w-2xl mx-auto">
-                {customPalettes
-                  .filter(palette => palette.page === customPalettePage)
-                  .map(palette => renderPaletteRating(palette))}
+                {currentPagePalettes.map(palette => renderPaletteRating(palette))}
               </div>
 
               {/* Navigation */}
@@ -1943,6 +2392,8 @@ export default function PaletteCleanserModal({
                     } else {
                       setBackgroundPreference(null);
                       setCustomPalettes([]);
+                      setCustomPageMetas([]);
+                      setTotalCustomPages(0);
                     }
                   }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
@@ -1957,16 +2408,11 @@ export default function PaletteCleanserModal({
 
                 <div className="flex gap-3 items-center">
                   <div className="text-sm text-gray-500">
-                    {customPalettes
-                      .filter(p => p.page === customPalettePage)
-                      .filter(p => paletteRatings[p.id] !== undefined)
-                      .length} of 3 rated
+                    {ratedCurrentPageCount} of {currentPagePalettes.length} rated
                   </div>
 
                   <button
                     onClick={() => {
-                      const currentPagePalettes = customPalettes.filter(p => p.page === customPalettePage);
-
                       if (currentPagePalettes.every(p => paletteRatings[p.id] !== undefined)) {
                         if (customPalettePage < totalCustomPages) {
                           // Go to next page
@@ -1982,12 +2428,12 @@ export default function PaletteCleanserModal({
                           }
                         }
                       } else {
-                        toast.error('Please rate all 3 palettes before continuing');
+                        toast.error('Please rate all palettes on this page before continuing');
                       }
                     }}
-                    disabled={!customPalettes.filter(p => p.page === customPalettePage).every(p => paletteRatings[p.id] !== undefined)}
+                    disabled={!currentPagePalettes.every(p => paletteRatings[p.id] !== undefined)}
                     className={`px-6 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                      customPalettes.filter(p => p.page === customPalettePage).every(p => paletteRatings[p.id] !== undefined)
+                      currentPagePalettes.every(p => paletteRatings[p.id] !== undefined)
                         ? 'bg-purple-600 text-white hover:bg-purple-700'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}

@@ -596,8 +596,28 @@ Agency admins can access an AI-powered insights chat on any project page (`/admi
    - `tone_of_voice` → Content strategy (brand voice, personality)
    - `sitemap_builder` → Functionality (site structure, navigation)
    - `link_submission` → Inspiration/current site (triggers website scraping)
-3. **File Uploads** - Text documents are processed for relevant information
+3. **File Uploads** - Documents are processed for relevant information:
+   - **Text Files** (.txt, .md) - Full text extraction
+   - **JSON Files** (.json) - Structured data parsing
+   - **CSV Files** (.csv) - Headers and row data extraction
+   - **PDF Files** (.pdf) - Full text extraction with page count and word count (uses pdf-parse library)
+   - **Word Documents** (.docx) - Full text extraction from all document content (uses mammoth library)
+   - **Excel Spreadsheets** (.xlsx) - Data extraction from all sheets with headers (uses xlsx library)
 4. **Website Content** - Client's current site is scraped when URL provided
+
+### Supported Document Types
+
+The knowledge extraction system processes the following file types at no additional cost:
+
+**Free Document Processing Libraries:**
+- **PDF Documents** - `pdf-parse` library for text extraction
+- **Word Documents** - `mammoth` library for .docx text extraction
+- **Excel Spreadsheets** - `xlsx` library for spreadsheet data extraction
+- **Text/Markdown** - Direct text extraction
+- **JSON** - Parsed and stored as structured data
+- **CSV** - Headers and row data extracted
+
+All extracted content is automatically stored in the `aloa_project_knowledge` table and becomes searchable through the AI insights chat. The system provides detailed summaries including page counts for PDFs, word counts for documents, and sheet/row counts for spreadsheets.
 
 ### Adding Knowledge Extraction to New Applets
 
@@ -625,6 +645,8 @@ if (interaction.applet?.type === 'your_new_applet') {
   });
 }
 ```
+
+⚠️ **Mandatory follow-up:** every time you add or adjust an applet, update `extractFromAppletInteraction` so the interaction data (tone selections, palette choices, narrative drafts, etc.) immediately lands in `aloa_project_knowledge`. After wiring it up, complete the applet once and hit `/api/project-knowledge/{projectId}` to confirm the new knowledge item exists—if it’s missing here, the AI brain will never see it.
 
 ### Knowledge Categories
 - `brand_identity` - Brand colors, logos, tone

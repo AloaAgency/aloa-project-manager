@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
 
 export async function GET(request) {
   try {
@@ -238,6 +239,16 @@ export async function POST(request) {
 
       if (updateError) {
 
+      }
+    }
+
+    const projectIdForExtraction = response?.aloa_project_id || projectId;
+    if (projectIdForExtraction) {
+      try {
+        const extractor = new KnowledgeExtractor(projectIdForExtraction);
+        await extractor.extractFromFormResponse(response.id);
+      } catch (extractError) {
+        console.error('Error extracting knowledge from form response:', extractError);
       }
     }
 

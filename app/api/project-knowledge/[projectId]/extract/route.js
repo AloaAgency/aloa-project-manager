@@ -24,6 +24,11 @@ export async function POST(request, { params }) {
         result = await extractor.extractFromFile(sourceId);
         break;
 
+      case 'project_metadata':
+        result = await extractor.extractFromProject();
+        await extractor.processExtractionQueue();
+        break;
+
       case 'website_content':
         await extractor.queueWebsiteExtraction(sourceId);
         result = { queued: true, url: sourceId };

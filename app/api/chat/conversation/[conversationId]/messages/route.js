@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
+import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
 
 // GET /api/chat/conversation/[conversationId]/messages - Get messages for a conversation
 export async function GET(request, { params }) {
@@ -136,8 +137,7 @@ export async function POST(request, { params }) {
 
     if (error) throw error;
 
-    // Queue message for knowledge extraction
-    await queueMessageForExtraction(message, conversationId);
+    await processMessageForKnowledge(message, conversationId);
 
     return NextResponse.json({ message });
 
@@ -147,8 +147,7 @@ export async function POST(request, { params }) {
   }
 }
 
-// Helper function to queue chat messages for knowledge extraction
-async function queueMessageForExtraction(message, conversationId) {
+async function processMessageForKnowledge(message, conversationId) {
   try {
     const supabase = await createClient();
 
@@ -159,30 +158,12 @@ async function queueMessageForExtraction(message, conversationId) {
       .eq('id', conversationId)
       .single();
 
-    if (!conversation) return;
+    if (!conversation?.project_id) return;
 
-    // Queue for extraction
-    await supabase
-      .from('aloa_knowledge_extraction_queue')
-      .insert({
-        project_id: conversation.project_id,
-        source_type: 'chat_message',
-        source_id: message.id,
-        priority: 3, // Medium priority
-        data: {
-          message_id: message.id,
-          conversation_id: conversationId,
-          content: message.content,
-          sender_id: message.sender_id,
-          sender_name: message.sender?.full_name,
-          sender_role: message.sender?.role,
-          attachments: message.attachments
-        }
-      });
-
+    const extractor = new KnowledgeExtractor(conversation.project_id);
+    await extractor.extractFromChatMessage(message.id);
   } catch (error) {
-    console.error('Error queueing message for extraction:', error);
-    // Don't fail the message send if extraction queue fails
+    console.error('Error extracting knowledge from chat message:', error);
   }
 }
 

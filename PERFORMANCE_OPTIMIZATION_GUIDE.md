@@ -103,6 +103,7 @@ const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
 
 ### 2.2 Optimize Dependencies
 **Priority: MEDIUM | Impact: MEDIUM | Risk: LOW**
+**Status: IN PROGRESS**
 
 #### Steps:
 1. Run bundle analyzer:
@@ -124,6 +125,8 @@ module.exports = withBundleAnalyzer({...config})
 - Consider `date-fns` instead of `moment`
 - Use native fetch instead of `axios` where possible
 - Lazy-load Anthropic SDK only when needed
+
+**Completed fix:** Replaced the Vite frontend’s Axios wrapper with a lightweight `fetch` implementation (`frontend/src/utils/api.js`), allowing the removal of the `axios` dependency from both workspaces.
 
 ## Phase 3: Client-Side Performance (3-4 hours each)
 
@@ -269,18 +272,25 @@ const { data, count } = await supabase
 
 ## Phase 7: Build & Deploy Optimization (1-2 hours)
 
-### 7.1 Optimize Build Process
+### 7.1 Optimize Build Process ✅ *(Fix performed)*
 **Priority: LOW | Impact: MEDIUM | Risk: LOW**
+**Status: COMPLETED**
+
+#### Summary:
+- Configured `next.config.js` to strip console statements in production builds while preserving `console.error` / `console.warn`.
+- Reduces bundle size and avoids leaking internal debug logs to browsers.
 
 ```javascript
 // next.config.js
+const isProduction = process.env.NODE_ENV === 'production';
+
 module.exports = {
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['lodash', 'date-fns'],
   },
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    removeConsole: isProduction ? { exclude: ['error', 'warn'] } : false,
   },
 }
 ```
