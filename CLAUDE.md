@@ -646,6 +646,8 @@ if (interaction.applet?.type === 'your_new_applet') {
 }
 ```
 
+⚠️ **Mandatory follow-up:** every time you add or adjust an applet, update `extractFromAppletInteraction` so the interaction data (tone selections, palette choices, narrative drafts, etc.) immediately lands in `aloa_project_knowledge`. After wiring it up, complete the applet once and hit `/api/project-knowledge/{projectId}` to confirm the new knowledge item exists—if it’s missing here, the AI brain will never see it.
+
 ### Knowledge Categories
 - `brand_identity` - Brand colors, logos, tone
 - `design_preferences` - UI/UX preferences
