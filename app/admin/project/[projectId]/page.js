@@ -71,6 +71,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchAndExportFormResponses } from '@/lib/csvExportUtils';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Dynamically import the applets manager to avoid SSR issues
 const ProjectletAppletsManager = dynamic(() => import('@/components/ProjectletAppletsManager'), {
@@ -172,6 +173,7 @@ function AdminProjectPageContent() {
   const [project, setProject] = useState(null);
   const [projectlets, setProjectlets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Loading project');
   const [editingProjectlet, setEditingProjectlet] = useState(null);
   const [teamMembers, setTeamMembers] = useState([]);
   const [availableForms, setAvailableForms] = useState([]);
@@ -355,9 +357,18 @@ function AdminProjectPageContent() {
     fetchCurrentUser();
     fetchUnreadCount();
 
+    // Progressive loading message
+    const loadingTimer = setTimeout(() => {
+      setLoadingMessage('Loading project details');
+    }, 1500);
+
     // Poll for unread count every 30 seconds
     const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(loadingTimer);
+    };
   }, [params.projectId]);
 
   // Load collapsed state from localStorage on mount
@@ -1639,7 +1650,7 @@ function AdminProjectPageContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+        <LoadingSpinner message={loadingMessage} size="default" />
       </div>
     );
   }

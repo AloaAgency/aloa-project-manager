@@ -31,6 +31,7 @@ import {
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
 import AuthGuard from '@/components/AuthGuard';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import useEscapeKey from '@/hooks/useEscapeKey';
 import { createClient } from '@/lib/supabase-auth';
 
@@ -52,6 +53,7 @@ function ClientDashboard() {
   const [project, setProject] = useState(null);
   const [projectlets, setProjectlets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Loading your project');
   const [selectedApplet, setSelectedApplet] = useState(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [formData, setFormData] = useState(null);
@@ -158,6 +160,11 @@ function ClientDashboard() {
   }, showChatModal);
 
   useEffect(() => {
+    // Progressive loading message
+    const loadingTimer = setTimeout(() => {
+      setLoadingMessage('Preparing your dashboard');
+    }, 1500);
+
     // Get authenticated user's ID
     const getAuthenticatedUser = async () => {
       const supabase = createClient();
@@ -191,6 +198,8 @@ function ClientDashboard() {
     };
 
     getAuthenticatedUser();
+
+    return () => clearTimeout(loadingTimer);
   }, []);
 
   // Fetch unread message count
@@ -695,8 +704,8 @@ function ClientDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      <div className="min-h-screen bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8] flex items-center justify-center">
+        <LoadingSpinner message={loadingMessage} size="default" />
       </div>
     );
   }

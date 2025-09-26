@@ -4,15 +4,17 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-auth';
 import { Lock, AlertCircle } from 'lucide-react';
+import LoadingSpinner from './LoadingSpinner';
 
-export default function AuthGuard({ 
-  children, 
+export default function AuthGuard({
+  children,
   allowedRoles = [],
   redirectTo = '/auth/login',
-  requireAuth = true 
+  requireAuth = true
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Checking permissions');
   const [authorized, setAuthorized] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [error, setError] = useState(null);
@@ -38,6 +40,13 @@ export default function AuthGuard({
 
   useEffect(() => {
     checkAuth();
+
+    // Progressive loading messages
+    const timer = setTimeout(() => {
+      setLoadingMessage('Loading application');
+    }, 1500);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const checkAuth = async () => {
@@ -124,11 +133,8 @@ export default function AuthGuard({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking permissions...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8] flex items-center justify-center">
+        <LoadingSpinner message={loadingMessage} size="default" />
       </div>
     );
   }

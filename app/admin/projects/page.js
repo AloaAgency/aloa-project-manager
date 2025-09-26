@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AuthGuard from '@/components/AuthGuard';
 import { createClient } from '@/lib/supabase-auth';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   Briefcase,
   Plus,
@@ -28,6 +29,7 @@ function AdminProjectsPageContent() {
   const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Loading projects');
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, project: null });
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -41,6 +43,13 @@ function AdminProjectsPageContent() {
 
   useEffect(() => {
     fetchProjects();
+
+    // Progressive loading message
+    const loadingTimer = setTimeout(() => {
+      setLoadingMessage('Loading project details');
+    }, 1500);
+
+    return () => clearTimeout(loadingTimer);
   }, []);
 
   const fetchProjects = async () => {
@@ -193,7 +202,7 @@ function AdminProjectsPageContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+        <LoadingSpinner message={loadingMessage} size="default" />
       </div>
     );
   }
