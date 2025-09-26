@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AuthGuard from '@/components/AuthGuard';
-import { 
-  FileText, 
-  Plus, 
-  Edit, 
-  Trash2, 
+import {
+  FileText,
+  Plus,
+  Edit,
+  Trash2,
   Eye,
   Copy,
   Link,
@@ -20,7 +20,14 @@ import {
   Filter,
   Search,
   Sparkles,
-  BarChart
+  BarChart,
+  Lock,
+  Unlock,
+  Clock,
+  MessageSquare,
+  FolderOpen,
+  ExternalLink,
+  TrendingUp
 } from 'lucide-react';
 
 function AdminFormsPageContent() {
@@ -49,9 +56,13 @@ function AdminFormsPageContent() {
       if (data.forms) {
         setForms(data.forms);
         calculateStats(data.forms);
+      } else if (Array.isArray(data)) {
+        // Handle backward compatibility
+        setForms(data);
+        calculateStats(data);
       }
     } catch (error) {
-
+      console.error('Error fetching forms:', error);
     } finally {
       setLoading(false);
     }
@@ -110,14 +121,25 @@ function AdminFormsPageContent() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'published':
-        return 'bg-green-100 text-green-700';
+        return 'bg-green-100 text-green-700 border border-green-200';
       case 'draft':
-        return 'bg-yellow-100 text-yellow-700';
+        return 'bg-yellow-100 text-yellow-700 border border-yellow-200';
       case 'closed':
-        return 'bg-red-100 text-red-700';
+        return 'bg-red-100 text-red-700 border border-red-200';
       default:
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-gray-100 text-gray-700 border border-gray-200';
     }
+  };
+
+  const getSourceBadge = (source) => {
+    if (source === 'legacy') {
+      return (
+        <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700 border border-purple-200 ml-2">
+          Legacy
+        </span>
+      );
+    }
+    return null;
   };
 
   if (loading) {
@@ -258,7 +280,7 @@ function AdminFormsPageContent() {
           </div>
         </div>
 
-        {/* Forms Table */}
+        {/* Forms Grid/Table View */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-bold">All Forms ({filteredForms.length})</h2>
@@ -304,75 +326,107 @@ function AdminFormsPageContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredForms.map((form) => (
-                    <tr key={form.id} className="hover:bg-gray-50">
+                  {filteredForms.map((form, index) => (
+                    <tr key={form.id || `form-${index}-${form.urlId}`} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {form.title}
-                          </div>
-                          {form.description && (
-                            <div className="text-sm text-gray-500 line-clamp-1">
-                              {form.description}
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                              <FileText className="w-5 h-5 text-white" />
                             </div>
-                          )}
+                          </div>
+                          <div className="ml-4">
+                            <div className="flex items-center">
+                              <span className="text-sm font-medium text-gray-900">
+                                {form.title}
+                              </span>
+                              {getSourceBadge(form.source)}
+                            </div>
+                            {form.description && (
+                              <div className="text-sm text-gray-500 line-clamp-1 mt-1">
+                                {form.description}
+                              </div>
+                            )}
+                            {form.projectName && (
+                              <div className="flex items-center mt-1">
+                                <FolderOpen className="w-3 h-3 text-gray-400 mr-1" />
+                                <span className="text-xs text-gray-500">{form.projectName}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(form.status)}`}>
+                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(form.status)}`}>
+                          {form.status === 'closed' && <Lock className="w-3 h-3 mr-1" />}
+                          {form.status === 'published' && <Unlock className="w-3 h-3 mr-1" />}
                           {form.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {form.response_count || 0}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm">
+                          <MessageSquare className="w-4 h-4 text-gray-400 mr-1" />
+                          <span className="font-medium text-gray-900">{form.response_count || 0}</span>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(form.created_at).toLocaleDateString()}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Clock className="w-4 h-4 text-gray-400 mr-1" />
+                          <span>{new Date(form.created_at).toLocaleDateString()}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
                           <button
                             onClick={() => router.push(`/edit/${form.id}`)}
-                            className="text-gray-600 hover:text-black"
-                            title="Edit"
+                            className="p-1.5 text-gray-600 hover:text-black hover:bg-gray-100 rounded transition-colors"
+                            title="Edit Form"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => window.open(`/forms/${form.id}`, '_blank')}
-                            className="text-gray-600 hover:text-black"
-                            title="View"
+                            onClick={() => window.open(`/forms/${form.urlId || form.id}`, '_blank')}
+                            className="p-1.5 text-gray-600 hover:text-black hover:bg-gray-100 rounded transition-colors"
+                            title="View Form"
                           >
-                            <Eye className="w-4 h-4" />
+                            <ExternalLink className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/forms/${form.id}`);
-                              alert('Form URL copied to clipboard!');
+                              const url = `${window.location.origin}/forms/${form.urlId || form.id}`;
+                              navigator.clipboard.writeText(url);
+                              const btn = event.currentTarget;
+                              const originalTitle = btn.title;
+                              btn.title = 'Copied!';
+                              btn.classList.add('text-green-600');
+                              setTimeout(() => {
+                                btn.title = originalTitle;
+                                btn.classList.remove('text-green-600');
+                              }, 2000);
                             }}
-                            className="text-gray-600 hover:text-black"
+                            className="p-1.5 text-gray-600 hover:text-black hover:bg-gray-100 rounded transition-colors"
                             title="Copy Link"
                           >
                             <Link className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => router.push(`/responses/${form.id}`)}
-                            className="text-gray-600 hover:text-black"
+                            className="p-1.5 text-gray-600 hover:text-black hover:bg-gray-100 rounded transition-colors"
                             title="View Responses"
                           >
                             <BarChart className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => duplicateForm(form.id)}
-                            className="text-gray-600 hover:text-black"
-                            title="Duplicate"
+                            className="p-1.5 text-gray-600 hover:text-black hover:bg-gray-100 rounded transition-colors"
+                            title="Duplicate Form"
                           >
                             <Copy className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => deleteForm(form.id)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Delete"
+                            className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                            title="Delete Form"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -387,47 +441,58 @@ function AdminFormsPageContent() {
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
           <button
             onClick={() => router.push('/create')}
-            className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow text-left group"
+            className="bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all hover:scale-105 text-left group"
           >
-            <Sparkles className="w-8 h-8 text-black mb-3" />
+            <Sparkles className="w-8 h-8 text-white mb-3" />
             <h3 className="font-bold text-lg mb-2">AI Form Builder</h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-purple-100">
               Use AI to quickly generate forms based on your requirements
             </p>
           </button>
 
           <button
-            onClick={() => router.push('/dashboard')}
-            className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow text-left group"
+            onClick={() => router.push('/legacy-dashboard')}
+            className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all hover:scale-105 text-left group border border-gray-100"
           >
-            <FileText className="w-8 h-8 text-black mb-3" />
-            <h3 className="font-bold text-lg mb-2">Forms Dashboard</h3>
+            <FileText className="w-8 h-8 text-gray-700 mb-3" />
+            <h3 className="font-bold text-lg mb-2">Legacy Dashboard</h3>
             <p className="text-sm text-gray-600">
-              View and manage all forms in the standard dashboard
+              Access the classic forms dashboard interface
             </p>
           </button>
 
           <button
             onClick={() => {
-              const csvContent = forms.map(f => 
-                `"${f.title}","${f.status}","${f.response_count || 0}","${new Date(f.created_at).toLocaleDateString()}"`
+              const csvContent = forms.map(f =>
+                `"${f.title}","${f.status}","${f.response_count || 0}","${f.projectName || 'None'}","${new Date(f.created_at).toLocaleDateString()}"`
               ).join('\n');
-              const blob = new Blob([`"Title","Status","Responses","Created"\n${csvContent}`], { type: 'text/csv' });
+              const blob = new Blob([`"Title","Status","Responses","Project","Created"\n${csvContent}`], { type: 'text/csv' });
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
               a.download = 'forms-export.csv';
               a.click();
             }}
-            className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow text-left group"
+            className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all hover:scale-105 text-left group border border-gray-100"
           >
-            <Download className="w-8 h-8 text-black mb-3" />
+            <Download className="w-8 h-8 text-gray-700 mb-3" />
             <h3 className="font-bold text-lg mb-2">Export Data</h3>
             <p className="text-sm text-gray-600">
               Download all forms data as CSV for reporting
+            </p>
+          </button>
+
+          <button
+            onClick={() => router.push('/admin/projects')}
+            className="bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all hover:scale-105 text-left group"
+          >
+            <TrendingUp className="w-8 h-8 text-white mb-3" />
+            <h3 className="font-bold text-lg mb-2">View Projects</h3>
+            <p className="text-sm text-blue-100">
+              Manage forms within project context
             </p>
           </button>
         </div>

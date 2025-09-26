@@ -121,6 +121,21 @@ const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfigWith
   ssr: false
 });
 
+const dedupeById = (items = []) => {
+  const seen = new Set();
+  return items.filter((item) => {
+    if (!item) {
+      return false;
+    }
+    const id = item.id ?? item.applet_id ?? item.projectlet_id;
+    if (!id || seen.has(id)) {
+      return false;
+    }
+    seen.add(id);
+    return true;
+  });
+};
+
 // Dynamically import Enhanced File Repository
 const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRepository'), {
   ssr: false
@@ -742,10 +757,19 @@ function AdminProjectPageContent() {
     try {
       const formsRes = await fetch(`/api/aloa-forms?project=${params.projectId}`);
       const formsData = await formsRes.json();
-      setAvailableForms(formsData || []);
-      setProjectForms(formsData || []);
+
+      // Handle both response formats: { forms: [...] } or direct array
+      const forms = Array.isArray(formsData) ? formsData :
+                    (formsData?.forms && Array.isArray(formsData.forms)) ? formsData.forms :
+                    [];
+
+      setAvailableForms(forms);
+      setProjectForms(forms);
     } catch (error) {
-      // Silently handle project forms fetch error
+      console.error('Error fetching project forms:', error);
+      // Set empty arrays on error to prevent undefined issues
+      setAvailableForms([]);
+      setProjectForms([]);
     }
   };
 
@@ -1032,7 +1056,7 @@ function AdminProjectPageContent() {
       // Fetch projectlets
       const projectletsRes = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`);
       const projectletsData = await projectletsRes.json();
-      setProjectlets(projectletsData.projectlets);
+      setProjectlets(dedupeById(projectletsData.projectlets || []));
       // Clear selection when refreshing
       setSelectedProjectlets(new Set());
       setShowBulkActions(false);
@@ -1147,9 +1171,11 @@ function AdminProjectPageContent() {
           }
         }
         
+        const sanitizedApplets = dedupeById(appletsWithCompletions);
+
         setProjectletApplets(prev => ({
           ...prev,
-          [projectletId]: appletsWithCompletions
+          [projectletId]: sanitizedApplets
         }));
       } else {
         // Failed to fetch applets
@@ -1432,7 +1458,7 @@ function AdminProjectPageContent() {
       if (response.ok) {
         const { projectlet } = await response.json();
         // Add the new projectlet to the list
-        setProjectlets(prevProjectlets => [...prevProjectlets, projectlet]);
+        setProjectlets(prevProjectlets => dedupeById([...prevProjectlets, projectlet]));
         // Initialize empty applets for the new projectlet
         setProjectletApplets(prev => ({
           ...prev,
@@ -2093,8 +2119,17 @@ function AdminProjectPageContent() {
           {/* Stakeholders List */}
           {stakeholders.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {stakeholders.map((stakeholder) => (
-                <div key={stakeholder.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+              {stakeholders.map((stakeholder, stakeholderIndex) => {
+                if (!stakeholder) {
+                  return null;
+                }
+
+                const stakeholderKey = stakeholder.id
+                  ?? stakeholder.user_id
+                  ?? `stakeholder-${stakeholderIndex}`;
+
+                return (
+                  <div key={stakeholderKey} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-start gap-3 flex-1">
                       {/* Show avatar */}
@@ -2197,8 +2232,9 @@ function AdminProjectPageContent() {
                       </div>
                     </div>
                   )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
@@ -2359,7 +2395,12 @@ function AdminProjectPageContent() {
                 >
                   <div className="space-y-4">
                     {projectlets.map((projectlet, index) => {
-                      const applets = projectletApplets[projectlet.id] || [];
+                      if (!projectlet) {
+                        return null;
+                      }
+
+                      const projectletKey = projectlet.id ?? `projectlet-${index}`;
+                      const applets = dedupeById(projectletApplets[projectlet.id] || []);
                       const isLoadingApplets = loadingApplets[projectlet.id];
                       const isEditingName = editingProjectletName === projectlet.id;
                       const APPLET_ICONS = {
@@ -2376,7 +2417,7 @@ function AdminProjectPageContent() {
 
                       return (
                         <SortableProjectlet
-                          key={projectlet.id}
+                          key={projectletKey}
                           id={projectlet.id}
                           isDragging={activeId !== null}
                         >
@@ -2547,6 +2588,11 @@ function AdminProjectPageContent() {
                               strategy={verticalListSortingStrategy}
                             >
                             {applets.map((applet, appletIndex) => {
+                              if (!applet) {
+                                return null;
+                              }
+
+                              const appletKey = applet.id ?? `${projectletKey}-applet-${appletIndex}`;
                               const Icon = APPLET_ICONS[applet.type] || FileText;
                               const formId = applet.form_id || applet.config?.form_id;
                               const form = formId ? availableForms.find(f => f.id === formId) : null;
@@ -2554,7 +2600,7 @@ function AdminProjectPageContent() {
                               const hasRejection = applet.type === 'client_review' && applet.form_progress?.status === 'revision_requested';
 
                               return (
-                                <React.Fragment key={applet.id}>
+                                <React.Fragment key={appletKey}>
                                   <SortableApplet
                                     id={applet.id}
                                     isDragging={activeId === applet.id}
@@ -2848,6 +2894,8 @@ function AdminProjectPageContent() {
                                     </div>
                                   </div>
 
+                                  {/* Applet Configuration Section */}
+                                  <div>
                                   {/* Inline sitemap configuration for sitemap applets */}
                                   {expandedApplets[applet.id] && applet.type === 'sitemap' && (
                                     <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-lg">
@@ -2991,11 +3039,20 @@ function AdminProjectPageContent() {
                                         >
                                           <option value="">Select a form...</option>
                                           <option value="create_new">✨ Create New Form with AI</option>
-                                          {availableForms.map(form => (
-                                            <option key={form.id} value={form.id}>
-                                              {form.title}
-                                            </option>
-                                          ))}
+                                          {availableForms
+                                            .filter((form) => form?.id)
+                                            .map((form, formIndex) => {
+                                              const optionKey = form.id
+                                                ?? form.urlId
+                                                ?? form.url_id
+                                                ?? `available-form-${formIndex}`;
+
+                                              return (
+                                                <option key={optionKey} value={form.id}>
+                                                  {form.title}
+                                                </option>
+                                              );
+                                            })}
                                         </select>
                                         
                                         {/* Form action icons */}
@@ -3336,11 +3393,20 @@ function AdminProjectPageContent() {
                                           className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
                                         >
                                           <option value="">Select a form...</option>
-                                          {availableForms.filter(form => form.projectId === params.projectId).map(form => (
-                                            <option key={form.id} value={form.id}>
-                                              {form.title}
-                                            </option>
-                                          ))}
+                                          {availableForms
+                                            .filter((form) => form?.id && form.projectId === params.projectId)
+                                            .map((form, formIndex) => {
+                                              const optionKey = form.id
+                                                ?? form.urlId
+                                                ?? form.url_id
+                                                ?? `available-form-${formIndex}`;
+
+                                              return (
+                                                <option key={optionKey} value={form.id}>
+                                                  {form.title}
+                                                </option>
+                                              );
+                                            })}
                                         </select>
                                       </div>
 
@@ -3599,11 +3665,20 @@ function AdminProjectPageContent() {
                                           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                                         >
                                           <option value="">Select a form...</option>
-                                          {availableForms.map(form => (
-                                            <option key={form.id} value={form.id}>
-                                              {form.title}
-                                            </option>
-                                          ))}
+                                          {availableForms
+                                            .filter((form) => form?.id)
+                                            .map((form, formIndex) => {
+                                              const optionKey = form.id
+                                                ?? form.urlId
+                                                ?? form.url_id
+                                                ?? `available-form-${formIndex}`;
+
+                                              return (
+                                                <option key={optionKey} value={form.id}>
+                                                  {form.title}
+                                                </option>
+                                              );
+                                            })}
                                         </select>
                                       </div>
 
@@ -4120,6 +4195,7 @@ function AdminProjectPageContent() {
                                       </div>
                                     </div>
                                   )}
+                                  </div> {/* End of Applet Configuration Section */}
                                 </div>
                                 </SortableApplet>
                                 {/* Spacer between applets */}
@@ -4287,9 +4363,49 @@ function AdminProjectPageContent() {
 
                 <div>
                   <span className="text-gray-600">Status:</span>
-                  <div className="font-medium capitalize">
-                    {project?.status.replace(/_/g, ' ')}
-                  </div>
+                  <select
+                    value={project?.status || 'initiated'}
+                    onChange={async (e) => {
+                      const newStatus = e.target.value;
+                      try {
+                        const response = await fetch(`/api/aloa-projects/${params.projectId}`, {
+                          method: 'PATCH',
+                          headers: {
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({
+                            status: newStatus
+                          })
+                        });
+
+                        if (response.ok) {
+                          toast.success('Project status updated');
+                          fetchProjectData(); // Refresh project data
+                        } else {
+                          throw new Error('Failed to update status');
+                        }
+                      } catch (error) {
+                        toast.error('Failed to update project status');
+                      }
+                    }}
+                    className={`mt-1 w-full px-3 py-1 rounded-lg font-medium border-2 transition-colors cursor-pointer
+                      ${project?.status === 'initiated' ? 'bg-gray-100 text-gray-700 border-gray-300' : ''}
+                      ${project?.status === 'in_progress' ? 'bg-blue-100 text-blue-700 border-blue-300' : ''}
+                      ${project?.status === 'design_phase' ? 'bg-purple-100 text-purple-700 border-purple-300' : ''}
+                      ${project?.status === 'development_phase' ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : ''}
+                      ${project?.status === 'review' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : ''}
+                      ${project?.status === 'completed' ? 'bg-green-100 text-green-700 border-green-300' : ''}
+                      ${project?.status === 'on_hold' ? 'bg-red-100 text-red-700 border-red-300' : ''}
+                    `}
+                  >
+                    <option value="initiated">Initiated</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="design_phase">Design Phase</option>
+                    <option value="development_phase">Development Phase</option>
+                    <option value="review">Review</option>
+                    <option value="completed">Completed</option>
+                    <option value="on_hold">On Hold</option>
+                  </select>
                 </div>
 
                 <div>
@@ -4379,8 +4495,17 @@ function AdminProjectPageContent() {
                     No team members assigned yet
                   </p>
                 ) : (
-                  teamMembers.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between">
+                  teamMembers.map((member, memberIndex) => {
+                    if (!member) {
+                      return null;
+                    }
+
+                    const memberKey = member.id
+                      ?? member.user_id
+                      ?? `team-member-${memberIndex}`;
+
+                    return (
+                      <div key={memberKey} className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <UserAvatar
                           user={{
@@ -4421,8 +4546,9 @@ function AdminProjectPageContent() {
                       >
                         <X className="w-4 h-4" />
                       </button>
-                    </div>
-                  ))
+                      </div>
+                  );
+                  })
                 )}
               </div>
             </div>
@@ -4442,8 +4568,18 @@ function AdminProjectPageContent() {
                     No forms created for this project yet
                   </p>
                 ) : (
-                  projectForms.slice(0, 5).map(form => (
-                    <div key={form.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                  projectForms.slice(0, 5).map((form, formIndex) => {
+                    if (!form) {
+                      return null;
+                    }
+
+                    const formKey = form.id
+                      ?? form.urlId
+                      ?? form.url_id
+                      ?? `project-form-${formIndex}`;
+
+                    return (
+                      <div key={formKey} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{form.title}</p>
                         <div className="flex items-center gap-2 mt-1">
@@ -4453,14 +4589,24 @@ function AdminProjectPageContent() {
                           {/* Show avatars of form respondents if available */}
                           {form.respondents && form.respondents.length > 0 && (
                             <div className="flex -space-x-1">
-                              {form.respondents.slice(0, 3).map((user) => (
-                                <UserAvatar
-                                  key={user.id}
-                                  user={user}
-                                  size="xs"
-                                  className="ring-1 ring-white"
-                                />
-                              ))}
+                              {form.respondents.slice(0, 3).map((user, respondentIndex) => {
+                                if (!user) {
+                                  return null;
+                                }
+
+                                const respondentKey = user.id
+                                  ?? user.email
+                                  ?? `form-respondent-${respondentIndex}`;
+
+                                return (
+                                  <UserAvatar
+                                    key={respondentKey}
+                                    user={user}
+                                    size="xs"
+                                    className="ring-1 ring-white"
+                                  />
+                                );
+                              })}
                               {form.respondents.length > 3 && (
                                 <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 ring-1 ring-white">
                                   +{form.respondents.length - 3}
@@ -4534,8 +4680,9 @@ function AdminProjectPageContent() {
                           <Trash2 className="w-3 h-3 text-red-600" />
                         </button>
                       </div>
-                    </div>
-                  ))
+                      </div>
+                  );
+                  })
                 )}
               </div>
               
@@ -4666,11 +4813,20 @@ function AdminProjectPageContent() {
                     className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                   >
                     <option value="">No form attached</option>
-                    {availableForms.map(form => (
-                      <option key={form.id} value={form.id}>
-                        {form.title} ({form.status})
-                      </option>
-                    ))}
+                    {availableForms
+                      .filter((form) => form?.id)
+                      .map((form, formIndex) => {
+                        const optionKey = form.id
+                          ?? form.urlId
+                          ?? form.url_id
+                          ?? `available-form-${formIndex}`;
+
+                        return (
+                          <option key={optionKey} value={form.id}>
+                            {form.title} ({form.status})
+                          </option>
+                        );
+                      })}
                   </select>
                   <p className="text-sm text-gray-500 mt-2">
                     Attach an existing form or create a new one from the Forms Dashboard
@@ -5641,36 +5797,25 @@ function AdminProjectPageContent() {
                   <div className="mt-4 p-4 bg-white border rounded-lg">
                     <p className="text-xs font-semibold text-gray-500 mb-3">CHARACTERISTICS:</p>
                     <div className="flex flex-wrap gap-2">
-                      {selectedToneData.selectedTone === 'Professional' && ['Formal language', 'Complex sentences', 'Industry terminology', 'Third-person perspective'].map((char) => (
-                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
-                      ))}
-                      {selectedToneData.selectedTone === 'Casual' && ['Contractions', 'Simple sentences', 'Personal pronouns', 'Conversational tone'].map((char) => (
-                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
-                      ))}
-                      {selectedToneData.selectedTone === 'Bold' && ['Imperative mood', 'Short, punchy sentences', 'Strong action verbs', 'Direct commands'].map((char) => (
-                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
-                      ))}
-                      {selectedToneData.selectedTone === 'Minimalist' && ['Fragments acceptable', 'No adjectives', 'Lists and bullets', 'Essential info only'].map((char) => (
-                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
-                      ))}
-                      {selectedToneData.selectedTone === 'Technical' && ['Technical jargon', 'Specific metrics', 'Detailed specifications', 'Acronyms and numbers'].map((char) => (
-                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
-                      ))}
-                      {selectedToneData.selectedTone === 'Inspirational' && ['Emotional language', 'Future-focused', 'Metaphorical', 'Second-person address'].map((char) => (
-                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
-                      ))}
-                      {selectedToneData.selectedTone === 'Playful' && ['Humor and puns', 'Self-deprecating', 'Parenthetical asides', 'Casual punctuation'].map((char) => (
-                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
-                      ))}
-                      {selectedToneData.selectedTone === 'Luxurious' && ['Elevated vocabulary', 'Sensory language', 'Exclusivity emphasis', 'Refined tone'].map((char) => (
-                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
-                      ))}
-                      {selectedToneData.selectedTone === 'Empathetic' && ['Emotional validation', 'Active listening cues', 'Supportive language', 'Personal connection'].map((char) => (
-                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
-                      ))}
-                      {selectedToneData.selectedTone === 'Authoritative' && ['Credentials emphasized', 'Definitive statements', 'Evidence-based', 'Third-party validation'].map((char) => (
-                        <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
-                      ))}
+                      {(() => {
+                        const toneCharacteristics = {
+                          'Professional': ['Formal language', 'Complex sentences', 'Industry terminology', 'Third-person perspective'],
+                          'Casual': ['Contractions', 'Simple sentences', 'Personal pronouns', 'Conversational tone'],
+                          'Bold': ['Imperative mood', 'Short, punchy sentences', 'Strong action verbs', 'Direct commands'],
+                          'Minimalist': ['Fragments acceptable', 'No adjectives', 'Lists and bullets', 'Essential info only'],
+                          'Technical': ['Technical jargon', 'Specific metrics', 'Detailed specifications', 'Acronyms and numbers'],
+                          'Inspirational': ['Emotional language', 'Future-focused', 'Metaphorical', 'Second-person address'],
+                          'Playful': ['Humor and puns', 'Self-deprecating', 'Parenthetical asides', 'Casual punctuation'],
+                          'Luxurious': ['Elevated vocabulary', 'Sensory language', 'Exclusivity emphasis', 'Refined tone'],
+                          'Empathetic': ['Emotional validation', 'Active listening cues', 'Supportive language', 'Personal connection'],
+                          'Authoritative': ['Credentials emphasized', 'Definitive statements', 'Evidence-based', 'Third-party validation']
+                        };
+
+                        const characteristics = toneCharacteristics[selectedToneData.selectedTone] || [];
+                        return characteristics.map((char) => (
+                          <span key={char} className="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-700">{char}</span>
+                        ));
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -6139,7 +6284,10 @@ function AdminProjectPageContent() {
                 projectId={params.projectId}
                 currentUser={currentUser}
                 isClientView={false}
-                onMessagesRead={() => fetchUnreadCount()}
+                onMessagesRead={() => {
+                  // Already cleared when opening, but this ensures sync
+                  setUnreadCount(0);
+                }}
               />
             </div>
           </div>

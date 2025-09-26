@@ -47,7 +47,7 @@ export default function Navigation() {
 
         // If page was hidden for more than 30 seconds and we have no user, try to recover
         if (timeSinceLastCheck > 30000 && !user && !loading) {
-          console.log('[Navigation] Page became visible after being hidden, attempting session recovery');
+          // Force a complete session refresh when visibility is restored
           setIsRecovering(true);
           refreshAttemptsRef.current = 0; // Reset attempts for new visibility
           await refreshAuth();
@@ -62,28 +62,14 @@ export default function Navigation() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [user, loading, refreshAuth]);
 
-  // Debug logging for navigation visibility
-  useEffect(() => {
-    console.log('[Navigation] State:', {
-      pathname,
-      loading,
-      hasUser: !!user,
-      hasProfile: !!profile,
-      hasAttemptedRefresh,
-      isRecovering,
-      isSafariPrivate: isSafariPrivate()
-    });
-  }, [pathname, loading, user, profile, hasAttemptedRefresh, isRecovering]);
 
   // Attempt refresh with retry logic for Safari private mode
   useEffect(() => {
     if (!loading && !user && !hasAttemptedRefresh && !isRecovering && !pathname.startsWith('/auth/')) {
-      console.log('[Navigation] No user after initial load, attempting refresh');
       setHasAttemptedRefresh(true);
 
       // More aggressive refresh for Safari private mode
       if (isSafariPrivate()) {
-        console.log('[Navigation] Safari private mode detected, using aggressive refresh');
         const attemptRefresh = async () => {
           refreshAttemptsRef.current++;
           await refreshAuth();
@@ -112,40 +98,42 @@ export default function Navigation() {
   // Handle session loss on protected pages - clear session and redirect to login
   useEffect(() => {
     if (!loading && !user && isProtectedPage && !pathname.startsWith('/auth/')) {
-      console.log('[Navigation] Session lost on protected page, clearing and redirecting to login');
-      const handleSessionLoss = async () => {
-        // Clear any lingering session data
-        await signOut();
-        // Redirect to login page
-        router.push('/auth/login');
-      };
-      handleSessionLoss();
+      // Immediately redirect to login - don't wait for signOut
+      router.push('/auth/login');
+
+      // Failsafe: If router.push doesn't work, use window.location
+      const redirectTimeout = setTimeout(() => {
+        if (window.location.pathname !== '/auth/login') {
+          window.location.href = '/auth/login';
+        }
+      }, 500);
+
+      // Clear session in background (non-blocking)
+      signOut().catch(err => {});
+
+      return () => clearTimeout(redirectTimeout);
     }
   }, [loading, user, isProtectedPage, pathname, signOut, router]);
 
   // Don't show navigation on auth pages
   if (pathname.startsWith('/auth/')) {
-    console.log('[Navigation] On auth page, hiding nav');
     return null;
   }
 
   // Show loading state while checking auth or recovering
   if (loading || isRecovering) {
-    console.log('[Navigation] Loading or recovering, showing placeholder');
     return <div className="h-16 bg-aloa-black border-b-2 border-aloa-black" />;
   }
 
   // Don't show navigation if user is not authenticated and we're done loading
   // UNLESS we're on a protected page (which means they were authenticated to get there)
   if (!loading && !user && !isProtectedPage) {
-    console.log('[Navigation] No user and not on protected page, hiding nav');
     return null;
   }
 
   // If we're on a protected page but lost the user session (Safari private mode issue)
   // Show a brief loading state while redirecting
   if (!user && isProtectedPage) {
-    console.log('[Navigation] On protected page but no user session, showing redirect message');
     return (
       <nav className="bg-aloa-black border-b-2 border-aloa-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -167,7 +155,6 @@ export default function Navigation() {
   // If we have a user but no profile yet, still show navigation with basic info
   // This is better UX than hiding the navigation entirely
   if (user && !profile) {
-    console.log('[Navigation] Have user but no profile yet, continuing with basic info');
     // Continue with rendering, we'll use user.email as fallback
   }
 

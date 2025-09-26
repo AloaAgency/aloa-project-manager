@@ -1,86 +1,153 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { nanoid } from 'nanoid';
 
 export async function GET(request) {
   try {
+    const cookieStore = cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name, value, options) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name, options) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
+
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('project');
 
-    // Build query - fetch forms first
-    let query = supabase
+    // Fetch from both legacy forms table and new aloa_forms table
+    const allForms = [];
+
+    // 1. Fetch from legacy forms table
+    const { data: legacyForms } = await supabase
+      .from('forms')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (legacyForms) {
+      // Process legacy forms
+      const processedLegacyForms = await Promise.all(legacyForms.map(async (form) => {
+        // Get response count
+        const { count: responseCount } = await supabase
+          .from('responses')
+          .select('*', { count: 'exact', head: true })
+          .eq('formId', form._id);
+
+        return {
+          _id: form._id,
+          id: form._id,
+          title: form.title,
+          description: form.description,
+          urlId: form.urlId,
+          status: form.is_active === false ? 'closed' : 'published',
+          created_at: form.createdAt || form.created_at,
+          createdAt: form.createdAt || form.created_at,
+          response_count: responseCount || 0,
+          responseCount: responseCount || 0,
+          fields: form.fields || [],
+          source: 'legacy',
+          projectId: null,
+          projectName: null
+        };
+      }));
+      allForms.push(...processedLegacyForms);
+    }
+
+    // 2. Fetch from new aloa_forms table
+    let aloaQuery = supabase
       .from('aloa_forms')
       .select('*');
 
-    // Filter by project if specified
+    // Filter by project if specified (only applies to aloa_forms)
     if (projectId) {
       if (projectId === 'uncategorized') {
-        query = query.is('aloa_project_id', null);
+        aloaQuery = aloaQuery.is('aloa_project_id', null);
       } else {
-        query = query.eq('aloa_project_id', projectId);
+        aloaQuery = aloaQuery.eq('aloa_project_id', projectId);
       }
     }
 
-    // Execute query
-    const { data: forms, error } = await query.order('created_at', { ascending: false });
+    const { data: aloaForms } = await aloaQuery.order('created_at', { ascending: false });
 
-    if (error) {
-      // If table doesn't exist, return empty array
-      if (error.code === '42P01') {
+    if (aloaForms) {
+      // Process aloa forms
+      const processedAloaForms = await Promise.all(aloaForms.map(async (form) => {
+        // Fetch fields for this form
+        const { data: fields } = await supabase
+          .from('aloa_form_fields')
+          .select('*')
+          .eq('aloa_form_id', form.id)
+          .order('field_order', { ascending: true });
 
-        return NextResponse.json([]);
+        // Fetch response count
+        const { count: responseCount } = await supabase
+          .from('aloa_form_responses')
+          .select('*', { count: 'exact', head: true })
+          .eq('aloa_form_id', form.id);
+
+        // Get project name if there's a project ID
+        let projectName = null;
+        if (form.aloa_project_id) {
+          const { data: project } = await supabase
+            .from('aloa_projects')
+            .select('project_name')
+            .eq('id', form.aloa_project_id)
+            .single();
+          projectName = project?.project_name;
+        }
+
+        return {
+          _id: form.id,
+          id: form.id,
+          title: form.title,
+          description: form.description,
+          urlId: form.url_id,
+          status: form.status || (form.is_active === false ? 'closed' : 'published'),
+          created_at: form.created_at,
+          createdAt: form.created_at,
+          response_count: responseCount || 0,
+          responseCount: responseCount || 0,
+          fields: fields || [],
+          source: 'aloa',
+          projectId: form.aloa_project_id,
+          projectName
+        };
+      }));
+
+      // If filtering by project, only include aloa forms that match
+      if (!projectId || projectId === 'all') {
+        allForms.push(...processedAloaForms);
+      } else {
+        allForms.push(...processedAloaForms);
       }
-      throw error;
     }
 
-    // For each form, fetch related data separately
-    const formsWithCount = await Promise.all((forms || []).map(async (form) => {
-      // Fetch fields for this form
-      const { data: fields } = await supabase
-        .from('aloa_form_fields')
-        .select('*')
-        .eq('aloa_form_id', form.id)
-        .order('field_order', { ascending: true });
+    // Sort all forms by creation date (newest first)
+    allForms.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-      // Fetch response count
-      const { count: responseCount } = await supabase
-        .from('aloa_form_responses')
-        .select('*', { count: 'exact', head: true })
-        .eq('aloa_form_id', form.id);
+    // Format response for compatibility
+    const response = {
+      forms: allForms,
+      total: allForms.length
+    };
 
-      // Get project name if there's a project ID
-      let projectName = null;
-      if (form.aloa_project_id) {
-        const { data: project } = await supabase
-          .from('aloa_projects')
-          .select('project_name')
-          .eq('id', form.aloa_project_id)
-          .single();
-        projectName = project?.project_name;
-      }
-
-      return {
-        _id: form.id, // Dashboard expects _id
-        id: form.id,
-        title: form.title,
-        description: form.description,
-        urlId: form.url_id,
-        is_active: form.is_active !== false, // Default to true if not explicitly false
-        createdAt: form.created_at,
-        projectId: form.aloa_project_id,
-        projectName,
-        fields: fields || [],
-        responseCount: responseCount || 0,
-        response_count: responseCount || 0, // Also include with underscore for compatibility
-        status: form.status
-      };
-    }));
-
-    return NextResponse.json(formsWithCount);
+    return NextResponse.json(response);
   } catch (error) {
-
+    console.error('Error fetching forms:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch forms' },
+      { error: 'Failed to fetch forms', forms: [] },
       { status: 500 }
     );
   }
@@ -88,6 +155,25 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    const cookieStore = cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name, value, options) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name, options) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
+
     const body = await request.json();
 
     // Create form data

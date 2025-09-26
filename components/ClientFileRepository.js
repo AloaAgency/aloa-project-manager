@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Upload,
   X,
@@ -25,12 +25,13 @@ import {
   List
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-browser';
 
 const STORAGE_BUCKET = 'project-files';
 const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
 
 export default function ClientFileRepository({ projectId, canUpload = true, canDelete = false }) {
+  const supabase = useMemo(() => createClient(), []);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -78,6 +79,12 @@ export default function ClientFileRepository({ projectId, canUpload = true, canD
     setUploadProgress(0);
 
     try {
+      if (!supabase) {
+        toast.error('Storage client unavailable. Please refresh and try again.');
+        setUploading(false);
+        setUploadProgress(0);
+        return;
+      }
       // Create storage path
       const timestamp = Date.now();
       const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -150,7 +157,7 @@ export default function ClientFileRepository({ projectId, canUpload = true, canD
       // Download file
       if (file.url) {
         window.open(file.url, '_blank');
-      } else if (file.storage_path) {
+      } else if (file.storage_path && supabase) {
         const { data } = supabase.storage
           .from(STORAGE_BUCKET)
           .getPublicUrl(file.storage_path);
@@ -169,7 +176,7 @@ export default function ClientFileRepository({ projectId, canUpload = true, canD
 
     try {
       // Delete from storage if path exists
-      if (file.storage_path) {
+      if (file.storage_path && supabase) {
         await supabase.storage
           .from(STORAGE_BUCKET)
           .remove([file.storage_path]);

@@ -103,8 +103,44 @@ export async function middleware(request) {
     );
 
     // Try to get session instead of user (more reliable for middleware)
-    const { data: { session }, error } = await supabase.auth.getSession();
-    const user = session?.user || null;
+    let session = null;
+    let user = null;
+    let sessionError = null;
+
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      sessionError = error;
+      if (!error && data?.session) {
+        session = data.session;
+        user = session.user;
+      }
+    } catch (e) {
+      console.error('Error getting session in middleware:', e);
+      sessionError = e;
+    }
+
+    // If there's a session error, clear cookies to prevent redirect loops
+    if (sessionError) {
+      console.log('[Middleware] Session error detected, clearing cookies:', sessionError);
+      // Clear all auth-related cookies
+      const authCookies = request.cookies.getAll().filter(cookie =>
+        cookie.name.includes('sb-') ||
+        cookie.name.includes('supabase')
+      );
+
+      for (const cookie of authCookies) {
+        response.cookies.delete(cookie.name);
+      }
+
+      // If not on auth pages, redirect to login
+      if (!pathname.startsWith('/auth/')) {
+        const redirectUrl = new URL('/auth/login', request.url);
+        if (pathname !== '/' && !pathname.startsWith('/auth/')) {
+          redirectUrl.searchParams.set('redirect', pathname);
+        }
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
     
     // Get user profile if authenticated
     let userRole = null;
@@ -148,20 +184,29 @@ export async function middleware(request) {
 
     // If accessing protected route without authentication, redirect to login
     if (isProtectedPath && !user) {
-      const redirectUrl = new URL('/auth/login', request.url);
-      redirectUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(redirectUrl);
+      // Skip redirect if already going to login to avoid loops
+      if (!pathname.startsWith('/auth/')) {
+        const redirectUrl = new URL('/auth/login', request.url);
+        redirectUrl.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(redirectUrl);
+      }
     }
 
     // If accessing auth routes while authenticated, redirect based on role
-    if (isAuthPath && user) {
+    if (isAuthPath && user && userRole) {
+      console.log('[Middleware] User authenticated on auth page:', {
+        pathname,
+        userId: user.id,
+        userRole,
+        hasSession: !!session
+      });
+      // Only redirect if we have a valid role
       if (adminRoles.includes(userRole)) {
+        console.log('[Middleware] Redirecting admin user from auth page to /admin/projects');
         return NextResponse.redirect(new URL('/admin/projects', request.url));
-      } else {
-        // For clients, don't redirect - let the login page handle finding their project
-        // This avoids the redirect loop issue
-        // The login page will properly redirect them to their project dashboard
       }
+      // For client users, let them stay on auth pages
+      // The pages themselves will handle appropriate redirects
     }
 
     // For the root path, redirect based on auth status and role

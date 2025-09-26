@@ -1,10 +1,44 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 export async function POST() {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name, value, options) {
+            cookieStore.set({
+              name,
+              value,
+              ...options,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+              httpOnly: true,
+              path: '/',
+            });
+          },
+          remove(name, options) {
+            cookieStore.set({
+              name,
+              value: '',
+              ...options,
+              maxAge: 0,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+              httpOnly: true,
+              path: '/',
+            });
+          },
+        },
+      }
+    );
 
     // Sign out the user
     await supabase.auth.signOut();
@@ -12,31 +46,28 @@ export async function POST() {
     // Clear all auth-related cookies
     const response = NextResponse.json({ success: true });
 
-    // Clear Supabase auth cookies
-    response.cookies.set('sb-access-token', '', {
-      path: '/',
-      maxAge: 0,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    });
+    const clearCookie = (name) => {
+      response.cookies.set({
+        name,
+        value: '',
+        path: '/',
+        maxAge: 0,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+      });
+    };
 
-    response.cookies.set('sb-refresh-token', '', {
-      path: '/',
-      maxAge: 0,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    });
+    // Clear Supabase auth cookies
+    clearCookie('sb-access-token');
+    clearCookie('sb-refresh-token');
 
     // Clear any other auth-related cookies
-    const cookieStore = cookies();
     const allCookies = cookieStore.getAll();
 
-    allCookies.forEach(cookie => {
+    allCookies.forEach((cookie) => {
       if (cookie.name.includes('sb-') || cookie.name.includes('supabase')) {
-        response.cookies.set(cookie.name, '', {
-          path: '/',
-          maxAge: 0
-        });
+        clearCookie(cookie.name);
       }
     });
 

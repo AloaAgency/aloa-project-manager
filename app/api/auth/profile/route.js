@@ -6,8 +6,29 @@ import { createClient } from '@supabase/supabase-js';
 // Force dynamic rendering for routes that use cookies
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+// Handle CORS preflight requests
+export async function OPTIONS(request) {
+  const headers = new Headers({
+    'Access-Control-Allow-Origin': request.headers.get('origin') || '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400',
+  });
+
+  return new NextResponse(null, { status: 200, headers });
+}
+
+export async function GET(request) {
   try {
+    // Add CORS headers for client-side requests
+    const headers = new Headers({
+      'Access-Control-Allow-Origin': request.headers.get('origin') || '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true',
+    });
+
     // Create server-side Supabase client with cookies
     const cookieStore = cookies();
     const supabase = createServerClient(
@@ -49,7 +70,7 @@ export async function GET() {
     if (userError || !user) {
       return NextResponse.json(
         { error: 'Not authenticated' },
-        { status: 401 }
+        { status: 401, headers }
       );
     }
 
@@ -111,12 +132,12 @@ export async function GET() {
             email: user.email,
             role: 'client' // Default role
           }
-        });
+        }, { headers });
       }
 
       return NextResponse.json(
         { error: 'Failed to fetch profile: ' + profileError.message },
-        { status: 500 }
+        { status: 500, headers }
       );
     }
 
@@ -127,13 +148,13 @@ export async function GET() {
         role: profile?.role || 'client',
         profile: profile
       }
-    });
+    }, { headers });
 
   } catch (error) {
 
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers }
     );
   }
 }

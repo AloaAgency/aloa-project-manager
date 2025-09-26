@@ -62,7 +62,13 @@ function AdminProjectsPageContent() {
   const calculateStats = (projectList) => {
     setStats({
       total: projectList.length,
-      active: projectList.filter(p => p.status === 'in_progress' || p.status === 'design_phase' || p.status === 'development_phase').length,
+      active: projectList.filter(p =>
+        p.status === 'initiated' ||
+        p.status === 'in_progress' ||
+        p.status === 'design_phase' ||
+        p.status === 'development_phase' ||
+        p.status === 'review'
+      ).length,
       completed: projectList.filter(p => p.status === 'completed').length,
       onHold: projectList.filter(p => p.status === 'on_hold').length
     });
@@ -81,24 +87,24 @@ function AdminProjectsPageContent() {
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
 
+  const getStatusOptions = () => [
+    { value: 'initiated', label: 'Initiated' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'design_phase', label: 'Design Phase' },
+    { value: 'development_phase', label: 'Development Phase' },
+    { value: 'review', label: 'Review' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'on_hold', label: 'On Hold' }
+  ];
+
   const formatDate = (date) => {
     if (!date) return 'Not set';
     return new Date(date).toLocaleDateString();
   };
 
   const getProgressPercentage = (project) => {
-    // This would be calculated based on completed projectlets
-    // For now, using a simple status-based calculation
-    const statusProgress = {
-      'initiated': 10,
-      'in_progress': 30,
-      'design_phase': 50,
-      'development_phase': 75,
-      'review': 90,
-      'completed': 100,
-      'on_hold': 0
-    };
-    return statusProgress[project.status] || 0;
+    // Use the actual completion percentage calculated from applet progress
+    return project.stats?.completionPercentage || 0;
   };
 
   const handleDeleteClick = (project) => {
@@ -146,6 +152,41 @@ function AdminProjectsPageContent() {
       setDeleteModal({ isOpen: false, project: null });
       setDeleteConfirmation('');
       setDeleteError('');
+    }
+  };
+
+  const updateProjectStatus = async (projectId, newStatus) => {
+    try {
+      const response = await fetch(`/api/aloa-projects/${projectId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: newStatus
+        })
+      });
+
+      if (response.ok) {
+        // Update local state
+        setProjects(prevProjects =>
+          prevProjects.map(p =>
+            p.id === projectId ? { ...p, status: newStatus } : p
+          )
+        );
+
+        // Recalculate stats with updated projects
+        const updatedProjects = projects.map(p =>
+          p.id === projectId ? { ...p, status: newStatus } : p
+        );
+        calculateStats(updatedProjects);
+      } else {
+        throw new Error('Failed to update project status');
+      }
+    } catch (error) {
+      console.error('Error updating project status:', error);
+      // Refresh projects to ensure consistency
+      fetchProjects();
     }
   };
 
@@ -284,21 +325,40 @@ function AdminProjectsPageContent() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(project.status)}`}>
-                          {project.status.replace(/_/g, ' ')}
-                        </span>
+                        <select
+                          value={project.status}
+                          onChange={(e) => updateProjectStatus(project.id, e.target.value)}
+                          className={`px-2 py-1 text-xs leading-5 font-semibold rounded-full cursor-pointer border-2 border-transparent hover:border-gray-400 transition-colors ${getStatusColor(project.status)}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {getStatusOptions().map(option => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                            <div 
-                              className="bg-black h-2 rounded-full"
-                              style={{ width: `${getProgressPercentage(project)}%` }}
-                            />
+                        <div className="flex items-center group">
+                          <div className="relative flex-1">
+                            <div className="flex items-center">
+                              <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                <div
+                                  className="bg-black h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${getProgressPercentage(project)}%` }}
+                                />
+                              </div>
+                              <span className="text-sm text-gray-600">
+                                {getProgressPercentage(project)}%
+                              </span>
+                            </div>
+                            {/* Tooltip on hover */}
+                            {project.stats && (
+                              <div className="absolute z-10 invisible group-hover:visible bg-black text-white text-xs rounded p-2 mt-1 whitespace-nowrap">
+                                {project.stats.completedRequiredApplets}/{project.stats.totalRequiredApplets} required applets completed
+                              </div>
+                            )}
                           </div>
-                          <span className="text-sm text-gray-600">
-                            {getProgressPercentage(project)}%
-                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -357,22 +417,22 @@ function AdminProjectsPageContent() {
             <div className="flex items-center justify-between">
               <div>
                 <FileText className="w-8 h-8 text-black mb-2" />
-                <h3 className="font-bold">Form Templates</h3>
-                <p className="text-sm text-gray-600 mt-1">Manage project form templates</p>
+                <h3 className="font-bold">Form Manager</h3>
+                <p className="text-sm text-gray-600 mt-1">Manage all forms from all projects</p>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
             </div>
           </button>
 
           <button
-            onClick={() => router.push('/admin/team')}
+            onClick={() => router.push('/admin/users')}
             className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow text-left group"
           >
             <div className="flex items-center justify-between">
               <div>
                 <Users className="w-8 h-8 text-black mb-2" />
-                <h3 className="font-bold">Team Management</h3>
-                <p className="text-sm text-gray-600 mt-1">Manage team access and roles</p>
+                <h3 className="font-bold">User Management</h3>
+                <p className="text-sm text-gray-600 mt-1">Manage user access and roles</p>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
             </div>

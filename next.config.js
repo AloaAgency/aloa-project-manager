@@ -15,6 +15,71 @@ const nextConfig = {
       },
     ],
   },
+  // Add headers for development CORS and HMR
+  async headers() {
+    return [
+      {
+        // Apply these headers to all routes in development
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'X-Requested-With, Content-Type, Authorization',
+          },
+        ],
+      },
+      {
+        // Specific headers for Next.js HMR and static files
+        source: '/_next/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, OPTIONS',
+          },
+        ],
+      },
+    ]
+  },
+  // Configure webpack for development
+  webpack: (config, { dev, isServer }) => {
+    if (dev && !isServer) {
+      // Enable CORS for webpack dev server
+      config.devServer = {
+        ...config.devServer,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+          'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization',
+        },
+      }
+      // Configure WebSocket for HMR
+      config.watchOptions = {
+        ...config.watchOptions,
+        poll: 1000, // Check for changes every second
+        aggregateTimeout: 300, // Delay rebuild after changes
+        ignored: /node_modules/,
+      }
+    }
+    return config
+  },
+  // WebPack HMR configuration
+  webSocketServer: 'ws',
+  experimental: {
+    // Enable WebSocket keep-alive
+    webSocketKeepAlive: true,
+  },
 }
 
 module.exports = nextConfig

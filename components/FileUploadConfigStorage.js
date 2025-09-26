@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Upload, X, File, Plus, Save, Check, AlertCircle, Download, Folder, FolderOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-browser';
 
 const STORAGE_BUCKET = 'project-files';
 const MAX_BASE64_SIZE = 5 * 1024 * 1024; // 5MB - use base64 for small files
@@ -15,6 +15,7 @@ export default function FileUploadConfigStorage({
   applet, 
   onClose 
 }) {
+  const supabase = useMemo(() => createClient(), []);
   const [config, setConfig] = useState({
     heading: applet.config?.heading || 'File Uploads',
     description: applet.config?.description || 'Upload and share project files',
@@ -96,6 +97,12 @@ export default function FileUploadConfigStorage({
 
         setUploadProgress(100);
       } else {
+        if (!supabase) {
+          toast.error('Storage client unavailable. Please refresh and try again.');
+          setUploading(false);
+          setUploadProgress(0);
+          return;
+        }
         // Large file: use Supabase Storage
         const timestamp = Date.now();
         const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -181,7 +188,7 @@ export default function FileUploadConfigStorage({
   const removeFile = async (fileId) => {
     const file = config.files.find(f => f.id === fileId);
 
-    if (file && file.storage_type === 'supabase' && file.storage_path) {
+    if (file && file.storage_type === 'supabase' && file.storage_path && supabase) {
       // Try to delete from Supabase Storage
       try {
         await supabase.storage

@@ -1928,7 +1928,11 @@ function ClientDashboard() {
 
       {/* Floating Chat Button */}
       <button
-        onClick={() => setShowChatModal(true)}
+        onClick={() => {
+          setShowChatModal(true);
+          // Clear unread count immediately when opening
+          setUnreadCount(0);
+        }}
         className="fixed bottom-8 right-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all hover:scale-110 z-40"
         title="Chat with Agency"
       >
@@ -1965,8 +1969,8 @@ function ClientDashboard() {
                 currentUser={currentUser}
                 isClientView={true}
                 onMessagesRead={() => {
-                  // Refresh unread count when messages are read
-                  fetchUnreadCount();
+                  // Already cleared when opening, but this ensures sync
+                  setUnreadCount(0);
                 }}
               />
             </div>

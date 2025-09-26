@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-auth';
 import { Lock, AlertCircle } from 'lucide-react';
@@ -16,6 +16,25 @@ export default function AuthGuard({
   const [authorized, setAuthorized] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [error, setError] = useState(null);
+  const hasRedirected = useRef(false);
+
+  const clearSession = async () => {
+    try {
+      const supabase = createClient();
+      await supabase?.auth.signOut();
+    } catch (signOutError) {
+      console.warn('[AuthGuard] Failed to clear local Supabase session', signOutError);
+    }
+
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (logoutError) {
+      console.warn('[AuthGuard] Failed to clear server-side session', logoutError);
+    }
+  };
 
   useEffect(() => {
     checkAuth();
@@ -35,9 +54,23 @@ export default function AuthGuard({
 
       // If API returns unauthorized, user is not authenticated
       if (!response.ok || data.error === 'Not authenticated') {
-        if (requireAuth) {
+        await clearSession();
 
-          router.push(`${redirectTo}?message=Please login to continue`);
+        if (requireAuth) {
+          // Check if we're already on the login page to avoid redirect loop
+          const currentPath = window.location.pathname;
+          if (currentPath.startsWith('/auth/')) {
+            // Already on an auth page, don't redirect again
+            setAuthorized(false);
+            setError('Your session has expired. Please login again.');
+          } else {
+            // Redirect to login page with return URL
+            const returnUrl = currentPath + window.location.search;
+            if (!hasRedirected.current) {
+              hasRedirected.current = true;
+              router.push(`${redirectTo}?message=Session expired, please login&redirect=${encodeURIComponent(returnUrl)}`);
+            }
+          }
         } else {
           setAuthorized(true);
         }

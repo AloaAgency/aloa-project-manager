@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithEmail, signInWithMagicLink } from '@/lib/supabase-auth';
@@ -15,6 +15,14 @@ export default function LoginPage() {
   const [success, setSuccess] = useState(null);
   const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'magic'
 
+  // Add debug logging to see what's happening on mount
+  useEffect(() => {
+    console.log('[LoginPage] Component mounted');
+    return () => {
+      console.log('[LoginPage] Component unmounted');
+    };
+  }, []);
+
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
     setError(null);
@@ -22,17 +30,35 @@ export default function LoginPage() {
 
     try {
       // Use server-side API route for login
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          email,
-          password
-        }),
-      });
-      
+      // Add timeout to fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+
+      let response;
+      try {
+        response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            password
+          }),
+          signal: controller.signal
+        });
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          setError('Login request timed out. Please try again.');
+        } else {
+          setError('Network error: ' + fetchError.message);
+        }
+        setLoading(false);
+        return;
+      }
+      clearTimeout(timeoutId);
+
       const result = await response.json();
       
       if (!response.ok || result.error) {
@@ -128,6 +154,25 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // Add a loading indicator to prevent blank page while checking auth
+  const [isPageReady, setIsPageReady] = useState(false);
+
+  useEffect(() => {
+    // Small delay to ensure the page is visible
+    const timer = setTimeout(() => {
+      setIsPageReady(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!isPageReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-500">Loading login page...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

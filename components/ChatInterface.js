@@ -14,7 +14,7 @@ import {
   Users
 } from 'lucide-react';
 
-export default function ChatInterface({ projectId, currentUser, isClientView = false }) {
+export default function ChatInterface({ projectId, currentUser, isClientView = false, onMessagesRead }) {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -26,6 +26,15 @@ export default function ChatInterface({ projectId, currentUser, isClientView = f
   const [showChatList, setShowChatList] = useState(true);
   const messagesEndRef = useRef(null);
   const messageContainerRef = useRef(null);
+  const hasMarkedAsRead = useRef(false);
+
+  // Mark all conversations as read when component mounts
+  useEffect(() => {
+    if (projectId && !hasMarkedAsRead.current) {
+      hasMarkedAsRead.current = true;
+      markConversationsAsRead();
+    }
+  }, [projectId]);
 
   // Fetch conversations
   useEffect(() => {
@@ -39,6 +48,8 @@ export default function ChatInterface({ projectId, currentUser, isClientView = f
     if (selectedConversation) {
       fetchMessages();
       setShowChatList(false); // Hide list on mobile when conversation selected
+      // Clear unread count for this conversation
+      clearConversationUnread(selectedConversation.id);
     }
   }, [selectedConversation]);
 
@@ -196,6 +207,29 @@ export default function ChatInterface({ projectId, currentUser, isClientView = f
     } catch (error) {
       console.error('Error deleting message:', error);
     }
+  };
+
+  const markConversationsAsRead = async () => {
+    try {
+      const response = await fetch(`/api/chat/${projectId}/mark-read`, {
+        method: 'POST'
+      });
+
+      if (response.ok && onMessagesRead) {
+        onMessagesRead();
+      }
+    } catch (error) {
+      console.error('Error marking conversations as read:', error);
+    }
+  };
+
+  const clearConversationUnread = (conversationId) => {
+    // Update local state to clear unread count
+    setConversations(prev => prev.map(conv =>
+      conv.id === conversationId
+        ? { ...conv, unread_count: 0 }
+        : conv
+    ));
   };
 
   const scrollToBottom = () => {
