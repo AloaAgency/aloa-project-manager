@@ -14,10 +14,27 @@ export async function POST() {
             return cookieStore.get(name)?.value;
           },
           set(name, value, options) {
-            cookieStore.set({ name, value, ...options });
+            cookieStore.set({
+              name,
+              value,
+              ...options,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+              httpOnly: true,
+              path: '/',
+            });
           },
           remove(name, options) {
-            cookieStore.set({ name, value: '', ...options });
+            cookieStore.set({
+              name,
+              value: '',
+              ...options,
+              maxAge: 0,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+              httpOnly: true,
+              path: '/',
+            });
           },
         },
       }
@@ -29,31 +46,28 @@ export async function POST() {
     // Clear all auth-related cookies
     const response = NextResponse.json({ success: true });
 
-    // Clear Supabase auth cookies
-    response.cookies.set('sb-access-token', '', {
-      path: '/',
-      maxAge: 0,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    });
+    const clearCookie = (name) => {
+      response.cookies.set({
+        name,
+        value: '',
+        path: '/',
+        maxAge: 0,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+      });
+    };
 
-    response.cookies.set('sb-refresh-token', '', {
-      path: '/',
-      maxAge: 0,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    });
+    // Clear Supabase auth cookies
+    clearCookie('sb-access-token');
+    clearCookie('sb-refresh-token');
 
     // Clear any other auth-related cookies
-    const cookieStore = cookies();
     const allCookies = cookieStore.getAll();
 
-    allCookies.forEach(cookie => {
+    allCookies.forEach((cookie) => {
       if (cookie.name.includes('sb-') || cookie.name.includes('supabase')) {
-        response.cookies.set(cookie.name, '', {
-          path: '/',
-          maxAge: 0
-        });
+        clearCookie(cookie.name);
       }
     });
 

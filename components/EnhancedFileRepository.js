@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Upload,
   X,
@@ -31,7 +31,7 @@ import {
   Edit2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-browser';
 
 const STORAGE_BUCKET = 'project-files';
 const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
@@ -43,6 +43,7 @@ export default function EnhancedFileRepository({
   canCreateFolders = true,
   onFileChange
 }) {
+  const supabase = useMemo(() => createClient(), []);
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -411,7 +412,7 @@ export default function EnhancedFileRepository({
 
       return file.url;
     }
-    if (file.storage_path) {
+    if (file.storage_path && supabase) {
       const { data } = supabase.storage
         .from(STORAGE_BUCKET)
         .getPublicUrl(file.storage_path);
