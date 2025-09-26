@@ -357,6 +357,15 @@ export async function POST(request, { params }) {
     }
 
     // Record the interaction
+    const interactionData = data ? { ...data } : {};
+    if (interactionData.form_progress && typeof interactionData.form_progress === 'object') {
+      interactionData.form_progress = {
+        ...interactionData.form_progress,
+        userId,
+        stakeholderImportance
+      };
+    }
+
     const { data: interactionRecord, error: interactionError } = await supabase
       .from('aloa_applet_interactions')
       .insert([{
@@ -364,7 +373,10 @@ export async function POST(request, { params }) {
         project_id: projectId,
         interaction_type: interactionType,
         user_role: 'client',
-        data: data || {}
+        user_id: userId && userId !== 'anonymous' ? userId : null,
+        stakeholder_importance: stakeholderImportance,
+        stakeholder_id: stakeholderId,
+        data: interactionData
       }])
       .select()
       .single();

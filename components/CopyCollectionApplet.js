@@ -187,7 +187,10 @@ export default function CopyCollectionApplet({
           interactionType: 'copy_collection_progress',
           userId: userId,
           data: {
-            form_progress: data
+            form_progress: {
+              ...data,
+              userId
+            }
           }
         })
       });

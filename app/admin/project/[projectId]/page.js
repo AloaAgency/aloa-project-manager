@@ -234,6 +234,18 @@ function AdminProjectPageContent() {
     importance: 5,
     is_primary: false
   });
+  const narrativeLengthOptions = [
+    { value: 'succinct', label: 'Succinct (≈300 words)', helper: 'Great for short hooks and simple landing pages.' },
+    { value: 'balanced', label: 'Balanced (≈600-900 words)', helper: 'Solid default for most marketing or feature pages.' },
+    { value: 'comprehensive', label: 'Comprehensive (≈1200+ words)', helper: 'Best for deep-dives, technical detail, or long-form assets.' }
+  ];
+  const pageTypeGuides = [
+    { value: 'homepage', label: 'Homepage — Hook & Direct (300-600 words)', helper: 'Clarity and scannability. Instant value proposition.' },
+    { value: 'technology', label: 'Technology Page — Establish Credibility (800-2000+ words)', helper: 'Structured detail, link to assets, emphasize proof.' },
+    { value: 'use_case', label: 'Use Cases Page — Show Business Value (400-800 words)', helper: 'Problem → Solution → Benefit written in customer language.' },
+    { value: 'about', label: 'About Us — Build Trust (400-700 words)', helper: 'Highlight team expertise, credentials, milestones.' },
+    { value: 'blog', label: 'Blog / Resources — Thought Leadership (1500-3000+ words)', helper: 'Long-form insight to demonstrate depth and support SEO.' }
+  ];
   const [projectFileCount, setProjectFileCount] = useState(0);
   const [showFormResponseModal, setShowFormResponseModal] = useState(false);
   const [selectedResponseData, setSelectedResponseData] = useState({
@@ -3771,7 +3783,7 @@ function AdminProjectPageContent() {
                                               );
                                               if (response.ok) {
                                                 fetchProjectletApplets(projectlet.id);
-                                                toast.success('Form selected');
+                                                toast.success(selectedFormId ? 'Form selected' : 'Form cleared');
                                               }
                                             } catch (error) {
                                               toast.error('Failed to select form');
@@ -3797,8 +3809,179 @@ function AdminProjectPageContent() {
                                         </select>
                                       </div>
 
+                                      {/* Copy collection applet selector */}
+                                      {(() => {
+                                        const currentApplets = projectletApplets?.[projectlet.id] || [];
+                                        const copyCollectionApplets = currentApplets.filter(app => app.type === 'copy_collection');
+
+                                        if (copyCollectionApplets.length === 0) {
+                                          return null;
+                                        }
+
+                                        return (
+                                          <div className="mt-3">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                              Select Copy Collection Source
+                                            </label>
+                                            <select
+                                              value={applet.config?.copyCollectionAppletId || ''}
+                                              onChange={async (event) => {
+                                                const selectedId = event.target.value || null;
+
+                                                try {
+                                                  const response = await fetch(
+                                                    `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                    {
+                                                      method: 'PATCH',
+                                                      headers: { 'Content-Type': 'application/json' },
+                                                      body: JSON.stringify({
+                                                        config: {
+                                                          ...applet.config,
+                                                          copyCollectionAppletId: selectedId,
+                                                          generatedContent: null,
+                                                          aiGenerated: false,
+                                                          lastGeneratedAt: null
+                                                        }
+                                                      })
+                                                    }
+                                                  );
+
+                                                  if (response.ok) {
+                                                    fetchProjectletApplets(projectlet.id);
+                                                    toast.success(selectedId ? 'Copy collection source selected' : 'Copy collection source cleared');
+                                                  }
+                                                } catch (error) {
+                                                  toast.error('Failed to update copy collection source');
+                                                }
+                                              }}
+                                              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            >
+                                              <option value="">None</option>
+                                              {copyCollectionApplets.map(copyApplet => (
+                                                <option key={copyApplet.id} value={copyApplet.id}>
+                                                  {(() => {
+                                                    const baseLabel = copyApplet.name || 'Copy Collection';
+                                                    const pageNameLabel = copyApplet.config?.pageName;
+                                                    if (pageNameLabel) {
+                                                      return `${baseLabel}: ${pageNameLabel}`;
+                                                    }
+                                                    const projectletName = projectlet?.name || projectlet?.title;
+                                                    if (projectletName) {
+                                                      return `${baseLabel}: ${projectletName}`;
+                                                    }
+                                                    return baseLabel;
+                                                  })()}
+                                                </option>
+                                              ))}
+                                            </select>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                              Only the selected copy collection applet for this projectlet will feed the AI narrative.
+                                            </p>
+                                          </div>
+                                        );
+                                      })()}
+
+                                      {/* Page type preset */}
+                                      <div className="mt-3">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Page Type Guidance
+                                        </label>
+                                        <select
+                                          value={applet.config?.pageTypePreset || ''}
+                                          onChange={async (event) => {
+                                            const selectedPreset = event.target.value || null;
+
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      pageTypePreset: selectedPreset,
+                                                      generatedContent: null,
+                                                      aiGenerated: false,
+                                                      lastGeneratedAt: null
+                                                    }
+                                                  })
+                                                }
+                                              );
+
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success(selectedPreset ? 'Page type guidance saved' : 'Page type guidance cleared');
+                                              }
+                                            } catch (error) {
+                                              toast.error('Failed to update page type guidance');
+                                            }
+                                          }}
+                                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        >
+                                          <option value="">Custom / Not specified</option>
+                                          {pageTypeGuides.map(guide => (
+                                            <option key={guide.value} value={guide.value}>
+                                              {guide.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          Tailor the structure and emphasis for this page type.
+                                        </p>
+                                      </div>
+
+                                      {/* Target length */}
+                                      <div className="mt-3">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Target Narrative Length
+                                        </label>
+                                        <select
+                                          value={applet.config?.narrativeLength || 'balanced'}
+                                          onChange={async (event) => {
+                                            const selectedLength = event.target.value;
+
+                                            try {
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      narrativeLength: selectedLength,
+                                                      generatedContent: null,
+                                                      aiGenerated: false,
+                                                      lastGeneratedAt: null
+                                                    }
+                                                  })
+                                                }
+                                              );
+
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success('Narrative length preference saved');
+                                              }
+                                            } catch (error) {
+                                              toast.error('Failed to update narrative length');
+                                            }
+                                          }}
+                                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        >
+                                          {narrativeLengthOptions.map(option => (
+                                            <option key={option.value} value={option.value}>
+                                              {option.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          Controls how expansive the generated copy should be.
+                                        </p>
+                                      </div>
+
                                       {/* Generate/Regenerate button */}
-                                      {applet.config?.formId && (
+                                      {(applet.config?.formId || applet.config?.copyCollectionAppletId) && (
                                         <div className="flex items-center justify-between">
                                           <button
                                             onClick={async () => {
@@ -3812,7 +3995,10 @@ function AdminProjectPageContent() {
                                                   headers: { 'Content-Type': 'application/json' },
                                                   body: JSON.stringify({
                                                     formId: applet.config.formId,
+                                                    copyCollectionAppletId: applet.config?.copyCollectionAppletId || null,
                                                     pageName: applet.config.pageName || 'Homepage',
+                                                    pageTypePreset: applet.config?.pageTypePreset || null,
+                                                    narrativeLength: applet.config?.narrativeLength || 'balanced',
                                                     projectId: params.projectId
                                                   })
                                                 });
