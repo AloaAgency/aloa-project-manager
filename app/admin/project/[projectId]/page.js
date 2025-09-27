@@ -28,6 +28,7 @@ import UserAvatar from '@/components/UserAvatar';
 import FormResponseModal from '@/components/FormResponseModal';
 import PaletteResultsModal from '@/components/PaletteResultsModal';
 import CopyCollectionViewModal from '@/components/CopyCollectionViewModal';
+import PhaseReviewResponseViewer from '@/components/PhaseReviewResponseViewer';
 import { 
   ArrowLeft,
   Edit,
@@ -121,6 +122,15 @@ const LinkSubmissionConfig = dynamic(() => import('@/components/LinkSubmissionCo
 
 // Dynamically import File Upload Config with Selector
 const FileUploadConfig = dynamic(() => import('@/components/FileUploadConfigWithSelector'), {
+  ssr: false
+});
+
+// Dynamically import Phase Review Components
+const PhaseReviewConfig = dynamic(() => import('@/components/PhaseReviewConfig'), {
+  ssr: false
+});
+
+const PhaseReviewInlineDisplay = dynamic(() => import('@/components/PhaseReviewInlineDisplay'), {
   ssr: false
 });
 
@@ -279,6 +289,8 @@ function AdminProjectPageContent() {
   const [showClientReviewModal, setShowClientReviewModal] = useState(false);
   const [showCopyCollectionModal, setShowCopyCollectionModal] = useState(false);
   const [selectedCopyCollectionData, setSelectedCopyCollectionData] = useState(null);
+  const [showPhaseReviewModal, setShowPhaseReviewModal] = useState(false);
+  const [selectedPhaseReviewData, setSelectedPhaseReviewData] = useState(null);
   const [showChatModal, setShowChatModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -2722,17 +2734,23 @@ function AdminProjectPageContent() {
                                               const isRejected = reviewStatus === 'revision_requested';
                                               const isApproved = reviewStatus === 'approved';
 
+                                              // Special handling for phase_review applets
+                                              const isPhaseReview = applet.type === 'phase_review';
+                                              const phaseReviewDecision = isPhaseReview ? completion.form_progress?.reviewData?.decision : null;
+                                              const isPhaseApproved = phaseReviewDecision === 'approve';
+                                              const isPhaseRevise = phaseReviewDecision === 'revise';
+
                                               return (
                                                 <div
                                                   key={completion.user_id}
-                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.type === 'tone_of_voice' || applet.type === 'client_review' || applet.type === 'copy_collection' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.type === 'tone_of_voice' || applet.type === 'client_review' || applet.type === 'copy_collection' || applet.type === 'phase_review' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
                                                   title={`${completion.user?.full_name || completion.user?.email || 'User'} - ${
                                                     isClientReview && isRejected ? `⚠️ REVISION REQUESTED${completion.form_progress?.revision_notes ? ': ' + completion.form_progress.revision_notes : ''}` :
                                                     isClientReview && isApproved ? '✅ APPROVED' :
                                                     isInProgress ? 'In Progress' : `Reviewed ${
                                                       completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
                                                     }`
-                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : applet.type === 'tone_of_voice' ? '\nClick to view tone selection' : applet.type === 'client_review' ? '\nClick to view review details' : applet.type === 'copy_collection' ? '\nClick to view copy submission' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
+                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : applet.type === 'tone_of_voice' ? '\nClick to view tone selection' : applet.type === 'client_review' ? '\nClick to view review details' : applet.type === 'copy_collection' ? '\nClick to view copy submission' : applet.type === 'phase_review' ? '\nClick to view phase review' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
                                                 onClick={async () => {
                                                   if (applet.type === 'form') {
                                                     const formId = applet.form_id || applet.config?.form_id;
@@ -2836,6 +2854,15 @@ function AdminProjectPageContent() {
                                                       appletName: applet.name
                                                     });
                                                     setShowCopyCollectionModal(true);
+                                                  } else if (applet.type === 'phase_review') {
+                                                    // Show phase review modal
+                                                    const reviewData = completion.form_progress?.reviewData || {};
+                                                    setSelectedPhaseReviewData({
+                                                      response: reviewData,
+                                                      userName: completion.user?.full_name || completion.user?.email || 'User',
+                                                      appletName: applet.name
+                                                    });
+                                                    setShowPhaseReviewModal(true);
                                                   }
                                                 }}
                                               >
@@ -2846,6 +2873,8 @@ function AdminProjectPageContent() {
                                                       className={`w-7 h-7 rounded-full object-cover ring-2 ${
                                                         isClientReview && isRejected ? 'ring-orange-500 ring-4' :
                                                         isClientReview && isApproved ? 'ring-green-500 ring-4' :
+                                                        isPhaseReview && isPhaseRevise ? 'ring-orange-500 ring-4' :
+                                                        isPhaseReview && isPhaseApproved ? 'ring-green-500 ring-4' :
                                                         isInProgress ? 'ring-gray-400 ring-dashed opacity-80' : 'ring-white'
                                                       }`}
                                                     />
@@ -2853,10 +2882,14 @@ function AdminProjectPageContent() {
                                                     <div className={`w-7 h-7 rounded-full ${
                                                       isClientReview && isRejected ? 'bg-orange-500' :
                                                       isClientReview && isApproved ? 'bg-green-500' :
+                                                      isPhaseReview && isPhaseRevise ? 'bg-orange-500' :
+                                                      isPhaseReview && isPhaseApproved ? 'bg-green-500' :
                                                       'bg-purple-500'
                                                     } flex items-center justify-center text-white text-xs font-medium ring-2 ${
                                                       isClientReview && isRejected ? 'ring-orange-500 ring-4' :
                                                       isClientReview && isApproved ? 'ring-green-500 ring-4' :
+                                                      isPhaseReview && isPhaseRevise ? 'ring-orange-500 ring-4' :
+                                                      isPhaseReview && isPhaseApproved ? 'ring-green-500 ring-4' :
                                                       isInProgress ? 'ring-gray-400 ring-dashed opacity-80' : 'ring-white'
                                                     }`}>
                                                       {(completion.user?.full_name || completion.user?.email || '?')[0].toUpperCase()}
@@ -2870,6 +2903,18 @@ function AdminProjectPageContent() {
                                                   )}
                                                   {/* Checkmark badge for approved reviews */}
                                                   {isClientReview && isApproved && (
+                                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                                      <CheckCircle className="w-3 h-3 text-white" />
+                                                    </div>
+                                                  )}
+                                                  {/* Warning badge for phase review revisions */}
+                                                  {isPhaseReview && isPhaseRevise && (
+                                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                                                      <span className="text-white text-xs font-bold">!</span>
+                                                    </div>
+                                                  )}
+                                                  {/* Checkmark badge for approved phase reviews */}
+                                                  {isPhaseReview && isPhaseApproved && (
                                                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
                                                       <CheckCircle className="w-3 h-3 text-white" />
                                                     </div>
@@ -3477,6 +3522,16 @@ function AdminProjectPageContent() {
                                         </div>
                                       )}
                                     </div>
+                                  )}
+
+                                  {/* Inline phase review configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'phase_review' && (
+                                    <PhaseReviewConfig
+                                      applet={applet}
+                                      projectId={params.projectId}
+                                      projectletId={projectlet.id}
+                                      onUpdate={() => fetchProjectletApplets(projectlet.id)}
+                                    />
                                   )}
 
                                   {/* Inline AI Form Results configuration */}
@@ -6575,6 +6630,18 @@ function AdminProjectPageContent() {
           appletProgress={selectedCopyCollectionData.appletProgress}
           stakeholder={selectedCopyCollectionData.stakeholder}
           appletName={selectedCopyCollectionData.appletName}
+        />
+      )}
+
+      {/* Phase Review Response Modal */}
+      {showPhaseReviewModal && selectedPhaseReviewData && (
+        <PhaseReviewResponseViewer
+          response={selectedPhaseReviewData.response}
+          userName={selectedPhaseReviewData.userName}
+          onClose={() => {
+            setShowPhaseReviewModal(false);
+            setSelectedPhaseReviewData(null);
+          }}
         />
       )}
 

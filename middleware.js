@@ -142,6 +142,26 @@ export async function middleware(request) {
       }
     }
     
+    const authCookies = request.cookies.getAll().filter(cookie =>
+      cookie.name.includes('sb-') ||
+      cookie.name.includes('supabase')
+    );
+
+    // If no active session but auth cookies are present, treat as stale session
+    if (!session && authCookies.length > 0 && !pathname.startsWith('/auth/')) {
+      console.log('[Middleware] Stale Supabase session detected, clearing cookies and redirecting to login');
+
+      for (const cookie of authCookies) {
+        response.cookies.delete(cookie.name);
+      }
+
+      const redirectUrl = new URL('/auth/login', request.url);
+      if (pathname !== '/' && !pathname.startsWith('/auth/')) {
+        redirectUrl.searchParams.set('redirect', pathname);
+      }
+      return NextResponse.redirect(redirectUrl);
+    }
+
     // Get user profile if authenticated
     let userRole = null;
     if (user) {

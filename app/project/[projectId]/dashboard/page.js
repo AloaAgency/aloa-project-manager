@@ -26,7 +26,9 @@ import {
   FolderOpen,
   Home,
   Brain,
-  Video
+  Video,
+  Award,
+  Sparkles
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
@@ -47,6 +49,8 @@ const AIContentNarrative = dynamic(() => import('@/components/AIContentNarrative
 const ChatInterface = dynamic(() => import('@/components/ChatInterface'), { ssr: false });
 const VideoApplet = dynamic(() => import('@/components/VideoApplet'), { ssr: false });
 const CopyCollectionApplet = dynamic(() => import('@/components/CopyCollectionApplet'), { ssr: false });
+const PhaseReview = dynamic(() => import('@/components/PhaseReview'), { ssr: false });
+const EnhancedPhaseCompletionCelebration = dynamic(() => import('@/components/EnhancedPhaseCompletionCelebration'), { ssr: false });
 
 function ClientDashboard() {
   const params = useParams();
@@ -87,6 +91,9 @@ function ClientDashboard() {
   const [isVideoViewOnly, setIsVideoViewOnly] = useState(false); // Track if video is view-only
   const [showCopyCollectionModal, setShowCopyCollectionModal] = useState(false); // Track copy collection modal
   const [isCopyCollectionViewOnly, setIsCopyCollectionViewOnly] = useState(false); // Track if copy collection is view-only
+  const [showPhaseReviewModal, setShowPhaseReviewModal] = useState(false); // Track phase review modal
+  const [isPhaseReviewViewOnly, setIsPhaseReviewViewOnly] = useState(false); // Track if phase review is view-only
+  const [showPhaseCompletionCelebration, setShowPhaseCompletionCelebration] = useState(false); // Track enhanced phase celebration
 
   // Helper function to check if user can access an applet based on role
   const canUserAccessApplet = (applet) => {
@@ -114,7 +121,7 @@ function ClientDashboard() {
     const type = applet.type;
 
     // DECISION type applets (including sitemap to avoid duplicate inputs)
-    if (['client_review', 'review', 'signoff', 'approval', 'sitemap', 'sitemap_builder'].includes(type)) {
+    if (['client_review', 'review', 'signoff', 'approval', 'sitemap', 'sitemap_builder', 'phase_review'].includes(type)) {
       return 'decision';
     }
 
@@ -618,6 +625,13 @@ function ClientDashboard() {
       setSelectedApplet({ ...applet, projectlet });
       setIsCopyCollectionViewOnly(copyCollectionIsLocked && userAlreadyCompleted);
       setShowCopyCollectionModal(true);
+    } else if (applet.type === 'phase_review') {
+      // Handle phase review applet
+      const phaseReviewIsLocked = applet.config?.locked === true;
+      const userAlreadyCompleted = completedApplets.has(applet.id);
+      setSelectedApplet({ ...applet, projectlet });
+      setIsPhaseReviewViewOnly(phaseReviewIsLocked && userAlreadyCompleted);
+      setShowPhaseReviewModal(true);
     }
   };
 
@@ -705,6 +719,7 @@ function ClientDashboard() {
       form: FileText,
       upload: Upload,
       review: Eye,
+      phase_review: Award,
       moodboard: Palette,
       content_gather: MessageSquare,
       sitemap: Map,
@@ -1178,7 +1193,7 @@ function ClientDashboard() {
                             key={applet.id}
                             onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
                             disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser' && applet.type !== 'tone_of_voice' && applet.type !== 'ai_form_results')}
-                            className={`w-full p-4 rounded-lg border-2 transition-all ${
+                            className={`w-full p-4 rounded-lg border-2 transition-all relative ${
                               buttonState === 'completed-locked'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
                                 : buttonState === 'user-complete-editable'
@@ -1194,28 +1209,52 @@ function ClientDashboard() {
                                 : buttonState === 'completed'
                                 ? 'bg-green-50 border-green-300 cursor-default'
                                 : 'bg-white border-gray-200 hover:border-purple-300 hover:shadow-md cursor-pointer'
+                            } ${
+                              applet.type === 'phase_review' ? 'ring-2 ring-orange-300 ring-opacity-50 shadow-lg' : ''
                             }`}
                           >
+                            {applet.type === 'phase_review' && (
+                              <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-yellow-500 animate-pulse z-10" />
+                            )}
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-3">
                                 <div className={`p-2 rounded-lg ${
-                                  buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'link-completed' ? 'bg-green-100' :
-                                  buttonState === 'file-completed' ? 'bg-green-100' :
-                                  buttonState === 'in-progress-editing' ? 'bg-yellow-100' :
-                                  buttonState === 'locked' ? 'bg-gray-100' :
-                                  buttonState === 'completed' ? 'bg-green-100' :
-                                  'bg-purple-100'
+                                  applet.type === 'phase_review' ? (
+                                    buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'link-completed' || buttonState === 'file-completed' || buttonState === 'completed'
+                                      ? 'bg-gradient-to-r from-yellow-200 to-orange-200'
+                                      : buttonState === 'in-progress-editing'
+                                      ? 'bg-gradient-to-r from-yellow-100 to-orange-100'
+                                      : buttonState === 'locked'
+                                      ? 'bg-gradient-to-r from-gray-200 to-gray-300'
+                                      : 'bg-gradient-to-r from-purple-200 to-pink-200'
+                                  ) : (
+                                    buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'link-completed' ? 'bg-green-100' :
+                                    buttonState === 'file-completed' ? 'bg-green-100' :
+                                    buttonState === 'in-progress-editing' ? 'bg-yellow-100' :
+                                    buttonState === 'locked' ? 'bg-gray-100' :
+                                    buttonState === 'completed' ? 'bg-green-100' :
+                                    'bg-purple-100'
+                                  )
                                 }`}>
                                   {(() => {
                                     const Icon = getAppletIcon(applet.type);
-                                    const iconColor = buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' || buttonState === 'link-completed' || buttonState === 'file-completed'
-                                      ? 'text-green-600'
-                                      : buttonState === 'in-progress-editing'
-                                      ? 'text-yellow-600'
-                                      : buttonState === 'locked'
-                                      ? 'text-gray-600'
-                                      : 'text-purple-600';
-                                    return <Icon className={`w-5 h-5 ${iconColor}`} />;
+                                    const iconColor = applet.type === 'phase_review'
+                                      ? (buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' || buttonState === 'link-completed' || buttonState === 'file-completed'
+                                        ? 'text-orange-700'
+                                        : buttonState === 'in-progress-editing'
+                                        ? 'text-yellow-700'
+                                        : buttonState === 'locked'
+                                        ? 'text-gray-700'
+                                        : 'text-purple-700')
+                                      : (buttonState === 'completed-locked' || buttonState === 'user-complete-editable' || buttonState === 'completed' || buttonState === 'link-completed' || buttonState === 'file-completed'
+                                        ? 'text-green-600'
+                                        : buttonState === 'in-progress-editing'
+                                        ? 'text-yellow-600'
+                                        : buttonState === 'locked'
+                                        ? 'text-gray-600'
+                                        : 'text-purple-600');
+                                    const iconSize = applet.type === 'phase_review' ? 'w-6 h-6' : 'w-5 h-5';
+                                    return <Icon className={`${iconSize} ${iconColor}`} />;
                                   })()}
                                 </div>
                                 <div className="text-left">
@@ -1223,6 +1262,8 @@ function ClientDashboard() {
                                     {applet.type === 'form' && applet.form?.title
                                       ? applet.form.title
                                       : applet.type === 'link_submission' && applet.config?.heading
+                                      ? applet.config.heading
+                                      : applet.type === 'phase_review' && applet.config?.heading
                                       ? applet.config.heading
                                       : (applet.type === 'upload' || applet.type === 'file_upload') && applet.config?.heading
                                       ? applet.config.heading
@@ -2127,6 +2168,43 @@ function ClientDashboard() {
           userId={userId}
         />
       )}
+
+      {/* Phase Review Modal */}
+      {showPhaseReviewModal && selectedApplet && (
+        <PhaseReview
+          applet={selectedApplet}
+          projectId={params.projectId}
+          userId={userId}
+          isViewOnly={isPhaseReviewViewOnly}
+          onClose={() => {
+            setShowPhaseReviewModal(false);
+            fetchProjectData();
+          }}
+          onComplete={() => {
+            // Update local state
+            const newCompleted = new Set(completedApplets);
+            newCompleted.add(selectedApplet.id);
+            setCompletedApplets(newCompleted);
+
+            // Trigger ENHANCED celebration for phase approval (major milestone!)
+            setShowPhaseCompletionCelebration(true);
+            setShowPhaseReviewModal(false);
+            // Refresh project data after celebration
+            setTimeout(() => {
+              fetchProjectData();
+            }, 5000); // Allow time for celebration
+          }}
+        />
+      )}
+
+      {/* Confetti */}
+      {showConfetti && <ConfettiCelebration />}
+
+      {/* Enhanced Phase Completion Celebration */}
+      <EnhancedPhaseCompletionCelebration
+        show={showPhaseCompletionCelebration}
+        onComplete={() => setShowPhaseCompletionCelebration(false)}
+      />
     </div>
   );
 }

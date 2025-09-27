@@ -332,7 +332,7 @@ Optimized for Vercel deployment:
              INSERT INTO aloa_applet_library (
                  type, name, description, default_config,
                  is_active, category, client_instructions,
-                 requires_approval, created_at, updated_at
+                 requires_approval, access_type, created_at, updated_at
              ) VALUES (
                  'your_applet_type',
                  'Your Applet Name',
@@ -342,11 +342,17 @@ Optimized for Vercel deployment:
                  'content', -- or 'form', 'media', 'collaboration', etc.
                  'Instructions for clients using this applet',
                  false,
+                 'input'::applet_access_type, -- 'input' (all clients), 'decision' (client_admin only), or 'administrative' (client_admin only)
                  NOW(), NOW()
              );
          END IF;
      END $$;
      ```
+
+   - **IMPORTANT: Set access_type correctly**:
+     - `'input'::applet_access_type` - All client users can see and interact with the applet
+     - `'decision'::applet_access_type` - Only client_admin users can see and interact (for approvals/decisions)
+     - `'administrative'::applet_access_type` - Only client_admin users can see and interact (for administrative tasks)
 
 2. **Update Component Icons and Colors** (`/components/ProjectletAppletsManager.js`):
    ```javascript
