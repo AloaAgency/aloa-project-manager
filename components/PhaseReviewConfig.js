@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, X, Save, Check, Minus } from 'lucide-react';
+import { Plus, X, Save, Check, Minus, Eye, User, CheckCircle, AlertCircle, ThumbsUp, Edit } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const PhaseReviewResponseViewer = dynamic(() => import('./PhaseReviewResponseViewer'), {
+  loading: () => <div className="p-4">Loading...</div>
+});
 
 export default function PhaseReviewConfig({ applet, projectId, projectletId, onUpdate }) {
   // Local state for all fields
@@ -21,6 +26,12 @@ export default function PhaseReviewConfig({ applet, projectId, projectletId, onU
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // State for response viewing
+  const [responses, setResponses] = useState([]);
+  const [loadingResponses, setLoadingResponses] = useState(false);
+  const [selectedResponse, setSelectedResponse] = useState(null);
+  const [selectedUserName, setSelectedUserName] = useState('');
+
   // Reset state when applet changes
   useEffect(() => {
     setHeading(applet.config?.heading || 'Phase Review');
@@ -38,6 +49,38 @@ export default function PhaseReviewConfig({ applet, projectId, projectletId, onU
     setHasChanges(false);
     setSaved(false);
   }, [applet.id]);
+
+  // Fetch responses when component mounts or applet changes
+  useEffect(() => {
+    fetchResponses();
+  }, [applet.id]);
+
+  // Fetch phase review responses
+  const fetchResponses = async () => {
+    setLoadingResponses(true);
+    try {
+      const response = await fetch(`/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets/${applet.id}/progress`);
+      if (response.ok) {
+        const data = await response.json();
+        // Filter for responses that have reviewData
+        const phaseReviewResponses = data.filter(item =>
+          item.form_progress?.reviewData &&
+          (item.form_progress.reviewData.decision || item.form_progress.reviewData.feedback)
+        );
+        setResponses(phaseReviewResponses);
+      }
+    } catch (error) {
+      console.error('Error fetching responses:', error);
+    } finally {
+      setLoadingResponses(false);
+    }
+  };
+
+  // Handle avatar click
+  const handleAvatarClick = (response) => {
+    setSelectedResponse(response.form_progress?.reviewData || response);
+    setSelectedUserName(response.user_name || response.email || 'Unknown User');
+  };
 
   // Handle heading change
   const handleHeadingChange = (e) => {
@@ -286,6 +329,87 @@ export default function PhaseReviewConfig({ applet, projectId, projectletId, onU
         </label>
       </div>
 
+      {/* Client Responses Section */}
+      <div className="border-t pt-4">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Client Responses
+          </h3>
+          {responses.length > 0 && (
+            <button
+              onClick={fetchResponses}
+              className="text-xs text-blue-600 hover:text-blue-700"
+            >
+              Refresh
+            </button>
+          )}
+        </div>
+
+        {loadingResponses ? (
+          <div className="flex items-center justify-center py-4">
+            <div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full" />
+          </div>
+        ) : responses.length > 0 ? (
+          <div className="flex flex-wrap gap-3">
+            {responses.map((response, index) => {
+              const reviewData = response.form_progress?.reviewData;
+              const decision = reviewData?.decision;
+              const userName = response.user_name || response.email || 'User ' + (index + 1);
+              const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+              return (
+                <button
+                  key={response.id || index}
+                  onClick={() => handleAvatarClick(response)}
+                  className="relative group"
+                  title={`Click to view ${userName}'s response`}
+                >
+                  {/* Avatar */}
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center font-semibold text-white transition-all group-hover:scale-110 ${
+                    decision === 'approve'
+                      ? 'bg-green-500 ring-2 ring-green-300'
+                      : decision === 'revise'
+                      ? 'bg-yellow-500 ring-2 ring-yellow-300'
+                      : 'bg-gray-400 ring-2 ring-gray-300'
+                  }`}>
+                    {initials}
+                  </div>
+
+                  {/* Status Icon */}
+                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center bg-white shadow-sm ${
+                    decision === 'approve'
+                      ? 'text-green-500'
+                      : decision === 'revise'
+                      ? 'text-yellow-500'
+                      : 'text-gray-400'
+                  }`}>
+                    {decision === 'approve' ? (
+                      <ThumbsUp className="h-3 w-3" />
+                    ) : decision === 'revise' ? (
+                      <Edit className="h-3 w-3" />
+                    ) : (
+                      <AlertCircle className="h-3 w-3" />
+                    )}
+                  </div>
+
+                  {/* Hover Label */}
+                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-xs text-gray-600 whitespace-nowrap">
+                      {userName.split(' ')[0]}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+            No client responses yet
+          </div>
+        )}
+      </div>
+
       {/* Save Button */}
       {hasChanges && (
         <div className="flex justify-end">
@@ -312,6 +436,18 @@ export default function PhaseReviewConfig({ applet, projectId, projectletId, onU
             )}
           </button>
         </div>
+      )}
+
+      {/* Response Viewer Modal */}
+      {selectedResponse && (
+        <PhaseReviewResponseViewer
+          response={selectedResponse}
+          userName={selectedUserName}
+          onClose={() => {
+            setSelectedResponse(null);
+            setSelectedUserName('');
+          }}
+        />
       )}
     </div>
   );

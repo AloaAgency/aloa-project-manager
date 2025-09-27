@@ -121,7 +121,7 @@ function ClientDashboard() {
     const type = applet.type;
 
     // DECISION type applets (including sitemap to avoid duplicate inputs)
-    if (['client_review', 'review', 'signoff', 'approval', 'sitemap', 'sitemap_builder'].includes(type)) {
+    if (['client_review', 'review', 'signoff', 'approval', 'sitemap', 'sitemap_builder', 'phase_review'].includes(type)) {
       return 'decision';
     }
 
