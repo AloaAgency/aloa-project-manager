@@ -18,10 +18,48 @@ export default function LoginPage() {
   // Add debug logging to see what's happening on mount
   useEffect(() => {
     console.log('[LoginPage] Component mounted');
+
+    // Check URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const isAuthenticated = urlParams.get('authenticated') === 'true';
+    const errorParam = urlParams.get('error');
+
+    // Display error messages from URL params
+    if (errorParam === 'session_expired') {
+      setError('Your session has expired. Please login again.');
+    } else if (errorParam === 'stale_session') {
+      setError('Your session is no longer valid. Please login again.');
+    }
+
+    // Check if user is already authenticated (from URL param)
+    if (isAuthenticated) {
+      // User is authenticated but redirected here (likely a client user)
+      // Fetch their profile and redirect to their project
+      checkAuthAndRedirect();
+    }
+
     return () => {
       console.log('[LoginPage] Component unmounted');
     };
   }, []);
+
+  const checkAuthAndRedirect = async () => {
+    try {
+      const response = await fetch('/api/auth/profile', {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user && data.clientProject?.id) {
+          window.location.href = `/project/${data.clientProject.id}/dashboard`;
+        }
+      }
+    } catch (err) {
+      console.error('[LoginPage] Error checking auth:', err);
+    }
+  };
 
   const handlePasswordLogin = async (e) => {
     e.preventDefault();

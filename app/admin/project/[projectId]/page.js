@@ -227,6 +227,7 @@ function AdminProjectPageContent() {
   const [showLoadTemplateModal, setShowLoadTemplateModal] = useState(false);
   const [showCreateFromSitemapModal, setShowCreateFromSitemapModal] = useState(false);
   const [selectedTemplateProjectlet, setSelectedTemplateProjectlet] = useState(null);
+  const [targetProjectletForTemplate, setTargetProjectletForTemplate] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [showTeamMemberModal, setShowTeamMemberModal] = useState(false);
   const [selectedTeamUserId, setSelectedTeamUserId] = useState('');
@@ -2598,6 +2599,17 @@ function AdminProjectPageContent() {
                                   >
                                     <Save className="w-4 h-4 mr-2" />
                                     Save as Template
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setTargetProjectletForTemplate(projectlet);
+                                      setShowLoadTemplateModal(true);
+                                      setShowActionMenu(null);
+                                    }}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+                                  >
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Load Template
                                   </button>
                                   <hr className="my-1" />
                                   <button
@@ -5800,8 +5812,13 @@ function AdminProjectPageContent() {
       {showLoadTemplateModal && (
         <LoadTemplateModal
           isOpen={showLoadTemplateModal}
-          onClose={() => setShowLoadTemplateModal(false)}
+          onClose={() => {
+            setShowLoadTemplateModal(false);
+            setTargetProjectletForTemplate(null);
+          }}
           projectId={params.projectId}
+          targetProjectletId={targetProjectletForTemplate?.id}
+          targetProjectletName={targetProjectletForTemplate?.name}
           onLoadTemplate={() => {
             // Refresh the page after loading template
             window.location.reload();

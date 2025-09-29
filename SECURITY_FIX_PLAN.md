@@ -622,17 +622,32 @@ CREATE POLICY "Service role bypass" ON aloa_projectlet_step_comments
 
 ### Step 4.4: Fix aloa_project_phases
 ```sql
--- File: /supabase/10_fix_project_phases.sql
+-- File: /supabase/security_fix_10_enable_project_phases_rls.sql
 ALTER TABLE aloa_project_phases ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Users can view phases for projects they have access to" ON aloa_project_phases;
-DROP POLICY IF EXISTS "Admins can manage phases" ON aloa_project_phases;
+DO $$
+DECLARE pol RECORD;
+BEGIN
+  FOR pol IN
+    SELECT policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'aloa_project_phases'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.aloa_project_phases', pol.policyname);
+  END LOOP;
+END $$;
 
 CREATE POLICY "View phases in user projects" ON aloa_project_phases
   FOR SELECT TO authenticated
   USING (
-    is_project_member(project_id, auth.uid()) OR
-    is_admin(auth.uid())
+    is_project_member(project_id, auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM aloa_project_stakeholders s
+      WHERE s.project_id = aloa_project_phases.project_id
+        AND s.user_id = auth.uid()
+    )
+    OR is_admin(auth.uid())
   );
 
 CREATE POLICY "Admins manage phases" ON aloa_project_phases
@@ -645,48 +660,76 @@ CREATE POLICY "Service role bypass" ON aloa_project_phases
   WITH CHECK (auth.jwt()->>'role' = 'service_role');
 ```
 
-### Step 4.4: Fix library and template tables
+### Step 4.5: Fix library and template tables
 ```sql
--- File: /supabase/10_fix_library_tables.sql
+-- File: /supabase/security_fix_11_enable_library_templates_rls.sql
 ALTER TABLE aloa_applet_library ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aloa_project_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aloa_project_insights ENABLE ROW LEVEL SECURITY;
 
--- Applet library (everyone can read, only admins can modify)
-CREATE POLICY "Anyone can view library" ON aloa_applet_library
-  FOR SELECT USING (true);
+DO $$
+DECLARE pol RECORD;
+BEGIN
+  FOR pol IN
+    SELECT policyname, tablename
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN (
+        'aloa_applet_library',
+        'aloa_project_templates',
+        'aloa_project_insights'
+      )
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
+  END LOOP;
+END $$;
+
+CREATE POLICY "Authenticated can view library" ON aloa_applet_library
+  FOR SELECT TO authenticated
+  USING (true);
 
 CREATE POLICY "Admins manage library" ON aloa_applet_library
-  FOR INSERT USING (is_admin(auth.uid()));
-
-CREATE POLICY "Admins update library" ON aloa_applet_library
-  FOR UPDATE USING (is_admin(auth.uid()));
-
-CREATE POLICY "Admins delete library" ON aloa_applet_library
-  FOR DELETE USING (is_admin(auth.uid()));
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
 
 CREATE POLICY "Service role bypass" ON aloa_applet_library
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 
--- Project templates (same as library)
-CREATE POLICY "Anyone can view templates" ON aloa_project_templates
-  FOR SELECT USING (true);
+CREATE POLICY "Authenticated can view templates" ON aloa_project_templates
+  FOR SELECT TO authenticated
+  USING (true);
 
 CREATE POLICY "Admins manage templates" ON aloa_project_templates
-  FOR ALL USING (is_admin(auth.uid()));
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
 
 CREATE POLICY "Service role bypass" ON aloa_project_templates
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 
--- Project insights
-CREATE POLICY "View insights for user projects" ON aloa_project_insights
-  FOR SELECT USING (
-    is_project_member(project_id, auth.uid()) OR
-    is_admin(auth.uid())
+CREATE POLICY "View insights in user projects" ON aloa_project_insights
+  FOR SELECT TO authenticated
+  USING (
+    is_project_member(project_id, auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM aloa_project_stakeholders s
+      WHERE s.project_id = aloa_project_insights.project_id
+        AND s.user_id = auth.uid()
+    )
+    OR is_admin(auth.uid())
   );
 
-CREATE POLICY "Service role manage insights" ON aloa_project_insights
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+CREATE POLICY "Admins manage insights" ON aloa_project_insights
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
+
+CREATE POLICY "Service role bypass" ON aloa_project_insights
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 ```
 
 ## Phase 5: Fix Knowledge Tables (Day 2 Afternoon)
@@ -999,13 +1042,13 @@ When implementing each phase:
 - [x] Phase 3: Core Project Tables Secured
   - [x] aloa_projects (CRITICAL - has policies but RLS disabled!)
   - [x] aloa_project_members & stakeholders
-- [ ] Phase 4: Applet and Form Tables Secured
+- [x] Phase 4: Applet and Form Tables Secured
   - [x] aloa_applets, aloa_applet_progress
   - [x] aloa_forms, aloa_form_fields
   - [x] aloa_form_responses, aloa_form_response_answers
   - [x] aloa_projectlets, aloa_projectlet_steps, aloa_projectlet_step_comments
-  - [ ] aloa_project_phases
-  - [ ] aloa_applet_library, aloa_project_templates, aloa_project_insights
+  - [x] aloa_project_phases
+  - [x] aloa_applet_library, aloa_project_templates, aloa_project_insights
 - [ ] Phase 5: Knowledge Tables Secured
   - [ ] aloa_project_knowledge
   - [ ] aloa_knowledge_form_responses
