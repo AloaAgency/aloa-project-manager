@@ -54,7 +54,7 @@ INSERT INTO aloa_project_members (user_id, project_id, role) VALUES
 
 ### Step 1.2: Create Security Helper Functions ✅ COMPLETED
 ```sql
--- File: /supabase/02_security_helpers.sql
+-- File: /supabase/security_fix_02_security_helpers.sql
 -- Helper function to check if user is project member
 CREATE OR REPLACE FUNCTION is_project_member(project_id UUID, user_id UUID)
 RETURNS BOOLEAN AS $$
@@ -91,7 +91,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 ### Step 2.1: Fix aloa_user_profiles
 ```sql
--- File: /supabase/03_fix_user_profiles.sql
+-- File: /supabase/security_fix_03_enable_user_profiles_rls.sql
 -- Enable RLS
 ALTER TABLE aloa_user_profiles ENABLE ROW LEVEL SECURITY;
 

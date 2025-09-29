@@ -37,13 +37,13 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'is_project_member') THEN
     RAISE NOTICE '✓ is_project_member function exists';
   ELSE
-    RAISE WARNING '✗ is_project_member function missing - may need to run 02_security_helpers.sql first';
+    RAISE WARNING '✗ is_project_member function missing - may need to run security_fix_02_security_helpers.sql first';
   END IF;
 
   IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'is_admin') THEN
     RAISE NOTICE '✓ is_admin function exists';
   ELSE
-    RAISE WARNING '✗ is_admin function missing - may need to run 02_security_helpers.sql first';
+    RAISE WARNING '✗ is_admin function missing - may need to run security_fix_02_security_helpers.sql first';
   END IF;
 END $$;
 

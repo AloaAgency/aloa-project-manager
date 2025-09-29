@@ -70,7 +70,7 @@ BEGIN
   ELSIF helper_count < 3 THEN
     RAISE NOTICE '=== ACTION REQUIRED ===';
     RAISE NOTICE '1. Helper functions are missing';
-    RAISE NOTICE '2. Run: 02_security_helpers.sql first';
+    RAISE NOTICE '2. Run: security_fix_02_security_helpers.sql first';
     RAISE NOTICE '3. Then run: 05_fix_projects.sql';
   ELSE
     RAISE NOTICE '=== STATUS: GOOD ===';
