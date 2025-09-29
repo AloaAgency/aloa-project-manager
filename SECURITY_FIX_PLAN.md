@@ -734,55 +734,115 @@ CREATE POLICY "Service role bypass" ON aloa_project_insights
 
 ## Phase 5: Fix Knowledge Tables (Day 2 Afternoon)
 
-### Step 5.1: Fix aloa_project_knowledge and related tables
+### Step 5.1: Fix aloa_project_knowledge and related tables ✅ COMPLETED
 ```sql
--- File: /supabase/11_fix_knowledge.sql
+-- File: /supabase/security_fix_12_enable_knowledge_rls.sql
 ALTER TABLE aloa_project_knowledge ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aloa_knowledge_form_responses ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "View project knowledge" ON aloa_project_knowledge;
-DROP POLICY IF EXISTS "Manage project knowledge" ON aloa_project_knowledge;
-DROP POLICY IF EXISTS "Service role bypass" ON aloa_project_knowledge;
+DO $$
+DECLARE pol RECORD;
+BEGIN
+  FOR pol IN
+    SELECT policyname, tablename
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN (
+        'aloa_project_knowledge',
+        'aloa_knowledge_form_responses'
+      )
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
+  END LOOP;
+END $$;
 
--- Users can view knowledge for their projects
-CREATE POLICY "View project knowledge" ON aloa_project_knowledge
-  FOR SELECT USING (
-    is_project_member(project_id, auth.uid()) OR
-    is_admin(auth.uid())
+CREATE POLICY "View knowledge in user projects" ON aloa_project_knowledge
+  FOR SELECT TO authenticated
+  USING (
+    is_project_member(project_id, auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM aloa_project_stakeholders s
+      WHERE s.project_id = aloa_project_knowledge.project_id
+        AND s.user_id = auth.uid()
+    )
+    OR is_admin(auth.uid())
   );
 
--- Only admins and service role can modify knowledge
 CREATE POLICY "Admins manage knowledge" ON aloa_project_knowledge
-  FOR INSERT USING (is_admin(auth.uid()));
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
 
 CREATE POLICY "Service role bypass" ON aloa_project_knowledge
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
-
--- Knowledge form responses policies
-CREATE POLICY "View knowledge responses for user projects" ON aloa_knowledge_form_responses
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM aloa_project_knowledge pk
-      WHERE pk.id = knowledge_id
-      AND (is_project_member(pk.project_id, auth.uid()) OR is_admin(auth.uid()))
-    )
+  FOR ALL
+  USING (
+    auth.jwt()->>'role' = 'service_role'
+    OR current_user = 'service_role'
+  )
+  WITH CHECK (
+    auth.jwt()->>'role' = 'service_role'
+    OR current_user = 'service_role'
   );
 
-CREATE POLICY "Service role manage responses" ON aloa_knowledge_form_responses
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+CREATE POLICY "View knowledge responses" ON aloa_knowledge_form_responses
+  FOR SELECT TO authenticated
+  USING (
+    is_project_member(project_id, auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM aloa_project_stakeholders s
+      WHERE s.project_id = aloa_knowledge_form_responses.project_id
+        AND s.user_id = auth.uid()
+    )
+    OR is_admin(auth.uid())
+  );
+
+CREATE POLICY "Admins manage knowledge responses" ON aloa_knowledge_form_responses
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
+
+CREATE POLICY "Service role bypass" ON aloa_knowledge_form_responses
+  FOR ALL
+  USING (
+    auth.jwt()->>'role' = 'service_role'
+    OR current_user = 'service_role'
+  )
+  WITH CHECK (
+    auth.jwt()->>'role' = 'service_role'
+    OR current_user = 'service_role'
+  );
 ```
 
-### Step 5.2: Fix aloa_knowledge_extraction_queue
+### Step 5.2: Fix aloa_knowledge_extraction_queue ✅ COMPLETED
 ```sql
--- File: /supabase/08_fix_extraction_queue.sql
+-- File: /supabase/security_fix_13_enable_extraction_queue_rls.sql
 ALTER TABLE aloa_knowledge_extraction_queue ENABLE ROW LEVEL SECURITY;
 
--- Only service role and admins can access the queue
-CREATE POLICY "Admin view queue" ON aloa_knowledge_extraction_queue
-  FOR SELECT USING (is_admin(auth.uid()));
+DO $$
+DECLARE pol RECORD;
+BEGIN
+  FOR pol IN
+    SELECT policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'aloa_knowledge_extraction_queue'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.aloa_knowledge_extraction_queue', pol.policyname);
+  END LOOP;
+END $$;
 
-CREATE POLICY "Service role manage queue" ON aloa_knowledge_extraction_queue
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+CREATE POLICY "Admins view extraction queue" ON aloa_knowledge_extraction_queue
+  FOR SELECT TO authenticated
+  USING (is_admin(auth.uid()));
+
+CREATE POLICY "Service role manage extraction queue" ON aloa_knowledge_extraction_queue
+  FOR ALL
+  USING (
+    auth.jwt()->>'role' = 'service_role'
+    OR current_user = 'service_role'
+  )
+  WITH CHECK (
+    auth.jwt()->>'role' = 'service_role'
+    OR current_user = 'service_role'
+  );
 ```
 
 ## Phase 6: Fix SECURITY DEFINER Views (Day 2 Evening)
@@ -1049,10 +1109,10 @@ When implementing each phase:
   - [x] aloa_projectlets, aloa_projectlet_steps, aloa_projectlet_step_comments
   - [x] aloa_project_phases
   - [x] aloa_applet_library, aloa_project_templates, aloa_project_insights
-- [ ] Phase 5: Knowledge Tables Secured
-  - [ ] aloa_project_knowledge
-  - [ ] aloa_knowledge_form_responses
-  - [ ] aloa_knowledge_extraction_queue
+- [x] Phase 5: Knowledge Tables Secured
+  - [x] aloa_project_knowledge
+  - [x] aloa_knowledge_form_responses
+  - [x] aloa_knowledge_extraction_queue
 - [ ] Phase 6: SECURITY DEFINER Views Fixed
   - [ ] aloa_weighted_responses
   - [ ] aloa_applet_with_user_progress

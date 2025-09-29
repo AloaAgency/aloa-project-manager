@@ -119,49 +119,50 @@ export async function middleware(request) {
       sessionError = e;
     }
 
-    // If there's a session error, clear cookies to prevent redirect loops
-    // BUT only if we're not already on an auth page (prevent redirect loops)
-    if (sessionError && !pathname.startsWith('/auth/')) {
-      console.log('[Middleware] Session error detected, clearing cookies:', sessionError);
-      // Clear all auth-related cookies
-      const authCookies = request.cookies.getAll().filter(cookie =>
-        cookie.name.includes('sb-') ||
-        cookie.name.includes('supabase')
-      );
-
-      for (const cookie of authCookies) {
-        response.cookies.delete(cookie.name);
-      }
-
-      // Redirect to login with error message
-      const redirectUrl = new URL('/auth/login', request.url);
-      redirectUrl.searchParams.set('error', 'session_expired');
-      if (pathname !== '/') {
-        redirectUrl.searchParams.set('redirect', pathname);
-      }
-      return NextResponse.redirect(redirectUrl);
-    }
-    
+    // Check for auth cookies
     const authCookies = request.cookies.getAll().filter(cookie =>
       cookie.name.includes('sb-') ||
       cookie.name.includes('supabase')
     );
 
-    // If no active session but auth cookies are present, treat as stale session
-    // BUT be less aggressive - only clear if trying to access protected routes
-    if (!session && authCookies.length > 0 && !pathname.startsWith('/auth/') && !pathname.startsWith('/forms/')) {
-      console.log('[Middleware] Stale Supabase session detected, clearing cookies and redirecting to login');
+    // If there's a session error OR stale session, handle it
+    const hasStaleSession = !session && authCookies.length > 0;
+    const needsAuthCleanup = sessionError || hasStaleSession;
 
-      for (const cookie of authCookies) {
-        response.cookies.delete(cookie.name);
-      }
+    if (needsAuthCleanup && !pathname.startsWith('/auth/') && !pathname.startsWith('/forms/')) {
+      // Check if we've already tried to clear cookies (via clear_auth param)
+      const alreadyClearing = request.nextUrl.searchParams.has('clear_auth');
 
-      const redirectUrl = new URL('/auth/login', request.url);
-      redirectUrl.searchParams.set('error', 'stale_session');
-      if (pathname !== '/') {
-        redirectUrl.searchParams.set('redirect', pathname);
+      if (alreadyClearing) {
+        // We've already tried redirecting, but still have issues
+        // This means cookies aren't clearing properly - allow access to login page
+        console.log('[Middleware] Already attempted cleanup, allowing auth page access');
+      } else {
+        // First attempt - clear cookies and redirect with flag
+        console.log('[Middleware] Session issue detected, clearing cookies:', {
+          sessionError: !!sessionError,
+          hasStaleSession,
+          pathname
+        });
+
+        // Clear all auth-related cookies
+        for (const cookie of authCookies) {
+          response.cookies.delete(cookie.name);
+        }
+
+        // Redirect to login with clear_auth flag to prevent loops
+        const redirectUrl = new URL('/auth/login', request.url);
+        redirectUrl.searchParams.set('clear_auth', '1');
+        if (sessionError) {
+          redirectUrl.searchParams.set('error', 'session_expired');
+        } else if (hasStaleSession) {
+          redirectUrl.searchParams.set('error', 'stale_session');
+        }
+        if (pathname !== '/') {
+          redirectUrl.searchParams.set('redirect', pathname);
+        }
+        return NextResponse.redirect(redirectUrl);
       }
-      return NextResponse.redirect(redirectUrl);
     }
 
     // Get user profile if authenticated

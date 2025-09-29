@@ -23,6 +23,47 @@ export default function LoginPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const isAuthenticated = urlParams.get('authenticated') === 'true';
     const errorParam = urlParams.get('error');
+    const clearAuth = urlParams.get('clear_auth');
+
+    // If clear_auth flag is set, force clear all auth cookies on client side
+    if (clearAuth === '1') {
+      console.log('[LoginPage] Force clearing client-side auth state');
+
+      // Clear all Supabase-related cookies
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const cookieName = cookie.split('=')[0].trim();
+        if (cookieName.includes('sb-') || cookieName.includes('supabase')) {
+          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;
+        }
+      }
+
+      // Clear localStorage
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+
+      // Clear sessionStorage
+      const sessionKeysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          sessionKeysToRemove.push(key);
+        }
+      }
+      sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
+
+      // Remove the clear_auth param and reload to ensure clean state
+      urlParams.delete('clear_auth');
+      const newUrl = `${window.location.pathname}${urlParams.toString() ? '?' + urlParams.toString() : ''}`;
+      window.history.replaceState({}, '', newUrl);
+    }
 
     // Display error messages from URL params
     if (errorParam === 'session_expired') {
