@@ -85,7 +85,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 7. Create view for phase overview with statistics
-CREATE OR REPLACE VIEW phase_overview AS
+CREATE OR REPLACE VIEW aloa_phase_overview AS
 SELECT
     p.*,
     COUNT(DISTINCT pl.id) as total_projectlets,
@@ -176,7 +176,7 @@ END $$;
 
 -- 9. Grant appropriate permissions
 GRANT ALL ON aloa_project_phases TO authenticated;
-GRANT ALL ON phase_overview TO authenticated;
+GRANT ALL ON aloa_phase_overview TO authenticated;
 
 -- 10. Add RLS policies for phases
 ALTER TABLE aloa_project_phases ENABLE ROW LEVEL SECURITY;
@@ -211,6 +211,6 @@ BEGIN
     RAISE NOTICE 'Tables created: aloa_project_phases';
     RAISE NOTICE 'Columns added: phase_id to aloa_projectlets';
     RAISE NOTICE 'Functions created: update_phase_completion(), reorder_phases()';
-    RAISE NOTICE 'Views created: phase_overview';
+    RAISE NOTICE 'Views created: aloa_phase_overview';
     RAISE NOTICE 'Default phases have been added to existing projects';
 END $$;

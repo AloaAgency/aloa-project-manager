@@ -847,43 +847,155 @@ CREATE POLICY "Service role manage extraction queue" ON aloa_knowledge_extractio
 
 ## Phase 6: Fix SECURITY DEFINER Views (Day 2 Evening)
 
-### Step 6.1: Review and Fix SECURITY DEFINER Views
+### Step 6.1: Review and Fix SECURITY DEFINER Views ✅ COMPLETED
 ```sql
--- File: /supabase/12_fix_security_definer_views.sql
--- SECURITY DEFINER views bypass RLS, so we need to be careful
-
--- Option 1: Convert to regular views (RECOMMENDED for most cases)
--- This makes the views respect RLS of the querying user
-
--- Fix aloa_weighted_responses view
+-- File: /supabase/security_fix_14_fix_views.sql
 DROP VIEW IF EXISTS aloa_weighted_responses CASCADE;
 CREATE VIEW aloa_weighted_responses AS
-  -- [recreate view definition without SECURITY DEFINER]
-  SELECT * FROM aloa_form_responses; -- Replace with actual view logic
+SELECT
+  fr.id,
+  fr.aloa_form_id,
+  fr.aloa_project_id,
+  fr.responses,
+  fr.submitted_at,
+  fr.user_id,
+  fr.stakeholder_id,
+  fr.stakeholder_importance,
+  s.role AS stakeholder_role,
+  p.full_name AS stakeholder_name,
+  p.email AS stakeholder_email,
+  proj.project_name AS project_name
+FROM aloa_form_responses fr
+LEFT JOIN aloa_project_stakeholders s ON fr.stakeholder_id = s.id
+LEFT JOIN aloa_user_profiles p ON (
+  fr.user_id ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+  AND fr.user_id::uuid = p.id
+)
+LEFT JOIN aloa_projects proj ON fr.aloa_project_id = proj.id
+ORDER BY fr.stakeholder_importance DESC NULLS LAST, fr.submitted_at DESC;
 
--- Fix aloa_applet_with_user_progress view
 DROP VIEW IF EXISTS aloa_applet_with_user_progress CASCADE;
 CREATE VIEW aloa_applet_with_user_progress AS
-  -- [recreate view definition without SECURITY DEFINER]
-  SELECT a.*, ap.*
-  FROM aloa_applets a
-  LEFT JOIN aloa_applet_progress ap ON a.id = ap.applet_id;
+SELECT
+  a.id,
+  a.projectlet_id,
+  a.library_applet_id,
+  a.name,
+  a.description,
+  a.type,
+  a.order_index,
+  a.config,
+  a.form_id,
+  a.status,
+  a.completion_percentage,
+  a.requires_approval,
+  a.created_at,
+  a.updated_at,
+  ap.user_id,
+  COALESCE(ap.status, 'not_started') AS user_status,
+  COALESCE(ap.completion_percentage, 0) AS user_completion_percentage,
+  ap.started_at AS user_started_at,
+  ap.completed_at AS user_completed_at,
+  ap.form_progress AS user_form_progress
+FROM aloa_applets a
+LEFT JOIN aloa_applet_progress ap ON ap.applet_id = a.id;
 
--- Fix aloa_forms_with_stats view
 DROP VIEW IF EXISTS aloa_forms_with_stats CASCADE;
 CREATE VIEW aloa_forms_with_stats AS
-  -- [recreate view definition without SECURITY DEFINER]
-  SELECT f.*, COUNT(r.id) as response_count
-  FROM aloa_forms f
-  LEFT JOIN aloa_form_responses r ON f.id = r.form_id
-  GROUP BY f.id;
+SELECT
+  f.id,
+  f.title,
+  f.description,
+  f.url_id,
+  f.markdown_content,
+  f.aloa_project_id,
+  f.status,
+  f.sections,
+  f.settings,
+  f.theme,
+  f.is_template,
+  f.template_category,
+  f.view_count,
+  f.submission_count,
+  f.created_at,
+  f.updated_at,
+  COUNT(DISTINCT r.id) AS total_responses,
+  COUNT(DISTINCT ff.id) AS total_fields,
+  MAX(r.submitted_at) AS last_submission
+FROM aloa_forms f
+LEFT JOIN aloa_form_responses r ON r.aloa_form_id = f.id
+LEFT JOIN aloa_form_fields ff ON ff.aloa_form_id = f.id
+GROUP BY f.id;
 
--- Option 2: If SECURITY DEFINER is truly needed, add internal checks
--- Only use this if the view needs to access data the user shouldn't directly access
--- CREATE OR REPLACE VIEW view_name AS
--- SELECT * FROM table WHERE project_id IN (
---   SELECT project_id FROM aloa_project_members WHERE user_id = auth.uid()
--- );
+DROP VIEW IF EXISTS phase_overview CASCADE;
+CREATE VIEW phase_overview AS
+SELECT
+  p.*,
+  COUNT(DISTINCT pl.id) AS total_projectlets,
+  COUNT(DISTINCT pl.id) FILTER (WHERE pl.status = 'completed') AS completed_projectlets,
+  COUNT(DISTINCT pl.id) FILTER (WHERE pl.status = 'in_progress') AS in_progress_projectlets,
+  COUNT(DISTINCT pl.id) FILTER (WHERE pl.status = 'locked') AS locked_projectlets,
+  COALESCE(SUM(
+    CASE
+      WHEN pl.status = 'completed' THEN 100
+      WHEN pl.status = 'in_progress' THEN 50
+      ELSE 0
+    END
+  ) / NULLIF(COUNT(pl.id), 0), 0) AS calculated_completion
+FROM aloa_project_phases p
+LEFT JOIN aloa_projectlets pl ON pl.phase_id = p.id
+GROUP BY p.id;
+
+-- Remove public/anon access and grant to authenticated + service role
+REVOKE ALL ON aloa_weighted_responses FROM PUBLIC;
+REVOKE ALL ON aloa_weighted_responses FROM anon;
+GRANT SELECT ON aloa_weighted_responses TO authenticated;
+GRANT SELECT ON aloa_weighted_responses TO service_role;
+
+REVOKE ALL ON aloa_applet_with_user_progress FROM PUBLIC;
+REVOKE ALL ON aloa_applet_with_user_progress FROM anon;
+GRANT SELECT ON aloa_applet_with_user_progress TO authenticated;
+GRANT SELECT ON aloa_applet_with_user_progress TO service_role;
+
+REVOKE ALL ON aloa_forms_with_stats FROM PUBLIC;
+REVOKE ALL ON aloa_forms_with_stats FROM anon;
+GRANT SELECT ON aloa_forms_with_stats TO authenticated;
+GRANT SELECT ON aloa_forms_with_stats TO service_role;
+
+REVOKE ALL ON phase_overview FROM PUBLIC;
+REVOKE ALL ON phase_overview FROM anon;
+GRANT SELECT ON phase_overview TO authenticated;
+GRANT SELECT ON phase_overview TO service_role;
+```
+
+### Step 6.2: Harden SECURITY DEFINER Functions
+```sql
+-- File: /supabase/security_fix_17_lockdown_functions.sql
+-- Ensure every SECURITY DEFINER function has a deterministic search_path.
+
+DO $$
+DECLARE
+  rec RECORD;
+BEGIN
+  FOR rec IN
+    SELECT
+      n.nspname AS schema_name,
+      p.proname AS function_name,
+      pg_get_function_identity_arguments(p.oid) AS identity_args
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE p.prosecdef
+      AND n.nspname = 'public'
+  LOOP
+    EXECUTE format(
+      'ALTER FUNCTION %I.%I(%s) SET search_path = %I;'
+      , rec.schema_name
+      , rec.function_name
+      , rec.identity_args
+      , rec.schema_name
+    );
+  END LOOP;
+END $$;
 ```
 
 ## Phase 7: Update API Routes (Day 3 Morning)
@@ -1113,10 +1225,11 @@ When implementing each phase:
   - [x] aloa_project_knowledge
   - [x] aloa_knowledge_form_responses
   - [x] aloa_knowledge_extraction_queue
-- [ ] Phase 6: SECURITY DEFINER Views Fixed
-  - [ ] aloa_weighted_responses
-  - [ ] aloa_applet_with_user_progress
-  - [ ] aloa_forms_with_stats
+- [x] Phase 6: SECURITY DEFINER Views Fixed
+  - [x] aloa_weighted_responses
+  - [x] aloa_applet_with_user_progress
+  - [x] aloa_forms_with_stats
+  - [x] phase_overview
 - [ ] Phase 7: API Routes Updated
   - [x] Step 7.0: Input Validation for Project Insights ✅
   - [ ] Step 7.1: Verify Service Client Usage

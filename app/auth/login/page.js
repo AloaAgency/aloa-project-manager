@@ -63,6 +63,10 @@ export default function LoginPage() {
       urlParams.delete('clear_auth');
       const newUrl = `${window.location.pathname}${urlParams.toString() ? '?' + urlParams.toString() : ''}`;
       window.history.replaceState({}, '', newUrl);
+
+      // IMPORTANT: Don't proceed with auth checks - we just cleared everything
+      // Just show the login form and let the user log in fresh
+      return;
     }
 
     // Display error messages from URL params
