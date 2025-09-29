@@ -968,7 +968,7 @@ GRANT SELECT ON phase_overview TO authenticated;
 GRANT SELECT ON phase_overview TO service_role;
 ```
 
-### Step 6.2: Harden SECURITY DEFINER Functions
+### Step 6.2: Harden SECURITY DEFINER Functions ✅ COMPLETED
 ```sql
 -- File: /supabase/security_fix_17_lockdown_functions.sql
 -- Ensure every SECURITY DEFINER function has a deterministic search_path.
