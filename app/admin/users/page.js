@@ -57,7 +57,7 @@ export default function UsersManagementPage() {
         fetchProjects();
       }
     }
-  }, [user, userLoading, router, isSuperAdmin]);
+  }, [user?.id, userLoading, router, isSuperAdmin]); // Only depend on user.id, not the entire user object
 
   const fetchUsers = async () => {
     try {

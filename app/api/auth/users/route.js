@@ -12,10 +12,9 @@ export async function GET(request) {
   try {
     const cookieStore = await cookies();
 
-    // Create Supabase client with service role for bypassing RLS
-    const supabase = createServerClient(
+    const supabaseAuth = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       {
         cookies: {
           get(name) {
@@ -27,14 +26,24 @@ export async function GET(request) {
       }
     );
 
-    // Check if user is authenticated and is super admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Check if user is authenticated
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    if (!serviceKey) {
+      return NextResponse.json({ error: 'Service role key not configured' }, { status: 500 });
+    }
+
+    const supabaseService = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      serviceKey
+    );
+
     // Get user's profile to check role
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseService
       .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
@@ -46,7 +55,7 @@ export async function GET(request) {
     }
 
     // Get users based on requester's role
-    let query = supabase
+    let query = supabaseService
       .from('aloa_user_profiles')
       .select(`
         id,
@@ -76,14 +85,8 @@ export async function GET(request) {
 
     if (clientIds.length > 0) {
       // Create a service client to bypass RLS for fetching project members
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-      const serviceClient = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        serviceKey
-      );
-
       // Get from aloa_project_members table (where we actually store client assignments)
-      const { data: members, error: membersError } = await serviceClient
+      const { data: members, error: membersError } = await supabaseService
         .from('aloa_project_members')
         .select('user_id, project_id, aloa_projects(id, project_name, client_name)')
         .in('user_id', clientIds)
@@ -128,17 +131,18 @@ export async function POST(request) {
     }
 
     // Validate role
-    const validRoles = ['super_admin', 'project_admin', 'team_member', 'client'];
+    const validRoles = ['super_admin', 'project_admin', 'team_member', 'client', 'client_admin', 'client_participant'];
     if (!validRoles.includes(role)) {
-      return NextResponse.json({ 
-        error: 'Invalid role. Must be one of: ' + validRoles.join(', ') 
+      return NextResponse.json({
+        error: 'Invalid role. Must be one of: ' + validRoles.join(', ')
       }, { status: 400 });
     }
 
-    // Create Supabase client with service role
-    const supabase = createServerClient(
+    const projectId = project_id || null;
+
+    const supabaseAuth = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       {
         cookies: {
           get(name) {
@@ -151,23 +155,42 @@ export async function POST(request) {
     );
 
     // Check if requester is super admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) {
+      console.error('Auth error in user creation:', authError);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json({ error: 'Service role key not configured' }, { status: 500 });
+    }
+
+    const supabaseService = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      serviceRoleKey
+    );
+
+    const { data: profile, error: profileCheckError } = await supabaseService
       .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
       .single();
+
+    console.log('User profile check:', { userId: user.id, profile, profileError: profileCheckError });
+
+    if (profileCheckError) {
+      console.error('Profile fetch error:', profileCheckError);
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
     if (profile?.role !== 'super_admin') {
       return NextResponse.json({ error: 'Forbidden - Super admin access required' }, { status: 403 });
     }
 
     // Create the user account using admin API
-    const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+    console.log('Attempting to create user with admin API:', { email, role });
+    const { data: newUser, error: createError } = await supabaseService.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // Auto-confirm the email
@@ -177,14 +200,23 @@ export async function POST(request) {
     });
 
     if (createError) {
+      console.error('Error creating user - Full error object:', JSON.stringify(createError, null, 2));
+      console.error('Error status:', createError.status);
+      console.error('Error message:', createError.message);
+      console.error('Error code:', createError.code);
 
-      return NextResponse.json({ 
-        error: createError.message || 'Failed to create user' 
-      }, { status: 400 });
+      // Return the actual error message from Supabase
+      return NextResponse.json({
+        error: createError.message || 'Failed to create user',
+        details: {
+          status: createError.status,
+          code: createError.code
+        }
+      }, { status: createError.status || 400 });
     }
 
     // Create or update the profile
-    const { error: profileError } = await supabase
+    const { error: profileUpsertError } = await supabaseService
       .from('aloa_user_profiles')
       .upsert({
         id: newUser.user.id,
@@ -193,26 +225,51 @@ export async function POST(request) {
         role
       });
 
-    if (profileError) {
+    if (profileUpsertError) {
       // Try to delete the user if profile creation failed
-      await supabase.auth.admin.deleteUser(newUser.user.id);
-      return handleDatabaseError(profileError, 'Failed to create user profile');
+      await supabaseService.auth.admin.deleteUser(newUser.user.id);
+      return handleDatabaseError(profileUpsertError, 'Failed to create user profile');
     }
 
-    // If role is client and project_id is provided, add them as stakeholder
-    if (role === 'client' && project_id) {
-      const { error: stakeholderError } = await supabase
+    const clientLikeRoles = ['client', 'client_admin', 'client_participant'];
+
+    if (projectId && clientLikeRoles.includes(role)) {
+      const assignmentPayload = {
+        project_id: projectId,
+        user_id: newUser.user.id,
+        project_role: 'viewer',
+        can_edit: false,
+        can_delete: false,
+        can_invite: false,
+        can_manage_team: false,
+        invited_by: user.id,
+        joined_at: new Date().toISOString()
+      };
+
+      const { error: memberError } = await supabaseService
+        .from('aloa_project_members')
+        .upsert(assignmentPayload, { onConflict: 'project_id,user_id' });
+
+      if (memberError) {
+        await supabaseService.auth.admin.deleteUser(newUser.user.id);
+        return NextResponse.json({
+          error: `Failed to assign user to project: ${memberError.message}`
+        }, { status: 500 });
+      }
+
+      const { error: stakeholderError } = await supabaseService
         .from('aloa_project_stakeholders')
-        .insert({
-          project_id,
+        .upsert({
+          project_id: projectId,
           user_id: newUser.user.id,
-          role: 'client',
-          added_by: user.id
-        });
+          role: role === 'client' ? 'client' : 'viewer',
+          added_by: user.id,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id,project_id' });
 
       if (stakeholderError) {
-
-        // Don't fail the whole operation, just log the error
+        // Log and continue – membership succeeded so we keep the user
+        console.error('Stakeholder upsert failed:', stakeholderError);
       }
     }
 
@@ -223,7 +280,7 @@ export async function POST(request) {
         email: newUser.user.email,
         full_name,
         role,
-        project_id: role === 'client' ? project_id : null
+        project_id: clientLikeRoles.includes(role) ? projectId : null
       }
     });
 
@@ -244,10 +301,9 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    // Create Supabase client with service role
-    const supabase = createServerClient(
+    const supabaseAuth = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       {
         cookies: {
           get(name) {
@@ -260,12 +316,22 @@ export async function PATCH(request) {
     );
 
     // Check if requester is super admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json({ error: 'Service role key not configured' }, { status: 500 });
+    }
+
+    const supabaseService = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      serviceRoleKey
+    );
+
+    const { data: profile } = await supabaseService
       .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
@@ -286,7 +352,7 @@ export async function PATCH(request) {
     }
 
     if (Object.keys(profileUpdates).length > 0) {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseService
         .from('aloa_user_profiles')
         .update(profileUpdates)
         .eq('id', user_id);
@@ -298,7 +364,7 @@ export async function PATCH(request) {
 
     // Update email if provided
     if (updates.email) {
-      const { error: emailError } = await supabase.auth.admin.updateUserById(
+      const { error: emailError } = await supabaseService.auth.admin.updateUserById(
         user_id,
         { email: updates.email }
       );
@@ -308,7 +374,7 @@ export async function PATCH(request) {
       }
 
       // Also update email in profiles table
-      await supabase
+      await supabaseService
         .from('aloa_user_profiles')
         .update({ email: updates.email })
         .eq('id', user_id);
@@ -316,7 +382,7 @@ export async function PATCH(request) {
 
     // Update password if provided
     if (updates.password) {
-      const { error: passwordError } = await supabase.auth.admin.updateUserById(
+      const { error: passwordError } = await supabaseService.auth.admin.updateUserById(
         user_id,
         { password: updates.password }
       );
@@ -345,10 +411,9 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    // Create Supabase client with service role
-    const supabase = createServerClient(
+    const supabaseAuth = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       {
         cookies: {
           get(name) {
@@ -361,12 +426,22 @@ export async function DELETE(request) {
     );
 
     // Check if requester is super admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json({ error: 'Service role key not configured' }, { status: 500 });
+    }
+
+    const supabaseService = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      serviceRoleKey
+    );
+
+    const { data: profile } = await supabaseService
       .from('aloa_user_profiles')
       .select('role')
       .eq('id', user.id)
@@ -382,7 +457,7 @@ export async function DELETE(request) {
     }
 
     // Delete the user (this will cascade to profile)
-    const { error: deleteError } = await supabase.auth.admin.deleteUser(user_id);
+    const { error: deleteError } = await supabaseService.auth.admin.deleteUser(user_id);
 
     if (deleteError) {
       return handleDatabaseError(deleteError, 'Failed to delete user');

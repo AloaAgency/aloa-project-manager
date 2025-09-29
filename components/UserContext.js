@@ -193,12 +193,15 @@ export function UserProvider({ children }) {
             }
           }
         } else if (session?.user) {
-          // Session is valid, update user if needed
-          if (!user || user.id !== session.user.id) {
-            console.log('[UserContext] Session valid, updating user');
+          // Session is valid, only update if user actually changed
+          // Compare by ID and email to avoid unnecessary updates
+          if (!user || user.id !== session.user.id || user.email !== session.user.email) {
+            console.log('[UserContext] Session valid, user actually changed, updating');
             setUser(session.user);
             const profileData = await fetchProfileFromAPI();
             setProfile(profileData);
+          } else {
+            console.log('[UserContext] Session valid, no changes needed');
           }
         }
       } catch (error) {

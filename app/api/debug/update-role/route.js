@@ -10,7 +10,7 @@ export async function POST(request) {
     }
 
     // Validate role
-    const validRoles = ['super_admin', 'project_admin', 'team_member', 'client'];
+    const validRoles = ['super_admin', 'project_admin', 'team_member', 'client', 'client_admin', 'client_participant'];
     if (!validRoles.includes(role)) {
       return NextResponse.json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` }, { status: 400 });
     }

@@ -35,21 +35,18 @@ This document provides step-by-step instructions to fix all Row Level Security (
 
 ### Step 1.1: Create Security Testing User
 ```sql
--- File: /supabase/01_create_test_users.sql
+-- File: /supabase/security_fix_01_create_test_users.sql
 -- Create test users for different roles to verify security
-INSERT INTO auth.users (id, email) VALUES
-  ('11111111-1111-1111-1111-111111111111', 'test_client@test.com'),
-  ('22222222-2222-2222-2222-222222222222', 'test_admin@test.com'),
-  ('33333333-3333-3333-3333-333333333333', 'test_outsider@test.com');
+DO $$
+DECLARE
+  -- Implementation note: the actual script handles auth users, profiles, passwords,
+  -- and project memberships safely. See /supabase/security_fix_01_create_test_users.sql
+  -- for full details.
+BEGIN
+  RAISE NOTICE 'Run security_fix_01_create_test_users.sql directly in Supabase.';
+END $$;
 
-INSERT INTO aloa_user_profiles (user_id, email, full_name, role) VALUES
-  ('11111111-1111-1111-1111-111111111111', 'test_client@test.com', 'Test Client', 'client'),
-  ('22222222-2222-2222-2222-222222222222', 'test_admin@test.com', 'Test Admin', 'super_admin'),
-  ('33333333-3333-3333-3333-333333333333', 'test_outsider@test.com', 'Test Outsider', 'client');
-
--- Assign test_client to project 1, test_outsider to project 2
-INSERT INTO aloa_project_members (user_id, project_id, role) VALUES
-  ('11111111-1111-1111-1111-111111111111', '511306f6-0316-4a60-a318-1509d643238a', 'viewer');
+-- Rollback helper (optional): /supabase/security_fix_01_rollback_test_users.sql
 ```
 
 ### Step 1.2: Create Security Helper Functions ✅ COMPLETED
@@ -710,6 +707,8 @@ When implementing each phase:
   - [ ] Step 1.1: Create Test Users
   - [x] Step 1.2: Create Security Helper Functions ✅
 - [ ] Phase 2: User Tables Secured (aloa_user_profiles)
+  - [x] Step 2.1: Fix aloa_user_profiles
+  - [x] Step 2.2: Test User Profiles Security
 - [ ] Phase 3: Core Project Tables Secured
   - [ ] aloa_projects (CRITICAL - has policies but RLS disabled!)
   - [ ] aloa_project_members
