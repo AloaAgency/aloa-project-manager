@@ -44,6 +44,14 @@ This document provides step-by-step instructions to fix all Row Level Security (
 
 ## Phase 1: Foundation Setup (Day 1 Morning)
 
+### Step 1.0: Disable Self-Service Signups ✅ COMPLETED
+```text
+- Supabase dashboard: Settings → Authentication → Disable email/password signup.
+- Run /supabase/security_fix_00_disable_public_signup.sql (documentation).
+- Ensure `lib/supabase-auth.js` has self-service signup disabled unless
+  `NEXT_PUBLIC_ENABLE_SELF_SIGNUP` is true.
+```
+
 ### Step 1.1: Create Security Testing User ✅ COMPLETED
 ```sql
 -- File: /supabase/security_fix_01_create_test_users.sql
@@ -181,55 +189,121 @@ CREATE POLICY "Service role bypass" ON aloa_user_profiles
 
 ## Phase 3: Fix Core Project Tables (Day 1 Evening)
 
-### Step 3.1: Fix aloa_projects (CRITICAL - Has policies but RLS disabled!)
+### Step 3.1: Fix aloa_projects (CRITICAL - Has policies but RLS disabled!) ✅ COMPLETED
 ```sql
--- File: /supabase/05_fix_projects.sql
--- CRITICAL: This table has policies created but RLS is NOT enabled!
+-- File: /supabase/security_fix_05_enable_projects_rls.sql
+
+-- 1. Enable RLS and revoke blanket grants
 ALTER TABLE aloa_projects ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON aloa_projects FROM PUBLIC;
+REVOKE ALL ON aloa_projects FROM anon;
+REVOKE ALL ON aloa_projects FROM authenticated;
 
--- Drop all existing policies
-DROP POLICY IF EXISTS "View projects" ON aloa_projects;
-DROP POLICY IF EXISTS "Admins manage projects" ON aloa_projects;
-DROP POLICY IF EXISTS "Service role bypass" ON aloa_projects;
+-- 2. Grant minimal privileges back (RLS will enforce row access)
+GRANT SELECT, INSERT, UPDATE, DELETE ON aloa_projects TO authenticated;
+GRANT ALL ON aloa_projects TO service_role;
 
--- Users can view projects they're members of
-CREATE POLICY "View own projects" ON aloa_projects
-  FOR SELECT USING (
-    is_project_member(id, auth.uid()) OR
-    is_admin(auth.uid())
+-- 3. Drop existing policies and recreate explicit ones
+DO $$ DECLARE pol RECORD; BEGIN
+  FOR pol IN SELECT policyname FROM pg_policies
+             WHERE schemaname = 'public' AND tablename = 'aloa_projects'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.aloa_projects', pol.policyname);
+  END LOOP;
+END $$;
+
+CREATE POLICY "Projects visible to members or admins" ON aloa_projects
+  FOR SELECT TO authenticated
+  USING (
+    is_project_member(id, auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM aloa_project_stakeholders s
+      WHERE s.project_id = aloa_projects.id
+        AND s.user_id = auth.uid()
+    )
+    OR is_admin(auth.uid())
   );
 
--- Only admins can create/update/delete projects
-CREATE POLICY "Admins manage projects" ON aloa_projects
-  FOR ALL USING (is_admin(auth.uid()));
+CREATE POLICY "Admins can insert projects" ON aloa_projects
+  FOR INSERT TO authenticated
+  WITH CHECK (is_admin(auth.uid()));
 
--- Service role bypass for API operations
+CREATE POLICY "Admins can update projects" ON aloa_projects
+  FOR UPDATE TO authenticated
+  USING (is_admin(auth.uid()))
+  WITH CHECK (is_admin(auth.uid()));
+
+CREATE POLICY "Admins can delete projects" ON aloa_projects
+  FOR DELETE TO authenticated
+  USING (is_admin(auth.uid()));
+
 CREATE POLICY "Service role bypass" ON aloa_projects
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
+
+-- Validation checklist
+--  * Run this script in Supabase SQL (or migrations) and ensure no errors.
+--  * Confirm `/app/api/aloa-projects/route.js` uses `createServiceClient()` so admin views bypass RLS safely.
+--  * Test with seeded users: `test_admin` sees all projects, regular members see their own, outsiders receive 403/empty result.
 ```
 
-### Step 3.2: Fix aloa_project_members
+### Step 3.2: Fix aloa_project_members & stakeholders ✅ COMPLETED
 ```sql
--- File: /supabase/06_fix_project_members.sql
+-- File: /supabase/security_fix_06_enable_project_members_rls.sql
 ALTER TABLE aloa_project_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aloa_project_stakeholders ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "View project members" ON aloa_project_members;
-DROP POLICY IF EXISTS "Admins manage members" ON aloa_project_members;
-DROP POLICY IF EXISTS "Service role bypass" ON aloa_project_members;
+-- Drop existing policies and recreate for both tables
+DO $$
+DECLARE pol RECORD;
+BEGIN
+  FOR pol IN
+    SELECT policyname FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN ('aloa_project_members', 'aloa_project_stakeholders')
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
+  END LOOP;
+END $$;
 
--- Users can see members of their projects
 CREATE POLICY "View project members" ON aloa_project_members
-  FOR SELECT USING (
-    is_project_member(project_id, auth.uid()) OR
-    is_admin(auth.uid())
+  FOR SELECT TO authenticated
+  USING (
+    is_project_member(project_id, auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM aloa_project_stakeholders s
+      WHERE s.project_id = aloa_project_members.project_id
+        AND s.user_id = auth.uid()
+    )
+    OR is_admin(auth.uid())
   );
 
--- Only admins can add/remove members
 CREATE POLICY "Admins manage members" ON aloa_project_members
-  FOR ALL USING (is_admin(auth.uid()));
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
 
 CREATE POLICY "Service role bypass" ON aloa_project_members
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
+
+CREATE POLICY "View project stakeholders" ON aloa_project_stakeholders
+  FOR SELECT TO authenticated
+  USING (
+    is_project_member(project_id, auth.uid())
+    OR user_id = auth.uid()
+    OR is_admin(auth.uid())
+  );
+
+CREATE POLICY "Admins manage stakeholders" ON aloa_project_stakeholders
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
+
+CREATE POLICY "Service role bypass" ON aloa_project_stakeholders
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 ```
 
 ## Phase 4: Fix Applet and Form Tables (Day 2 Morning)
@@ -779,14 +853,15 @@ When implementing each phase:
 ## Completion Checklist
 
 - [x] Phase 1: Foundation Complete
+  - [x] Step 1.0: Disable Self-Service Signups ✅
   - [x] Step 1.1: Create Test Users
   - [x] Step 1.2: Create Security Helper Functions ✅
 - [x] Phase 2: User Tables Secured (aloa_user_profiles)
   - [x] Step 2.1: Fix aloa_user_profiles
   - [x] Step 2.2: Test User Profiles Security
-- [ ] Phase 3: Core Project Tables Secured
-  - [ ] aloa_projects (CRITICAL - has policies but RLS disabled!)
-  - [ ] aloa_project_members
+- [x] Phase 3: Core Project Tables Secured
+  - [x] aloa_projects (CRITICAL - has policies but RLS disabled!)
+  - [x] aloa_project_members & stakeholders
 - [ ] Phase 4: Applet and Form Tables Secured
   - [ ] aloa_applets, aloa_applet_progress
   - [ ] aloa_forms, aloa_form_fields

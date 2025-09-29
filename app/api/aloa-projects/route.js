@@ -1,10 +1,45 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import { createServiceClient } from '@/lib/supabase-service';
 
 export async function GET(request) {
   try {
+    const cookieStore = await cookies();
+
+    const supabaseAuth = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set() {},
+          remove() {}
+        }
+      }
+    );
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const serviceSupabase = createServiceClient();
+
+    const { data: profile, error: profileError } = await serviceSupabase
+      .from('aloa_user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || profile?.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Fetch all projects with their projectlets and applets
-    const { data: projects, error, count } = await supabase
+    const { data: projects, error } = await serviceSupabase
       .from('aloa_projects')
       .select(`
         *,
