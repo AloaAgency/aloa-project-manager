@@ -310,42 +310,67 @@ CREATE POLICY "Service role bypass" ON aloa_project_stakeholders
 
 ### Step 4.1: Fix aloa_applets and aloa_applet_progress
 ```sql
--- File: /supabase/07_fix_applets.sql
+-- File: /supabase/security_fix_07_enable_applets_rls.sql
 ALTER TABLE aloa_applets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aloa_applet_progress ENABLE ROW LEVEL SECURITY;
 
--- Applets policies
+DO $$
+DECLARE pol RECORD;
+BEGIN
+  FOR pol IN
+    SELECT policyname, tablename
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN ('aloa_applets', 'aloa_applet_progress')
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
+  END LOOP;
+END $$;
+
 CREATE POLICY "View applets in user projects" ON aloa_applets
-  FOR SELECT USING (
+  FOR SELECT TO authenticated
+  USING (
     EXISTS (
       SELECT 1 FROM aloa_projectlets p
       WHERE p.id = aloa_applets.projectlet_id
-      AND EXISTS (
-        SELECT 1 FROM aloa_project_members pm
-        WHERE pm.project_id = p.project_id
-        AND pm.user_id = auth.uid()
-      )
-    ) OR is_admin(auth.uid())
+        AND (
+          is_project_member(p.project_id, auth.uid())
+          OR EXISTS (
+            SELECT 1 FROM aloa_project_stakeholders s
+            WHERE s.project_id = p.project_id
+              AND s.user_id = auth.uid()
+          )
+        )
+    )
+    OR is_admin(auth.uid())
   );
 
 CREATE POLICY "Admins manage applets" ON aloa_applets
-  FOR ALL USING (is_admin(auth.uid()));
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
 
 CREATE POLICY "Service role bypass" ON aloa_applets
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 
--- Applet progress policies
 CREATE POLICY "Users view own progress" ON aloa_applet_progress
-  FOR SELECT USING (user_id = auth.uid() OR is_admin(auth.uid()));
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid()::text OR is_admin(auth.uid()));
 
-CREATE POLICY "Users update own progress" ON aloa_applet_progress
-  FOR INSERT USING (user_id = auth.uid());
+CREATE POLICY "Users insert own progress" ON aloa_applet_progress
+  FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid()::text);
 
 CREATE POLICY "Users modify own progress" ON aloa_applet_progress
-  FOR UPDATE USING (user_id = auth.uid());
+  FOR UPDATE TO authenticated
+  USING (user_id = auth.uid()::text)
+  WITH CHECK (user_id = auth.uid()::text);
 
 CREATE POLICY "Service role bypass" ON aloa_applet_progress
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 ```
 
 ### Step 4.2: Fix aloa_forms and related tables
@@ -863,7 +888,7 @@ When implementing each phase:
   - [x] aloa_projects (CRITICAL - has policies but RLS disabled!)
   - [x] aloa_project_members & stakeholders
 - [ ] Phase 4: Applet and Form Tables Secured
-  - [ ] aloa_applets, aloa_applet_progress
+  - [x] aloa_applets, aloa_applet_progress
   - [ ] aloa_forms, aloa_form_fields
   - [ ] aloa_form_responses, aloa_form_response_answers
   - [ ] aloa_projectlets, aloa_projectlet_steps, aloa_projectlet_step_comments
