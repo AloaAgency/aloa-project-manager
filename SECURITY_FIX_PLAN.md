@@ -308,7 +308,7 @@ CREATE POLICY "Service role bypass" ON aloa_project_stakeholders
 
 ## Phase 4: Fix Applet and Form Tables (Day 2 Morning)
 
-### Step 4.1: Fix aloa_applets and aloa_applet_progress
+### Step 4.1: Fix aloa_applets and aloa_applet_progress ✅ COMPLETED
 ```sql
 -- File: /supabase/security_fix_07_enable_applets_rls.sql
 ALTER TABLE aloa_applets ENABLE ROW LEVEL SECURITY;
@@ -373,78 +373,143 @@ CREATE POLICY "Service role bypass" ON aloa_applet_progress
   WITH CHECK (auth.jwt()->>'role' = 'service_role');
 ```
 
-### Step 4.2: Fix aloa_forms and related tables
+### Step 4.2: Fix aloa_forms and related tables ✅ COMPLETED
 ```sql
--- File: /supabase/08_fix_forms.sql
+-- File: /supabase/security_fix_08_enable_forms_rls.sql
 ALTER TABLE aloa_forms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aloa_form_fields ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aloa_form_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aloa_form_response_answers ENABLE ROW LEVEL SECURITY;
 
--- Forms policies
+DO $$
+DECLARE pol RECORD;
+BEGIN
+  FOR pol IN
+    SELECT policyname, tablename
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN (
+        'aloa_forms', 'aloa_form_fields',
+        'aloa_form_responses', 'aloa_form_response_answers'
+      )
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
+  END LOOP;
+END $$;
+
 CREATE POLICY "View forms in user projects" ON aloa_forms
-  FOR SELECT USING (
-    is_project_member(project_id, auth.uid()) OR
-    is_admin(auth.uid())
+  FOR SELECT TO authenticated
+  USING (
+    (aloa_project_id IS NOT NULL AND (
+      is_project_member(aloa_project_id, auth.uid())
+      OR EXISTS (
+        SELECT 1 FROM aloa_project_stakeholders s
+        WHERE s.project_id = aloa_forms.aloa_project_id
+          AND s.user_id = auth.uid()
+      )
+    ))
+    OR is_admin(auth.uid())
   );
 
 CREATE POLICY "Admins manage forms" ON aloa_forms
-  FOR ALL USING (is_admin(auth.uid()));
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
 
 CREATE POLICY "Service role bypass" ON aloa_forms
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 
--- Form fields policies
 CREATE POLICY "View fields for accessible forms" ON aloa_form_fields
-  FOR SELECT USING (
+  FOR SELECT TO authenticated
+  USING (
     EXISTS (
       SELECT 1 FROM aloa_forms f
-      WHERE f.id = form_id
-      AND (is_project_member(f.project_id, auth.uid()) OR is_admin(auth.uid()))
+  WHERE f.id = aloa_form_fields.aloa_form_id
+        AND (
+          (f.aloa_project_id IS NOT NULL AND (
+            is_project_member(f.aloa_project_id, auth.uid())
+            OR EXISTS (
+              SELECT 1 FROM aloa_project_stakeholders s
+              WHERE s.project_id = f.aloa_project_id
+                AND s.user_id = auth.uid()
+            )
+          ))
+          OR is_admin(auth.uid())
+        )
     )
   );
 
 CREATE POLICY "Admins manage fields" ON aloa_form_fields
-  FOR ALL USING (is_admin(auth.uid()));
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
 
 CREATE POLICY "Service role bypass" ON aloa_form_fields
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 
--- Form responses policies
 CREATE POLICY "View responses in user projects" ON aloa_form_responses
-  FOR SELECT USING (
+  FOR SELECT TO authenticated
+  USING (
     EXISTS (
       SELECT 1 FROM aloa_forms f
-      WHERE f.id = form_id
-      AND (is_project_member(f.project_id, auth.uid()) OR is_admin(auth.uid()))
+      WHERE f.id = aloa_form_responses.aloa_form_id
+        AND (
+          (f.aloa_project_id IS NOT NULL AND (
+            is_project_member(f.aloa_project_id, auth.uid())
+            OR EXISTS (
+              SELECT 1 FROM aloa_project_stakeholders s
+              WHERE s.project_id = f.aloa_project_id
+                AND s.user_id = auth.uid()
+            )
+          ))
+          OR is_admin(auth.uid())
+        )
     )
   );
 
 CREATE POLICY "Users submit responses" ON aloa_form_responses
-  FOR INSERT USING (
+  FOR INSERT TO authenticated
+  WITH CHECK (
     EXISTS (
       SELECT 1 FROM aloa_forms f
-      WHERE f.id = form_id
-      AND is_project_member(f.project_id, auth.uid())
+      WHERE f.id = aloa_form_responses.aloa_form_id
+        AND f.aloa_project_id IS NOT NULL
+        AND is_project_member(f.aloa_project_id, auth.uid())
     )
   );
 
 CREATE POLICY "Service role bypass" ON aloa_form_responses
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 
--- Form response answers policies (same as responses)
 CREATE POLICY "View answers for accessible responses" ON aloa_form_response_answers
-  FOR SELECT USING (
+  FOR SELECT TO authenticated
+  USING (
     EXISTS (
       SELECT 1 FROM aloa_form_responses r
-      JOIN aloa_forms f ON f.id = r.form_id
-      WHERE r.id = response_id
-      AND (is_project_member(f.project_id, auth.uid()) OR is_admin(auth.uid()))
+      JOIN aloa_forms f ON f.id = r.aloa_form_id
+      WHERE r.id = aloa_form_response_answers.response_id
+        AND (
+          (f.aloa_project_id IS NOT NULL AND (
+            is_project_member(f.aloa_project_id, auth.uid())
+            OR EXISTS (
+              SELECT 1 FROM aloa_project_stakeholders s
+              WHERE s.project_id = f.aloa_project_id
+                AND s.user_id = auth.uid()
+            )
+          ))
+          OR is_admin(auth.uid())
+        )
     )
   );
 
 CREATE POLICY "Service role bypass" ON aloa_form_response_answers
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 ```
 
 ### Step 4.3: Fix aloa_projectlets and related tables
@@ -889,8 +954,8 @@ When implementing each phase:
   - [x] aloa_project_members & stakeholders
 - [ ] Phase 4: Applet and Form Tables Secured
   - [x] aloa_applets, aloa_applet_progress
-  - [ ] aloa_forms, aloa_form_fields
-  - [ ] aloa_form_responses, aloa_form_response_answers
+  - [x] aloa_forms, aloa_form_fields
+  - [x] aloa_form_responses, aloa_form_response_answers
   - [ ] aloa_projectlets, aloa_projectlet_steps, aloa_projectlet_step_comments
   - [ ] aloa_project_phases
   - [ ] aloa_applet_library, aloa_project_templates, aloa_project_insights

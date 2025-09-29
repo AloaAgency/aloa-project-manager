@@ -1,9 +1,29 @@
 import { notFound } from 'next/navigation';
 import FormClient from './FormClient';
-import { supabase } from '@/lib/supabase';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 async function getForm(urlId) {
   try {
+    const cookieStore = cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name, value, options) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name, options) {
+            cookieStore.set({ name, value: '', ...options });
+          }
+        }
+      }
+    );
+
     // ONLY use aloa_forms - no legacy fallback
     const { data: form, error } = await supabase
       .from('aloa_forms')

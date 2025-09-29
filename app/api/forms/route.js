@@ -1,11 +1,45 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import { createServiceClient } from '@/lib/supabase-service';
 import { nanoid } from 'nanoid';
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('project');
+
+    const cookieStore = await cookies();
+    const supabaseAuth = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set() {},
+          remove() {}
+        }
+      }
+    );
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const supabase = createServiceClient();
+
+    const { data: profile } = await supabase
+      .from('aloa_user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // Build query
     let query = supabase
@@ -32,7 +66,7 @@ export async function GET(request) {
 
     // Filter by project if specified
     if (projectId) {
-      query = query.eq('project_id', projectId);
+      query = query.eq('aloa_project_id', projectId);
     }
 
     // Execute query
@@ -77,13 +111,45 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
+    const cookieStore = await cookies();
+    const supabaseAuth = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set() {},
+          remove() {}
+        }
+      }
+    );
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const supabase = createServiceClient();
+
+    const { data: profile } = await supabase
+      .from('aloa_user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Start a transaction by creating the form first
     const formData = {
       title: body.title,
       description: body.description,
       url_id: body.urlId || nanoid(10),
       markdown_content: body.markdownContent || '', // Add markdown_content with default empty string
-      project_id: body.projectId || null // Add project_id support
+      aloa_project_id: body.projectId || null // Add project association
     };
 
     const { data: form, error: formError } = await supabase
@@ -97,7 +163,7 @@ export async function POST(request) {
     // If there are fields, insert them
     if (body.fields && body.fields.length > 0) {
       const fieldsToInsert = body.fields.map((field, index) => ({
-        form_id: form.id,
+        aloa_form_id: form.id,
         field_label: field.label,
         field_name: field.name,
         field_type: field.type,
@@ -114,7 +180,7 @@ export async function POST(request) {
 
       if (fieldsError) {
         // Rollback by deleting the form
-        await supabase.from('aloa_forms').delete().eq('id', form.id);
+       await supabase.from('aloa_forms').delete().eq('id', form.id);
         throw fieldsError;
       }
     }

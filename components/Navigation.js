@@ -139,8 +139,12 @@ export default function Navigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <Link href="/" className="flex items-center px-2 py-2 text-aloa-cream font-bold text-xl">
-                Aloa®
+              <Link href="/" className="flex items-center px-2 py-2">
+                <img
+                  src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg"
+                  alt="Aloa"
+                  className="h-8 w-auto"
+                />
               </Link>
               <span className="ml-4 text-sm text-gray-400">
                 Redirecting to login...
@@ -176,8 +180,12 @@ export default function Navigation() {
         <div className="flex justify-between h-16">
           {/* Logo and main navigation */}
           <div className="flex">
-            <Link href={isAdmin ? "/admin/projects" : "/dashboard"} className="flex items-center px-2 py-2 text-aloa-cream font-bold text-xl">
-              Aloa®
+            <Link href={isAdmin ? "/admin/projects" : "/dashboard"} className="flex items-center px-2 py-2">
+              <img
+                src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg"
+                alt="Aloa"
+                className="h-8 w-auto"
+              />
             </Link>
 
             <div className="hidden sm:ml-6 sm:flex sm:space-x-4">
