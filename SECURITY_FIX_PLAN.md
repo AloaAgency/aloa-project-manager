@@ -512,7 +512,7 @@ CREATE POLICY "Service role bypass" ON aloa_form_response_answers
   WITH CHECK (auth.jwt()->>'role' = 'service_role');
 ```
 
-### Step 4.3: Fix aloa_projectlets and related tables
+### Step 4.3: Fix aloa_projectlets and related tables ✅ COMPLETED
 ```sql
 -- File: /supabase/security_fix_09_enable_projectlets_rls.sql
 ALTER TABLE aloa_projectlets ENABLE ROW LEVEL SECURITY;
@@ -1003,7 +1003,7 @@ When implementing each phase:
   - [x] aloa_applets, aloa_applet_progress
   - [x] aloa_forms, aloa_form_fields
   - [x] aloa_form_responses, aloa_form_response_answers
-  - [ ] aloa_projectlets, aloa_projectlet_steps, aloa_projectlet_step_comments
+  - [x] aloa_projectlets, aloa_projectlet_steps, aloa_projectlet_step_comments
   - [ ] aloa_project_phases
   - [ ] aloa_applet_library, aloa_project_templates, aloa_project_insights
 - [ ] Phase 5: Knowledge Tables Secured
