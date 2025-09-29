@@ -3,6 +3,15 @@
 ## Overview
 This document provides step-by-step instructions to fix all Row Level Security (RLS) issues in the application. Follow each step in order. Each step is self-contained for context window limitations.
 
+**Reference:** Keep `docs/RLS_SECURITY_TEMPLATE.sql` handy while applying each fix. It captures external security guidance on enabling RLS, revoking default grants, and structuring SELECT/INSERT/UPDATE/DELETE policies. Every table fix should be cross-checked against that template to avoid the pitfalls highlighted by the advisors.
+
+### General RLS Checklist (from advisors)
+1. Enable RLS on the table.
+2. Revoke implicit grants from `public`, `anon`, and `authenticated` unless absolutely required.
+3. Add narrowly-scoped GRANT statements only when public metadata access is intentional.
+4. Create explicit policies for `SELECT`, `INSERT`, `UPDATE`, and `DELETE`, ensuring each policy lines up with `is_project_member`, `is_admin`, or JWT checks.
+5. Confirm service-role bypass policies exist only where system automation requires it.
+
 ## Current Security Status (Updated from Supabase Linter)
 - **15 aloa_ tables** with RLS completely disabled (CRITICAL)
 - **3 SECURITY DEFINER views** that bypass RLS
@@ -25,15 +34,17 @@ This document provides step-by-step instructions to fix all Row Level Security (
 13. `aloa_form_fields`
 14. `aloa_applet_progress`
 15. `aloa_projectlets` (likely missing from report)
+16. `aloa_project_phases`
 
 ### SECURITY DEFINER Views (Need Review):
 1. `aloa_weighted_responses`
 2. `aloa_applet_with_user_progress`
 3. `aloa_forms_with_stats`
+4. `phase_overview` (verify usage; flagged by linter)
 
 ## Phase 1: Foundation Setup (Day 1 Morning)
 
-### Step 1.1: Create Security Testing User
+### Step 1.1: Create Security Testing User ✅ COMPLETED
 ```sql
 -- File: /supabase/security_fix_01_create_test_users.sql
 -- Create test users for different roles to verify security
@@ -43,7 +54,7 @@ DECLARE
   -- and project memberships safely. See /supabase/security_fix_01_create_test_users.sql
   -- for full details.
 BEGIN
-  RAISE NOTICE 'Run security_fix_01_create_test_users.sql directly in Supabase.';
+  RAISE NOTICE 'Run security_fix_01_create_test_users.sql directly in Supabase. ✅ Completed';
 END $$;
 
 -- Rollback helper (optional): /supabase/security_fix_01_rollback_test_users.sql
@@ -51,17 +62,18 @@ END $$;
 
 ### Step 1.2: Create Security Helper Functions ✅ COMPLETED
 ```sql
--- File: /supabase/security_fix_02_security_helpers.sql
+-- File: /supabase/security_fix_02_security_helpers.sql ✅ Completed
 -- Helper function to check if user is project member
 CREATE OR REPLACE FUNCTION is_project_member(project_id UUID, user_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM aloa_project_members
-    WHERE project_id = $1 AND user_id = $2
+    WHERE aloa_project_members.project_id = is_project_member.project_id
+      AND aloa_project_members.user_id = is_project_member.user_id
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- Helper function to check if user is admin
 CREATE OR REPLACE FUNCTION is_admin(user_id UUID)
@@ -69,64 +81,102 @@ RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM aloa_user_profiles
-    WHERE user_id = $1 AND role IN ('super_admin', 'project_admin')
+    WHERE aloa_user_profiles.id = is_admin.user_id
+      AND aloa_user_profiles.role IN ('super_admin', 'project_admin')
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- Helper function to get user's projects
 CREATE OR REPLACE FUNCTION get_user_projects(user_id UUID)
 RETURNS SETOF UUID AS $$
 BEGIN
   RETURN QUERY
-  SELECT project_id FROM aloa_project_members WHERE user_id = $1;
+  SELECT aloa_project_members.project_id
+  FROM aloa_project_members
+  WHERE aloa_project_members.user_id = get_user_projects.user_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+GRANT EXECUTE ON FUNCTION is_project_member(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION is_admin(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_user_projects(UUID) TO authenticated;
 ```
 
 ## Phase 2: Fix User Tables (Day 1 Afternoon)
 
 ### Step 2.1: Fix aloa_user_profiles
 ```sql
--- File: /supabase/security_fix_03_enable_user_profiles_rls.sql
--- Enable RLS
+-- File: /supabase/security_fix_03_enable_user_profiles_rls.sql ✅ Completed
+-- Helper to read the caller's current role (avoids recursion)
+CREATE OR REPLACE FUNCTION get_user_role(user_id UUID)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result TEXT;
+BEGIN
+  SELECT role INTO result
+  FROM aloa_user_profiles
+  WHERE id = user_id;
+  RETURN result;
+END;
+$$;
+
 ALTER TABLE aloa_user_profiles ENABLE ROW LEVEL SECURITY;
 
--- Drop all existing policies
-DROP POLICY IF EXISTS "Users can view own profile" ON aloa_user_profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON aloa_user_profiles;
-DROP POLICY IF EXISTS "Admins can view all profiles" ON aloa_user_profiles;
-DROP POLICY IF EXISTS "Service role has full access" ON aloa_user_profiles;
+-- Drop existing policies
+DO $$
+DECLARE
+  pol RECORD;
+BEGIN
+  FOR pol IN
+    SELECT policyname FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'aloa_user_profiles'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.aloa_user_profiles', pol.policyname);
+  END LOOP;
+END $$;
 
--- Create proper policies
+-- Users can see their own profile
 CREATE POLICY "Users can view own profile" ON aloa_user_profiles
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT TO authenticated
+  USING (auth.uid() = id);
 
-CREATE POLICY "Users can update own profile" ON aloa_user_profiles
-  FOR UPDATE USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id AND role = (SELECT role FROM aloa_user_profiles WHERE user_id = auth.uid()));
-
+-- Admins can see every profile
 CREATE POLICY "Admins can view all profiles" ON aloa_user_profiles
-  FOR SELECT USING (is_admin(auth.uid()));
+  FOR SELECT TO authenticated
+  USING (is_admin(auth.uid()));
 
+-- Users can update their own profile; role changes still restricted
+CREATE POLICY "Users can update own profile" ON aloa_user_profiles
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (
+    auth.uid() = id
+    AND (
+      is_admin(auth.uid())
+      OR role = get_user_role(auth.uid())
+    )
+  );
+
+-- Service role bypass for system tasks
 CREATE POLICY "Service role bypass" ON aloa_user_profiles
-  FOR ALL USING (auth.jwt()->>'role' = 'service_role');
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
 ```
 
 ### Step 2.2: Test User Profiles Security
-```sql
--- File: /supabase/04_test_user_profiles.sql
--- Test as different users (run each separately in SQL editor)
--- Set role to test_client
-SET ROLE test_client;
-SELECT * FROM aloa_user_profiles; -- Should only see own profile
-
--- Set role to test_admin
-SET ROLE test_admin;
-SELECT * FROM aloa_user_profiles; -- Should see all profiles
-
--- Reset role
-RESET ROLE;
+```text
+- Verify via seeded accounts (test_client@test.com, test_admin@test.com, test_outsider@test.com)
+- Use the `/admin/users` page to ensure:
+  • Client sees only their own profile data
+  • Admin sees all profiles and can manage users
+  • Outsider cannot access restricted pages
+- Optional: create an automated SQL test script if manual checks uncover gaps
 ```
 
 ## Phase 3: Fix Core Project Tables (Day 1 Evening)
@@ -359,6 +409,31 @@ CREATE POLICY "Service role bypass" ON aloa_projectlet_step_comments
   FOR ALL USING (auth.jwt()->>'role' = 'service_role');
 ```
 
+### Step 4.4: Fix aloa_project_phases
+```sql
+-- File: /supabase/10_fix_project_phases.sql
+ALTER TABLE aloa_project_phases ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view phases for projects they have access to" ON aloa_project_phases;
+DROP POLICY IF EXISTS "Admins can manage phases" ON aloa_project_phases;
+
+CREATE POLICY "View phases in user projects" ON aloa_project_phases
+  FOR SELECT TO authenticated
+  USING (
+    is_project_member(project_id, auth.uid()) OR
+    is_admin(auth.uid())
+  );
+
+CREATE POLICY "Admins manage phases" ON aloa_project_phases
+  FOR ALL TO authenticated
+  USING (is_admin(auth.uid()));
+
+CREATE POLICY "Service role bypass" ON aloa_project_phases
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role')
+  WITH CHECK (auth.jwt()->>'role' = 'service_role');
+```
+
 ### Step 4.4: Fix library and template tables
 ```sql
 -- File: /supabase/10_fix_library_tables.sql
@@ -539,9 +614,9 @@ const sanitizedQuestion = question.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, 
 - XSS attempts handled safely
 - Excessive length inputs rejected
 
-## Phase 5: Update API Routes (Day 2 Afternoon)
+## Phase 7: Update API Routes (Day 3 Morning)
 
-### Step 5.1: Verify Service Client Usage
+### Step 7.1: Verify Service Client Usage
 Check each API route uses `createServiceClient()` for system operations:
 
 **Files to check:**
@@ -565,7 +640,7 @@ export async function GET(request) {
 }
 ```
 
-### Step 5.2: Update Error Handling
+### Step 7.2: Update Error Handling
 Add proper error handling for RLS violations:
 ```javascript
 if (error?.code === '42501') {
@@ -578,7 +653,7 @@ if (error?.code === '42501') {
 
 ## Phase 8: Testing & Validation (Day 3 Afternoon)
 
-### Step 6.1: Create Test Script
+### Step 8.1: Create Test Script
 ```sql
 -- File: /supabase/09_security_tests.sql
 -- Run as different roles to verify security
@@ -703,10 +778,10 @@ When implementing each phase:
 
 ## Completion Checklist
 
-- [ ] Phase 1: Foundation Complete
-  - [ ] Step 1.1: Create Test Users
+- [x] Phase 1: Foundation Complete
+  - [x] Step 1.1: Create Test Users
   - [x] Step 1.2: Create Security Helper Functions ✅
-- [ ] Phase 2: User Tables Secured (aloa_user_profiles)
+- [x] Phase 2: User Tables Secured (aloa_user_profiles)
   - [x] Step 2.1: Fix aloa_user_profiles
   - [x] Step 2.2: Test User Profiles Security
 - [ ] Phase 3: Core Project Tables Secured
@@ -717,6 +792,7 @@ When implementing each phase:
   - [ ] aloa_forms, aloa_form_fields
   - [ ] aloa_form_responses, aloa_form_response_answers
   - [ ] aloa_projectlets, aloa_projectlet_steps, aloa_projectlet_step_comments
+  - [ ] aloa_project_phases
   - [ ] aloa_applet_library, aloa_project_templates, aloa_project_insights
 - [ ] Phase 5: Knowledge Tables Secured
   - [ ] aloa_project_knowledge
