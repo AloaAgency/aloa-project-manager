@@ -2290,78 +2290,64 @@ function AdminProjectPageContent() {
           {/* Main Content - Projectlets */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Projectlets Management</h2>
-                <div className="flex items-center gap-2">
-                  {/* Bulk Actions */}
-                  {showBulkActions && (
-                    <div className="flex items-center gap-2 mr-2 p-2 bg-blue-50 rounded-lg">
-                      <span className="text-sm text-blue-700 font-medium">
-                        {selectedProjectlets.size} selected
-                      </span>
-                      <button
-                        onClick={handleBulkDelete}
-                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete Selected
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => {
-                      // Get all applet IDs
-                      const allAppletIds = [];
-                      projectlets.forEach(p => {
-                        const applets = projectletApplets[p.id] || [];
-                        applets.forEach(a => allAppletIds.push(a.id));
-                      });
-                      
-                      const allExpanded = allAppletIds.length > 0 && 
-                                         allAppletIds.every(id => expandedApplets[id]);
-                      
-                      if (allExpanded) {
-                        setExpandedApplets({});
-                      } else {
-                        const expanded = {};
-                        allAppletIds.forEach(id => expanded[id] = true);
-                        setExpandedApplets(expanded);
-                      }
-                    }}
-                    className="px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 flex items-center"
-                    title="Expand/Collapse All Applets"
-                  >
-                    {(() => {
-                      const allAppletIds = [];
-                      projectlets.forEach(p => {
-                        const applets = projectletApplets[p.id] || [];
-                        applets.forEach(a => allAppletIds.push(a.id));
-                      });
-                      const allExpanded = allAppletIds.length > 0 && 
-                                         allAppletIds.every(id => expandedApplets[id]);
-                      return allExpanded ? (
-                        <>
-                          <ChevronUp className="w-4 h-4 mr-1" />
-                          Collapse All
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-4 h-4 mr-1" />
-                          Expand All
-                        </>
-                      );
-                    })()}
-                  </button>
-                  <button
-                    onClick={addProjectlet}
-                    className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Projectlet
-                  </button>
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="text-xl font-bold">Projectlets Management</h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        // Get all applet IDs
+                        const allAppletIds = [];
+                        projectlets.forEach(p => {
+                          const applets = projectletApplets[p.id] || [];
+                          applets.forEach(a => allAppletIds.push(a.id));
+                        });
 
-                  {/* Template Menu */}
-                  <div className="relative">
+                        const allExpanded = allAppletIds.length > 0 &&
+                                           allAppletIds.every(id => expandedApplets[id]);
+
+                        if (allExpanded) {
+                          setExpandedApplets({});
+                        } else {
+                          const expanded = {};
+                          allAppletIds.forEach(id => expanded[id] = true);
+                          setExpandedApplets(expanded);
+                        }
+                      }}
+                      className="px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 flex items-center whitespace-nowrap"
+                      title="Expand/Collapse All Applets"
+                    >
+                      {(() => {
+                        const allAppletIds = [];
+                        projectlets.forEach(p => {
+                          const applets = projectletApplets[p.id] || [];
+                          applets.forEach(a => allAppletIds.push(a.id));
+                        });
+                        const allExpanded = allAppletIds.length > 0 &&
+                                           allAppletIds.every(id => expandedApplets[id]);
+                        return allExpanded ? (
+                          <>
+                            <ChevronUp className="w-4 h-4 mr-1" />
+                            Collapse All
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-4 h-4 mr-1" />
+                            Expand All
+                          </>
+                        );
+                      })()}
+                    </button>
+                    <button
+                      onClick={addProjectlet}
+                      className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center whitespace-nowrap"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Projectlet
+                    </button>
+
+                    {/* Template Menu */}
+                    <div className="relative">
                     <button
                       onClick={() => setShowTemplateMenu(!showTemplateMenu)}
                       className="p-2 border rounded-lg hover:bg-gray-50"
@@ -2405,8 +2391,25 @@ function AdminProjectPageContent() {
                         </button>
                       </div>
                     )}
+                    </div>
                   </div>
                 </div>
+
+                {/* Bulk Actions Bar */}
+                {showBulkActions && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <span className="text-sm text-blue-700 font-medium">
+                      {selectedProjectlets.size} projectlet{selectedProjectlets.size !== 1 ? 's' : ''} selected
+                    </span>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Selected
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Select All Checkbox */}
@@ -2463,7 +2466,7 @@ function AdminProjectPageContent() {
                           isDragging={activeId !== null}
                         >
                           <div className={`border-2 rounded-lg ${getStatusColor(projectlet.status)} transition-all ${
-                            selectedProjectlets.has(projectlet.id) ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                            selectedProjectlets.has(projectlet.id) ? 'shadow-[0_0_0_2px_rgb(59,130,246)] bg-blue-50/30' : ''
                           }`}>
                             {/* Header */}
                             <div className="p-4 pb-0">
