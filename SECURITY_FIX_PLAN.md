@@ -1059,25 +1059,16 @@ const sanitizedQuestion = question.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, 
 - XSS attempts handled safely
 - Excessive length inputs rejected
 
-### Step 7.1: Verify Service Client Usage
+### Step 7.1: Verify Service Client Usage ✅ COMPLETED 2025-10-01
 ```text
-- Audit every API route under /app/api for two patterns:
-  • Requests acting on sensitive tables (aloa_*) must use createServiceClient()
-    or call a server helper that wraps the service key.
-  • Requests that run on behalf of the end user (RLS-protected reads) should
-    use createServerClient() + cookies and pass user id to queries.
-- Pay special attention to:
-  • /app/api/forms, /app/api/aloa-forms, /app/api/aloa-projects/**/*
-  • Knowledge endpoints (/app/api/project-knowledge/**/*, /app/api/ai-*)
-  • Messaging/chat routes (/app/api/chat/**/*, /app/api/notifications/*)
-- For each route verify:
-  • Service operations (admin-only, background jobs, imports) use service client.
-  • Authenticated user operations validate auth before querying.
-  • Legacy `supabase` import from '@/lib/supabase' is phased out in favour of
-    createServerClient/createServiceClient helpers.
-- Document any route that still uses the anonymous client and schedule fixes
-  before moving to Phase 8.
-- Current findings are tracked in docs/api-service-client-audit.md.
+- Audited every API route under /app/api. All service-role operations now use
+  `createServiceClient()` (or helpers built on top of it) and user-scoped reads
+  use the server client with request cookies.
+- Eliminated direct imports from `@/lib/supabase` across API routes; remaining
+  imports use the shared server/service helpers.
+- Recorded the audit output in docs/api-service-client-audit.md. The document
+  now shows zero outstanding routes and links back to the helper usage guidance
+  for future contributors.
 ```
 
 ## Phase 7: Update API Routes (Day 3 Morning)
@@ -1273,7 +1264,7 @@ When implementing each phase:
   - [x] Step 6.2: Fixed Function Search Paths - All 43+ functions now have explicit search_path set
 - [ ] Phase 7: API Routes Updated
   - [x] Step 7.0: Input Validation for Project Insights ✅
-  - [ ] Step 7.1: Verify Service Client Usage
+- [x] Step 7.1: Verify Service Client Usage
   - [x] Step 7.2: Update Error Handling ✅
 - [ ] Phase 8: All Tests Pass
 - [ ] Phase 9: Cleanup & Documentation Complete
