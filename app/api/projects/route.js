@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import { nanoid } from 'nanoid';
+import {
+  handleSupabaseError,
+  requireAdminServiceRole,
+} from '@/app/api/_utils/admin';
 
 export async function GET() {
   try {
-    // Check if Supabase is configured
-    if (!supabase) {
-
-      return NextResponse.json([]);
+    const adminContext = await requireAdminServiceRole();
+    if (adminContext.error) {
+      return adminContext.error;
     }
 
-    // First, ensure the projects table exists
-    const tableExists = await ensureProjectsTable();
+    const { serviceSupabase } = adminContext;
+
+    const tableExists = await ensureProjectsTable(serviceSupabase);
 
     // If table doesn't exist, return empty array
     if (!tableExists) {
@@ -20,7 +23,7 @@ export async function GET() {
     }
 
     // Fetch all projects with their forms count
-    const { data: projects, error } = await supabase
+    const { data: projects, error } = await serviceSupabase
       .from('aloa_projects')
       .select(`
         *,
@@ -29,9 +32,7 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
-
-      // Return empty array instead of error to prevent client-side crashes
-      return NextResponse.json([]);
+      return handleSupabaseError(error, 'Failed to fetch projects');
     }
 
     // Format the response to include formCount
@@ -42,21 +43,18 @@ export async function GET() {
 
     return NextResponse.json(projectsWithCount);
   } catch (error) {
-
-    // Return empty array instead of error to prevent client-side crashes
     return NextResponse.json([]);
   }
 }
 
 export async function POST(request) {
   try {
-    // Check if Supabase is configured
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database is not configured' },
-        { status: 503 }
-      );
+    const adminContext = await requireAdminServiceRole();
+    if (adminContext.error) {
+      return adminContext.error;
     }
+
+    const { serviceSupabase } = adminContext;
 
     const body = await request.json();
     const { name, description } = body;
@@ -68,8 +66,7 @@ export async function POST(request) {
       );
     }
 
-    // First, ensure the projects table exists
-    const tableExists = await ensureProjectsTable();
+    const tableExists = await ensureProjectsTable(serviceSupabase);
 
     if (!tableExists) {
       return NextResponse.json(
@@ -87,13 +84,15 @@ export async function POST(request) {
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await serviceSupabase
       .from('aloa_projects')
       .insert([newProject])
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      return handleSupabaseError(error, 'Failed to create project');
+    }
 
     return NextResponse.json(data);
   } catch (error) {
@@ -106,15 +105,10 @@ export async function POST(request) {
 }
 
 // Helper function to ensure projects table exists
-async function ensureProjectsTable() {
+async function ensureProjectsTable(serviceSupabase) {
   try {
-    // Check if Supabase is configured
-    if (!supabase) {
-      return false;
-    }
-
     // Check if projects table exists by trying to select from it
-    const { error } = await supabase
+    const { error } = await serviceSupabase
       .from('aloa_projects')
       .select('id')
       .limit(1);
@@ -125,6 +119,10 @@ async function ensureProjectsTable() {
     if (error && error.code === '42P01') {
       // Table doesn't exist - would need to create via migration
       return false; // Table doesn't exist
+    }
+
+    if (error) {
+      throw error;
     }
 
     return true; // Table exists

@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import {
+  handleSupabaseError,
+  requireAdminServiceRole,
+  requireAuthenticatedSupabase,
+} from '@/app/api/_utils/admin';
 
 export async function GET(request, { params }) {
   try {
+    const authContext = await requireAuthenticatedSupabase();
+    if (authContext.error) {
+      return authContext.error;
+    }
+
+    const { supabase } = authContext;
     const { projectId } = params;
 
     // Get projectlets for this project
@@ -24,28 +34,25 @@ export async function GET(request, { params }) {
       .order('sequence_order', { ascending: true });
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to fetch projectlets' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to fetch projectlets');
     }
 
+    const projectletsSafe = projectlets || [];
     // Calculate completion percentage
-    const totalProjectlets = projectlets.length;
-    const completedProjectlets = projectlets.filter(p => p.status === 'completed').length;
+    const totalProjectlets = projectletsSafe.length;
+    const completedProjectlets = projectletsSafe.filter(p => p.status === 'completed').length;
     const completionPercentage = totalProjectlets > 0 
       ? Math.round((completedProjectlets / totalProjectlets) * 100)
       : 0;
 
     return NextResponse.json({
-      projectlets,
+      projectlets: projectletsSafe,
       stats: {
         total: totalProjectlets,
         completed: completedProjectlets,
-        inProgress: projectlets.filter(p => p.status === 'in_progress').length,
-        available: projectlets.filter(p => p.status === 'available').length,
-        locked: projectlets.filter(p => p.status === 'locked').length,
+        inProgress: projectletsSafe.filter(p => p.status === 'in_progress').length,
+        available: projectletsSafe.filter(p => p.status === 'available').length,
+        locked: projectletsSafe.filter(p => p.status === 'locked').length,
         completionPercentage
       }
     });
@@ -62,11 +69,17 @@ export async function GET(request, { params }) {
 // Update projectlet status
 export async function PATCH(request, { params }) {
   try {
+    const adminContext = await requireAdminServiceRole();
+    if (adminContext.error) {
+      return adminContext.error;
+    }
+
+    const { serviceSupabase } = adminContext;
     const { projectId } = params;
     const { projectletId, status, metadata } = await request.json();
 
     // Update the projectlet
-    const { data: updatedProjectlet, error: updateError } = await supabase
+    const { data: updatedProjectlet, error: updateError } = await serviceSupabase
       .from('aloa_projectlets')
       .update({
         status,
@@ -79,17 +92,13 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (updateError) {
-
-      return NextResponse.json(
-        { error: 'Failed to update projectlet' },
-        { status: 500 }
-      );
+      return handleSupabaseError(updateError, 'Failed to update projectlet');
     }
 
     // If projectlet is completed, check if we need to unlock the next one
     if (status === 'completed') {
       // Get the next projectlet in sequence
-      const { data: nextProjectlet } = await supabase
+      const { data: nextProjectlet, error: nextProjectletError } = await serviceSupabase
         .from('aloa_projectlets')
         .select()
         .eq('project_id', projectId)
@@ -99,15 +108,23 @@ export async function PATCH(request, { params }) {
         .limit(1)
         .single();
 
+      if (nextProjectletError && nextProjectletError.code !== 'PGRST116') {
+        return handleSupabaseError(nextProjectletError, 'Failed to load next projectlet');
+      }
+
       if (nextProjectlet && nextProjectlet.unlock_condition?.type === 'previous_complete') {
         // Unlock the next projectlet
-        await supabase
+        const { error: unlockError } = await serviceSupabase
           .from('aloa_projectlets')
           .update({ status: 'available' })
           .eq('id', nextProjectlet.id);
 
+        if (unlockError) {
+          return handleSupabaseError(unlockError, 'Failed to unlock next projectlet');
+        }
+
         // Add timeline event
-        await supabase
+        const { error: unlockTimelineError } = await serviceSupabase
           .from('aloa_project_timeline')
           .insert([{
             project_id: projectId,
@@ -116,10 +133,14 @@ export async function PATCH(request, { params }) {
             description: `"${nextProjectlet.name}" is now available`,
             metadata: { previous_projectlet: updatedProjectlet.name }
           }]);
+
+        if (unlockTimelineError) {
+          return handleSupabaseError(unlockTimelineError, 'Failed to record unlock timeline event');
+        }
       }
 
       // Add completion timeline event
-      await supabase
+      const { error: completionTimelineError } = await serviceSupabase
         .from('aloa_project_timeline')
         .insert([{
           project_id: projectId,
@@ -128,6 +149,10 @@ export async function PATCH(request, { params }) {
           description: `"${updatedProjectlet.name}" completed`,
           metadata: { completion_date: new Date().toISOString() }
         }]);
+
+      if (completionTimelineError) {
+        return handleSupabaseError(completionTimelineError, 'Failed to record completion timeline event');
+      }
     }
 
     return NextResponse.json({

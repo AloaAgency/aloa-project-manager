@@ -1,6 +1,6 @@
 # API Service Client Audit (Phase 7 Step 7.1)
 
-**Status:** In progress (last updated 2025-09-29)
+**Status:** In progress (last updated 2025-10-01)
 
 Phase 7 Step 7.1 requires every API route to use the correct Supabase client helper:
 
@@ -12,11 +12,6 @@ Phase 7 Step 7.1 requires every API route to use the correct Supabase client hel
 The following routes still import `supabase` from `@/lib/supabase` and do **not** use the new helpers. Each must be reviewed and refactored.
 
 ```
-app/api/aloa-forms/[formId]/route.js
-app/api/aloa-forms/[formId]/toggle-status/route.js
-app/api/aloa-forms/bulk-assign-project/route.js
-app/api/aloa-forms/by-id/[formId]/duplicate/route.js
-app/api/aloa-forms/by-id/[formId]/route.js
 app/api/aloa-projects/[projectId]/applet-interactions/route.js
 app/api/aloa-projects/[projectId]/notifications/route.js
 app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/[appletId]/route.js
@@ -24,26 +19,10 @@ app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/reorder/rou
 app/api/aloa-projects/[projectId]/projectlets/[projectletId]/steps/route.js
 app/api/aloa-projects/[projectId]/projectlets/reorder/route.js
 app/api/aloa-projects/[projectId]/stakeholders/route.js
+app/api/aloa-projects/[projectId]/team/route.js
 app/api/aloa-projects/debug/route.js
 app/api/aloa-projects/initialize/route.js
 app/api/aloa-projects/test/route.js
-app/api/aloa-responses/[responseId]/route.js
-app/api/aloa-responses/route.js
-app/api/forms/[urlId]/route.js
-app/api/forms/bulk-assign-project/route.js
-app/api/forms/by-id/[formId]/route.js
-app/api/forms/by-id/[formId]/toggle-status/route.js
-app/api/forms/debug/route.js
-app/api/forms/edit-fields/[formId]/route.js
-app/api/forms/upload/route.js
-app/api/project-knowledge/[projectId]/context/route.js
-app/api/project-knowledge/[projectId]/extract-website/route.js
-app/api/project-knowledge/[projectId]/extract/route.js
-app/api/project-knowledge/[projectId]/route.js
-app/api/projects/[projectId]/projectlets/route.js
-app/api/projects/[projectId]/route.js
-app/api/projects/initialize/route.js
-app/api/projects/route.js
 app/api/responses/[responseId]/route.js
 app/api/responses/route.js
 ```

@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import {
+  handleSupabaseError,
+  requireAdminServiceRole,
+} from '@/app/api/_utils/admin';
 
 // Define the standard Aloa project workflow
 const ALOA_PROJECT_WORKFLOW = [
@@ -86,6 +89,12 @@ const ALOA_PROJECT_WORKFLOW = [
 
 export async function POST(request) {
   try {
+    const adminContext = await requireAdminServiceRole();
+    if (adminContext.error) {
+      return adminContext.error;
+    }
+
+    const { serviceSupabase } = adminContext;
     const data = await request.json();
     const {
       projectName,
@@ -108,7 +117,7 @@ export async function POST(request) {
     }
 
     // Create the project
-    const { data: project, error: projectError } = await supabase
+    const { data: project, error: projectError } = await serviceSupabase
       .from('aloa_projects')
       .insert([{
         project_name: projectName,
@@ -128,11 +137,7 @@ export async function POST(request) {
       .single();
 
     if (projectError) {
-
-      return NextResponse.json(
-        { error: 'Failed to create project' },
-        { status: 500 }
-      );
+      return handleSupabaseError(projectError, 'Failed to create project');
     }
 
     // Create projectlets based on the workflow
@@ -146,7 +151,7 @@ export async function POST(request) {
       metadata: item.form_type ? { form_type: item.form_type } : {}
     }));
 
-    const { error: projectletsError } = await supabase
+    const { error: projectletsError } = await serviceSupabase
       .from('aloa_projectlets')
       .insert(projectlets);
 
@@ -156,7 +161,7 @@ export async function POST(request) {
     }
 
     // Add the client as a team member
-    const { error: teamError } = await supabase
+    const { error: teamError } = await serviceSupabase
       .from('aloa_project_team')
       .insert([{
         project_id: project.id,
@@ -182,7 +187,7 @@ export async function POST(request) {
     ];
 
     for (const admin of adminEmails) {
-      await supabase
+      await serviceSupabase
         .from('aloa_project_team')
         .insert([{
           project_id: project.id,
@@ -198,7 +203,7 @@ export async function POST(request) {
     }
 
     // Create timeline event for project start
-    await supabase
+    const { error: timelineError } = await serviceSupabase
       .from('aloa_project_timeline')
       .insert([{
         project_id: project.id,
@@ -209,6 +214,10 @@ export async function POST(request) {
           estimated_completion: estimatedCompletionDate
         }
       }]);
+
+    if (timelineError) {
+      return handleSupabaseError(timelineError, 'Failed to record project timeline');
+    }
 
     return NextResponse.json({
       success: true,

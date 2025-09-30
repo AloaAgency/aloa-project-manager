@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { handleSupabaseError, requireAdminServiceRole } from '@/app/api/_utils/admin';
 
 export async function PATCH(request, { params }) {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     const { formId } = params;
     const body = await request.json();
 
     // Update the form status - using 'status' field which exists in the database
     const newStatus = body.is_active === false ? 'closed' : 'active';
-    const { data, error } = await supabase
+    const { data, error } = await serviceSupabase
       .from('aloa_forms')
       .update({
         status: newStatus,
@@ -19,11 +26,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to update form status' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to update form status');
     }
 
     return NextResponse.json({
@@ -32,7 +35,6 @@ export async function PATCH(request, { params }) {
     });
 
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

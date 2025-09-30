@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { handleSupabaseError, requireAdminServiceRole } from '@/app/api/_utils/admin';
 
 export async function GET(request, { params }) {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     // Fetch form with its fields
-    const { data: form, error } = await supabase
+    const { data: form, error } = await serviceSupabase
       .from('aloa_forms')
       .select(`
         *,
@@ -21,13 +28,14 @@ export async function GET(request, { params }) {
         )
       `)
       .eq('id', params.formId)
-      .single();
+      .maybeSingle();
 
-    if (error || !form) {
-      return NextResponse.json(
-        { error: 'Form not found' },
-        { status: 404 }
-      );
+    if (error) {
+      return handleSupabaseError(error, 'Failed to fetch form');
+    }
+
+    if (!form) {
+      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
     // Sort fields by position and format response
@@ -54,7 +62,6 @@ export async function GET(request, { params }) {
     response.headers.set('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
     return response;
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Failed to fetch form' },
       { status: 500 }
@@ -63,44 +70,68 @@ export async function GET(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     // First delete all response answers for this form
-    const { data: responses } = await supabase
+    const { data: responses, error: responsesError } = await serviceSupabase
       .from('aloa_form_responses')
       .select('id')
-      .eq('form_id', params.formId);
+      .eq('aloa_form_id', params.formId);
+
+    if (responsesError) {
+      return handleSupabaseError(responsesError, 'Failed to load form responses');
+    }
 
     if (responses && responses.length > 0) {
-      const responseIds = responses.map(r => r.id);
-      await supabase
+      const responseIds = responses.map((r) => r.id);
+      const { error: deleteAnswersError } = await serviceSupabase
         .from('aloa_form_response_answers')
         .delete()
         .in('response_id', responseIds);
+
+      if (deleteAnswersError) {
+        return handleSupabaseError(deleteAnswersError, 'Failed to delete response answers');
+      }
     }
 
     // Delete all responses for this form
-    await supabase
+    const { error: deleteResponsesError } = await serviceSupabase
       .from('aloa_form_responses')
       .delete()
-      .eq('form_id', params.formId);
+      .eq('aloa_form_id', params.formId);
+
+    if (deleteResponsesError) {
+      return handleSupabaseError(deleteResponsesError, 'Failed to delete responses');
+    }
 
     // Delete all fields for this form
-    await supabase
+    const { error: deleteFieldsError } = await serviceSupabase
       .from('aloa_form_fields')
       .delete()
-      .eq('form_id', params.formId);
+      .eq('aloa_form_id', params.formId);
+
+    if (deleteFieldsError) {
+      return handleSupabaseError(deleteFieldsError, 'Failed to delete form fields');
+    }
 
     // Finally delete the form itself
-    const { error } = await supabase
+    const { error } = await serviceSupabase
       .from('aloa_forms')
       .delete()
       .eq('id', params.formId);
 
-    if (error) throw error;
+    if (error) {
+      return handleSupabaseError(error, 'Failed to delete form');
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Failed to delete form' },
       { status: 500 }
