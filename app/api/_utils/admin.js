@@ -73,8 +73,38 @@ export function handleSupabaseError(error, fallbackMessage = 'Supabase query fai
   const code = error?.code;
 
   if (code === '42501') {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    return NextResponse.json({ error: 'Access denied', details: error?.message }, { status: 403 });
   }
 
-  return NextResponse.json({ error: fallbackMessage }, { status: 500 });
+  return NextResponse.json({ error: fallbackMessage, details: error?.message }, { status: 500 });
+}
+
+export async function hasProjectAccess(serviceSupabase, projectId, userId) {
+  const { data: member, error: memberError } = await serviceSupabase
+    .from('aloa_project_members')
+    .select('id')
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (memberError && memberError.code !== 'PGRST116') {
+    throw memberError;
+  }
+
+  if (member) {
+    return true;
+  }
+
+  const { data: stakeholder, error: stakeholderError } = await serviceSupabase
+    .from('aloa_client_stakeholders')
+    .select('id')
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (stakeholderError && stakeholderError.code !== 'PGRST116') {
+    throw stakeholderError;
+  }
+
+  return Boolean(stakeholder);
 }

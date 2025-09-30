@@ -3104,27 +3104,33 @@ function AdminProjectPageContent() {
                                                 projectletId: projectlet.id,
                                                 projectletName: projectlet.name
                                               });
-                                            } else {
-                                              // Update applet with selected form
-                                              try {
-                                                const response = await fetch(
-                                                  `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
-                                                  {
-                                                    method: 'PATCH',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({
-                                                      form_id: e.target.value,
-                                                      config: {
-                                                        ...applet.config,
-                                                        form_id: e.target.value
-                                                      }
-                                                    })
-                                                  }
-                                                );
-                                                if (response.ok) {
-                                                  fetchProjectletApplets(projectlet.id);
+                                           } else {
+                                             // Update applet with selected form
+                                             try {
+                                               const response = await fetch(
+                                                 `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                 {
+                                                   method: 'PATCH',
+                                                   headers: { 'Content-Type': 'application/json' },
+                                                   body: JSON.stringify({
+                                                     form_id: e.target.value,
+                                                     config: {
+                                                       ...applet.config,
+                                                       form_id: e.target.value
+                                                     }
+                                                   })
+                                                 }
+                                               );
+                                               if (response.ok) {
+                                                 fetchProjectletApplets(projectlet.id);
+                                                  toast.success('Form linked to applet');
+                                                } else {
+                                                  const errorData = await response.json().catch(() => ({}));
+                                                  toast.error(errorData.error || 'Failed to update form selection');
                                                 }
                                               } catch (error) {
+                                                console.error('Failed to update form applet', error);
+                                                toast.error('Failed to update form selection');
                                               }
                                             }
                                           }}

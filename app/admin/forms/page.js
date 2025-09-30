@@ -90,11 +90,18 @@ function AdminFormsPageContent() {
         method: 'DELETE'
       });
 
+      const data = await response.json();
+
       if (response.ok) {
+        console.log('Form deleted successfully:', data);
         fetchForms();
+      } else {
+        console.error('Failed to delete form:', data);
+        alert(`Failed to delete form: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
-
+      console.error('Error deleting form:', error);
+      alert('An error occurred while deleting the form. Please try again.');
     }
   };
 

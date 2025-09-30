@@ -1,140 +1,216 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServiceClient } from '@/lib/supabase-service';
+import {
+  handleSupabaseError,
+  hasProjectAccess,
+  requireAuthenticatedSupabase,
+  validateUuid,
+  UUID_REGEX,
+} from '@/app/api/_utils/admin';
 
-// GET specific interaction data for an applet
-// POST new interaction data for an applet
 export async function POST(request, { params }) {
-  try {
-    const { projectId } = params;
-    const body = await request.json();
-    const { appletId, userId, type, data } = body;
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
 
-    if (!appletId || !type || !data) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  const authContext = await requireAuthenticatedSupabase();
+  if (authContext.error) {
+    return authContext.error;
+  }
+
+  const { user, isAdmin } = authContext;
+  const serviceSupabase = createServiceClient();
+
+  try {
+    const body = await request.json();
+    const { appletId, userId, type, data } = body || {};
+
+    const appletValidation = validateUuid(appletId, 'applet ID');
+    if (appletValidation) {
+      return appletValidation;
     }
 
-    // Get user email if userId provided
-    let userEmail = 'anonymous';
-    if (userId && userId !== 'anonymous') {
-      const { data: userProfile } = await supabase
-        .from('aloa_user_profiles')
-        .select('email')
-        .eq('id', userId)
-        .single();
+    if (!type || typeof type !== 'string') {
+      return NextResponse.json({ error: 'Interaction type is required' }, { status: 400 });
+    }
 
-      if (userProfile) {
-        userEmail = userProfile.email;
+    if (!data || typeof data !== 'object') {
+      return NextResponse.json({ error: 'Interaction data must be provided' }, { status: 400 });
+    }
+
+    const actingUserId = userId || user.id;
+
+    if (userId && !UUID_REGEX.test(userId)) {
+      return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+    }
+
+    if (actingUserId !== user.id && !isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    if (!isAdmin) {
+      const hasAccess = await hasProjectAccess(serviceSupabase, params.projectId, user.id);
+      if (!hasAccess) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }
 
-    // First check if interaction exists
-    const { data: existing } = await supabase
+    let userEmail = user.email || 'anonymous';
+
+    if (actingUserId !== user.id) {
+      const { data: profile, error: profileError } = await serviceSupabase
+        .from('aloa_user_profiles')
+        .select('email')
+        .eq('id', actingUserId)
+        .maybeSingle();
+
+      if (profileError) {
+        return handleSupabaseError(profileError, 'Failed to resolve user email');
+      }
+
+      if (!profile?.email) {
+        return NextResponse.json({ error: 'Target user email not found' }, { status: 404 });
+      }
+
+      userEmail = profile.email;
+    }
+
+    const { data: existing, error: existingError } = await serviceSupabase
       .from('aloa_applet_interactions')
       .select('id')
+      .eq('project_id', params.projectId)
       .eq('applet_id', appletId)
       .eq('user_email', userEmail)
       .eq('interaction_type', type)
-      .single();
+      .maybeSingle();
 
-    let savedInteraction, error;
-
-    if (existing) {
-      // Update existing interaction
-      const updateData = { data: data };
-      // Only include updated_at if the column exists (for backward compatibility)
-      // The database trigger will handle it automatically if the column exists
-      const result = await supabase
-        .from('aloa_applet_interactions')
-        .update(updateData)
-        .eq('id', existing.id)
-        .select()
-        .single();
-
-      savedInteraction = result.data;
-      error = result.error;
-    } else {
-      // Insert new interaction
-      const result = await supabase
-        .from('aloa_applet_interactions')
-        .insert([{
-          project_id: projectId,
-          applet_id: appletId,
-          user_email: userEmail,
-          interaction_type: type,
-          data: data,
-          created_at: new Date().toISOString()
-        }])
-        .select()
-        .single();
-
-      savedInteraction = result.data;
-      error = result.error;
+    if (existingError && existingError.code !== 'PGRST116') {
+      return handleSupabaseError(existingError, 'Failed to load interaction');
     }
 
-    if (error) {
+    let savedInteraction = null;
+    let mutationError = null;
 
-      return NextResponse.json({
-        error: 'Failed to save interaction',
-        details: error.message || error.code
-      }, { status: 500 });
+    if (existing) {
+      const { data: updated, error: updateError } = await serviceSupabase
+        .from('aloa_applet_interactions')
+        .update({ data })
+        .eq('id', existing.id)
+        .eq('project_id', params.projectId)
+        .select()
+        .maybeSingle();
+
+      savedInteraction = updated;
+      mutationError = updateError;
+    } else {
+      const { data: inserted, error: insertError } = await serviceSupabase
+        .from('aloa_applet_interactions')
+        .insert([
+          {
+            project_id: params.projectId,
+            applet_id: appletId,
+            user_email: userEmail,
+            interaction_type: type,
+            data,
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select()
+        .maybeSingle();
+
+      savedInteraction = inserted;
+      mutationError = insertError;
+    }
+
+    if (mutationError) {
+      return handleSupabaseError(mutationError, 'Failed to save interaction');
     }
 
     return NextResponse.json({ success: true, interaction: savedInteraction });
   } catch (error) {
-
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function GET(request, { params }) {
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
+
+  const authContext = await requireAuthenticatedSupabase();
+  if (authContext.error) {
+    return authContext.error;
+  }
+
+  const { user, isAdmin } = authContext;
+  const serviceSupabase = createServiceClient();
+
   try {
-    const { projectId } = params;
     const { searchParams } = new URL(request.url);
     const appletId = searchParams.get('appletId');
-    const userEmail = searchParams.get('userEmail');
-    const userId = searchParams.get('userId');
     const type = searchParams.get('type') || 'submission';
+    const userEmailFilter = searchParams.get('userEmail');
+    const userIdFilter = searchParams.get('userId');
 
-    if (!appletId) {
-      return NextResponse.json({ error: 'Applet ID is required' }, { status: 400 });
+    const appletValidation = validateUuid(appletId, 'applet ID');
+    if (appletValidation) {
+      return appletValidation;
     }
 
-    // Build query based on available parameters
-    let query = supabase
+    if (!isAdmin) {
+      const hasAccess = await hasProjectAccess(serviceSupabase, params.projectId, user.id);
+      if (!hasAccess) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    const query = serviceSupabase
       .from('aloa_applet_interactions')
       .select('*')
+      .eq('project_id', params.projectId)
       .eq('applet_id', appletId)
       .eq('interaction_type', type)
       .order('created_at', { ascending: false })
       .limit(1);
 
-    // Add user filter if provided
-    if (userEmail) {
-      query = query.eq('user_email', userEmail);
-    } else if (userId && userId !== 'anonymous') {
-      // Try to find by user ID (though the table uses email)
-      const { data: userProfile } = await supabase
+    if (userEmailFilter) {
+      query.eq('user_email', userEmailFilter);
+    } else if (userIdFilter) {
+      if (!UUID_REGEX.test(userIdFilter)) {
+        return NextResponse.json({ error: 'Invalid user ID filter' }, { status: 400 });
+      }
+
+      if (userIdFilter !== user.id && !isAdmin) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      const { data: profile, error: profileError } = await serviceSupabase
         .from('aloa_user_profiles')
         .select('email')
-        .eq('id', userId)
-        .single();
+        .eq('id', userIdFilter)
+        .maybeSingle();
 
-      if (userProfile) {
-        query = query.eq('user_email', userProfile.email);
+      if (profileError) {
+        return handleSupabaseError(profileError, 'Failed to resolve user email');
       }
+
+      if (!profile?.email) {
+        return NextResponse.json({ interactions: [] });
+      }
+
+      query.eq('user_email', profile.email);
     }
 
     const { data, error } = await query;
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-
-      return NextResponse.json({ error: 'Failed to fetch interaction' }, { status: 500 });
+    if (error && error.code !== 'PGRST116') {
+      return handleSupabaseError(error, 'Failed to fetch interaction');
     }
 
-    // Return in the format expected by the frontend
     return NextResponse.json({ interactions: data || [] });
   } catch (error) {
-
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

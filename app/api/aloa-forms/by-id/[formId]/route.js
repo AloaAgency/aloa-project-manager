@@ -12,50 +12,15 @@ export async function DELETE(request, { params }) {
   try {
     const { formId } = params;
 
-    // First, check if it's a legacy form
-    const { data: legacyForm, error: legacyLookupError } = await serviceSupabase
-      .from('forms')
-      .select('_id')
-      .eq('_id', formId)
-      .single();
-
-    if (legacyLookupError && legacyLookupError.code !== 'PGRST116') {
-      return handleSupabaseError(legacyLookupError, 'Failed to verify legacy form');
-    }
-
-    if (legacyForm) {
-      // Delete legacy form and its responses
-      const { error: responseError } = await serviceSupabase
-        .from('responses')
-        .delete()
-        .eq('formId', formId);
-
-      if (responseError) {
-        console.error('Error deleting responses:', responseError);
-        return handleSupabaseError(responseError, 'Failed to delete legacy responses');
-      }
-
-      const { error } = await serviceSupabase
-        .from('forms')
-        .delete()
-        .eq('_id', formId);
-
-      if (error) {
-        console.error('Error deleting legacy form:', error);
-        return handleSupabaseError(error, 'Failed to delete legacy form');
-      }
-
-      return NextResponse.json({ success: true, message: 'Legacy form deleted successfully' });
-    }
-
-    // Check if it's an aloa form
+    // Check if it's an aloa form (check this first since we're using aloa_forms primarily)
     const { data: aloaForm, error: aloaLookupError } = await serviceSupabase
       .from('aloa_forms')
       .select('id')
       .eq('id', formId)
-      .single();
+      .maybeSingle();
 
-    if (aloaLookupError && aloaLookupError.code !== 'PGRST116') {
+    if (aloaLookupError) {
+      console.error('Error looking up aloa form:', aloaLookupError);
       return handleSupabaseError(aloaLookupError, 'Failed to verify form');
     }
 
@@ -94,6 +59,44 @@ export async function DELETE(request, { params }) {
       }
 
       return NextResponse.json({ success: true, message: 'Form deleted successfully' });
+    }
+
+    // Try legacy form as fallback
+    const { data: legacyForm, error: legacyLookupError } = await serviceSupabase
+      .from('forms')
+      .select('_id')
+      .eq('_id', formId)
+      .maybeSingle();
+
+    if (legacyLookupError) {
+      console.error('Error looking up legacy form:', legacyLookupError);
+      // Don't fail here, just continue to "not found"
+    }
+
+    if (legacyForm) {
+      // Delete legacy form responses
+      const { error: responseError } = await serviceSupabase
+        .from('responses')
+        .delete()
+        .eq('formId', formId);
+
+      if (responseError) {
+        console.error('Error deleting legacy responses:', responseError);
+        return handleSupabaseError(responseError, 'Failed to delete legacy responses');
+      }
+
+      // Delete legacy form
+      const { error } = await serviceSupabase
+        .from('forms')
+        .delete()
+        .eq('_id', formId);
+
+      if (error) {
+        console.error('Error deleting legacy form:', error);
+        return handleSupabaseError(error, 'Failed to delete legacy form');
+      }
+
+      return NextResponse.json({ success: true, message: 'Legacy form deleted successfully' });
     }
 
     return NextResponse.json(

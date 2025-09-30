@@ -71,9 +71,11 @@ IMPORTANT RULES:
 6. Be conversational and helpful in your text response
 7. Ask clarifying questions when needed
 8. Suggest improvements based on best practices
+9. **CRITICAL: EVERY FORM MUST START WITH A TITLE LINE (# Title)**
 
 CRITICAL FORMAT - YOU MUST USE THIS EXACT PIPE-DELIMITED FORMAT:
-- Headers: # for title, ## Section: for sections (note the colon after Section)
+- **REQUIRED: Form must start with # Title line**
+- Headers: # for title (REQUIRED FIRST LINE), ## Section: for sections (note the colon after Section)
 - Fields: - type* | field_id | Label | placeholder text...
 - Required fields: Add * after the type (e.g., text* for required)
 - Options: For select/radio/checkbox, add indented lines with "  - Option"
@@ -92,7 +94,7 @@ Description of the form (optional)
 - type | field_id | Another question | Placeholder...
 \`\`\`
 
-MARKDOWN FORMAT EXAMPLE (YOU MUST FOLLOW THIS EXACTLY):
+MARKDOWN FORMAT EXAMPLE (YOU MUST FOLLOW THIS EXACTLY - NOTE THE # TITLE AS FIRST LINE):
 \`\`\`markdown
 # Contact Form
 Help us get to know you better
@@ -119,6 +121,8 @@ Help us get to know you better
   - Phone
   - Text Message
 \`\`\`
+
+IMPORTANT: Notice how the form ALWAYS starts with "# Contact Form" - this title line is MANDATORY!
 
 When generating or modifying forms:
 - Use snake_case for field_ids (e.g., first_name, email_address)
@@ -270,90 +274,123 @@ function generateSimpleForm(userInput) {
   // Detect form type based on keywords
   if (input.includes('contact') || input.includes('get in touch')) {
     return `# Contact Form
+Help us get in touch with you
 
-## Personal Information
-What is your name? (text) *
-What is your email address? (email) *
-What is your phone number? (phone)
+## Section: Personal Information
+- text* | full_name | What is your name? | Enter your full name
+- email* | email_address | What is your email address? | your@email.com
+- phone | phone_number | What is your phone number? | (555) 123-4567
 
-## Your Message
-What is the subject of your inquiry? (text) *
-Please provide details about your inquiry (textarea) *
+## Section: Your Message
+- text* | subject | What is the subject of your inquiry? | Brief subject
+- textarea* | message | Please provide details about your inquiry | Your message here
 
-## Preferences
-How would you prefer to be contacted? (radio: Email, Phone, Either) *
-Would you like to subscribe to our newsletter? (checkbox: Yes, subscribe me)`;
+## Section: Preferences
+- radio* | contact_method | How would you prefer to be contacted?
+  - Email
+  - Phone
+  - Either
+- checkbox | newsletter | Would you like to subscribe to our newsletter?
+  - Yes, subscribe me`;
   } else if (input.includes('feedback') || input.includes('review')) {
     return `# Feedback Form
+Share your thoughts with us
 
-## Your Information
-Name (text) *
-Email (email) *
+## Section: Your Information
+- text* | name | Name | Your full name
+- email* | email | Email | your@email.com
 
-## Your Feedback
-How would you rate your overall experience? (rating) *
-What did you like most? (textarea)
-What could we improve? (textarea)
+## Section: Your Feedback
+- rating* | experience_rating | How would you rate your overall experience? | Rate 1-5
+- textarea | liked_most | What did you like most? | Tell us what you enjoyed
+- textarea | improvements | What could we improve? | Suggestions for improvement
 
-## Follow-up
-May we contact you about your feedback? (radio: Yes, No) *`;
+## Section: Follow-up
+- radio* | contact_permission | May we contact you about your feedback?
+  - Yes
+  - No`;
   } else if (input.includes('application') || input.includes('job') || input.includes('apply')) {
     return `# Job Application Form
+Apply for a position with our team
 
-## Personal Information
-Full Name (text) *
-Email Address (email) *
-Phone Number (phone) *
-Current Location (text) *
+## Section: Personal Information
+- text* | full_name | Full Name | Your full name
+- email* | email_address | Email Address | your@email.com
+- phone* | phone_number | Phone Number | (555) 123-4567
+- text* | location | Current Location | City, State
 
-## Professional Background
-Current Job Title (text)
-Years of Experience (number) *
-LinkedIn Profile (text)
-Resume/CV Link (text)
+## Section: Professional Background
+- text | job_title | Current Job Title | Your current role
+- number* | years_experience | Years of Experience | Number of years
+- text | linkedin | LinkedIn Profile | https://linkedin.com/in/yourprofile
+- text | resume | Resume/CV Link | Link to your resume
 
-## Application Details
-Position Applied For (select: Software Engineer, Product Manager, Designer, Marketing, Sales, Other) *
-How did you hear about this position? (select: Company Website, LinkedIn, Indeed, Referral, Other) *
-Why are you interested in this role? (textarea) *
+## Section: Application Details
+- select* | position | Position Applied For
+  - Software Engineer
+  - Product Manager
+  - Designer
+  - Marketing
+  - Sales
+  - Other
+- select* | referral_source | How did you hear about this position?
+  - Company Website
+  - LinkedIn
+  - Indeed
+  - Referral
+  - Other
+- textarea* | interest | Why are you interested in this role? | Tell us why you're a great fit
 
-## Availability
-When can you start? (date) *
-Salary Expectations (text)`;
+## Section: Availability
+- date* | start_date | When can you start? | Select a date
+- text | salary | Salary Expectations | Your expected salary range`;
   } else if (input.includes('register') || input.includes('registration') || input.includes('sign up')) {
     return `# Registration Form
+Create your account
 
-## Account Information
-Username (text) *
-Email Address (email) *
-Password (text) *
-Confirm Password (text) *
+## Section: Account Information
+- text* | username | Username | Choose a username
+- email* | email_address | Email Address | your@email.com
+- text* | password | Password | Create a secure password
+- text* | confirm_password | Confirm Password | Re-enter your password
 
-## Personal Details
-First Name (text) *
-Last Name (text) *
-Date of Birth (date)
-Phone Number (phone)
+## Section: Personal Details
+- text* | first_name | First Name | Your first name
+- text* | last_name | Last Name | Your last name
+- date | date_of_birth | Date of Birth | MM/DD/YYYY
+- phone | phone_number | Phone Number | (555) 123-4567
 
-## Preferences
-Preferred Language (select: English, Spanish, French, German, Other)
-Receive Newsletter (checkbox: Yes, I want to receive updates)
-Accept Terms and Conditions (checkbox: I accept the terms) *`;
+## Section: Preferences
+- select | language | Preferred Language
+  - English
+  - Spanish
+  - French
+  - German
+  - Other
+- checkbox | newsletter | Receive Newsletter
+  - Yes, I want to receive updates
+- checkbox* | terms | Accept Terms and Conditions
+  - I accept the terms`;
   } else {
     // Generic form based on what was mentioned
     return `# Custom Form
+Complete the form below
 
-## Section 1
-Question 1 (text) *
-Question 2 (email) *
-Question 3 (textarea)
+## Section: General Information
+- text* | question_1 | Question 1 | Your answer
+- email* | email | Question 2 | your@email.com
+- textarea | question_3 | Question 3 | Your detailed answer
 
-## Section 2
-Select an option (select: Option 1, Option 2, Option 3) *
-Rate your experience (rating)
-Additional comments (textarea)
+## Section: Additional Details
+- select* | option | Select an option
+  - Option 1
+  - Option 2
+  - Option 3
+- rating | rating | Rate your experience | 1-5 stars
+- textarea | comments | Additional comments | Any other feedback
 
-## Confirmation
-I confirm the information is accurate (checkbox: Yes) *`;
+## Section: Confirmation
+- checkbox* | confirm | I confirm the information is accurate
+  - Yes`;
   }
 }
