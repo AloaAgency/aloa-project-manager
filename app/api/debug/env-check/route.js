@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
+  // Disable debug routes in production
+  if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Debug endpoints are disabled in production' },
+      { status: 403 }
+    );
+  }
+
   // Only show in non-production or for debugging
   const envCheck = {
     timestamp: new Date().toISOString(),

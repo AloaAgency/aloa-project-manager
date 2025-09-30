@@ -5,6 +5,14 @@ import { cookies } from 'next/headers';
 // Force dynamic rendering for routes that use cookies
 export const dynamic = 'force-dynamic';
 export async function GET() {
+  // Disable debug routes in production
+  if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Debug endpoints are disabled in production' },
+      { status: 403 }
+    );
+  }
+
   try {
     // Check environment variables
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
