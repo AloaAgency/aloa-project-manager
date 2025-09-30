@@ -1110,25 +1110,16 @@ if (error?.code === '42501') {
 
 ## Phase 8: Testing & Validation (Day 3 Afternoon)
 
-### Step 8.1: Create Test Script
-```sql
--- File: /supabase/09_security_tests.sql
--- Run as different roles to verify security
-
--- Test 1: Client can only see their project
-SET ROLE test_client;
-SELECT COUNT(*) FROM aloa_projects; -- Should be 1
-SELECT COUNT(*) FROM aloa_project_knowledge; -- Only their project's knowledge
-
--- Test 2: Outsider sees nothing
-SET ROLE test_outsider;
-SELECT COUNT(*) FROM aloa_projects WHERE id = '511306f6-0316-4a60-a318-1509d643238a'; -- Should be 0
-
--- Test 3: Admin sees all
-SET ROLE test_admin;
-SELECT COUNT(*) FROM aloa_projects; -- Should see all
-
-RESET ROLE;
+### Step 8.1: Create Test Script ✅ COMPLETED 2025-10-01
+```text
+- Added `supabase/09_security_tests.sql`, an SQL-editor friendly regression
+  report that simulates the seeded client/outsider/admin JWT claims and
+  returns a structured result set. The script confirms:
+    • client only sees their project/forms/knowledge
+    • outsider sees zero rows and cannot insert/update
+    • admin retains full access and can update project metadata
+- Verified the script after removing the outsider’s project membership so the
+  counts reflect the intended RLS fences.
 ```
 
 ### Step 6.2: Test All Features
