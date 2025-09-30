@@ -22,7 +22,7 @@ GRANT SELECT ON aloa_applet_with_user_progress TO authenticated;
 GRANT SELECT ON aloa_applet_with_user_progress TO service_role;
 
 GRANT SELECT ON aloa_forms_with_stats TO authenticated;
-GRANT SELECT ON aloa_forms_with_user_progress TO service_role;
+GRANT SELECT ON aloa_forms_with_stats TO service_role;
 
 GRANT SELECT ON aloa_phase_overview TO authenticated;
 GRANT SELECT ON aloa_phase_overview TO service_role;
