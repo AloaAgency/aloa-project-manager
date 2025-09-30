@@ -1040,6 +1040,27 @@ const sanitizedQuestion = question.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, 
 - XSS attempts handled safely
 - Excessive length inputs rejected
 
+### Step 7.1: Verify Service Client Usage
+```text
+- Audit every API route under /app/api for two patterns:
+  • Requests acting on sensitive tables (aloa_*) must use createServiceClient()
+    or call a server helper that wraps the service key.
+  • Requests that run on behalf of the end user (RLS-protected reads) should
+    use createServerClient() + cookies and pass user id to queries.
+- Pay special attention to:
+  • /app/api/forms, /app/api/aloa-forms, /app/api/aloa-projects/**/*
+  • Knowledge endpoints (/app/api/project-knowledge/**/*, /app/api/ai-*)
+  • Messaging/chat routes (/app/api/chat/**/*, /app/api/notifications/*)
+- For each route verify:
+  • Service operations (admin-only, background jobs, imports) use service client.
+  • Authenticated user operations validate auth before querying.
+  • Legacy `supabase` import from '@/lib/supabase' is phased out in favour of
+    createServerClient/createServiceClient helpers.
+- Document any route that still uses the anonymous client and schedule fixes
+  before moving to Phase 8.
+- Current findings are tracked in docs/api-service-client-audit.md.
+```
+
 ## Phase 7: Update API Routes (Day 3 Morning)
 
 ### Step 7.1: Verify Service Client Usage
