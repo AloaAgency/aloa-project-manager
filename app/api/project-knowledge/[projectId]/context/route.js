@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { authorizeProjectAccess } from '@/app/api/project-knowledge/utils/auth';
 
 export async function GET(request, { params }) {
   try {
@@ -9,8 +9,15 @@ export async function GET(request, { params }) {
     const categories = searchParams.get('categories')?.split(',');
     const forceRefresh = searchParams.get('refresh') === 'true';
 
+    const auth = await authorizeProjectAccess(projectId);
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
+
     if (!forceRefresh) {
-      const { data: cachedContext, error: cacheError } = await supabase
+      const { data: cachedContext, error: cacheError } = await serviceSupabase
         .from('aloa_ai_context_cache')
         .select('*')
         .eq('project_id', projectId)
@@ -27,7 +34,7 @@ export async function GET(request, { params }) {
       }
     }
 
-    const { data: project, error: projectError } = await supabase
+    const { data: project, error: projectError } = await serviceSupabase
       .from('aloa_projects')
       .select('*')
       .eq('id', projectId)
@@ -37,7 +44,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    let knowledgeQuery = supabase
+    let knowledgeQuery = serviceSupabase
       .from('aloa_project_knowledge')
       .select('*')
       .eq('project_id', projectId)
@@ -66,7 +73,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Failed to fetch knowledge' }, { status: 500 });
     }
 
-    const { data: recentResponses } = await supabase
+    const { data: recentResponses } = await serviceSupabase
       .from('aloa_applet_responses')
       .select(`
         *,
@@ -76,7 +83,7 @@ export async function GET(request, { params }) {
       .order('created_at', { ascending: false })
       .limit(10);
 
-    const { data: recentInteractions } = await supabase
+    const { data: recentInteractions } = await serviceSupabase
       .from('aloa_applet_interactions')
       .select(`
         *,
@@ -139,7 +146,7 @@ export async function GET(request, { params }) {
       }
     };
 
-    const { error: cacheError } = await supabase
+    const { error: cacheError } = await serviceSupabase
       .from('aloa_ai_context_cache')
       .upsert({
         project_id: projectId,
@@ -169,7 +176,14 @@ export async function DELETE(request, { params }) {
   try {
     const { projectId } = params;
 
-    const { error } = await supabase
+    const auth = await authorizeProjectAccess(projectId, { requireAdmin: true });
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
+
+    const { error } = await serviceSupabase
       .from('aloa_ai_context_cache')
       .delete()
       .eq('project_id', projectId);

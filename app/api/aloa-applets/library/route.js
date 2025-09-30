@@ -1,5 +1,43 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import { createServiceClient } from '@/lib/supabase-service';
+
+async function getAdminClient() {
+  const cookieStore = cookies();
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
+        set() {},
+        remove() {}
+      }
+    }
+  );
+
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+  if (authError || !user) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const serviceSupabase = createServiceClient();
+  const { data: profile } = await serviceSupabase
+    .from('aloa_user_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  const role = profile?.role;
+  if (!role || (role !== 'super_admin' && role !== 'project_admin')) {
+    return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+  }
+
+  return { serviceSupabase };
+}
 
 // GET all library applets
 export async function GET(request) {
@@ -8,7 +46,14 @@ export async function GET(request) {
     const type = searchParams.get('type');
     const active = searchParams.get('active');
 
-    let query = supabase
+    const auth = await getAdminClient();
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
+
+    let query = serviceSupabase
       .from('aloa_applet_library')
       .select('*')
       .order('usage_count', { ascending: false });
@@ -43,7 +88,14 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    const { data: applet, error } = await supabase
+    const auth = await getAdminClient();
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
+
+    const { data: applet, error } = await serviceSupabase
       .from('aloa_applet_library')
       .insert([{
         name: body.name,
@@ -80,7 +132,14 @@ export async function PUT(request) {
     const body = await request.json();
     const { id, ...updateData } = body;
 
-    const { data: applet, error } = await supabase
+    const auth = await getAdminClient();
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
+
+    const { data: applet, error } = await serviceSupabase
       .from('aloa_applet_library')
       .update({
         ...updateData,

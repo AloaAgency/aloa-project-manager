@@ -12,7 +12,6 @@ Phase 7 Step 7.1 requires every API route to use the correct Supabase client hel
 The following routes still import `supabase` from `@/lib/supabase` and do **not** use the new helpers. Each must be reviewed and refactored.
 
 ```
-app/api/ai-analysis/[formId]/route.js
 app/api/aloa-applets/library/route.js
 app/api/aloa-forms/[formId]/edit-fields/route.js
 app/api/aloa-forms/[formId]/route.js
