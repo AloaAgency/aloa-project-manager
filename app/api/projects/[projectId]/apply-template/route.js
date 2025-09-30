@@ -37,6 +37,8 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Template ID is required' }, { status: 400 });
     }
 
+    const { targetProjectletId } = body;
+
     // Fetch the template
     const { data: template, error: templateError } = await supabase
       .from('aloa_projectlet_templates')
@@ -52,6 +54,20 @@ export async function POST(request, { params }) {
     // Check if user has access to the template
     if (!template.is_public && template.created_by !== user.id) {
       return NextResponse.json({ error: 'Unauthorized to use this template' }, { status: 403 });
+    }
+
+    // If loading into specific projectlet, verify it exists and belongs to this project
+    if (targetProjectletId) {
+      const { data: targetProjectlet, error: targetError } = await supabase
+        .from('aloa_projectlets')
+        .select('id, project_id')
+        .eq('id', targetProjectletId)
+        .eq('project_id', projectId)
+        .single();
+
+      if (targetError || !targetProjectlet) {
+        return NextResponse.json({ error: 'Target projectlet not found' }, { status: 404 });
+      }
     }
 
     // Get the current maximum order for existing projectlets
@@ -88,6 +104,89 @@ export async function POST(request, { params }) {
     const createdProjectlets = [];
     const createdApplets = [];
 
+    // If loading into specific projectlet, only add applets (don't create new projectlet)
+    if (targetProjectletId) {
+      // Get the current max order for applets in this projectlet
+      const { data: existingApplets } = await supabase
+        .from('aloa_applets')
+        .select('order_index')
+        .eq('projectlet_id', targetProjectletId);
+
+      let maxAppletOrder = -1;
+      if (existingApplets) {
+        for (const applet of existingApplets) {
+          if (applet.order_index > maxAppletOrder) {
+            maxAppletOrder = applet.order_index;
+          }
+        }
+      }
+
+      const startingAppletOrder = maxAppletOrder + 1;
+
+      // Extract applets from template (works for both single and multiple projectlet templates)
+      let appletsToAdd = [];
+      if (templateData.type === 'single') {
+        appletsToAdd = templateData.applets || [];
+      } else {
+        // For multiple projectlet templates, combine all applets
+        for (const projectletData of templateData.projectlets) {
+          if (projectletData.applets) {
+            appletsToAdd.push(...projectletData.applets);
+          }
+        }
+      }
+
+      if (appletsToAdd.length > 0) {
+        const appletsToInsert = appletsToAdd.map((applet, index) => {
+          const config = applet.config || {};
+          if (applet.is_locked !== undefined) {
+            config.locked = applet.is_locked;
+          }
+          return {
+            projectlet_id: targetProjectletId,
+            type: applet.type,
+            name: applet.name,
+            config: config,
+            order_index: startingAppletOrder + index
+          };
+        });
+
+        const { data: newApplets, error: appletsError } = await supabase
+          .from('aloa_applets')
+          .insert(appletsToInsert)
+          .select();
+
+        if (appletsError) {
+          return NextResponse.json({ error: 'Failed to add applets: ' + appletsError.message }, { status: 500 });
+        }
+
+        createdApplets.push(...newApplets);
+      }
+
+      // Log the template application
+      await supabase
+        .from('aloa_project_timeline')
+        .insert({
+          project_id: projectId,
+          event_type: 'template_applied',
+          event_data: {
+            template_id: template.id,
+            template_name: template.name,
+            target_projectlet_id: targetProjectletId,
+            applets_created: createdApplets.length
+          },
+          created_by: user.id
+        });
+
+      return NextResponse.json({
+        success: true,
+        message: `Template "${template.name}" loaded into projectlet`,
+        applets_created: createdApplets.length,
+        applets: createdApplets
+      });
+    }
+
+    // Otherwise, create new projectlet(s) as before
     if (templateData.type === 'single') {
       // Create a single projectlet
       const projectletData = templateData.projectlet;

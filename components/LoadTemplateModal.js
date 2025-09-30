@@ -8,6 +8,8 @@ export default function LoadTemplateModal({
   isOpen,
   onClose,
   projectId,
+  targetProjectletId = null,
+  targetProjectletName = null,
   onLoadTemplate
 }) {
   const [templates, setTemplates] = useState([]);
@@ -111,6 +113,7 @@ export default function LoadTemplateModal({
         },
         body: JSON.stringify({
           templateId: selectedTemplate.id,
+          targetProjectletId: targetProjectletId,
         }),
       });
 
@@ -119,7 +122,12 @@ export default function LoadTemplateModal({
       }
 
       const result = await response.json();
-      toast.success(`Template "${selectedTemplate.name}" applied successfully!`);
+
+      if (targetProjectletId) {
+        toast.success(`Template "${selectedTemplate.name}" loaded into projectlet!`);
+      } else {
+        toast.success(`Template "${selectedTemplate.name}" applied successfully!`);
+      }
 
       // Close modal first
       onClose();
@@ -178,7 +186,16 @@ export default function LoadTemplateModal({
         <div className="p-6 border-b">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold">{isManageMode ? 'Manage Templates' : 'Load Template'}</h2>
+              <div>
+                <h2 className="text-xl font-bold">
+                  {isManageMode ? 'Manage Templates' : targetProjectletId ? 'Load Template into Projectlet' : 'Load Template'}
+                </h2>
+                {targetProjectletName && !isManageMode && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Loading into: <span className="font-semibold">{targetProjectletName}</span>
+                  </p>
+                )}
+              </div>
               <button
                 onClick={() => setIsManageMode(!isManageMode)}
                 className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"

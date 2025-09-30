@@ -18,10 +18,93 @@ export default function LoginPage() {
   // Add debug logging to see what's happening on mount
   useEffect(() => {
     console.log('[LoginPage] Component mounted');
+
+    // Check URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const isAuthenticated = urlParams.get('authenticated') === 'true';
+    const errorParam = urlParams.get('error');
+    const clearAuth = urlParams.get('clear_auth');
+
+    // If clear_auth flag is set, force clear all auth cookies on client side
+    if (clearAuth === '1') {
+      console.log('[LoginPage] Force clearing client-side auth state');
+
+      // Clear all Supabase-related cookies
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const cookieName = cookie.split('=')[0].trim();
+        if (cookieName.includes('sb-') || cookieName.includes('supabase')) {
+          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;
+        }
+      }
+
+      // Clear localStorage
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+
+      // Clear sessionStorage
+      const sessionKeysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          sessionKeysToRemove.push(key);
+        }
+      }
+      sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
+
+      // Remove the clear_auth param and reload to ensure clean state
+      urlParams.delete('clear_auth');
+      const newUrl = `${window.location.pathname}${urlParams.toString() ? '?' + urlParams.toString() : ''}`;
+      window.history.replaceState({}, '', newUrl);
+
+      // IMPORTANT: Don't proceed with auth checks - we just cleared everything
+      // Just show the login form and let the user log in fresh
+      return;
+    }
+
+    // Display error messages from URL params
+    if (errorParam === 'session_expired') {
+      setError('Your session has expired. Please login again.');
+    } else if (errorParam === 'stale_session') {
+      setError('Your session is no longer valid. Please login again.');
+    }
+
+    // Check if user is already authenticated (from URL param)
+    if (isAuthenticated) {
+      // User is authenticated but redirected here (likely a client user)
+      // Fetch their profile and redirect to their project
+      checkAuthAndRedirect();
+    }
+
     return () => {
       console.log('[LoginPage] Component unmounted');
     };
   }, []);
+
+  const checkAuthAndRedirect = async () => {
+    try {
+      const response = await fetch('/api/auth/profile', {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user && data.clientProject?.id) {
+          window.location.href = `/project/${data.clientProject.id}/dashboard`;
+        }
+      }
+    } catch (err) {
+      console.error('[LoginPage] Error checking auth:', err);
+    }
+  };
 
   const handlePasswordLogin = async (e) => {
     e.preventDefault();

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { supabase } from '@/lib/supabase';
+import { createServiceClient } from '@/lib/supabase-service';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -10,33 +10,49 @@ async function getProjectContext(projectId) {
   if (!projectId) return '';
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/project-knowledge/${projectId}/context?type=full_project`);
+    const supabase = createServiceClient();
 
-    if (!response.ok) {
+    const { data: project, error: projectError } = await supabase
+      .from('aloa_projects')
+      .select('id, project_name, description, metadata')
+      .eq('id', projectId)
+      .single();
+
+    if (projectError || !project) {
       return '';
     }
 
-    const data = await response.json();
-    const context = data.context;
-
-    if (!context) return '';
+    const { data: knowledge } = await supabase
+      .from('aloa_project_knowledge')
+      .select('category, content_summary, content, importance_score')
+      .eq('project_id', projectId)
+      .eq('is_current', true)
+      .order('importance_score', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     let formatted = '\n\n=== PROJECT CONTEXT ===\n';
-    formatted += `Project: ${context.project.name}\n`;
-    formatted += `Description: ${context.project.description || 'N/A'}\n\n`;
+    formatted += `Project: ${project.project_name}\n`;
+    formatted += `Description: ${project.description || 'N/A'}\n\n`;
 
-    if (context.knowledge) {
-      for (const [category, items] of Object.entries(context.knowledge)) {
-        if (items && items.length > 0) {
-          formatted += `${category.replace(/_/g, ' ').toUpperCase()}:\n`;
-          items.slice(0, 3).forEach(item => {
-            formatted += `- ${item.summary || item.content}\n`;
-          });
-        }
+    if (knowledge && knowledge.length > 0) {
+      const grouped = knowledge.reduce((acc, item) => {
+        const category = item.category || 'general';
+        acc[category] = acc[category] || [];
+        acc[category].push(item);
+        return acc;
+      }, {});
+
+      for (const [category, items] of Object.entries(grouped)) {
+        formatted += `${category.replace(/_/g, ' ').toUpperCase()}:\n`;
+        items.slice(0, 3).forEach(item => {
+          formatted += `- ${item.content_summary || item.content}\n`;
+        });
+        formatted += '\n';
       }
     }
 
-    formatted += '\n=== END PROJECT CONTEXT ===\n\n';
+    formatted += '=== END PROJECT CONTEXT ===\n\n';
     return formatted;
   } catch (error) {
 

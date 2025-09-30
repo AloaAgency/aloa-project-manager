@@ -107,56 +107,61 @@ export async function middleware(request) {
     let user = null;
     let sessionError = null;
 
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      sessionError = error;
-      if (!error && data?.session) {
-        session = data.session;
-        user = session.user;
-      }
-    } catch (e) {
-      console.error('Error getting session in middleware:', e);
-      sessionError = e;
-    }
-
-    // If there's a session error, clear cookies to prevent redirect loops
-    if (sessionError) {
-      console.log('[Middleware] Session error detected, clearing cookies:', sessionError);
-      // Clear all auth-related cookies
-      const authCookies = request.cookies.getAll().filter(cookie =>
-        cookie.name.includes('sb-') ||
-        cookie.name.includes('supabase')
-      );
-
-      for (const cookie of authCookies) {
-        response.cookies.delete(cookie.name);
-      }
-
-      // If not on auth pages, redirect to login
-      if (!pathname.startsWith('/auth/')) {
-        const redirectUrl = new URL('/auth/login', request.url);
-        if (pathname !== '/' && !pathname.startsWith('/auth/')) {
-          redirectUrl.searchParams.set('redirect', pathname);
+    // Skip expensive session check if we're already on auth pages
+    // This prevents unnecessary Supabase calls during auth cleanup
+    if (pathname.startsWith('/auth/')) {
+      // On auth page - skip session check to avoid delays
+      // We'll let the page handle auth itself
+    } else {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        sessionError = error;
+        if (!error && data?.session) {
+          session = data.session;
+          user = session.user;
         }
-        return NextResponse.redirect(redirectUrl);
+      } catch (e) {
+        console.error('Error getting session in middleware:', e);
+        sessionError = e;
       }
     }
-    
+
+    // Check for auth cookies
     const authCookies = request.cookies.getAll().filter(cookie =>
       cookie.name.includes('sb-') ||
       cookie.name.includes('supabase')
     );
 
-    // If no active session but auth cookies are present, treat as stale session
-    if (!session && authCookies.length > 0 && !pathname.startsWith('/auth/')) {
-      console.log('[Middleware] Stale Supabase session detected, clearing cookies and redirecting to login');
+    // If there's a session error OR stale session, handle it
+    const hasStaleSession = !session && authCookies.length > 0;
+    const needsAuthCleanup = sessionError || hasStaleSession;
 
+    // IMPORTANT: If on auth pages already, skip all this logic
+    if (pathname.startsWith('/auth/') || pathname.startsWith('/forms/')) {
+      // Already on an auth/public page, just let it through
+      // This prevents redirect loops
+    } else if (needsAuthCleanup) {
+      // Not on auth page and have auth issues - redirect
+      console.log('[Middleware] Session issue detected, redirecting to login:', {
+        sessionError: !!sessionError,
+        hasStaleSession,
+        pathname
+      });
+
+      // Clear all auth-related cookies
       for (const cookie of authCookies) {
         response.cookies.delete(cookie.name);
       }
 
+      // Redirect to login with clear_auth flag
       const redirectUrl = new URL('/auth/login', request.url);
-      if (pathname !== '/' && !pathname.startsWith('/auth/')) {
+      redirectUrl.searchParams.set('clear_auth', '1');
+      if (sessionError) {
+        redirectUrl.searchParams.set('error', 'session_expired');
+      } else if (hasStaleSession) {
+        redirectUrl.searchParams.set('error', 'stale_session');
+      }
+      if (pathname !== '/') {
         redirectUrl.searchParams.set('redirect', pathname);
       }
       return NextResponse.redirect(redirectUrl);
@@ -215,11 +220,13 @@ export async function middleware(request) {
     // If accessing auth routes while authenticated, redirect based on role
     if (isAuthPath && user && userRole) {
       const hasForcedRedirect = request.nextUrl.searchParams.has('redirect');
-      if (hasForcedRedirect) {
-        console.log('[Middleware] Auth page access with redirect param detected, skipping auto-redirect to avoid loops.');
+      const hasAuthenticatedParam = request.nextUrl.searchParams.has('authenticated');
+
+      if (hasForcedRedirect || hasAuthenticatedParam) {
+        console.log('[Middleware] Auth page access with special param detected, skipping auto-redirect to avoid loops.');
       }
 
-      if (!hasForcedRedirect) {
+      if (!hasForcedRedirect && !hasAuthenticatedParam) {
         console.log('[Middleware] User authenticated on auth page:', {
           pathname,
           userId: user.id,
@@ -238,18 +245,18 @@ export async function middleware(request) {
 
     // For the root path, redirect based on auth status and role
     if (pathname === '/') {
-      if (user) {
+      if (user && userRole) {
         if (adminRoles.includes(userRole)) {
           return NextResponse.redirect(new URL('/admin/projects', request.url));
-        } else {
-          // For client users, we can't fetch their project here
-          // So don't redirect - let them stay on login which will handle it
-          // Or create a client landing page
-          return NextResponse.redirect(new URL('/auth/login', request.url));
+        } else if (clientRoles.includes(userRole)) {
+          // Client users: add a flag so auth page knows they're authenticated
+          const loginUrl = new URL('/auth/login', request.url);
+          loginUrl.searchParams.set('authenticated', 'true');
+          return NextResponse.redirect(loginUrl);
         }
-      } else {
-        return NextResponse.redirect(new URL('/auth/login', request.url));
       }
+      // Not authenticated or no role - redirect to login
+      return NextResponse.redirect(new URL('/auth/login', request.url));
     }
   }
   
