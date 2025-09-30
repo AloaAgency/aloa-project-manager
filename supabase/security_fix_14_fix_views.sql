@@ -97,10 +97,10 @@ REVOKE ALL ON aloa_forms_with_stats FROM anon;
 GRANT SELECT ON aloa_forms_with_stats TO authenticated;
 GRANT SELECT ON aloa_forms_with_stats TO service_role;
 
--- phase_overview
+-- aloa_phase_overview (renamed from phase_overview for consistency)
 DROP VIEW IF EXISTS phase_overview CASCADE;
 DROP VIEW IF EXISTS aloa_phase_overview CASCADE;
-CREATE VIEW phase_overview AS
+CREATE VIEW aloa_phase_overview AS
 SELECT
   p.*,
   COUNT(DISTINCT pl.id) AS total_projectlets,
@@ -117,15 +117,6 @@ SELECT
 FROM aloa_project_phases p
 LEFT JOIN aloa_projectlets pl ON pl.phase_id = p.id
 GROUP BY p.id;
-
-REVOKE ALL ON phase_overview FROM PUBLIC;
-REVOKE ALL ON phase_overview FROM anon;
-GRANT SELECT ON phase_overview TO authenticated;
-GRANT SELECT ON phase_overview TO service_role;
-
--- Compatibility alias for legacy references
-CREATE VIEW aloa_phase_overview AS
-SELECT * FROM phase_overview;
 
 REVOKE ALL ON aloa_phase_overview FROM PUBLIC;
 REVOKE ALL ON aloa_phase_overview FROM anon;

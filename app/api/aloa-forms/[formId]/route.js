@@ -1,36 +1,40 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { handleSupabaseError, requireAdminServiceRole } from '@/app/api/_utils/admin';
 
 export async function DELETE(request, { params }) {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     const { formId } = params;
 
     // First check if the form exists
-    const { data: form, error: fetchError } = await supabase
+    const { data: form, error: fetchError } = await serviceSupabase
       .from('aloa_forms')
       .select('id, title')
       .eq('id', formId)
-      .single();
+      .maybeSingle();
 
-    if (fetchError || !form) {
-      return NextResponse.json(
-        { error: 'Form not found' },
-        { status: 404 }
-      );
+    if (fetchError) {
+      return handleSupabaseError(fetchError, 'Failed to load form');
+    }
+
+    if (!form) {
+      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
     // Delete the form (this will cascade delete related fields and responses)
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await serviceSupabase
       .from('aloa_forms')
       .delete()
       .eq('id', formId);
 
     if (deleteError) {
-
-      return NextResponse.json(
-        { error: 'Failed to delete form' },
-        { status: 500 }
-      );
+      return handleSupabaseError(deleteError, 'Failed to delete form');
     }
 
     return NextResponse.json({
@@ -39,7 +43,6 @@ export async function DELETE(request, { params }) {
     });
 
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -48,11 +51,18 @@ export async function DELETE(request, { params }) {
 }
 
 export async function GET(request, { params }) {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     const { formId } = params;
 
     // Get form with all related data
-    const { data: form, error } = await supabase
+    const { data: form, error } = await serviceSupabase
       .from('aloa_forms')
       .select(`
         *,
@@ -75,13 +85,14 @@ export async function GET(request, { params }) {
         )
       `)
       .eq('id', formId)
-      .single();
+      .maybeSingle();
 
-    if (error || !form) {
-      return NextResponse.json(
-        { error: 'Form not found' },
-        { status: 404 }
-      );
+    if (error) {
+      return handleSupabaseError(error, 'Failed to fetch form');
+    }
+
+    if (!form) {
+      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
     // Sort fields by order
@@ -96,7 +107,6 @@ export async function GET(request, { params }) {
     return NextResponse.json(form);
 
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -105,12 +115,19 @@ export async function GET(request, { params }) {
 }
 
 export async function PUT(request, { params }) {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     const { formId } = params;
     const updates = await request.json();
 
     // Update the form
-    const { data: form, error } = await supabase
+    const { data: form, error } = await serviceSupabase
       .from('aloa_forms')
       .update(updates)
       .eq('id', formId)
@@ -118,17 +135,12 @@ export async function PUT(request, { params }) {
       .single();
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to update form' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to update form');
     }
 
     return NextResponse.json(form);
 
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -5,6 +5,14 @@ import { cookies } from 'next/headers';
 // Force dynamic rendering for routes that use cookies
 export const dynamic = 'force-dynamic';
 export async function POST(request) {
+  // Disable debug routes in production
+  if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Debug endpoints are disabled in production' },
+      { status: 403 }
+    );
+  }
+
   try {
     const { email, password } = await request.json();
 
@@ -95,6 +103,14 @@ export async function POST(request) {
 }
 
 export async function GET() {
+  // Disable debug routes in production
+  if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Debug endpoints are disabled in production' },
+      { status: 403 }
+    );
+  }
+
   return NextResponse.json({
     message: 'Test login endpoint - use POST with { email, password }'
   });

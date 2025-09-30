@@ -1,43 +1,56 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import {
+  handleSupabaseError,
+  requireAdminServiceRole,
+  validateUuid,
+} from '@/app/api/_utils/admin';
 
-// PATCH reorder applets
 export async function PATCH(request, { params }) {
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
+
+  const projectletValidation = validateUuid(params.projectletId, 'projectlet ID');
+  if (projectletValidation) {
+    return projectletValidation;
+  }
+
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
-    const { projectletId } = params;
-    const body = await request.json();
+    const { applets } = await request.json();
 
-    const { applets } = body;
-
-    if (!applets || !Array.isArray(applets)) {
-
+    if (!Array.isArray(applets) || applets.length === 0) {
       return NextResponse.json({ error: 'Invalid applets data' }, { status: 400 });
     }
 
-    // Update order_index for each applet
-    const updates = applets.map((applet, index) => ({
-      id: applet.id,
-      projectlet_id: projectletId,
-      order_index: applet.order_index !== undefined ? applet.order_index : index
-    }));
+    for (let index = 0; index < applets.length; index += 1) {
+      const applet = applets[index];
+      const appletValidation = validateUuid(applet.id, 'applet ID');
+      if (appletValidation) {
+        return appletValidation;
+      }
 
-    // Batch update all applets
-    for (const update of updates) {
-      const { error } = await supabase
+      const { error } = await serviceSupabase
         .from('aloa_applets')
-        .update({ order_index: update.order_index })
-        .eq('id', update.id)
-        .eq('projectlet_id', update.projectlet_id);
+        .update({ order_index: applet.order_index ?? index })
+        .eq('id', applet.id)
+        .eq('project_id', params.projectId)
+        .eq('projectlet_id', params.projectletId);
 
       if (error) {
-
-        return NextResponse.json({ error: error.message || 'Failed to reorder applets' }, { status: 500 });
+        return handleSupabaseError(error, 'Failed to reorder applets');
       }
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

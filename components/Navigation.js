@@ -143,7 +143,7 @@ export default function Navigation() {
                 <img
                   src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg"
                   alt="Aloa"
-                  className="h-8 w-auto"
+                  className="h-10 w-auto"
                 />
               </Link>
               <span className="ml-4 text-sm text-gray-400">
@@ -184,7 +184,7 @@ export default function Navigation() {
               <img
                 src="https://images.ctfassets.net/qkznfzcikv51/xWpsUAypBrRgAjmbyLGYy/b969f4353174e4f209996ebf60af8f7c/aloa_-_white.svg"
                 alt="Aloa"
-                className="h-8 w-auto"
+                className="h-10 w-auto"
               />
             </Link>
 

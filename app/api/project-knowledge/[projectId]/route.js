@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
 import { handleRLSError, handleDatabaseError } from '@/lib/rlsErrorHandler';
+import { authorizeProjectAccess } from '@/app/api/project-knowledge/utils/auth';
 
 export async function GET(request, { params }) {
   try {
@@ -11,7 +11,14 @@ export async function GET(request, { params }) {
     const search = searchParams.get('search');
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    let query = supabase
+    const auth = await authorizeProjectAccess(projectId);
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
+
+    let query = serviceSupabase
       .from('aloa_project_knowledge')
       .select('*')
       .eq('project_id', projectId)
@@ -108,7 +115,14 @@ export async function POST(request, { params }) {
       is_current: true
     };
 
-    const { data, error } = await supabase
+    const auth = await authorizeProjectAccess(projectId, { requireAdmin: true });
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
+
+    const { data, error } = await serviceSupabase
       .from('aloa_project_knowledge')
       .insert(knowledgeItem)
       .select()
@@ -118,7 +132,7 @@ export async function POST(request, { params }) {
       return handleDatabaseError(error, 'Failed to create knowledge');
     }
 
-    await supabase
+    await serviceSupabase
       .from('aloa_ai_context_cache')
       .delete()
       .eq('project_id', projectId);
@@ -142,7 +156,14 @@ export async function PATCH(request, { params }) {
       }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const auth = await authorizeProjectAccess(projectId, { requireAdmin: true });
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
+
+    const { data, error } = await serviceSupabase
       .from('aloa_project_knowledge')
       .update(updates)
       .eq('id', knowledgeId)
@@ -154,7 +175,7 @@ export async function PATCH(request, { params }) {
       return handleDatabaseError(error, 'Failed to update knowledge');
     }
 
-    await supabase
+    await serviceSupabase
       .from('aloa_ai_context_cache')
       .delete()
       .eq('project_id', projectId);
@@ -178,7 +199,14 @@ export async function DELETE(request, { params }) {
       }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const auth = await authorizeProjectAccess(projectId, { requireAdmin: true });
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
+
+    const { error } = await serviceSupabase
       .from('aloa_project_knowledge')
       .update({ is_current: false })
       .eq('id', knowledgeId)
@@ -188,7 +216,7 @@ export async function DELETE(request, { params }) {
       return handleDatabaseError(error, 'Failed to delete knowledge');
     }
 
-    await supabase
+    await serviceSupabase
       .from('aloa_ai_context_cache')
       .delete()
       .eq('project_id', projectId);

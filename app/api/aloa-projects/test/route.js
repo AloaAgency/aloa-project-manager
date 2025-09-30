@@ -1,40 +1,30 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { requireAdminServiceRole } from '@/app/api/_utils/admin';
 
 export async function GET() {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     const testResults = {
       timestamp: new Date().toISOString(),
-      supabase_config: {},
+      supabase_config: {
+        url_configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+        publishable_key_configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
+        secret_key_configured: Boolean(process.env.SUPABASE_SECRET_KEY),
+        url_value: process.env.NEXT_PUBLIC_SUPABASE_URL || 'NOT_SET',
+        client_initialized: true,
+      },
       connection_test: {},
-      table_tests: {}
+      table_tests: {},
     };
 
-    // Check environment variables
-    testResults.supabase_config = {
-      url_configured: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      publishable_key_configured: !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      secret_key_configured: !!process.env.SUPABASE_SECRET_KEY,
-      url_value: process.env.NEXT_PUBLIC_SUPABASE_URL || 'NOT_SET',
-      client_initialized: !!supabase
-    };
-
-    if (!supabase) {
-      testResults.connection_test = {
-        status: 'FAILED',
-        error: 'Supabase client not initialized - check environment variables'
-      };
-
-      return NextResponse.json({
-        success: false,
-        message: 'Supabase client not initialized',
-        test_results: testResults
-      }, { status: 500 });
-    }
-
-    // Test basic connection by querying a system table
     try {
-      const { data: connectionTest, error: connectionError } = await supabase
+      const { error: connectionError } = await serviceSupabase
         .from('information_schema.tables')
         .select('table_name')
         .limit(1);
@@ -42,28 +32,27 @@ export async function GET() {
       testResults.connection_test = {
         status: connectionError ? 'FAILED' : 'SUCCESS',
         error: connectionError?.message || null,
-        can_query_system_tables: !connectionError
+        can_query_system_tables: !connectionError,
       };
     } catch (error) {
       testResults.connection_test = {
         status: 'FAILED',
         error: error.message,
-        can_query_system_tables: false
+        can_query_system_tables: false,
       };
     }
 
-    // Test aloa_ tables
     const aloaTables = [
       'aloa_projects',
-      'aloa_projectlets', 
+      'aloa_projectlets',
       'aloa_project_team',
       'aloa_project_timeline',
-      'aloa_project_assets'
+      'aloa_project_assets',
     ];
 
     for (const tableName of aloaTables) {
       try {
-        const { data, error, count } = await supabase
+        const { error, count } = await serviceSupabase
           .from(tableName)
           .select('*', { count: 'exact', head: true });
 
@@ -71,21 +60,20 @@ export async function GET() {
           status: error ? 'FAILED' : 'SUCCESS',
           exists: !error,
           error: error?.message || null,
-          record_count: error ? null : count
+          record_count: error ? null : count,
         };
       } catch (error) {
         testResults.table_tests[tableName] = {
           status: 'FAILED',
           exists: false,
           error: error.message,
-          record_count: null
+          record_count: null,
         };
       }
     }
 
-    // Test a sample query on aloa_projects
     try {
-      const { data: projects, error: projectsError } = await supabase
+      const { data: projects, error: projectsError } = await serviceSupabase
         .from('aloa_projects')
         .select('id, project_name, status, created_at')
         .limit(5);
@@ -94,38 +82,41 @@ export async function GET() {
         status: projectsError ? 'FAILED' : 'SUCCESS',
         error: projectsError?.message || null,
         sample_records: projectsError ? null : projects?.length || 0,
-        first_record: projects?.[0] || null
+        first_record: projects?.[0] || null,
       };
     } catch (error) {
       testResults.sample_query = {
         status: 'FAILED',
         error: error.message,
         sample_records: null,
-        first_record: null
+        first_record: null,
       };
     }
 
-    // Determine overall status
-    const hasFailures = testResults.connection_test.status === 'FAILED' || 
-                       Object.values(testResults.table_tests).some(test => test.status === 'FAILED');
+    const hasFailures =
+      testResults.connection_test.status === 'FAILED' ||
+      Object.values(testResults.table_tests).some((test) => test.status === 'FAILED');
 
     return NextResponse.json({
       success: !hasFailures,
-      message: hasFailures ? 'Some tests failed - check test_results for details' : 'All tests passed successfully',
+      message: hasFailures
+        ? 'Some tests failed - check test_results for details'
+        : 'All tests passed successfully',
       overall_status: hasFailures ? 'FAILED' : 'SUCCESS',
-      test_results: testResults
+      test_results: testResults,
     });
-
   } catch (error) {
-
-    return NextResponse.json({
-      success: false,
-      message: 'Test endpoint error',
-      error: error.message,
-      test_results: {
-        timestamp: new Date().toISOString(),
-        fatal_error: error.message
-      }
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Test endpoint error',
+        error: error.message,
+        test_results: {
+          timestamp: new Date().toISOString(),
+          fatal_error: error.message,
+        },
+      },
+      { status: 500 }
+    );
   }
 }

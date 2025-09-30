@@ -184,8 +184,17 @@ export async function POST(request) {
 
     const parsedForm = parseMarkdown(markdown);
 
-    if (parsedForm.fields.length === 0) {
+    // Validate that form has a title
+    if (!parsedForm.title || parsedForm.title.trim() === '') {
+      return NextResponse.json({
+        error: 'Form must have a title. Please add a title line starting with "# " at the beginning of your markdown.'
+      }, { status: 400 });
+    }
 
+    if (parsedForm.fields.length === 0) {
+      return NextResponse.json({
+        error: 'Form must have at least one field.'
+      }, { status: 400 });
     }
 
     // Create form in aloa_forms

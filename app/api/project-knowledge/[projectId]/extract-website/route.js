@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import * as cheerio from 'cheerio';
+import { authorizeProjectAccess } from '@/app/api/project-knowledge/utils/auth';
 
 async function extractTextFromHTML(html) {
   const $ = cheerio.load(html);
@@ -132,13 +132,22 @@ function analyzeContent(content) {
 }
 
 export async function POST(request, { params }) {
+  const { projectId } = params;
+  let url;
+  let serviceSupabase;
   try {
-    const { projectId } = params;
-    const { url } = await request.json();
+    ({ url } = await request.json());
 
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
+
+    const auth = await authorizeProjectAccess(projectId, { requireAdmin: true });
+    if (auth.error) {
+      return auth.error;
+    }
+
+    ({ serviceSupabase } = auth);
 
     let response;
     try {
@@ -275,7 +284,7 @@ export async function POST(request, { params }) {
     });
 
     if (knowledgeItems.length > 0) {
-      const { error: insertError } = await supabase
+      const { error: insertError } = await serviceSupabase
         .from('aloa_project_knowledge')
         .insert(knowledgeItems);
 
@@ -288,7 +297,7 @@ export async function POST(request, { params }) {
       }
     }
 
-    await supabase
+    await serviceSupabase
       .from('aloa_knowledge_extraction_queue')
       .update({
         status: 'completed',
@@ -298,7 +307,7 @@ export async function POST(request, { params }) {
       .eq('source_type', 'website_content')
       .eq('project_id', projectId);
 
-    await supabase
+    await serviceSupabase
       .from('aloa_ai_context_cache')
       .delete()
       .eq('project_id', projectId);
@@ -313,17 +322,28 @@ export async function POST(request, { params }) {
       }
     });
   } catch (error) {
+    if (serviceSupabase && url) {
+      const { data: current } = await serviceSupabase
+        .from('aloa_knowledge_extraction_queue')
+        .select('attempts')
+        .eq('source_id', url)
+        .eq('source_type', 'website_content')
+        .eq('project_id', projectId)
+        .maybeSingle();
 
-    await supabase
-      .from('aloa_knowledge_extraction_queue')
-      .update({
-        status: 'failed',
-        error_message: error.message,
-        attempts: supabase.raw('attempts + 1')
-      })
-      .eq('source_id', request.body.url)
-      .eq('source_type', 'website_content')
-      .eq('project_id', params.projectId);
+      const attempts = (current?.attempts || 0) + 1;
+
+      await serviceSupabase
+        .from('aloa_knowledge_extraction_queue')
+        .update({
+          status: 'failed',
+          error_message: error.message,
+          attempts
+        })
+        .eq('source_id', url)
+        .eq('source_type', 'website_content')
+        .eq('project_id', projectId);
+    }
 
     return NextResponse.json({
       error: 'Failed to extract website content',

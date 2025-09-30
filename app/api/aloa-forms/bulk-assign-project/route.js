@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { handleSupabaseError, requireAdminServiceRole } from '@/app/api/_utils/admin';
 
 export async function PATCH(request) {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     const body = await request.json();
     const { formIds, projectId } = body;
@@ -14,7 +21,7 @@ export async function PATCH(request) {
     }
 
     // Update all forms with the new project ID
-    const { data, error } = await supabase
+    const { data, error } = await serviceSupabase
       .from('aloa_forms')
       .update({
         aloa_project_id: projectId || null,
@@ -23,11 +30,7 @@ export async function PATCH(request) {
       .in('id', formIds);
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to assign forms to project' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to assign forms to project');
     }
 
     return NextResponse.json({
@@ -37,7 +40,6 @@ export async function PATCH(request) {
     });
 
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

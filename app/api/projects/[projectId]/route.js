@@ -1,44 +1,54 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import {
+  handleSupabaseError,
+  requireAdminServiceRole,
+} from '@/app/api/_utils/admin';
 
 export async function DELETE(request, { params }) {
   try {
-    // Check if Supabase is configured
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database is not configured' },
-        { status: 503 }
-      );
+    const adminContext = await requireAdminServiceRole();
+    if (adminContext.error) {
+      return adminContext.error;
     }
+
+    const { serviceSupabase } = adminContext;
 
     const { projectId } = params;
 
     // First, unassign all forms from this project (set them to uncategorized)
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceSupabase
       .from('aloa_forms')
-      .update({ project_id: null })
-      .eq('project_id', projectId);
+      .update({
+        aloa_project_id: null,
+        project_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('aloa_project_id', projectId);
 
     if (updateError) {
+      return handleSupabaseError(updateError, 'Failed to update forms');
+    }
 
-      return NextResponse.json(
-        { error: 'Failed to update forms' },
-        { status: 500 }
-      );
+    const { error: legacyUpdateError } = await serviceSupabase
+      .from('aloa_forms')
+      .update({
+        project_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('project_id', projectId);
+
+    if (legacyUpdateError) {
+      return handleSupabaseError(legacyUpdateError, 'Failed to clear legacy form project references');
     }
 
     // Then delete the project
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await serviceSupabase
       .from('aloa_projects')
       .delete()
       .eq('id', projectId);
 
     if (deleteError) {
-
-      return NextResponse.json(
-        { error: 'Failed to delete project' },
-        { status: 500 }
-      );
+      return handleSupabaseError(deleteError, 'Failed to delete project');
     }
 
     return NextResponse.json({ success: true });
@@ -53,13 +63,12 @@ export async function DELETE(request, { params }) {
 
 export async function PATCH(request, { params }) {
   try {
-    // Check if Supabase is configured
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database is not configured' },
-        { status: 503 }
-      );
+    const adminContext = await requireAdminServiceRole();
+    if (adminContext.error) {
+      return adminContext.error;
     }
+
+    const { serviceSupabase } = adminContext;
 
     const { projectId } = params;
     const body = await request.json();
@@ -72,7 +81,7 @@ export async function PATCH(request, { params }) {
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
 
-    const { data, error } = await supabase
+    const { data, error } = await serviceSupabase
       .from('aloa_projects')
       .update(updateData)
       .eq('id', projectId)
@@ -80,11 +89,7 @@ export async function PATCH(request, { params }) {
       .single();
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to update project' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to update project');
     }
 
     return NextResponse.json(data);

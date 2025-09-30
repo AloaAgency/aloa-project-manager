@@ -1,123 +1,155 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import {
+  handleSupabaseError,
+  hasProjectAccess,
+  requireAuthenticatedSupabase,
+  requireAdminServiceRole,
+  validateUuid,
+  UUID_REGEX,
+} from '@/app/api/_utils/admin';
+import { createServiceClient } from '@/lib/supabase-service';
 
-// GET all stakeholders for a project
+function normalizeBoolean(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.toLowerCase() === 'true';
+  return fallback;
+}
+
 export async function GET(request, { params }) {
-  try {
-    const { projectId } = params;
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
 
-    const { data: stakeholders, error } = await supabase
+  const authContext = await requireAuthenticatedSupabase();
+  if (authContext.error) {
+    return authContext.error;
+  }
+
+  const { user, isAdmin } = authContext;
+  const serviceSupabase = createServiceClient();
+
+  try {
+    if (!isAdmin) {
+      const hasAccess = await hasProjectAccess(serviceSupabase, params.projectId, user.id);
+      if (!hasAccess) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    const { data: stakeholders, error } = await serviceSupabase
       .from('aloa_client_stakeholders')
       .select('*')
-      .eq('project_id', projectId)
+      .eq('project_id', params.projectId)
       .order('importance_score', { ascending: false })
       .order('is_primary', { ascending: false })
       .order('name', { ascending: true });
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to fetch stakeholders' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to fetch stakeholders');
     }
 
-    // If stakeholders found, fetch user profile data for those with user_id
-    if (stakeholders && stakeholders.length > 0) {
-      const userIds = stakeholders.filter(s => s.user_id).map(s => s.user_id);
-      if (userIds.length > 0) {
-        const { data: userProfiles } = await supabase
-          .from('aloa_user_profiles')
-          .select('id, email, full_name, avatar_url, role')
-          .in('id', userIds);
+    let enrichedStakeholders = stakeholders || [];
 
-        // Map user profiles to stakeholders
-        if (userProfiles) {
-          stakeholders.forEach(stakeholder => {
-            if (stakeholder.user_id) {
-              const userProfile = userProfiles.find(u => u.id === stakeholder.user_id);
-              stakeholder.user = userProfile || null;
-            }
-          });
-        }
+    const userIds = enrichedStakeholders
+      .map((stakeholder) => stakeholder.user_id)
+      .filter((id) => Boolean(id));
+
+    if (userIds.length > 0) {
+      const { data: profiles, error: profilesError } = await serviceSupabase
+        .from('aloa_user_profiles')
+        .select('id, email, full_name, avatar_url, role')
+        .in('id', userIds);
+
+      if (profilesError) {
+        return handleSupabaseError(profilesError, 'Failed to load stakeholder profiles');
       }
+
+      const profileMap = new Map((profiles || []).map((profile) => [profile.id, profile]));
+
+      enrichedStakeholders = enrichedStakeholders.map((stakeholder) => ({
+        ...stakeholder,
+        user: stakeholder.user_id ? profileMap.get(stakeholder.user_id) || null : null,
+      }));
     }
 
     return NextResponse.json({
-      stakeholders: stakeholders || [],
-      count: stakeholders?.length || 0
+      stakeholders: enrichedStakeholders,
+      count: enrichedStakeholders.length,
     });
-
   } catch (error) {
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Stakeholders GET error', error);
+    return NextResponse.json({ error: 'Internal server error', details: error?.message }, { status: 500 });
   }
 }
 
-// POST - Create a new stakeholder
 export async function POST(request, { params }) {
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
+
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
-    const { projectId } = params;
     const body = await request.json();
 
-    // Handle user account creation if requested
+    if (!body?.name || typeof body.name !== 'string') {
+      return NextResponse.json({ error: 'Stakeholder name is required' }, { status: 400 });
+    }
+
     let userId = body.user_id;
-    if (body.create_user && body.email) {
+    if (userId && !UUID_REGEX.test(userId)) {
+      return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+    }
+
+    if (!userId && body.create_user && body.email) {
       try {
-        // Create user invitation
         const inviteResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/invite`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Cookie': request.headers.get('cookie') || ''
+            Cookie: request.headers.get('cookie') || '',
           },
           body: JSON.stringify({
             email: body.email,
             full_name: body.name,
             role: body.user_role || 'client',
-            send_email: true
-          })
+            send_email: true,
+          }),
         });
 
         if (inviteResponse.ok) {
           const inviteData = await inviteResponse.json();
           userId = inviteData.user?.id;
 
-          // If it's a client-type role, assign them to this project
           const clientRoles = ['client', 'client_admin', 'client_participant'];
-          if (clientRoles.includes(body.user_role) || !body.user_role) {
-            const assignResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/assign-project`, {
+          if (userId && (clientRoles.includes(body.user_role) || !body.user_role)) {
+            await fetch(`${request.nextUrl.origin}/api/auth/users/assign-project`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Cookie': request.headers.get('cookie') || ''
+                Cookie: request.headers.get('cookie') || '',
               },
               body: JSON.stringify({
-                userId: userId,
-                projectId: projectId
-              })
+                userId,
+                projectId: params.projectId,
+              }),
             });
-
-            if (!assignResponse.ok) {
-
-            }
           }
-        } else {
-          const errorData = await inviteResponse.json();
-
-          // Continue without user account if creation fails
         }
       } catch (error) {
-
-        // Continue without user account if creation fails
+        // Invitation failures are non-fatal; proceed without user account.
       }
     }
 
     const stakeholderData = {
-      project_id: projectId,
+      project_id: params.projectId,
       user_id: userId || null,
       name: body.name,
       title: body.title || null,
@@ -129,157 +161,157 @@ export async function POST(request, { params }) {
       preferences: body.preferences || null,
       avatar_url: body.avatar_url || null,
       linkedin_url: body.linkedin_url || null,
-      importance_score: body.importance_score || 5,
-      is_primary: body.is_primary || false,
+      importance_score: Number.isFinite(body.importance_score) ? body.importance_score : 5,
+      is_primary: normalizeBoolean(body.is_primary, false),
       metadata: body.metadata || {},
-      created_by: body.created_by || 'admin'
+      created_by: body.created_by || 'admin',
     };
 
-    // If setting as primary, unset other primary stakeholders
     if (stakeholderData.is_primary) {
-      await supabase
+      const { error: unsetError } = await serviceSupabase
         .from('aloa_client_stakeholders')
         .update({ is_primary: false })
-        .eq('project_id', projectId)
+        .eq('project_id', params.projectId)
         .eq('is_primary', true);
+
+      if (unsetError) {
+        return handleSupabaseError(unsetError, 'Failed to reset existing primary stakeholder');
+      }
     }
 
-    const { data: stakeholder, error } = await supabase
+    const { data: stakeholder, error } = await serviceSupabase
       .from('aloa_client_stakeholders')
       .insert([stakeholderData])
-      .select()
-      .single();
-
-    // If stakeholder has user_id, fetch the user profile
-    if (stakeholder && stakeholder.user_id) {
-      const { data: userProfile } = await supabase
-        .from('aloa_user_profiles')
-        .select('id, email, full_name, avatar_url, role')
-        .eq('id', stakeholder.user_id)
-        .single();
-
-      if (userProfile) {
-        stakeholder.user = userProfile;
-      }
-    }
+      .select(
+        `
+          *,
+          user:aloa_user_profiles (
+            id,
+            email,
+            full_name,
+            avatar_url,
+            role
+          )
+        `
+      )
+      .maybeSingle();
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to create stakeholder' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to create stakeholder');
     }
 
-    // If user_id is provided, also add them to project_members table
     if (stakeholderData.user_id) {
-      // Check if user is already a project member
-      const { data: existingMember } = await supabase
+      const { data: existingMember, error: memberError } = await serviceSupabase
         .from('aloa_project_members')
         .select('id')
-        .eq('project_id', projectId)
+        .eq('project_id', params.projectId)
         .eq('user_id', stakeholderData.user_id)
-        .single();
+        .maybeSingle();
+
+      if (memberError && memberError.code !== 'PGRST116') {
+        return handleSupabaseError(memberError, 'Failed to verify project membership');
+      }
 
       if (!existingMember) {
-        // Add user as a project member with 'viewer' role (client role)
-        await supabase
+        const { error: addMemberError } = await serviceSupabase
           .from('aloa_project_members')
           .insert({
-            project_id: projectId,
+            project_id: params.projectId,
             user_id: stakeholderData.user_id,
             project_role: 'viewer',
-            added_by: body.created_by || 'admin'
+            added_by: body.created_by || 'admin',
           });
+
+        if (addMemberError) {
+          return handleSupabaseError(addMemberError, 'Failed to add stakeholder as project member');
+        }
       }
     }
 
-    // Trigger AI context update to include new stakeholder info
-    await supabase.rpc('update_project_ai_context', { p_project_id: projectId });
-
-    return NextResponse.json({
-      success: true,
-      stakeholder
+    const { error: aiError } = await serviceSupabase.rpc('update_project_ai_context', {
+      p_project_id: params.projectId,
     });
 
-  } catch (error) {
+    if (aiError && aiError.code !== 'PGRST116') {
+      return handleSupabaseError(aiError, 'Failed to refresh project AI context');
+    }
 
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, stakeholder });
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// PATCH - Update a stakeholder
 export async function PATCH(request, { params }) {
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
+
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
-    const { projectId } = params;
     const { searchParams } = new URL(request.url);
     const stakeholderId = searchParams.get('stakeholderId');
 
-    if (!stakeholderId) {
-      return NextResponse.json(
-        { error: 'Stakeholder ID required' },
-        { status: 400 }
-      );
+    if (!stakeholderId || !UUID_REGEX.test(stakeholderId)) {
+      return NextResponse.json({ error: 'Valid stakeholder ID required' }, { status: 400 });
     }
 
     const body = await request.json();
-
-    // Handle user account creation if requested for existing stakeholder
     let userId = body.user_id;
-    if (body.create_user && body.email && !body.user_id) {
+
+    if (userId && !UUID_REGEX.test(userId)) {
+      return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+    }
+
+    if (!userId && body.create_user && body.email) {
       try {
-        // Create user invitation
         const inviteResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/invite`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Cookie': request.headers.get('cookie') || ''
+            Cookie: request.headers.get('cookie') || '',
           },
           body: JSON.stringify({
             email: body.email,
             full_name: body.name,
             role: body.user_role || 'client',
-            send_email: true
-          })
+            send_email: true,
+          }),
         });
 
         if (inviteResponse.ok) {
           const inviteData = await inviteResponse.json();
           userId = inviteData.user?.id;
 
-          // If it's a client-type role, assign them to this project
           const clientRoles = ['client', 'client_admin', 'client_participant'];
-          if (clientRoles.includes(body.user_role) || !body.user_role) {
-            const assignResponse = await fetch(`${request.nextUrl.origin}/api/auth/users/assign-project`, {
+          if (userId && (clientRoles.includes(body.user_role) || !body.user_role)) {
+            await fetch(`${request.nextUrl.origin}/api/auth/users/assign-project`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Cookie': request.headers.get('cookie') || ''
+                Cookie: request.headers.get('cookie') || '',
               },
               body: JSON.stringify({
-                userId: userId,
-                projectId: projectId
-              })
+                userId,
+                projectId: params.projectId,
+              }),
             });
-
-            if (!assignResponse.ok) {
-
-            }
           }
-        } else {
-          const errorData = await inviteResponse.json();
-
         }
       } catch (error) {
-
+        // ignore invite errors
       }
     }
 
-    // Remove undefined values
     const updateData = {};
+
     if (userId !== undefined) updateData.user_id = userId;
     if (body.name !== undefined) updateData.name = body.name;
     if (body.title !== undefined) updateData.title = body.title;
@@ -292,106 +324,100 @@ export async function PATCH(request, { params }) {
     if (body.avatar_url !== undefined) updateData.avatar_url = body.avatar_url;
     if (body.linkedin_url !== undefined) updateData.linkedin_url = body.linkedin_url;
     if (body.importance_score !== undefined) updateData.importance_score = body.importance_score;
-    if (body.is_primary !== undefined) updateData.is_primary = body.is_primary;
+    if (body.is_primary !== undefined) updateData.is_primary = normalizeBoolean(body.is_primary);
     if (body.metadata !== undefined) updateData.metadata = body.metadata;
 
-    // If setting as primary, unset other primary stakeholders
     if (updateData.is_primary === true) {
-      await supabase
+      const { error: unsetError } = await serviceSupabase
         .from('aloa_client_stakeholders')
         .update({ is_primary: false })
-        .eq('project_id', projectId)
+        .eq('project_id', params.projectId)
         .eq('is_primary', true)
         .neq('id', stakeholderId);
-    }
 
-    const { data: stakeholder, error } = await supabase
-      .from('aloa_client_stakeholders')
-      .update(updateData)
-      .eq('id', stakeholderId)
-      .eq('project_id', projectId)
-      .select()
-      .single();
-
-    // If stakeholder has user_id, fetch the user profile
-    if (stakeholder && stakeholder.user_id) {
-      const { data: userProfile } = await supabase
-        .from('aloa_user_profiles')
-        .select('id, email, full_name, avatar_url, role')
-        .eq('id', stakeholder.user_id)
-        .single();
-
-      if (userProfile) {
-        stakeholder.user = userProfile;
+      if (unsetError) {
+        return handleSupabaseError(unsetError, 'Failed to reset existing primary stakeholder');
       }
     }
 
-    if (error) {
+    const { data: stakeholder, error } = await serviceSupabase
+      .from('aloa_client_stakeholders')
+      .update(updateData)
+      .eq('id', stakeholderId)
+      .eq('project_id', params.projectId)
+      .select(
+        `
+          *,
+          user:aloa_user_profiles (
+            id,
+            email,
+            full_name,
+            avatar_url,
+            role
+          )
+        `
+      )
+      .maybeSingle();
 
-      return NextResponse.json(
-        { error: 'Failed to update stakeholder' },
-        { status: 500 }
-      );
+    if (error) {
+      return handleSupabaseError(error, 'Failed to update stakeholder');
     }
 
-    // Trigger AI context update
-    await supabase.rpc('update_project_ai_context', { p_project_id: projectId });
-
-    return NextResponse.json({
-      success: true,
-      stakeholder
+    const { error: aiError } = await serviceSupabase.rpc('update_project_ai_context', {
+      p_project_id: params.projectId,
     });
 
-  } catch (error) {
+    if (aiError && aiError.code !== 'PGRST116') {
+      return handleSupabaseError(aiError, 'Failed to refresh project AI context');
+    }
 
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, stakeholder });
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// DELETE - Remove a stakeholder
 export async function DELETE(request, { params }) {
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
+
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
-    const { projectId } = params;
     const { searchParams } = new URL(request.url);
     const stakeholderId = searchParams.get('stakeholderId');
 
-    if (!stakeholderId) {
-      return NextResponse.json(
-        { error: 'Stakeholder ID required' },
-        { status: 400 }
-      );
+    if (!stakeholderId || !UUID_REGEX.test(stakeholderId)) {
+      return NextResponse.json({ error: 'Valid stakeholder ID required' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const { error } = await serviceSupabase
       .from('aloa_client_stakeholders')
       .delete()
       .eq('id', stakeholderId)
-      .eq('project_id', projectId);
+      .eq('project_id', params.projectId);
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to delete stakeholder' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to delete stakeholder');
     }
 
-    // Trigger AI context update
-    await supabase.rpc('update_project_ai_context', { p_project_id: projectId });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Stakeholder deleted successfully'
+    const { error: aiError } = await serviceSupabase.rpc('update_project_ai_context', {
+      p_project_id: params.projectId,
     });
 
-  } catch (error) {
+    if (aiError && aiError.code !== 'PGRST116') {
+      return handleSupabaseError(aiError, 'Failed to refresh project AI context');
+    }
 
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, message: 'Stakeholder deleted successfully' });
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

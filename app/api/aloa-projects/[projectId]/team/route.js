@@ -1,95 +1,40 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import { createServiceClient } from '@/lib/supabase-service';
+import {
+  handleSupabaseError,
+  hasProjectAccess,
+  requireAdminServiceRole,
+  requireAuthenticatedSupabase,
+  validateUuid,
+  UUID_REGEX,
+} from '@/app/api/_utils/admin';
 
 export async function GET(request, { params }) {
-  try {
-    const { projectId } = params;
-
-    // Use service client to bypass RLS for reading team members
-    const serviceClient = createServiceClient();
-
-    // Get team members for this project with user profile information
-    const { data: team, error } = await serviceClient
-      .from('aloa_project_members')
-      .select(`
-        *,
-        user:aloa_user_profiles!aloa_project_members_user_id_fkey(
-          id,
-          email,
-          full_name,
-          avatar_url,
-          role
-        )
-      `)
-      .eq('project_id', projectId)
-      .neq('project_role', 'viewer'); // Exclude client stakeholders (viewers)
-
-    if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to fetch team members' },
-        { status: 500 }
-      );
-    }
-
-    // Format the response to include user details
-    const formattedTeam = (team || []).map(member => ({
-      id: member.id,
-      user_id: member.user_id,
-      project_id: member.project_id,
-      project_role: member.project_role,
-      email: member.user?.email,
-      name: member.user?.full_name,
-      avatar_url: member.user?.avatar_url,
-      system_role: member.user?.role
-    }));
-
-    return NextResponse.json({
-      team: formattedTeam,
-      count: formattedTeam.length
-    });
-
-  } catch (error) {
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
   }
-}
 
-export async function POST(request, { params }) {
+  const authContext = await requireAuthenticatedSupabase();
+  if (authContext.error) {
+    return authContext.error;
+  }
+
+  const { user, isAdmin } = authContext;
+  const serviceSupabase = createServiceClient();
+
   try {
-    const { projectId } = params;
-    const body = await request.json();
-    const { user_id, project_role } = body;
-
-    if (!user_id || !project_role) {
-      return NextResponse.json(
-        { error: 'User ID and project role are required' },
-        { status: 400 }
-      );
+    if (!isAdmin) {
+      const hasAccess = await hasProjectAccess(serviceSupabase, params.projectId, user.id);
+      if (!hasAccess) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
-    // Use service client to bypass RLS for modifications
-    const serviceClient = createServiceClient();
-
-    // Check if user is already a member of this project
-    const { data: existingMember } = await serviceClient
+    const { data: team, error } = await serviceSupabase
       .from('aloa_project_members')
-      .select('id')
-      .eq('project_id', projectId)
-      .eq('user_id', user_id)
-      .single();
-
-    if (existingMember) {
-      // Update existing member's role
-      const { data: updatedMember, error: updateError } = await serviceClient
-        .from('aloa_project_members')
-        .update({ project_role })
-        .eq('id', existingMember.id)
-        .select(`
+      .select(
+        `
           *,
           user:aloa_user_profiles!aloa_project_members_user_id_fkey(
             id,
@@ -98,15 +43,85 @@ export async function POST(request, { params }) {
             avatar_url,
             role
           )
-        `)
-        .single();
+        `
+      )
+      .eq('project_id', params.projectId)
+      .neq('project_role', 'viewer');
+
+    if (error) {
+      return handleSupabaseError(error, 'Failed to fetch team members');
+    }
+
+    const formatted = (team || []).map((member) => ({
+      id: member.id,
+      user_id: member.user_id,
+      project_id: member.project_id,
+      project_role: member.project_role,
+      email: member.user?.email,
+      name: member.user?.full_name,
+      avatar_url: member.user?.avatar_url,
+      system_role: member.user?.role,
+    }));
+
+    return NextResponse.json({ team: formatted, count: formatted.length });
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function POST(request, { params }) {
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
+
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
+  try {
+    const { user_id, project_role } = await request.json();
+
+    if (!user_id || !UUID_REGEX.test(user_id) || !project_role) {
+      return NextResponse.json({ error: 'Valid user ID and project role are required' }, { status: 400 });
+    }
+
+    const { data: existingMember, error: existingError } = await serviceSupabase
+      .from('aloa_project_members')
+      .select('id')
+      .eq('project_id', params.projectId)
+      .eq('user_id', user_id)
+      .maybeSingle();
+
+    if (existingError && existingError.code !== 'PGRST116') {
+      return handleSupabaseError(existingError, 'Failed to verify existing team member');
+    }
+
+    if (existingMember) {
+      const { data: updatedMember, error: updateError } = await serviceSupabase
+        .from('aloa_project_members')
+        .update({ project_role })
+        .eq('id', existingMember.id)
+        .eq('project_id', params.projectId)
+        .select(
+          `
+            *,
+            user:aloa_user_profiles!aloa_project_members_user_id_fkey(
+              id,
+              email,
+              full_name,
+              avatar_url,
+              role
+            )
+          `
+        )
+        .maybeSingle();
 
       if (updateError) {
-
-        return NextResponse.json(
-          { error: 'Failed to update team member' },
-          { status: 500 }
-        );
+        return handleSupabaseError(updateError, 'Failed to update team member');
       }
 
       return NextResponse.json({
@@ -119,37 +134,36 @@ export async function POST(request, { params }) {
           email: updatedMember.user?.email,
           name: updatedMember.user?.full_name,
           avatar_url: updatedMember.user?.avatar_url,
-          system_role: updatedMember.user?.role
-        }
+          system_role: updatedMember.user?.role,
+        },
       });
     }
 
-    // Add new team member using service client to bypass RLS
-    const { data: newMember, error } = await serviceClient
+    const { data: newMember, error } = await serviceSupabase
       .from('aloa_project_members')
-      .insert([{
-        project_id: projectId,
-        user_id,
-        project_role
-      }])
-      .select(`
-        *,
-        user:aloa_user_profiles!aloa_project_members_user_id_fkey(
-          id,
-          email,
-          full_name,
-          avatar_url,
-          role
-        )
-      `)
-      .single();
+      .insert([
+        {
+          project_id: params.projectId,
+          user_id,
+          project_role,
+        },
+      ])
+      .select(
+        `
+          *,
+          user:aloa_user_profiles!aloa_project_members_user_id_fkey(
+            id,
+            email,
+            full_name,
+            avatar_url,
+            role
+          )
+        `
+      )
+      .maybeSingle();
 
     if (error) {
-
-      return NextResponse.json(
-        { error: error.message || 'Failed to add team member' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to add team member');
     }
 
     return NextResponse.json({
@@ -162,59 +176,47 @@ export async function POST(request, { params }) {
         email: newMember.user?.email,
         name: newMember.user?.full_name,
         avatar_url: newMember.user?.avatar_url,
-        system_role: newMember.user?.role
-      }
+        system_role: newMember.user?.role,
+      },
     });
-
   } catch (error) {
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function DELETE(request, { params }) {
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
+
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
-    const { projectId } = params;
     const { searchParams } = new URL(request.url);
     const memberId = searchParams.get('memberId');
 
-    if (!memberId) {
-      return NextResponse.json(
-        { error: 'Member ID required' },
-        { status: 400 }
-      );
+    if (!memberId || !UUID_REGEX.test(memberId)) {
+      return NextResponse.json({ error: 'Valid member ID required' }, { status: 400 });
     }
 
-    // Use service client to bypass RLS for deletions
-    const serviceClient = createServiceClient();
-
-    const { error } = await serviceClient
+    const { error } = await serviceSupabase
       .from('aloa_project_members')
       .delete()
       .eq('id', memberId)
-      .eq('project_id', projectId);
+      .eq('project_id', params.projectId);
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to remove team member' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to remove team member');
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Team member removed'
-    });
-
+    return NextResponse.json({ success: true, message: 'Team member removed' });
   } catch (error) {
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

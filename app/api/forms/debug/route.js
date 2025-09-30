@@ -1,15 +1,24 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { handleSupabaseError, requireAdminServiceRole } from '@/app/api/_utils/admin';
 
 export async function GET() {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     // Fetch all forms to see their current URLs
-    const { data: forms, error } = await supabase
+    const { data: forms, error } = await serviceSupabase
       .from('aloa_forms')
       .select('id, title, url_id, created_at, updated_at')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      return handleSupabaseError(error, 'Failed to fetch forms');
+    }
 
     return NextResponse.json({
       forms: forms.map(form => ({
@@ -22,7 +31,6 @@ export async function GET() {
       }))
     });
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Failed to fetch forms' },
       { status: 500 }

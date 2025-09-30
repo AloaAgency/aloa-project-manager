@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { handleSupabaseError, requireAdminServiceRole } from '@/app/api/_utils/admin';
 import { parseMarkdownToForm } from '@/lib/markdownParser';
 import { nanoid } from 'nanoid';
 import { validateFileUpload, sanitizeText } from '@/lib/security';
 
 export async function POST(request) {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     // Verify CSRF token (skip for AI-generated forms if no token exists yet)
     const csrfToken = request.headers.get('X-CSRF-Token');
@@ -76,7 +83,7 @@ export async function POST(request) {
         project_id: projectId || null // Add project_id if provided
       };
 
-      const { data: form, error: formError } = await supabase
+      const { data: form, error: formError } = await serviceSupabase
         .from('aloa_forms')
         .insert([formToInsert])
         .select()
@@ -113,13 +120,13 @@ export async function POST(request) {
           };
         });
 
-        const { error: fieldsError } = await supabase
+        const { error: fieldsError } = await serviceSupabase
           .from('aloa_form_fields')
           .insert(fieldsToInsert);
 
         if (fieldsError) {
           // Rollback by deleting the form
-          await supabase.from('aloa_forms').delete().eq('id', form.id);
+          await serviceSupabase.from('aloa_forms').delete().eq('id', form.id);
           throw fieldsError;
         }
       }
@@ -130,6 +137,9 @@ export async function POST(request) {
         title: form.title
       });
     } catch (parseError) {
+      if (parseError.code) {
+        return handleSupabaseError(parseError, 'Failed to process upload');
+      }
 
       return NextResponse.json(
         { error: parseError.message || 'Invalid markdown format' },
@@ -137,6 +147,9 @@ export async function POST(request) {
       );
     }
   } catch (error) {
+    if (error?.code) {
+      return handleSupabaseError(error, 'Failed to process upload');
+    }
 
     return NextResponse.json(
       { error: 'Failed to process upload' },

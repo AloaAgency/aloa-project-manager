@@ -1,10 +1,21 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { handleSupabaseError, requireAdminServiceRole } from '@/app/api/_utils/admin';
 
 export async function PATCH(request, { params }) {
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
     const { fields, title, description } = await request.json();
     const { formId } = params;
+
+    if (!Array.isArray(fields)) {
+      return NextResponse.json({ error: 'Fields must be an array' }, { status: 400 });
+    }
 
     // Update form title and description if provided
     if (title !== undefined || description !== undefined) {
@@ -16,32 +27,24 @@ export async function PATCH(request, { params }) {
       if (title !== undefined) updateData.title = title;
       if (description !== undefined) updateData.description = description;
 
-      const { error: formUpdateError } = await supabase
+      const { error: formUpdateError } = await serviceSupabase
         .from('aloa_forms')
         .update(updateData)
         .eq('id', formId);
 
       if (formUpdateError) {
-
-        return NextResponse.json(
-          { error: 'Failed to update form' },
-          { status: 500 }
-        );
+        return handleSupabaseError(formUpdateError, 'Failed to update form');
       }
     }
 
     // Get existing fields to determine which ones to delete
-    const { data: existingFields, error: fetchError } = await supabase
+    const { data: existingFields, error: fetchError } = await serviceSupabase
       .from('aloa_form_fields')
       .select('id')
-      .eq('form_id', formId);
+      .eq('aloa_form_id', formId);
 
     if (fetchError) {
-
-      return NextResponse.json(
-        { error: 'Failed to fetch existing fields' },
-        { status: 500 }
-      );
+      return handleSupabaseError(fetchError, 'Failed to fetch existing fields');
     }
 
     // Find fields to delete (exist in DB but not in the updated list)
@@ -50,17 +53,13 @@ export async function PATCH(request, { params }) {
 
     // Delete removed fields
     if (fieldsToDelete.length > 0) {
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await serviceSupabase
         .from('aloa_form_fields')
         .delete()
         .in('id', fieldsToDelete.map(f => f.id));
 
       if (deleteError) {
-
-        return NextResponse.json(
-          { error: 'Failed to delete fields' },
-          { status: 500 }
-        );
+        return handleSupabaseError(deleteError, 'Failed to delete fields');
       }
     }
 
@@ -75,7 +74,6 @@ export async function PATCH(request, { params }) {
         field_order: index, // Use the array index as the new order
         // Preserve these critical fields
         id: field.id,
-        form_id: field.form_id,
         field_name: field.field_name,
         field_type: field.field_type,
         section: field.section,
@@ -84,11 +82,11 @@ export async function PATCH(request, { params }) {
         pattern: field.pattern
       };
 
-      return supabase
+      return serviceSupabase
         .from('aloa_form_fields')
         .update(safeUpdates)
         .eq('id', field.id)
-        .eq('form_id', formId); // Extra safety check
+        .eq('aloa_form_id', formId); // Extra safety check
     });
 
     const results = await Promise.all(updatePromises);
@@ -96,16 +94,12 @@ export async function PATCH(request, { params }) {
     // Check for errors
     const errors = results.filter(result => result.error);
     if (errors.length > 0) {
-
-      return NextResponse.json(
-        { error: 'Failed to update some fields' },
-        { status: 500 }
-      );
+      const firstError = errors[0].error;
+      return handleSupabaseError(firstError, 'Failed to update some fields');
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Failed to update form fields' },
       { status: 500 }

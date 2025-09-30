@@ -1,40 +1,65 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServiceClient } from '@/lib/supabase-service';
+import {
+  handleSupabaseError,
+  hasProjectAccess,
+  requireAdminServiceRole,
+  requireAuthenticatedSupabase,
+  validateUuid,
+} from '@/app/api/_utils/admin';
 
-// GET notifications for a project
 export async function GET(request, { params }) {
-  try {
-    const { projectId } = params;
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
 
-    // Get recent applet interactions from clients (exclude system role)
-    const { data: interactions, error } = await supabase
+  const authContext = await requireAuthenticatedSupabase();
+  if (authContext.error) {
+    return authContext.error;
+  }
+
+  const { user, isAdmin } = authContext;
+  const serviceSupabase = createServiceClient();
+
+  try {
+    if (!isAdmin) {
+      const hasAccess = await hasProjectAccess(serviceSupabase, params.projectId, user.id);
+      if (!hasAccess) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    const { data: interactions, error } = await serviceSupabase
       .from('aloa_applet_interactions')
-      .select(`
-        *,
-        applet:aloa_applets(
-          id,
-          name,
-          type,
-          requires_approval,
-          projectlet:aloa_projectlets(
+      .select(
+        `
+          *,
+          applet:aloa_applets(
             id,
-            name
+            name,
+            type,
+            requires_approval,
+            projectlet:aloa_projectlets(
+              id,
+              name
+            )
           )
-        )
-      `)
-      .eq('project_id', projectId)
-      .eq('user_role', 'client')  // Only show client interactions
+        `
+      )
+      .eq('project_id', params.projectId)
+      .eq('user_role', 'client')
       .order('created_at', { ascending: false })
       .limit(50);
 
     if (error) {
-
-      return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
+      return handleSupabaseError(error, 'Failed to fetch notifications');
     }
 
-    // Transform interactions into notifications
-    const notifications = interactions?.map(interaction => {
-      let title, message, type;
+    const notifications = (interactions || []).map((interaction) => {
+      let title;
+      let message;
+      let type;
 
       switch (interaction.interaction_type) {
         case 'form_submit':
@@ -97,48 +122,65 @@ export async function GET(request, { params }) {
         created_at: interaction.created_at,
         read: interaction.read || false,
         applet_id: interaction.applet_id,
-        data: interaction.data
+        data: interaction.data,
       };
-    }) || [];
+    });
 
     return NextResponse.json({ notifications });
   } catch (error) {
-
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST create a new notification (called when client completes something)
 export async function POST(request, { params }) {
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
+
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
-    const { projectId } = params;
     const { appletId, type, title, message, data } = await request.json();
 
-    // Create an interaction record that will serve as a notification
-    const { data: interaction, error } = await supabase
+    const appletValidation = validateUuid(appletId, 'applet ID');
+    if (appletValidation) {
+      return appletValidation;
+    }
+
+    if (!type || typeof type !== 'string') {
+      return NextResponse.json({ error: 'Notification type is required' }, { status: 400 });
+    }
+
+    const { data: interaction, error } = await serviceSupabase
       .from('aloa_applet_interactions')
-      .insert([{
-        applet_id: appletId,
-        project_id: projectId,
-        interaction_type: type,
-        user_role: 'system',
-        data: {
-          notification_title: title,
-          notification_message: message,
-          ...data
-        }
-      }])
+      .insert([
+        {
+          applet_id: appletId,
+          project_id: params.projectId,
+          interaction_type: type,
+          user_role: 'system',
+          data: {
+            notification_title: title,
+            notification_message: message,
+            ...data,
+          },
+        },
+      ])
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
-
-      return NextResponse.json({ error: 'Failed to create notification' }, { status: 500 });
+      return handleSupabaseError(error, 'Failed to create notification');
     }
 
     return NextResponse.json({ success: true, notification: interaction });
   } catch (error) {
-
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

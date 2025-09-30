@@ -1,84 +1,85 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import {
+  handleSupabaseError,
+  requireAdminServiceRole,
+  validateUuid,
+  UUID_REGEX,
+} from '@/app/api/_utils/admin';
 
 export async function POST(request, { params }) {
+  const projectValidation = validateUuid(params.projectId, 'project ID');
+  if (projectValidation) {
+    return projectValidation;
+  }
+
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
+
+  const { serviceSupabase } = adminContext;
+
   try {
-    const { projectId } = params;
     const { projectletId, newIndex } = await request.json();
 
-    // Get all projectlets for this project, ordered by order_index
-    const { data: projectlets, error: fetchError } = await supabase
+    if (!projectletId || !UUID_REGEX.test(projectletId)) {
+      return NextResponse.json({ error: 'Valid projectlet ID required' }, { status: 400 });
+    }
+
+    if (typeof newIndex !== 'number' || newIndex < 0) {
+      return NextResponse.json({ error: 'New index must be a non-negative number' }, { status: 400 });
+    }
+
+    const { data: projectlets, error: fetchError } = await serviceSupabase
       .from('aloa_projectlets')
       .select('id, order_index')
-      .eq('project_id', projectId)
+      .eq('project_id', params.projectId)
       .order('order_index', { ascending: true });
 
     if (fetchError) {
-
-      return NextResponse.json(
-        { error: 'Failed to fetch projectlets' },
-        { status: 500 }
-      );
+      return handleSupabaseError(fetchError, 'Failed to fetch projectlets');
     }
 
-    // Find the current projectlet
-    const currentIndex = projectlets.findIndex(p => p.id === projectletId);
+    const currentIndex = (projectlets || []).findIndex((p) => p.id === projectletId);
+
     if (currentIndex === -1) {
-      return NextResponse.json(
-        { error: 'Projectlet not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Projectlet not found' }, { status: 404 });
     }
 
-    // Remove the projectlet from its current position
-    const [movedProjectlet] = projectlets.splice(currentIndex, 1);
+    const ordered = [...projectlets];
+    const [movedProjectlet] = ordered.splice(currentIndex, 1);
+    ordered.splice(newIndex, 0, movedProjectlet);
 
-    // Insert it at the new position
-    projectlets.splice(newIndex, 0, movedProjectlet);
-
-    // Update order_index for all affected projectlets
-    const updates = projectlets.map((projectlet, index) => ({
-      id: projectlet.id,
-      order_index: index
-    }));
-
-    // Batch update all projectlets with new order indexes
-    for (const update of updates) {
-      const { error: updateError } = await supabase
+    for (let index = 0; index < ordered.length; index += 1) {
+      const { error: updateError } = await serviceSupabase
         .from('aloa_projectlets')
-        .update({ order_index: update.order_index })
-        .eq('id', update.id);
+        .update({ order_index: index })
+        .eq('id', ordered[index].id)
+        .eq('project_id', params.projectId);
 
       if (updateError) {
-
-        return NextResponse.json(
-          { error: 'Failed to update projectlet order' },
-          { status: 500 }
-        );
+        return handleSupabaseError(updateError, 'Failed to update projectlet order');
       }
     }
 
-    // Add timeline event
-    await supabase
+    const { error: timelineError } = await serviceSupabase
       .from('aloa_project_timeline')
-      .insert([{
-        project_id: projectId,
-        projectlet_id: projectletId,
-        event_type: 'projectlet_reordered',
-        description: `Projectlet reordered to position ${newIndex + 1}`,
-        metadata: { from_index: currentIndex, to_index: newIndex }
-      }]);
+      .insert([
+        {
+          project_id: params.projectId,
+          projectlet_id: projectletId,
+          event_type: 'projectlet_reordered',
+          description: `Projectlet reordered to position ${newIndex + 1}`,
+          metadata: { from_index: currentIndex, to_index: newIndex },
+        },
+      ]);
 
-    return NextResponse.json({
-      success: true,
-      message: 'Projectlets reordered successfully'
-    });
+    if (timelineError) {
+      return handleSupabaseError(timelineError, 'Failed to record projectlet reorder');
+    }
 
+    return NextResponse.json({ success: true, message: 'Projectlets reordered successfully' });
   } catch (error) {
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

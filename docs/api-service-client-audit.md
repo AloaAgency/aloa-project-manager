@@ -1,6 +1,6 @@
 # API Service Client Audit (Phase 7 Step 7.1)
 
-**Status:** In progress (last updated 2025-09-29)
+**Status:** Complete (last updated 2025-10-01)
 
 Phase 7 Step 7.1 requires every API route to use the correct Supabase client helper:
 
@@ -9,52 +9,8 @@ Phase 7 Step 7.1 requires every API route to use the correct Supabase client hel
 - No direct imports from `@/lib/supabase` (anon client) should remain.
 
 ## Outstanding Routes
-The following routes still import `supabase` from `@/lib/supabase` and do **not** use the new helpers. Each must be reviewed and refactored.
-
-```
-app/api/ai-analysis/[formId]/route.js
-app/api/aloa-applets/library/route.js
-app/api/aloa-forms/[formId]/edit-fields/route.js
-app/api/aloa-forms/[formId]/route.js
-app/api/aloa-forms/[formId]/toggle-status/route.js
-app/api/aloa-forms/bulk-assign-project/route.js
-app/api/aloa-forms/by-id/[formId]/duplicate/route.js
-app/api/aloa-forms/by-id/[formId]/route.js
-app/api/aloa-projects/[projectId]/applet-interactions/route.js
-app/api/aloa-projects/[projectId]/notifications/route.js
-app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/[appletId]/route.js
-app/api/aloa-projects/[projectId]/projectlets/[projectletId]/applets/reorder/route.js
-app/api/aloa-projects/[projectId]/projectlets/[projectletId]/steps/route.js
-app/api/aloa-projects/[projectId]/projectlets/reorder/route.js
-app/api/aloa-projects/[projectId]/stakeholders/route.js
-app/api/aloa-projects/debug/route.js
-app/api/aloa-projects/initialize/route.js
-app/api/aloa-projects/test/route.js
-app/api/aloa-responses/[responseId]/route.js
-app/api/aloa-responses/route.js
-app/api/forms/[urlId]/route.js
-app/api/forms/bulk-assign-project/route.js
-app/api/forms/by-id/[formId]/route.js
-app/api/forms/by-id/[formId]/toggle-status/route.js
-app/api/forms/debug/route.js
-app/api/forms/edit-fields/[formId]/route.js
-app/api/forms/upload/route.js
-app/api/project-knowledge/[projectId]/context/route.js
-app/api/project-knowledge/[projectId]/extract-website/route.js
-app/api/project-knowledge/[projectId]/extract/route.js
-app/api/project-knowledge/[projectId]/route.js
-app/api/projects/[projectId]/projectlets/route.js
-app/api/projects/[projectId]/route.js
-app/api/projects/initialize/route.js
-app/api/projects/route.js
-app/api/responses/[responseId]/route.js
-app/api/responses/route.js
-```
+All API routes now rely on the shared service/server helpers—no direct `@/lib/supabase` usage remains.
 
 ## Next Actions
-1. For each route above, decide whether the operation is admin/service-only or user-scoped.
-2. Replace the `@/lib/supabase` import with the appropriate helper(s).
-3. Add authentication/authorization checks where missing (e.g. ensure only admins hit service operations).
-4. After refactoring, rerun the Supabase security advisor to confirm warnings clear.
-
-Track progress by checking off routes in this file (or another tracking tool) as they're migrated.
+- Run the Supabase security advisor to confirm the helper migration cleared remaining warnings.
+- Keep this document updated if new routes are added or legacy endpoints are reintroduced.

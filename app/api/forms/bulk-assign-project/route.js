@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { handleSupabaseError, requireAdminServiceRole } from '@/app/api/_utils/admin';
 
 export async function PATCH(request) {
-  try {
-    // Check if Supabase is configured
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database is not configured' },
-        { status: 503 }
-      );
-    }
+  const adminContext = await requireAdminServiceRole();
+  if (adminContext.error) {
+    return adminContext.error;
+  }
 
+  const { serviceSupabase } = adminContext;
+
+  try {
     const { formIds, projectId } = await request.json();
 
     if (!formIds || !Array.isArray(formIds) || formIds.length === 0) {
@@ -22,7 +21,7 @@ export async function PATCH(request) {
 
     // Update all specified forms with the new project_id
     // This does NOT change the url_id, so public URLs remain the same
-    const { data, error } = await supabase
+    const { data, error } = await serviceSupabase
       .from('aloa_forms')
       .update({ 
         project_id: projectId || null,
@@ -31,11 +30,7 @@ export async function PATCH(request) {
       .in('id', formIds);
 
     if (error) {
-
-      return NextResponse.json(
-        { error: 'Failed to update forms' },
-        { status: 500 }
-      );
+      return handleSupabaseError(error, 'Failed to update forms');
     }
 
     return NextResponse.json({ 
@@ -43,7 +38,6 @@ export async function PATCH(request) {
       message: `Successfully updated ${formIds.length} form(s)` 
     });
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Failed to bulk assign project' },
       { status: 500 }

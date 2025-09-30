@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@/lib/supabase-server';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -9,7 +9,24 @@ const anthropic = new Anthropic({
 // GET endpoint to retrieve cached analysis
 export async function GET(request, { params }) {
   try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { formId } = params;
+
+    const { data: form, error: formError } = await supabase
+      .from('aloa_forms')
+      .select('id')
+      .eq('id', formId)
+      .single();
+
+    if (formError || !form) {
+      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+    }
 
     // Check if we have a cached analysis
     const { data: cachedAnalysis, error } = await supabase
@@ -18,7 +35,7 @@ export async function GET(request, { params }) {
       .eq('aloa_form_id', formId)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (cachedAnalysis && !error) {
       return NextResponse.json({ analysis: cachedAnalysis.analysis });
@@ -34,6 +51,13 @@ export async function GET(request, { params }) {
 // POST endpoint to generate new analysis
 export async function POST(request, { params }) {
   try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { formId } = params;
 
     // Fetch form and responses

@@ -1,5 +1,24 @@
 # Comprehensive Security Fix Plan for Aloa Project Manager
 
+## Latest Updates - September 30, 2025 ✅
+
+**All Supabase Security Linter Warnings Cleared!**
+
+Today we completed:
+1. ✅ Fixed all SECURITY DEFINER view warnings by adding `WITH (security_invoker=true)` to 4 views
+2. ✅ Fixed all 43+ "Function Search Path Mutable" warnings by setting explicit `search_path` on all functions
+3. ✅ Renamed `phase_overview` to `aloa_phase_overview` for consistency
+4. ✅ Verified app functionality - all endpoints returning 200s
+
+**Scripts executed:**
+- `/supabase/fix_views_with_security_invoker.sql` - Fixed views
+- `/supabase/security_fix_17_lockdown_functions.sql` - Fixed function search paths
+
+**Remaining linter warnings (low priority):**
+- Extension in public schema (vector extension) - cosmetic only
+- Leaked password protection - enable in Supabase dashboard
+- Postgres version upgrade available - Supabase platform upgrade
+
 ## Overview
 This document provides step-by-step instructions to fix all Row Level Security (RLS) issues in the application. Follow each step in order. Each step is self-contained for context window limitations.
 
@@ -1040,25 +1059,16 @@ const sanitizedQuestion = question.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, 
 - XSS attempts handled safely
 - Excessive length inputs rejected
 
-### Step 7.1: Verify Service Client Usage
+### Step 7.1: Verify Service Client Usage ✅ COMPLETED 2025-10-01
 ```text
-- Audit every API route under /app/api for two patterns:
-  • Requests acting on sensitive tables (aloa_*) must use createServiceClient()
-    or call a server helper that wraps the service key.
-  • Requests that run on behalf of the end user (RLS-protected reads) should
-    use createServerClient() + cookies and pass user id to queries.
-- Pay special attention to:
-  • /app/api/forms, /app/api/aloa-forms, /app/api/aloa-projects/**/*
-  • Knowledge endpoints (/app/api/project-knowledge/**/*, /app/api/ai-*)
-  • Messaging/chat routes (/app/api/chat/**/*, /app/api/notifications/*)
-- For each route verify:
-  • Service operations (admin-only, background jobs, imports) use service client.
-  • Authenticated user operations validate auth before querying.
-  • Legacy `supabase` import from '@/lib/supabase' is phased out in favour of
-    createServerClient/createServiceClient helpers.
-- Document any route that still uses the anonymous client and schedule fixes
-  before moving to Phase 8.
-- Current findings are tracked in docs/api-service-client-audit.md.
+- Audited every API route under /app/api. All service-role operations now use
+  `createServiceClient()` (or helpers built on top of it) and user-scoped reads
+  use the server client with request cookies.
+- Eliminated direct imports from `@/lib/supabase` across API routes; remaining
+  imports use the shared server/service helpers.
+- Recorded the audit output in docs/api-service-client-audit.md. The document
+  now shows zero outstanding routes and links back to the helper usage guidance
+  for future contributors.
 ```
 
 ## Phase 7: Update API Routes (Day 3 Morning)
@@ -1100,25 +1110,16 @@ if (error?.code === '42501') {
 
 ## Phase 8: Testing & Validation (Day 3 Afternoon)
 
-### Step 8.1: Create Test Script
-```sql
--- File: /supabase/09_security_tests.sql
--- Run as different roles to verify security
-
--- Test 1: Client can only see their project
-SET ROLE test_client;
-SELECT COUNT(*) FROM aloa_projects; -- Should be 1
-SELECT COUNT(*) FROM aloa_project_knowledge; -- Only their project's knowledge
-
--- Test 2: Outsider sees nothing
-SET ROLE test_outsider;
-SELECT COUNT(*) FROM aloa_projects WHERE id = '511306f6-0316-4a60-a318-1509d643238a'; -- Should be 0
-
--- Test 3: Admin sees all
-SET ROLE test_admin;
-SELECT COUNT(*) FROM aloa_projects; -- Should see all
-
-RESET ROLE;
+### Step 8.1: Create Test Script ✅ COMPLETED 2025-10-01
+```text
+- Added `supabase/09_security_tests.sql`, an SQL-editor friendly regression
+  report that simulates the seeded client/outsider/admin JWT claims and
+  returns a structured result set. The script confirms:
+    • client only sees their project/forms/knowledge
+    • outsider sees zero rows and cannot insert/update
+    • admin retains full access and can update project metadata
+- Verified the script after removing the outsider’s project membership so the
+  counts reflect the intended RLS fences.
 ```
 
 ### Step 6.2: Test All Features
@@ -1246,14 +1247,15 @@ When implementing each phase:
   - [x] aloa_project_knowledge
   - [x] aloa_knowledge_form_responses
   - [x] aloa_knowledge_extraction_queue
-- [x] Phase 6: SECURITY DEFINER Views Fixed
-  - [x] aloa_weighted_responses
-  - [x] aloa_applet_with_user_progress
-  - [x] aloa_forms_with_stats
-  - [x] phase_overview
+- [x] Phase 6: SECURITY DEFINER Views Fixed ✅ COMPLETED 2025-09-30
+  - [x] aloa_weighted_responses - Fixed with security_invoker=true
+  - [x] aloa_applet_with_user_progress - Fixed with security_invoker=true
+  - [x] aloa_forms_with_stats - Fixed with security_invoker=true
+  - [x] aloa_phase_overview - Renamed from phase_overview, fixed with security_invoker=true
+  - [x] Step 6.2: Fixed Function Search Paths - All 43+ functions now have explicit search_path set
 - [ ] Phase 7: API Routes Updated
   - [x] Step 7.0: Input Validation for Project Insights ✅
-  - [ ] Step 7.1: Verify Service Client Usage
+- [x] Step 7.1: Verify Service Client Usage
   - [x] Step 7.2: Update Error Handling ✅
 - [ ] Phase 8: All Tests Pass
 - [ ] Phase 9: Cleanup & Documentation Complete

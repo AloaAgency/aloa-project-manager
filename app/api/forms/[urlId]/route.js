@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { handleSupabaseError, requireAuthenticatedSupabase } from '@/app/api/_utils/admin';
 
 export async function GET(request, { params }) {
+  const authContext = await requireAuthenticatedSupabase();
+  if (authContext.error) {
+    return authContext.error;
+  }
+
+  const { supabase } = authContext;
+
   try {
     // Fetch form with its fields
     const { data: form, error } = await supabase
@@ -21,13 +28,14 @@ export async function GET(request, { params }) {
         )
       `)
       .eq('url_id', params.urlId)
-      .single();
+      .maybeSingle();
 
-    if (error || !form) {
-      return NextResponse.json(
-        { error: 'Form not found' },
-        { status: 404 }
-      );
+    if (error) {
+      return handleSupabaseError(error, 'Failed to fetch form');
+    }
+
+    if (!form) {
+      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
     // Sort fields by position and format response
@@ -54,7 +62,6 @@ export async function GET(request, { params }) {
       updatedAt: form.updated_at
     });
   } catch (error) {
-
     return NextResponse.json(
       { error: 'Failed to fetch form' },
       { status: 500 }

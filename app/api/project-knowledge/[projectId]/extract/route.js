@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
+import { authorizeProjectAccess } from '@/app/api/project-knowledge/utils/auth';
 
 export async function POST(request, { params }) {
   try {
     const { projectId } = params;
     const body = await request.json();
     const { sourceType, sourceId, triggerType } = body;
+
+    const auth = await authorizeProjectAccess(projectId, { requireAdmin: true });
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
 
     const extractor = new KnowledgeExtractor(projectId);
     let result = null;
@@ -45,7 +52,7 @@ export async function POST(request, { params }) {
         }, { status: 400 });
     }
 
-    await supabase
+    await serviceSupabase
       .from('aloa_ai_context_cache')
       .delete()
       .eq('project_id', projectId);
@@ -69,7 +76,14 @@ export async function GET(request, { params }) {
   try {
     const { projectId } = params;
 
-    const { data: queueItems, error } = await supabase
+    const auth = await authorizeProjectAccess(projectId, { requireAdmin: true });
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const { serviceSupabase } = auth;
+
+    const { data: queueItems, error } = await serviceSupabase
       .from('aloa_knowledge_extraction_queue')
       .select('*')
       .eq('project_id', projectId)
