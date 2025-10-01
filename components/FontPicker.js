@@ -174,10 +174,6 @@ export default function FontPicker({
     link.dataset.fontpickerFonts = 'true';
     document.head.appendChild(link);
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Loading Google Fonts:', link.href);
-    }
-
     return () => {
       if (document.head.contains(link)) {
         document.head.removeChild(link);
