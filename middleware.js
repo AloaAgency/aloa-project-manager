@@ -302,9 +302,9 @@ export async function middleware(request) {
   const cspDirectives = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https: blob:",
-    "font-src 'self' data:",
+    "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' https://*.supabase.co https://vercel.live wss://ws-us3.pusher.com",
     "frame-src 'self' https://vercel.live https://player.vimeo.com https://www.youtube-nocookie.com https://www.youtube.com",
     "form-action 'self'",

@@ -287,6 +287,16 @@ function AdminProjectPageContent() {
     selectedTone: null,
     submittedAt: null
   });
+  const [showFontPickerModal, setShowFontPickerModal] = useState(false);
+  const [selectedFontData, setSelectedFontData] = useState({
+    userName: null,
+    fontStatus: null,
+    fontStatusLabel: null,
+    customFonts: null,
+    selectedPairings: [],
+    selectedPairingDetails: [],
+    submittedAt: null
+  });
   const [showClientReviewModal, setShowClientReviewModal] = useState(false);
   const [showCopyCollectionModal, setShowCopyCollectionModal] = useState(false);
   const [selectedCopyCollectionData, setSelectedCopyCollectionData] = useState(null);
@@ -2290,78 +2300,64 @@ function AdminProjectPageContent() {
           {/* Main Content - Projectlets */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Projectlets Management</h2>
-                <div className="flex items-center gap-2">
-                  {/* Bulk Actions */}
-                  {showBulkActions && (
-                    <div className="flex items-center gap-2 mr-2 p-2 bg-blue-50 rounded-lg">
-                      <span className="text-sm text-blue-700 font-medium">
-                        {selectedProjectlets.size} selected
-                      </span>
-                      <button
-                        onClick={handleBulkDelete}
-                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete Selected
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => {
-                      // Get all applet IDs
-                      const allAppletIds = [];
-                      projectlets.forEach(p => {
-                        const applets = projectletApplets[p.id] || [];
-                        applets.forEach(a => allAppletIds.push(a.id));
-                      });
-                      
-                      const allExpanded = allAppletIds.length > 0 && 
-                                         allAppletIds.every(id => expandedApplets[id]);
-                      
-                      if (allExpanded) {
-                        setExpandedApplets({});
-                      } else {
-                        const expanded = {};
-                        allAppletIds.forEach(id => expanded[id] = true);
-                        setExpandedApplets(expanded);
-                      }
-                    }}
-                    className="px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 flex items-center"
-                    title="Expand/Collapse All Applets"
-                  >
-                    {(() => {
-                      const allAppletIds = [];
-                      projectlets.forEach(p => {
-                        const applets = projectletApplets[p.id] || [];
-                        applets.forEach(a => allAppletIds.push(a.id));
-                      });
-                      const allExpanded = allAppletIds.length > 0 && 
-                                         allAppletIds.every(id => expandedApplets[id]);
-                      return allExpanded ? (
-                        <>
-                          <ChevronUp className="w-4 h-4 mr-1" />
-                          Collapse All
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-4 h-4 mr-1" />
-                          Expand All
-                        </>
-                      );
-                    })()}
-                  </button>
-                  <button
-                    onClick={addProjectlet}
-                    className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Projectlet
-                  </button>
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="text-xl font-bold">Projectlets Management</h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        // Get all applet IDs
+                        const allAppletIds = [];
+                        projectlets.forEach(p => {
+                          const applets = projectletApplets[p.id] || [];
+                          applets.forEach(a => allAppletIds.push(a.id));
+                        });
 
-                  {/* Template Menu */}
-                  <div className="relative">
+                        const allExpanded = allAppletIds.length > 0 &&
+                                           allAppletIds.every(id => expandedApplets[id]);
+
+                        if (allExpanded) {
+                          setExpandedApplets({});
+                        } else {
+                          const expanded = {};
+                          allAppletIds.forEach(id => expanded[id] = true);
+                          setExpandedApplets(expanded);
+                        }
+                      }}
+                      className="px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 flex items-center whitespace-nowrap"
+                      title="Expand/Collapse All Applets"
+                    >
+                      {(() => {
+                        const allAppletIds = [];
+                        projectlets.forEach(p => {
+                          const applets = projectletApplets[p.id] || [];
+                          applets.forEach(a => allAppletIds.push(a.id));
+                        });
+                        const allExpanded = allAppletIds.length > 0 &&
+                                           allAppletIds.every(id => expandedApplets[id]);
+                        return allExpanded ? (
+                          <>
+                            <ChevronUp className="w-4 h-4 mr-1" />
+                            Collapse All
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-4 h-4 mr-1" />
+                            Expand All
+                          </>
+                        );
+                      })()}
+                    </button>
+                    <button
+                      onClick={addProjectlet}
+                      className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center whitespace-nowrap"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Projectlet
+                    </button>
+
+                    {/* Template Menu */}
+                    <div className="relative">
                     <button
                       onClick={() => setShowTemplateMenu(!showTemplateMenu)}
                       className="p-2 border rounded-lg hover:bg-gray-50"
@@ -2405,8 +2401,25 @@ function AdminProjectPageContent() {
                         </button>
                       </div>
                     )}
+                    </div>
                   </div>
                 </div>
+
+                {/* Bulk Actions Bar */}
+                {showBulkActions && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <span className="text-sm text-blue-700 font-medium">
+                      {selectedProjectlets.size} projectlet{selectedProjectlets.size !== 1 ? 's' : ''} selected
+                    </span>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Selected
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Select All Checkbox */}
@@ -2463,7 +2476,7 @@ function AdminProjectPageContent() {
                           isDragging={activeId !== null}
                         >
                           <div className={`border-2 rounded-lg ${getStatusColor(projectlet.status)} transition-all ${
-                            selectedProjectlets.has(projectlet.id) ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                            selectedProjectlets.has(projectlet.id) ? 'shadow-[0_0_0_2px_rgb(59,130,246)] bg-blue-50/30' : ''
                           }`}>
                             {/* Header */}
                             <div className="p-4 pb-0">
@@ -2755,14 +2768,14 @@ function AdminProjectPageContent() {
                                               return (
                                                 <div
                                                   key={completion.user_id}
-                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.type === 'tone_of_voice' || applet.type === 'client_review' || applet.type === 'copy_collection' || applet.type === 'phase_review' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+                                                  className={`relative group ${(applet.type === 'form' || applet.type === 'palette_cleanser' || applet.type === 'sitemap' || applet.type === 'tone_of_voice' || applet.type === 'font_picker' || applet.type === 'client_review' || applet.type === 'copy_collection' || applet.type === 'phase_review' || applet.name?.toLowerCase().includes('palette')) ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
                                                   title={`${completion.user?.full_name || completion.user?.email || 'User'} - ${
                                                     isClientReview && isRejected ? `⚠️ REVISION REQUESTED${completion.form_progress?.revision_notes ? ': ' + completion.form_progress.revision_notes : ''}` :
                                                     isClientReview && isApproved ? '✅ APPROVED' :
                                                     isInProgress ? 'In Progress' : `Reviewed ${
                                                       completion.completed_at ? new Date(completion.completed_at).toLocaleDateString() : ''
                                                     }`
-                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : applet.type === 'tone_of_voice' ? '\nClick to view tone selection' : applet.type === 'client_review' ? '\nClick to view review details' : applet.type === 'copy_collection' ? '\nClick to view copy submission' : applet.type === 'phase_review' ? '\nClick to view phase review' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
+                                                  }${applet.type === 'form' ? '\nClick to view response' : applet.type === 'sitemap' ? '\nClick to view sitemap' : applet.type === 'tone_of_voice' ? '\nClick to view tone selection' : applet.type === 'font_picker' ? '\nClick to view font preferences' : applet.type === 'client_review' ? '\nClick to view review details' : applet.type === 'copy_collection' ? '\nClick to view copy submission' : applet.type === 'phase_review' ? '\nClick to view phase review' : (applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) ? '\nClick to view palette preferences' : ''}`}
                                                 onClick={async () => {
                                                   if (applet.type === 'form') {
                                                     const formId = applet.form_id || applet.config?.form_id;
@@ -2845,6 +2858,19 @@ function AdminProjectPageContent() {
                                                       submittedAt: completion.completed_at || completion.started_at
                                                     });
                                                     setShowToneOfVoiceModal(true);
+                                                  } else if (applet.type === 'font_picker') {
+                                                    // Show font picker selection modal
+                                                    const fontData = completion.form_progress || completion.data || {};
+                                                    setSelectedFontData({
+                                                      userName: completion.user?.full_name || completion.user?.email || 'User',
+                                                      fontStatus: fontData.fontStatus || null,
+                                                      fontStatusLabel: fontData.fontStatusLabel || null,
+                                                      customFonts: fontData.customFonts || null,
+                                                      selectedPairings: fontData.selectedPairings || [],
+                                                      selectedPairingDetails: fontData.selectedPairingDetails || [],
+                                                      submittedAt: completion.completed_at || completion.started_at
+                                                    });
+                                                    setShowFontPickerModal(true);
                                                   } else if (applet.type === 'client_review') {
                                                     // Show client review details modal
                                                     const reviewData = completion.form_progress || applet.form_progress || {};
@@ -3537,6 +3563,89 @@ function AdminProjectPageContent() {
                                       {applet.completions && applet.completions.length > 0 && (
                                         <div className="text-xs text-gray-600">
                                           <strong>{applet.completions.length}</strong> participant{applet.completions.length !== 1 ? 's have' : ' has'} selected their tone of voice
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Inline font picker configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'font_picker' && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                          {applet.config?.locked ? (
+                                            <Lock className="w-4 h-4 text-red-600" />
+                                          ) : (
+                                            <Unlock className="w-4 h-4 text-green-600" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {applet.config?.locked ? 'Font Preferences Locked' : 'Font Preferences Unlocked'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const newLockedState = !applet.config?.locked;
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: newLockedState
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                              }
+                                            } catch (error) {
+                                            }
+                                          }}
+                                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                            applet.config?.locked
+                                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                              : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? 'Unlock Preferences' : 'Lock Preferences'}
+                                        </button>
+                                      </div>
+
+                                      {/* Lock status explanation */}
+                                      <div className="text-xs text-gray-600 p-2 bg-white rounded border">
+                                        {applet.config?.locked ? (
+                                          <>
+                                            <strong>Locked:</strong> Participants can view their font preferences but cannot change them.
+                                          </>
+                                        ) : (
+                                          <>
+                                            <strong>Unlocked:</strong> Participants can select or change their font preferences.
+                                          </>
+                                        )}
+                                      </div>
+
+                                      {/* Description */}
+                                      <div className="text-xs text-gray-600 p-2 bg-white rounded border">
+                                        <p className="mb-2">
+                                          <strong>Purpose:</strong> Help clients explore typography preferences without committing to final fonts.
+                                        </p>
+                                        <p className="mb-2">
+                                          <strong>How it works:</strong> Clients first indicate their font status (have fonts, strictly attached, open to options, or blank slate).
+                                        </p>
+                                        <p>
+                                          Then they either enter custom font names or select 3 font styles from curated Google Fonts samples.
+                                        </p>
+                                      </div>
+
+                                      {/* Completion statistics */}
+                                      {applet.completions && applet.completions.length > 0 && (
+                                        <div className="text-xs text-gray-600">
+                                          <strong>{applet.completions.length}</strong> participant{applet.completions.length !== 1 ? 's have' : ' has'} indicated their font preferences
                                         </div>
                                       )}
                                     </div>
@@ -6201,6 +6310,112 @@ function AdminProjectPageContent() {
               ) : (
                 <div className="text-center py-12">
                   <p className="text-lg text-gray-500 mb-3">Selected Tone of Voice:</p>
+                  <div className="inline-flex items-center justify-center px-8 py-4 bg-black text-white rounded-lg">
+                    <span className="text-xl font-semibold">Not selected</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Font Picker Modal */}
+      {showFontPickerModal && selectedFontData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {selectedFontData.userName}'s Font Preferences
+                </h2>
+                {selectedFontData.submittedAt && (
+                  <p className="text-sm text-gray-500">
+                    Submitted: {new Date(selectedFontData.submittedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setShowFontPickerModal(false);
+                  setSelectedFontData(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {selectedFontData.fontStatus ? (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 mb-3">Font Status:</p>
+                    <div className="inline-flex items-center justify-center px-8 py-4 bg-black text-white rounded-lg">
+                      <span className="text-xl font-semibold">{selectedFontData.fontStatusLabel || selectedFontData.fontStatus}</span>
+                    </div>
+                  </div>
+
+                  {/* Show custom fonts if provided */}
+                  {(selectedFontData.fontStatus === 'have_fonts_flexible' || selectedFontData.fontStatus === 'have_fonts_strict') && selectedFontData.customFonts && (
+                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                      <p className="text-xs font-semibold text-gray-500 mb-3">THEIR FONTS:</p>
+                      <p className="text-base text-gray-700">{selectedFontData.customFonts}</p>
+                      {selectedFontData.fontStatus === 'have_fonts_strict' && (
+                        <p className="text-xs text-red-600 mt-2">⚠️ Required by brand guidelines - no substitutions</p>
+                      )}
+                      {selectedFontData.fontStatus === 'have_fonts_flexible' && (
+                        <p className="text-xs text-green-600 mt-2">✓ Open to better alternatives</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Show selected typography mood pairings */}
+                  {selectedFontData.fontStatus === 'blank_slate' && selectedFontData.selectedPairingDetails && selectedFontData.selectedPairingDetails.length > 0 && (
+                    <div className="mt-6 space-y-4">
+                      <p className="text-sm font-semibold text-gray-600">SELECTED TYPOGRAPHY MOODS:</p>
+                      {selectedFontData.selectedPairingDetails.map((pairing, idx) => {
+                        return (
+                          <div key={idx} className="bg-white rounded-lg p-4 border-2 border-gray-200">
+                            <div className="mb-3">
+                              <h4 className="text-lg font-bold mb-1">{pairing.mood}</h4>
+                              <p className="text-sm text-gray-600 mb-1">{pairing.description}</p>
+                              <p className="text-xs text-gray-500 italic">"{pairing.emotion}"</p>
+                            </div>
+
+                            <div className="space-y-3 bg-gray-50 p-4 rounded">
+                              <div style={{ fontFamily: pairing.heading?.font, fontWeight: pairing.heading?.weight }}>
+                                <p className="text-xs text-gray-400 mb-1">HEADING</p>
+                                <p className="text-2xl">{pairing.heading?.text}</p>
+                              </div>
+                              <div style={{ fontFamily: pairing.subheading?.font, fontWeight: pairing.subheading?.weight }}>
+                                <p className="text-xs text-gray-400 mb-1">SUBHEADING</p>
+                                <p className="text-lg">{pairing.subheading?.text}</p>
+                              </div>
+                              <div style={{ fontFamily: pairing.body?.font, fontWeight: pairing.body?.weight }}>
+                                <p className="text-xs text-gray-400 mb-1">BODY</p>
+                                <p className="text-sm leading-relaxed">{pairing.body?.text}</p>
+                              </div>
+                            </div>
+
+                            {pairing.vibe && pairing.vibe.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-3">
+                                {pairing.vibe.map((v, i) => (
+                                  <span key={i} className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
+                                    {v}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-lg text-gray-500 mb-3">Font Preferences:</p>
                   <div className="inline-flex items-center justify-center px-8 py-4 bg-black text-white rounded-lg">
                     <span className="text-xl font-semibold">Not selected</span>
                   </div>
