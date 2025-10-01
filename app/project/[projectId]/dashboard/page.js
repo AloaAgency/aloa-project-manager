@@ -34,6 +34,7 @@ import dynamic from 'next/dynamic';
 import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
 import AuthGuard from '@/components/AuthGuard';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ClientNotifications from '@/components/ClientNotifications';
 import useEscapeKey from '@/hooks/useEscapeKey';
 import { createClient } from '@/lib/supabase-auth';
 
@@ -789,8 +790,12 @@ function ClientDashboard() {
               <p className="text-sm text-gray-600 mt-1">Welcome to your project workspace</p>
             </div>
 
-            {/* Progress Ring */}
-            <div className="relative">
+            <div className="flex items-center space-x-4">
+              {/* Notifications */}
+              <ClientNotifications projectId={params.projectId} userId={userId} />
+
+              {/* Progress Ring */}
+              <div className="relative">
               <svg className="w-20 h-20 transform -rotate-90">
                 <circle
                   cx="40"
@@ -815,6 +820,7 @@ function ClientDashboard() {
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="text-xl font-bold">{progress}%</span>
               </div>
+            </div>
             </div>
           </div>
         </div>
@@ -1081,8 +1087,8 @@ function ClientDashboard() {
                           } else if (isAppletCompleted && !toneIsLocked) {
                             buttonState = 'user-complete-editable';
                             statusMessage = completionDate ?
-                              `Selected on ${completionDate} • Click to change` :
-                              'Tone selected! Click the pencil icon to change your selection.';
+                              `Selected on ${completionDate} • Click to edit` :
+                              'Tone selected! Click the pencil icon to edit your selection.';
                           } else if (isInProgress && !toneIsLocked) {
                             buttonState = 'in-progress-editing';
                             statusMessage = 'Continue selecting your tone of voice';
@@ -1101,8 +1107,8 @@ function ClientDashboard() {
                           } else if (isAppletCompleted && !fontIsLocked) {
                             buttonState = 'user-complete-editable';
                             statusMessage = completionDate ?
-                              `Selected on ${completionDate} • Click to change` :
-                              'Font preferences selected! Click the pencil icon to change your selection.';
+                              `Selected on ${completionDate} • Click to edit` :
+                              'Font preferences selected! Click the pencil icon to edit your selection.';
                           } else if (isInProgress && !fontIsLocked) {
                             buttonState = 'in-progress-editing';
                             statusMessage = 'Continue selecting your font preferences';
@@ -1116,7 +1122,9 @@ function ClientDashboard() {
 
                           if (reviewStatus === 'approved') {
                             buttonState = 'completed-locked';
-                            statusMessage = 'Work approved ✅';
+                            statusMessage = completionDate ?
+                              `Work approved on ${completionDate}` :
+                              'Work approved';
                           } else if (reviewStatus === 'revision_requested') {
                             buttonState = 'in-progress-editing';
                             statusMessage = `Revision requested (${applet.form_progress?.revision_count || 1} of ${applet.config?.max_revisions || 2})`;
@@ -1137,7 +1145,9 @@ function ClientDashboard() {
                           if (reportIsLocked && hasReport) {
                             if (hasViewedReport) {
                               buttonState = 'completed-locked';
-                              statusMessage = 'AI insights reviewed ✓';
+                              statusMessage = completionDate ?
+                                `AI insights reviewed on ${completionDate}` :
+                                'AI insights reviewed';
                             } else {
                               buttonState = 'available';
                               statusMessage = 'View AI insights report';
@@ -1157,7 +1167,9 @@ function ClientDashboard() {
                           if (narrativeIsLocked && hasNarrative) {
                             if (hasViewedNarrative) {
                               buttonState = 'completed-locked';
-                              statusMessage = `${applet.config?.pageName || 'Page'} narrative reviewed ✓`;
+                              statusMessage = completionDate ?
+                                `${applet.config?.pageName || 'Page'} narrative reviewed on ${completionDate}` :
+                                `${applet.config?.pageName || 'Page'} narrative reviewed`;
                             } else {
                               buttonState = 'available';
                               statusMessage = `View ${applet.config?.pageName || 'page'} narrative`;
