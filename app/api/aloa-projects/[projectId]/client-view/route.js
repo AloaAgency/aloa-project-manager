@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ADMIN_ROLES = ['super_admin', 'project_admin'];
+
 // GET project data for client view
 export async function GET(request, { params }) {
   try {
@@ -254,22 +257,68 @@ export async function GET(request, { params }) {
 
 // POST update applet status (client interaction)
 export async function POST(request, { params }) {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
+        set() {},
+        remove() {}
+      }
+    }
+  );
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { data: profile } = await supabase
+    .from('aloa_user_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const isAdmin = profile?.role ? ADMIN_ROLES.includes(profile.role) : false;
+
   try {
     const { projectId } = params;
-    const { appletId, status, interactionType, data, userId = 'anonymous' } = await request.json();
+    const payload = await request.json();
+    const { appletId, status, interactionType, data } = payload || {};
+    const requestedUserId = payload?.userId || payload?.user_id || null;
 
+    if (!appletId || !interactionType) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
 
-    // Get stakeholder importance if userId is a valid UUID
-    let stakeholderImportance = 5; // Default importance
+    let resolvedUserId = user.id;
+
+    if (requestedUserId && requestedUserId !== 'anonymous') {
+      if (!UUID_REGEX.test(requestedUserId)) {
+        return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 });
+      }
+
+      if (!isAdmin && requestedUserId !== user.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      resolvedUserId = requestedUserId;
+    }
+
+    let stakeholderImportance = 5;
     let stakeholderId = null;
 
-    if (userId && userId !== 'anonymous' && userId.match(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)) {
+    if (UUID_REGEX.test(resolvedUserId)) {
       const { data: stakeholder } = await supabase
         .from('aloa_project_stakeholders')
         .select('id, importance_score')
-        .eq('user_id', userId)
+        .eq('user_id', resolvedUserId)
         .eq('project_id', projectId)
-        .single();
+        .maybeSingle();
 
       if (stakeholder) {
         stakeholderImportance = stakeholder.importance_score || 5;
@@ -277,137 +326,122 @@ export async function POST(request, { params }) {
       }
     }
 
-    // For palette_submit, ensure we're marking as completed
-    const finalStatus = (interactionType === 'palette_submit' || interactionType === 'submission') ? 'completed' : status;
-    const completionPercentage = finalStatus === 'completed' ? 100 : (status === 'in_progress' ? 50 : null);
+    const finalStatus =
+      interactionType === 'palette_submit' || interactionType === 'submission'
+        ? 'completed'
+        : status;
 
+    const completionPercentage =
+      finalStatus === 'completed' ? 100 : status === 'in_progress' ? 50 : null;
 
-    // Update user-specific applet progress
-
-    const { data: userProgress, error: progressError } = await supabase
-      .rpc('update_applet_progress', {
+    const { data: userProgress, error: progressError } = await supabase.rpc(
+      'update_applet_progress',
+      {
         p_applet_id: appletId,
-        p_user_id: userId,
+        p_user_id: resolvedUserId,
         p_project_id: projectId,
         p_status: finalStatus,
         p_completion_percentage: completionPercentage,
         p_form_progress: data?.form_progress || null
-      });
-
+      }
+    );
 
     if (progressError) {
       return NextResponse.json({ error: 'Failed to update progress' }, { status: 500 });
     }
 
-    // Verify the update actually happened
-    if (finalStatus === 'completed' && userProgress) {
-      if (!userProgress.completed_at) {
-        // Try to update directly as a fallback
-        const { data: directUpdate, error: directError } = await supabase
-          .from('aloa_applet_progress')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            completion_percentage: 100,
-            updated_at: new Date().toISOString(),
-            stakeholder_importance: stakeholderImportance,
-            stakeholder_id: stakeholderId
-          })
-          .eq('applet_id', appletId)
-          .eq('user_id', userId)
-          .select()
-          .single();
+    if (finalStatus === 'completed' && userProgress && !userProgress.completed_at) {
+      const { data: directUpdate, error: directError } = await supabase
+        .from('aloa_applet_progress')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          completion_percentage: 100,
+          updated_at: new Date().toISOString(),
+          stakeholder_importance: stakeholderImportance,
+          stakeholder_id: stakeholderId
+        })
+        .eq('applet_id', appletId)
+        .eq('user_id', resolvedUserId)
+        .select()
+        .maybeSingle();
 
-        if (directError) {
-        } else {
-          userProgress.completed_at = directUpdate.completed_at;
-        }
+      if (!directError && directUpdate) {
+        userProgress.completed_at = directUpdate.completed_at;
       }
     }
 
-    // User progress updated successfully
-
-    // For form applets, update status based on form state
     if (interactionType === 'form_submit' && status === 'completed') {
-      // Get the applet details to check if it's a form type
       const { data: applet } = await supabase
         .from('aloa_applets')
         .select('type, form_id, status')
         .eq('id', appletId)
-        .single();
-      
+        .maybeSingle();
+
       if (applet?.type === 'form' && applet?.form_id) {
-        // Check if the form is locked/closed
         const { data: form } = await supabase
           .from('aloa_forms')
           .select('status')
           .eq('id', applet.form_id)
-          .single();
-        
-        // If form is locked (status = 'closed'), mark applet as completed
-        // Otherwise, mark as in_progress (has responses but still accepting)
+          .maybeSingle();
+
         const newStatus = form?.status === 'closed' ? 'completed' : 'in_progress';
-        const updateData = { 
+        const updateData = {
           status: newStatus,
           completion_percentage: newStatus === 'completed' ? 100 : 50,
           ...(newStatus === 'completed' && { completed_at: new Date().toISOString() })
         };
-        
-        const { error: appletError } = await supabase
+
+        await supabase
           .from('aloa_applets')
           .update(updateData)
           .eq('id', appletId);
-        
-        if (appletError) {
-        }
       }
     } else if (status === 'completed' && interactionType !== 'form_submit') {
-      // For non-form applets, mark as completed immediately
-      const updateData = { 
+      const updateData = {
         status: 'completed',
         completion_percentage: 100,
         completed_at: new Date().toISOString()
       };
-      
-      const { error: appletError } = await supabase
+
+      await supabase
         .from('aloa_applets')
         .update(updateData)
         .eq('id', appletId);
-      
-      if (appletError) {
-      }
     }
 
-    // Record the interaction
     const interactionData = data ? { ...data } : {};
     if (interactionData.form_progress && typeof interactionData.form_progress === 'object') {
       interactionData.form_progress = {
         ...interactionData.form_progress,
-        userId,
+        userId: resolvedUserId,
         stakeholderImportance
       };
     }
 
-    const { data: interactionRecord, error: interactionError } = await supabase
+    const { data: interactionRecord } = await supabase
       .from('aloa_applet_interactions')
-      .insert([{
-        applet_id: appletId,
-        project_id: projectId,
-        interaction_type: interactionType,
-        user_role: 'client',
-        user_id: userId && userId !== 'anonymous' ? userId : null,
-        stakeholder_importance: stakeholderImportance,
-        stakeholder_id: stakeholderId,
-        data: interactionData
-      }])
+      .insert([
+        {
+          applet_id: appletId,
+          project_id: projectId,
+          interaction_type: interactionType,
+          user_role: 'client',
+          user_id: resolvedUserId,
+          stakeholder_importance: stakeholderImportance,
+          stakeholder_id: stakeholderId,
+          data: interactionData
+        }
+      ])
       .select()
-      .single();
+      .maybeSingle();
 
-    if (interactionError) {
-      // Don't fail the request if interaction logging fails
-    } else if (interactionRecord) {
-      // Trigger knowledge extraction for completed interactions
-      if (status === 'completed' || interactionType === 'form_submit' || interactionType === 'phase_review_submission') {
+    if (interactionRecord) {
+      if (
+        status === 'completed' ||
+        interactionType === 'form_submit' ||
+        interactionType === 'phase_review_submission'
+      ) {
         try {
           await fetch(`${request.nextUrl.origin}/api/project-knowledge/${projectId}/extract`, {
             method: 'POST',
@@ -419,56 +453,46 @@ export async function POST(request, { params }) {
             })
           });
         } catch (extractError) {
-          // Don't fail the request if extraction fails
+          // Ignore extraction failures - not user-visible
         }
       }
     }
 
-    // If this was a completion, check if all applets in the projectlet are complete
     if (status === 'completed') {
-      // Get the projectlet this applet belongs to
       const { data: applet } = await supabase
         .from('aloa_applets')
         .select('projectlet_id')
         .eq('id', appletId)
-        .single();
+        .maybeSingle();
 
       if (applet?.projectlet_id) {
-        // Check if all applets in this projectlet are completed
         const { data: projectletApplets } = await supabase
           .from('aloa_applets')
           .select('status')
           .eq('projectlet_id', applet.projectlet_id);
 
-        const allCompleted = projectletApplets?.every(a => 
-          a.status === 'completed' || a.status === 'approved'
-        );
+        const allCompleted = projectletApplets?.every(
+          (a) => a.status === 'completed' || a.status === 'approved'
+        ) || false;
 
         if (allCompleted) {
-          // Update projectlet status to completed
           await supabase
             .from('aloa_projectlets')
             .update({ status: 'completed' })
             .eq('id', applet.projectlet_id);
-          
         }
       }
     }
 
-    // If this was a completion, verify it was saved
     if (finalStatus === 'completed') {
-      // Wait a moment for database to commit
       await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Verify the update
-      const { data: verifyData } = await supabase
+      await supabase
         .from('aloa_applet_progress')
         .select('status, completed_at')
         .eq('applet_id', appletId)
-        .eq('user_id', userId)
-        .single();
-
-      // Verification after update completed
+        .eq('user_id', resolvedUserId)
+        .maybeSingle();
     }
 
     return NextResponse.json({

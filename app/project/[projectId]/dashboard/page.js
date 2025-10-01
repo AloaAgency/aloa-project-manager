@@ -43,6 +43,7 @@ const EnhancedFileRepository = dynamic(() => import('@/components/EnhancedFileRe
 const PaletteCleanserModal = dynamic(() => import('@/components/PaletteCleanserModal'), { ssr: false });
 const SitemapBuilder = dynamic(() => import('@/components/SitemapBuilderV2'), { ssr: false });
 const ToneOfVoiceSelector = dynamic(() => import('@/components/ToneOfVoiceSelector'), { ssr: false });
+const FontPicker = dynamic(() => import('@/components/FontPicker'), { ssr: false });
 const ClientReview = dynamic(() => import('@/components/ClientReview'), { ssr: false });
 const AIFormResults = dynamic(() => import('@/components/AIFormResults'), { ssr: false });
 const AIContentNarrative = dynamic(() => import('@/components/AIContentNarrative'), { ssr: false });
@@ -80,6 +81,8 @@ function ClientDashboard() {
   const [showToneOfVoiceModal, setShowToneOfVoiceModal] = useState(false); // Track tone of voice modal
   const [isToneOfVoiceViewOnly, setIsToneOfVoiceViewOnly] = useState(false); // Track if tone of voice is view-only
   const [selectedToneOfVoiceApplet, setSelectedToneOfVoiceApplet] = useState(null); // Track selected tone applet
+  const [showFontPickerModal, setShowFontPickerModal] = useState(false); // Track font picker modal
+  const [isFontPickerViewOnly, setIsFontPickerViewOnly] = useState(false); // Track if font picker is view-only
   const [showClientReviewModal, setShowClientReviewModal] = useState(false); // Track client review modal
   const [isClientReviewViewOnly, setIsClientReviewViewOnly] = useState(false); // Track if client review is view-only
   const [userRole, setUserRole] = useState(null); // Track user role
@@ -354,6 +357,7 @@ function ClientDashboard() {
     const isPaletteCleanser = applet.type === 'palette_cleanser';
     const isSitemap = applet.type === 'sitemap';
     const isToneOfVoice = applet.type === 'tone_of_voice';
+    const isFontPicker = applet.type === 'font_picker';
     const isClientReview = applet.type === 'client_review';
     const isAIFormResults = applet.type === 'ai_form_results';
     const isAINarrativeGenerator = applet.type === 'ai_narrative_generator';
@@ -364,15 +368,16 @@ function ClientDashboard() {
     const paletteIsLocked = isPaletteCleanser && applet.config?.locked === true;
     const sitemapIsLocked = isSitemap && applet.config?.locked === true;
     const toneOfVoiceIsLocked = isToneOfVoice && applet.config?.locked === true;
+    const fontPickerIsLocked = isFontPicker && applet.config?.locked === true;
     const clientReviewIsLocked = isClientReview && applet.config?.locked === true;
     const copyCollectionIsLocked = isCopyCollection && applet.config?.locked === true;
     const userHasCompleted = isForm && formId ? userFormResponses[formId] : completedApplets.has(applet.id);
 
     // Block if:
-    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-client-review, non-ai-form-results, non-video, non-copy-collection applet that's already completed
+    // 1. Non-form, non-link-submission, non-file-upload, non-palette-cleanser, non-sitemap, non-tone-of-voice, non-font-picker, non-client-review, non-ai-form-results, non-video, non-copy-collection applet that's already completed
     // 2. Form that's locked and user hasn't submitted (can't start new)
-    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, client review, AI form results, AI narrative generator, video, and copy collection should always be viewable even after completion
-    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isClientReview && !isAIFormResults && !isAINarrativeGenerator && !isVideo && !isCopyCollection && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
+    // Link submissions, file uploads, palette cleanser, sitemap, tone of voice, font picker, client review, AI form results, AI narrative generator, video, and copy collection should always be viewable even after completion
+    if ((!isForm && !isLinkSubmission && !isFileUpload && !isPaletteCleanser && !isSitemap && !isToneOfVoice && !isFontPicker && !isClientReview && !isAIFormResults && !isAINarrativeGenerator && !isVideo && !isCopyCollection && userHasCompleted) || (isForm && formIsLocked && !userHasCompleted)) {
       return; // Cannot proceed
     }
 
@@ -599,6 +604,13 @@ function ClientDashboard() {
       setIsToneOfVoiceViewOnly(toneOfVoiceIsLocked && userAlreadyCompleted);
       setSelectedToneOfVoiceApplet({ ...applet, projectlet });
       setShowToneOfVoiceModal(true);
+    } else if (applet.type === 'font_picker') {
+      // Handle font picker applet
+      const fontPickerIsLocked = applet.config?.locked === true;
+      const userAlreadyCompleted = completedApplets.has(applet.id);
+      setSelectedApplet({ ...applet, projectlet });
+      setIsFontPickerViewOnly(fontPickerIsLocked && userAlreadyCompleted);
+      setShowFontPickerModal(true);
     } else if (isClientReview) {
       // Handle client review applet
       setSelectedApplet({ ...applet, projectlet });
@@ -1057,6 +1069,26 @@ function ClientDashboard() {
                             buttonState = 'locked';
                             statusMessage = 'Tone selection locked - no longer accepting changes';
                           }
+                        } else if (applet.type === 'font_picker') {
+                          const fontIsLocked = applet.config?.locked === true;
+
+                          if (isAppletCompleted && fontIsLocked) {
+                            buttonState = 'completed-locked';
+                            statusMessage = completionDate ?
+                              `Font preferences selected on ${completionDate} • Locked` :
+                              'Font preferences selected & locked. No longer accepting changes.';
+                          } else if (isAppletCompleted && !fontIsLocked) {
+                            buttonState = 'user-complete-editable';
+                            statusMessage = completionDate ?
+                              `Selected on ${completionDate} • Click to change` :
+                              'Font preferences selected! Click the pencil icon to change your selection.';
+                          } else if (isInProgress && !fontIsLocked) {
+                            buttonState = 'in-progress-editing';
+                            statusMessage = 'Continue selecting your font preferences';
+                          } else if (fontIsLocked) {
+                            buttonState = 'locked';
+                            statusMessage = 'Font preferences locked - no longer accepting changes';
+                          }
                         } else if (applet.type === 'client_review') {
                           const reviewIsLocked = applet.config?.locked === true;
                           const reviewStatus = applet.form_progress?.status;
@@ -1192,7 +1224,7 @@ function ClientDashboard() {
                           <button
                             key={applet.id}
                             onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
-                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser' && applet.type !== 'tone_of_voice' && applet.type !== 'ai_form_results')}
+                            disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser' && applet.type !== 'tone_of_voice' && applet.type !== 'font_picker' && applet.type !== 'ai_form_results')}
                             className={`w-full p-4 rounded-lg border-2 transition-all relative ${
                               buttonState === 'completed-locked'
                                 ? 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-md cursor-pointer'
@@ -1886,6 +1918,34 @@ function ClientDashboard() {
               setShowToneOfVoiceModal(false);
               setIsToneOfVoiceViewOnly(false);
               // Refresh to show updated state
+              fetchProjectData();
+            }, 1500);
+          }}
+        />
+      )}
+
+      {/* Font Picker Modal */}
+      {showFontPickerModal && selectedApplet && (
+        <FontPicker
+          applet={selectedApplet}
+          projectId={params.projectId}
+          userId={userId}
+          isViewOnly={isFontPickerViewOnly}
+          onClose={() => {
+            setShowFontPickerModal(false);
+            setIsFontPickerViewOnly(false);
+            fetchProjectData();
+          }}
+          onComplete={() => {
+            // Update local state
+            setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
+
+            // Trigger confetti celebration
+            setShowConfetti(true);
+            setTimeout(() => {
+              setShowConfetti(false);
+              setShowFontPickerModal(false);
+              setIsFontPickerViewOnly(false);
               fetchProjectData();
             }, 1500);
           }}

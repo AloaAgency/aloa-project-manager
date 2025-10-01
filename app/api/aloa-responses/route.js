@@ -3,7 +3,6 @@ import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
 import { createServiceClient } from '@/lib/supabase-service';
 import {
   handleSupabaseError,
-  requireAdminServiceRole,
   requireAuthenticatedSupabase,
 } from '@/app/api/_utils/admin';
 
@@ -11,20 +10,34 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const ADMIN_ROLES = ['super_admin', 'project_admin'];
 
 export async function GET(request) {
-  const adminContext = await requireAdminServiceRole();
-  if (adminContext.error) {
-    return adminContext.error;
+  const authContext = await requireAuthenticatedSupabase();
+  if (authContext.error) {
+    return authContext.error;
   }
 
-  const { serviceSupabase } = adminContext;
+  const { user, isAdmin } = authContext;
+  const serviceSupabase = createServiceClient();
 
   try {
     const { searchParams } = new URL(request.url);
     const formId = searchParams.get('formId') || searchParams.get('form_id');
-    const userFilter = searchParams.get('userId') || searchParams.get('user_id');
+    const requestedUserId = searchParams.get('userId') || searchParams.get('user_id');
 
     if (!formId || !UUID_REGEX.test(formId)) {
       return NextResponse.json({ error: 'Invalid form ID format' }, { status: 400 });
+    }
+
+    let resolvedUserId = requestedUserId;
+
+    if (resolvedUserId && !UUID_REGEX.test(resolvedUserId)) {
+      return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 });
+    }
+
+    if (!isAdmin) {
+      if (resolvedUserId && resolvedUserId !== user.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      resolvedUserId = user.id;
     }
 
     let query = serviceSupabase
@@ -41,11 +54,8 @@ export async function GET(request) {
       )
       .eq('aloa_form_id', formId);
 
-    if (userFilter) {
-      if (!UUID_REGEX.test(userFilter)) {
-        return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 });
-      }
-      query = query.eq('user_id', userFilter);
+    if (resolvedUserId) {
+      query = query.eq('user_id', resolvedUserId);
     }
 
     const { data: responses, error } = await query.order('submitted_at', { ascending: false });

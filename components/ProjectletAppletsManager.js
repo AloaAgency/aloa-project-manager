@@ -81,7 +81,8 @@ const APPLET_ICONS = {
   ai_form_results: Brain,
   ai_narrative_generator: Edit2,
   video: Video,
-  phase_review: Shield
+  phase_review: Shield,
+  font_picker: Type
 };
 
 const APPLET_COLORS = {
@@ -100,7 +101,8 @@ const APPLET_COLORS = {
   ai_form_results: 'bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border-purple-300',
   ai_narrative_generator: 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 border-indigo-300',
   video: 'bg-gradient-to-r from-rose-100 to-pink-100 text-rose-700 border-rose-300',
-  phase_review: 'bg-gradient-to-r from-slate-100 to-blue-100 text-slate-700 border-slate-400'
+  phase_review: 'bg-gradient-to-r from-slate-100 to-blue-100 text-slate-700 border-slate-400',
+  font_picker: 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-700 border-gray-300'
 };
 
 function ProjectletAppletsManager({ 
