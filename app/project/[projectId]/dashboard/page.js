@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -740,6 +740,27 @@ function ClientDashboard() {
     };
     return icons[type] || FileText;
   };
+
+  const triggerConfetti = useCallback((afterComplete) => {
+    setShowConfetti(false);
+
+    const run = () => {
+      setShowConfetti(true);
+
+      setTimeout(() => {
+        setShowConfetti(false);
+        if (afterComplete) {
+          afterComplete();
+        }
+      }, 1500);
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(run);
+    } else {
+      run();
+    }
+  }, []);
 
   const calculateProgress = () => {
     return stats.progressPercentage || 0;
@@ -1937,17 +1958,13 @@ function ClientDashboard() {
             fetchProjectData();
           }}
           onComplete={() => {
-            // Update local state
             setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
 
-            // Trigger confetti celebration
-            setShowConfetti(true);
-            setTimeout(() => {
-              setShowConfetti(false);
+            triggerConfetti(() => {
               setShowFontPickerModal(false);
               setIsFontPickerViewOnly(false);
               fetchProjectData();
-            }, 1500);
+            });
           }}
         />
       )}
