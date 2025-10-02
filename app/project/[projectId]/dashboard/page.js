@@ -35,6 +35,7 @@ import MultiStepFormRenderer from '@/components/MultiStepFormRenderer';
 import AuthGuard from '@/components/AuthGuard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ClientNotifications from '@/components/ClientNotifications';
+import FormResponseModal from '@/components/FormResponseModal';
 import useEscapeKey from '@/hooks/useEscapeKey';
 import { createClient } from '@/lib/supabase-auth';
 
@@ -53,6 +54,15 @@ const VideoApplet = dynamic(() => import('@/components/VideoApplet'), { ssr: fal
 const CopyCollectionApplet = dynamic(() => import('@/components/CopyCollectionApplet'), { ssr: false });
 const PhaseReview = dynamic(() => import('@/components/PhaseReview'), { ssr: false });
 const EnhancedPhaseCompletionCelebration = dynamic(() => import('@/components/EnhancedPhaseCompletionCelebration'), { ssr: false });
+
+const PEER_VISIBLE_APPLET_TYPES = new Set([
+  'form',
+  'palette_cleanser',
+  'sitemap',
+  'tone_of_voice',
+  'font_picker',
+  'copy_collection'
+]);
 
 function ClientDashboard() {
   const params = useParams();
@@ -98,6 +108,17 @@ function ClientDashboard() {
   const [showPhaseReviewModal, setShowPhaseReviewModal] = useState(false); // Track phase review modal
   const [isPhaseReviewViewOnly, setIsPhaseReviewViewOnly] = useState(false); // Track if phase review is view-only
   const [showPhaseCompletionCelebration, setShowPhaseCompletionCelebration] = useState(false); // Track enhanced phase celebration
+  const [appletCompletions, setAppletCompletions] = useState({});
+  const [peerViewInfo, setPeerViewInfo] = useState(null);
+  const [showFormResponseModal, setShowFormResponseModal] = useState(false);
+  const [selectedResponseData, setSelectedResponseData] = useState(null);
+
+  useEffect(() => {
+    setAppletCompletions({});
+    setPeerViewInfo(null);
+    setShowFormResponseModal(false);
+    setSelectedResponseData(null);
+  }, [params.projectId]);
 
   // Helper function to check if user can access an applet based on role
   const canUserAccessApplet = (applet) => {
@@ -137,6 +158,116 @@ function ClientDashboard() {
     // Default to INPUT type (accessible to all)
     return 'input';
   };
+
+  const getInitials = (name = '') => {
+    if (!name) {
+      return '??';
+    }
+    const parts = name.trim().split(/[\s@._-]+/).filter(Boolean);
+    if (parts.length === 0) {
+      return name.slice(0, 2).toUpperCase();
+    }
+    if (parts.length === 1) {
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  };
+
+  const formatSubmittedAt = (timestamp) => {
+    if (!timestamp) {
+      return null;
+    }
+    try {
+      return new Date(timestamp).toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchAppletCompletion = useCallback(async (appletId, force = false) => {
+    if (!appletId) {
+      return;
+    }
+
+    setAppletCompletions((prev) => ({
+      ...prev,
+      [appletId]: {
+        ...(prev[appletId] || {}),
+        loading: true,
+        error: null
+      }
+    }));
+
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/applet-completions?appletId=${appletId}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`Fetched completions for applet ${appletId}:`, data);
+        setAppletCompletions((prev) => ({
+          ...prev,
+          [appletId]: {
+            completions: data.completions || [],
+            totalStakeholders: data.totalStakeholders ?? prev[appletId]?.totalStakeholders ?? 0,
+            completedCount: data.completedCount ?? (data.completions?.filter((c) => c.status === 'completed').length || 0),
+            loading: false,
+            error: null,
+            lastFetched: Date.now()
+          }
+        }));
+      } else {
+        setAppletCompletions((prev) => ({
+          ...prev,
+          [appletId]: {
+            ...(prev[appletId] || {}),
+            loading: false,
+            error: 'Failed to load completions'
+          }
+        }));
+      }
+    } catch (error) {
+      setAppletCompletions((prev) => ({
+        ...prev,
+        [appletId]: {
+          ...(prev[appletId] || {}),
+          loading: false,
+          error: 'Failed to load completions'
+        }
+      }));
+    }
+  }, [params.projectId]);
+
+  const loadAppletCompletions = useCallback(async (projectletsToProcess) => {
+    if (userRole !== 'client_admin') {
+      return;
+    }
+
+    if (!Array.isArray(projectletsToProcess) || projectletsToProcess.length === 0) {
+      return;
+    }
+
+    const appletsToFetch = [];
+    const seen = new Set();
+
+    projectletsToProcess.forEach((projectlet) => {
+      projectlet.applets?.forEach((applet) => {
+        if (PEER_VISIBLE_APPLET_TYPES.has(applet.type) && !seen.has(applet.id)) {
+          seen.add(applet.id);
+          appletsToFetch.push(applet.id);
+        }
+      });
+    });
+
+    for (const appletId of appletsToFetch) {
+      await fetchAppletCompletion(appletId, false);
+    }
+  }, [fetchAppletCompletion, userRole]);
 
   // ESC key handlers for modals
   useEscapeKey(() => {
@@ -245,6 +376,12 @@ function ClientDashboard() {
     }
   }, [params.projectId, userId]);
 
+  useEffect(() => {
+    if (userRole === 'client_admin' && projectlets.length > 0) {
+      loadAppletCompletions(projectlets);
+    }
+  }, [userRole, projectlets, loadAppletCompletions]);
+
   // Handle ESC key to close all modals
   useEffect(() => {
     const handleEscKey = (e) => {
@@ -273,6 +410,11 @@ function ClientDashboard() {
         }
         if (showToneOfVoiceModal) {
           setSelectedToneOfVoiceApplet(null);
+        }
+        setPeerViewInfo(null);
+        if (showFormResponseModal) {
+          setShowFormResponseModal(false);
+          setSelectedResponseData(null);
         }
       }
     };
@@ -351,6 +493,11 @@ function ClientDashboard() {
   };
 
   const handleAppletClick = async (applet, projectlet, isViewOnly = false) => {
+    setPeerViewInfo(null);
+    if (showFormResponseModal) {
+      setShowFormResponseModal(false);
+      setSelectedResponseData(null);
+    }
     // For forms, allow editing if completed but not locked
     const isForm = applet.type === 'form';
     const isLinkSubmission = applet.type === 'link_submission';
@@ -721,10 +868,125 @@ function ClientDashboard() {
 
       // Refresh data to get updated status from server
       fetchProjectData();
+
+      if (userRole === 'client_admin') {
+        fetchAppletCompletion(selectedApplet.id, true);
+      }
     } catch (error) {
 
       alert('There was an error submitting the form. Please try again.');
     }
+  };
+
+  const handlePeerAvatarClick = async (applet, completion, projectlet) => {
+    if (!applet || !completion) {
+      return;
+    }
+
+    const userName = completion.user?.full_name || completion.user?.email || 'Team Member';
+    const submittedAt = completion.completed_at || completion.started_at || null;
+    const userEmail = completion.user?.email || completion.user_id;
+
+    setPeerViewInfo({
+      appletId: applet.id,
+      userName,
+      submittedAt,
+      status: completion.status
+    });
+
+    if (applet.type === 'form') {
+      const formId = applet.form_id || applet.config?.form_id;
+      if (!formId) {
+        setPeerViewInfo(null);
+        return;
+      }
+      const form = applet.form || null;
+      setSelectedResponseData({
+        formId,
+        userId: completion.user_id,
+        userName,
+        formName: form?.title || applet.name,
+        projectId: params.projectId
+      });
+      setShowFormResponseModal(true);
+      return;
+    }
+
+    if (applet.type === 'sitemap') {
+      let sitemapData = completion.form_progress?.sitemap_data || completion.form_progress?.sitemapData || null;
+      try {
+        const response = await fetch(
+          `/api/aloa-projects/${params.projectId}/applet-interactions?appletId=${applet.id}&userEmail=${encodeURIComponent(userEmail)}&type=sitemap_save`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          sitemapData = data.interactions?.[0]?.data?.sitemap_data || sitemapData;
+        }
+      } catch (error) {
+        // Ignore fetch errors and fall back to progress data
+      }
+
+      setSelectedApplet({
+        ...applet,
+        projectlet,
+        config: {
+          ...applet.config,
+          sitemap_data: sitemapData || applet.config?.sitemap_data || null
+        }
+      });
+      setIsSitemapViewOnly(true);
+      setShowSitemapModal(true);
+      return;
+    }
+
+    if (applet.type === 'palette_cleanser') {
+      setSelectedApplet({
+        ...applet,
+        projectlet,
+        form_progress: completion.form_progress || completion.data || {}
+      });
+      setIsPaletteCleanserViewOnly(true);
+      setShowPaletteCleanserModal(true);
+      return;
+    }
+
+    if (applet.type === 'tone_of_voice') {
+      const toneApplet = {
+        ...applet,
+        projectlet,
+        form_progress: completion.form_progress || {}
+      };
+      setSelectedApplet(toneApplet);
+      setSelectedToneOfVoiceApplet(toneApplet);
+      setIsToneOfVoiceViewOnly(true);
+      setShowToneOfVoiceModal(true);
+      return;
+    }
+
+    if (applet.type === 'font_picker') {
+      setSelectedApplet({
+        ...applet,
+        projectlet,
+        form_progress: completion.form_progress || {}
+      });
+      setIsFontPickerViewOnly(true);
+      setShowFontPickerModal(true);
+      return;
+    }
+
+    if (applet.type === 'copy_collection') {
+      setSelectedApplet({
+        ...applet,
+        projectlet,
+        form_progress: completion.form_progress || {}
+      });
+      setIsCopyCollectionViewOnly(true);
+      setShowCopyCollectionModal(true);
+      return;
+    }
+
+    setPeerViewInfo(null);
   };
 
   const getAppletIcon = (type) => {
@@ -780,6 +1042,21 @@ function ClientDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <ConfettiCelebration show={showConfetti} duration={6000} />
+
+      {peerViewInfo && (
+        <div className="fixed inset-x-0 top-4 z-[120] flex justify-center pointer-events-none">
+          <div className="pointer-events-auto rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow">
+            Viewing {peerViewInfo.userName}'s submission
+            {(() => {
+              if (!peerViewInfo.submittedAt) {
+                return '';
+              }
+              const formatted = formatSubmittedAt(peerViewInfo.submittedAt);
+              return formatted ? ` • ${formatted}` : '';
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
@@ -1020,6 +1297,13 @@ function ClientDashboard() {
                             year: 'numeric'
                           }) : null;
 
+                        const completionsData = appletCompletions[applet.id];
+                        const peerCompletions = completionsData?.completions || [];
+                        const showPeerSection = userRole === 'client_admin' && PEER_VISIBLE_APPLET_TYPES.has(applet.type);
+                        const peerLoading = completionsData?.loading;
+                        const completedResponses = completionsData?.completedCount ?? peerCompletions.filter((c) => c.status === 'completed').length;
+                        const totalResponsesTarget = completionsData?.totalStakeholders ?? null;
+
                         if (isForm) {
                           const submissionDate = userHasSubmitted && userFormResponses[formId]?.submitted_at ?
                             new Date(userFormResponses[formId].submitted_at).toLocaleDateString('en-US', {
@@ -1254,9 +1538,9 @@ function ClientDashboard() {
                         }
 
                         return (
-                          <button
-                            key={applet.id}
-                            onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
+                          <div key={applet.id} className="space-y-2">
+                            <button
+                              onClick={() => handleAppletClick(applet, projectlet, buttonState === 'completed-locked')}
                             disabled={buttonState === 'locked' || (buttonState === 'completed' && applet.type !== 'link_submission' && applet.type !== 'upload' && applet.type !== 'file_upload' && applet.type !== 'palette_cleanser' && applet.type !== 'tone_of_voice' && applet.type !== 'font_picker' && applet.type !== 'ai_form_results')}
                             className={`w-full p-4 rounded-lg border-2 transition-all relative ${
                               buttonState === 'completed-locked'
@@ -1348,37 +1632,160 @@ function ClientDashboard() {
                                 </div>
                               </div>
 
-                              {buttonState === 'locked' ? (
-                                <Lock className="w-5 h-5 text-gray-500" />
-                              ) : buttonState === 'user-complete-editable' ? (
-                                <Edit2 className="w-5 h-5 text-green-600" />
-                              ) : buttonState === 'completed-locked' ? (
-                                <Eye className="w-5 h-5 text-green-600" />
-                              ) : buttonState === 'link-completed' ? (
-                                <Eye className="w-5 h-5 text-green-600" />
-                              ) : buttonState === 'file-completed' ? (
-                                <Eye className="w-5 h-5 text-green-600" />
-                              ) : buttonState === 'completed' ? (
-                                <CheckCircle className="w-6 h-6 text-green-600" />
-                              ) : buttonState === 'in-progress-editing' ? (
-                                <div className="text-purple-600">
-                                  Resume →
-                                </div>
-                              ) : (
-                                <div className="text-purple-600">
-                                  {(() => {
+                              <div className="flex items-center space-x-3">
+                                {showPeerSection && (
+                                  <div className="flex items-center gap-2">
+                                    {peerLoading && peerCompletions.length === 0 ? (
+                                      <span className="text-xs text-gray-400">Loading teammate responses…</span>
+                                    ) : peerCompletions.length > 0 ? (
+                                      <div className="flex -space-x-2">
+                                        {peerCompletions.slice(0, 4).map((completion) => {
+                                          const initials = getInitials(completion.user?.full_name || completion.user?.email || '');
+                                          const isCompletedResponse = completion.status === 'completed';
+                                          const isInProgressCompletion = completion.status === 'in_progress';
+                                          const isCurrentUser = completion.user_id === userId || completion.user?.id === userId;
 
-                                    // Check if applet is in progress (started but not completed)
-                                    const isInProgress = applet.user_started_at && !applet.user_completed_at;
-                                    if (isInProgress) {
-                                      return 'Resume →';
-                                    }
-                                    return (applet.type === 'upload' || applet.type === 'file_upload') ? 'Review Files →' : 'Start →';
-                                  })()}
-                                </div>
-                              )}
+                                          return (
+                                            <button
+                                              key={completion.id || `${applet.id}-${completion.user_id}`}
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handlePeerAvatarClick(applet, completion, projectlet);
+                                              }}
+                                              className={`relative w-8 h-8 rounded-full bg-white overflow-hidden shadow-sm hover:shadow-md transition transform hover:-translate-y-0.5`}
+                                              title={`${completion.user?.full_name || completion.user?.email || 'Team member'}${completion.completed_at ? ` • Submitted ${formatSubmittedAt(completion.completed_at)}` : completion.started_at ? ` • Started ${formatSubmittedAt(completion.started_at)}` : ''}`}
+                                            >
+                                              {completion.user?.avatar_url ? (
+                                                <img
+                                                  src={completion.user.avatar_url}
+                                                  alt={completion.user?.full_name || completion.user?.email || 'Avatar'}
+                                                  className={`w-full h-full object-cover ring-2 ${
+                                                    isInProgressCompletion ? 'ring-gray-400 ring-dashed opacity-80' : 'ring-white'
+                                                  }`}
+                                                />
+                                              ) : (
+                                                <div className={`w-full h-full bg-purple-500 flex items-center justify-center text-white text-xs font-medium ring-2 ${
+                                                  isInProgressCompletion ? 'ring-gray-400 ring-dashed opacity-80' : 'ring-white'
+                                                }`}>
+                                                  {initials}
+                                                </div>
+                                              )}
+                                              {isCurrentUser && (
+                                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full border-2 border-white" title="You" />
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                        {peerCompletions.length > 4 && (
+                                          <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-semibold border border-gray-300">
+                                            +{peerCompletions.length - 4}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">No teammate responses yet</span>
+                                    )}
+                                  </div>
+                                )}
+                                {buttonState === 'locked' ? (
+                                  <Lock className="w-5 h-5 text-gray-500" />
+                                ) : buttonState === 'user-complete-editable' ? (
+                                  <Edit2 className="w-5 h-5 text-green-600" />
+                                ) : buttonState === 'completed-locked' ? (
+                                  <Eye className="w-5 h-5 text-green-600" />
+                                ) : buttonState === 'link-completed' ? (
+                                  <Eye className="w-5 h-5 text-green-600" />
+                                ) : buttonState === 'file-completed' ? (
+                                  <Eye className="w-5 h-5 text-green-600" />
+                                ) : buttonState === 'completed' ? (
+                                  <CheckCircle className="w-6 h-6 text-green-600" />
+                                ) : buttonState === 'in-progress-editing' ? (
+                                  <div className="text-purple-600">
+                                    Resume →
+                                  </div>
+                                ) : (
+                                  <div className="text-purple-600">
+                                    {(() => {
+                                      const isAppletInProgress = applet.user_started_at && !applet.user_completed_at;
+                                      if (isAppletInProgress) {
+                                        return 'Resume →';
+                                      }
+                                      return (applet.type === 'upload' || applet.type === 'file_upload') ? 'Review Files →' : 'Start →';
+                                    })()}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </button>
+                          {showPeerSection && (
+                            <div className="hidden">
+                              <div className="flex items-center gap-2">
+                                {peerLoading && peerCompletions.length === 0 ? (
+                                  <span className="text-gray-400">Loading teammate responses…</span>
+                                ) : peerCompletions.length > 0 ? (
+                                  <div className="flex -space-x-2">
+                                      {peerCompletions.slice(0, 4).map((completion) => {
+                                        const initials = getInitials(completion.user?.full_name || completion.user?.email || '');
+                                        const isCompletedResponse = completion.status === 'completed';
+                                        const isInProgress = completion.status === 'in_progress';
+                                        const isNotStarted = completion.status === 'not_started' || !completion.status;
+                                        const isCurrentUser = completion.user_id === userId || completion.user?.id === userId;
+
+                                        // Style based on status
+                                        const borderClass = isCompletedResponse ? 'border-green-500' :
+                                                           isInProgress ? 'border-yellow-400' :
+                                                           'border-gray-300';
+                                        const opacity = isNotStarted ? 'opacity-50' : '';
+
+                                        return (
+                                          <button
+                                            key={completion.id || `${applet.id}-${completion.user_id}`}
+                                            type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!isNotStarted) {
+                                              handlePeerAvatarClick(applet, completion, projectlet);
+                                            }
+                                          }}
+                                          className={`relative w-8 h-8 rounded-full border-2 ${borderClass} bg-white overflow-hidden shadow-sm hover:shadow-md transition transform hover:-translate-y-0.5 ${isCurrentUser ? 'ring-2 ring-purple-400' : ''} ${opacity} ${isNotStarted ? 'cursor-default' : 'cursor-pointer'}`}
+                                            title={`${completion.user?.full_name || completion.user?.email || 'Team member'}${completion.completed_at ? ` • Submitted ${formatSubmittedAt(completion.completed_at)}` : completion.started_at ? ` • Started ${formatSubmittedAt(completion.started_at)}` : ' • Not started yet'}`}
+                                        >
+                                          {completion.user?.avatar_url ? (
+                                            <img
+                                              src={completion.user.avatar_url}
+                                              alt={completion.user?.full_name || completion.user?.email || 'Avatar'}
+                                              className="w-full h-full object-cover"
+                                            />
+                                          ) : (
+                                            <span className="flex items-center justify-center h-full text-[11px] font-semibold text-gray-600">
+                                              {initials}
+                                            </span>
+                                          )}
+                                          {isInProgress && (
+                                            <span className="absolute inset-0 rounded-full border-2 border-yellow-400 border-dashed animate-pulse" />
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                    {peerCompletions.length > 4 && (
+                                      <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-semibold border border-gray-300">
+                                        +{peerCompletions.length - 4}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">No teammate responses yet</span>
+                                )}
+                              </div>
+                              {(totalResponsesTarget || completedResponses) && (
+                                <span>
+                                  {completedResponses}{totalResponsesTarget ? ` of ${totalResponsesTarget}` : ''} completed
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         );
                       })}
                     </div>
@@ -1763,6 +2170,7 @@ function ClientDashboard() {
           onClose={() => {
             setShowPaletteCleanserModal(false);
             setIsPaletteCleanserViewOnly(false);
+            setPeerViewInfo(null);
           }}
           onComplete={async (data) => {
 
@@ -1780,10 +2188,14 @@ function ClientDashboard() {
               setShowConfetti(false);
               setShowPaletteCleanserModal(false);
               setIsPaletteCleanserViewOnly(false);
+              setPeerViewInfo(null);
 
               // Wait a bit more before refreshing to ensure database transaction is complete
               setTimeout(async () => {
                 await fetchProjectData();
+                if (userRole === 'client_admin') {
+                  fetchAppletCompletion(selectedApplet.id, true);
+                }
               }, 1000); // Wait 1 second after modal closes
             }, 1500);
           }}
@@ -1797,7 +2209,10 @@ function ClientDashboard() {
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-semibold">{selectedApplet.name || 'Sitemap Builder'}</h2>
               <button
-                onClick={() => setShowSitemapModal(false)}
+                onClick={() => {
+                  setShowSitemapModal(false);
+                  setPeerViewInfo(null);
+                }}
                 className="p-2 hover:bg-gray-100 rounded-lg"
               >
                 <X className="w-5 h-5" />
@@ -1914,6 +2329,9 @@ function ClientDashboard() {
                         setShowConfetti(false);
                         setShowSitemapModal(false);
                         fetchProjectData(); // Refresh project data
+                        if (userRole === 'client_admin' && selectedApplet) {
+                          fetchAppletCompletion(selectedApplet.id, true);
+                        }
                       }, 1500);
                     }
                   } catch (error) {
@@ -1939,6 +2357,7 @@ function ClientDashboard() {
             setIsToneOfVoiceViewOnly(false);
             // Refresh to show updated state
             fetchProjectData();
+            setPeerViewInfo(null);
           }}
           onComplete={() => {
             // Update local state
@@ -1952,6 +2371,9 @@ function ClientDashboard() {
               setIsToneOfVoiceViewOnly(false);
               // Refresh to show updated state
               fetchProjectData();
+              if (userRole === 'client_admin' && selectedApplet) {
+                fetchAppletCompletion(selectedApplet.id, true);
+              }
             }, 1500);
           }}
         />
@@ -1968,6 +2390,7 @@ function ClientDashboard() {
             setShowFontPickerModal(false);
             setIsFontPickerViewOnly(false);
             fetchProjectData();
+            setPeerViewInfo(null);
           }}
           onComplete={() => {
             setCompletedApplets(prev => new Set([...prev, selectedApplet.id]));
@@ -1976,6 +2399,9 @@ function ClientDashboard() {
               setShowFontPickerModal(false);
               setIsFontPickerViewOnly(false);
               fetchProjectData();
+              if (userRole === 'client_admin' && selectedApplet) {
+                fetchAppletCompletion(selectedApplet.id, true);
+              }
             });
           }}
         />
@@ -2238,6 +2664,7 @@ function ClientDashboard() {
           onClose={() => {
             setShowCopyCollectionModal(false);
             fetchProjectData();
+            setPeerViewInfo(null);
           }}
           onComplete={() => {
             // Update local state
@@ -2251,10 +2678,29 @@ function ClientDashboard() {
               setShowConfetti(false);
               setShowCopyCollectionModal(false);
               fetchProjectData();
+              if (userRole === 'client_admin' && selectedApplet) {
+                fetchAppletCompletion(selectedApplet.id, true);
+              }
             }, 1500);
           }}
           projectId={params.projectId}
           userId={userId}
+        />
+      )}
+
+      {showFormResponseModal && selectedResponseData && (
+        <FormResponseModal
+          isOpen={showFormResponseModal}
+          onClose={() => {
+            setShowFormResponseModal(false);
+            setSelectedResponseData(null);
+            setPeerViewInfo(null);
+          }}
+          formId={selectedResponseData.formId}
+          userId={selectedResponseData.userId}
+          userName={selectedResponseData.userName}
+          formName={selectedResponseData.formName}
+          projectId={params.projectId}
         />
       )}
 

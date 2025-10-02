@@ -9,7 +9,7 @@ BEGIN
         INSERT INTO aloa_applet_library (
             type, name, description, default_config,
             is_active, category, client_instructions,
-            requires_approval, created_at, updated_at
+            requires_approval, access_type, created_at, updated_at
         ) VALUES (
             'client_review',
             'Client Review',
@@ -19,6 +19,7 @@ BEGIN
             'collaboration',
             'Review the work presented and either approve it or request specific revisions. Note: Your contract includes up to 2 revision requests per step.',
             true,
+            'decision'::applet_access_type,
             NOW(), NOW()
         );
     END IF;

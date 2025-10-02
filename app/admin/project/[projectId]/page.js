@@ -263,7 +263,8 @@ function AdminProjectPageContent() {
     formId: null,
     userId: null,
     userName: null,
-    formName: null
+    formName: null,
+    projectId: null
   });
   const [showPaletteResultsModal, setShowPaletteResultsModal] = useState(false);
   const [selectedPaletteData, setSelectedPaletteData] = useState({
@@ -2829,7 +2830,8 @@ function AdminProjectPageContent() {
                                                       formId: formId,
                                                       userId: completion.user_id,
                                                       userName: completion.user?.full_name || completion.user?.email || 'User',
-                                                      formName: form?.title || applet.name
+                                                      formName: form?.title || applet.name,
+                                                      projectId: params.projectId
                                                     });
                                                     setShowFormResponseModal(true);
                                                   } else if (applet.type === 'sitemap') {
@@ -6145,11 +6147,21 @@ function AdminProjectPageContent() {
       {showFormResponseModal && (
         <FormResponseModal
           isOpen={showFormResponseModal}
-          onClose={() => setShowFormResponseModal(false)}
+          onClose={() => {
+            setShowFormResponseModal(false);
+            setSelectedResponseData({
+              formId: null,
+              userId: null,
+              userName: null,
+              formName: null,
+              projectId: null
+            });
+          }}
           formId={selectedResponseData.formId}
           userId={selectedResponseData.userId}
           userName={selectedResponseData.userName}
           formName={selectedResponseData.formName}
+          projectId={selectedResponseData.projectId || params.projectId}
         />
       )}
 

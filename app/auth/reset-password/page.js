@@ -30,7 +30,8 @@ export default function ResetPasswordPage() {
         setEmail('');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      console.error('[ResetPasswordPage] Reset error:', err);
+      setError(err?.message ? `An unexpected error occurred: ${err.message}` : 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }

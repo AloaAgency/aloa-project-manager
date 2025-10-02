@@ -97,8 +97,20 @@ export default function LoginPage() {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.user && data.clientProject?.id) {
-          window.location.href = `/project/${data.clientProject.id}/dashboard`;
+        console.log('[LoginPage] Authenticated user profile:', data);
+        if (data.user) {
+          const role = data.user.role;
+          const projectId = data.clientProject?.id;
+
+          if (role === 'super_admin' || role === 'project_admin' || role === 'team_member') {
+            window.location.href = '/admin/projects';
+            return;
+          }
+
+          if (['client', 'client_admin', 'client_participant'].includes(role) && projectId) {
+            window.location.href = `/project/${projectId}/dashboard`;
+            return;
+          }
         }
       }
     } catch (err) {
@@ -224,6 +236,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const { signInWithMagicLink } = await import('@/lib/supabase-auth');
+
       const result = await signInWithMagicLink(email);
       
       if (result.error) {
@@ -232,7 +246,8 @@ export default function LoginPage() {
         setSuccess('Check your email for the login link!');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      console.error('[LoginPage] Magic link error:', err);
+      setError(err?.message ? `An unexpected error occurred: ${err.message}` : 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }

@@ -141,13 +141,48 @@ export async function GET(request) {
       );
     }
 
+    let clientProject = null;
+    const userRole = profile?.role || 'client';
+    const clientRoles = ['client', 'client_admin', 'client_participant'];
+
+    if (clientRoles.includes(userRole) && serviceKey) {
+      try {
+        const serviceSupabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          serviceKey
+        );
+
+        const { data: memberData } = await serviceSupabase
+          .from('aloa_project_members')
+          .select(`
+            project_id,
+            project_role,
+            aloa_projects (
+              id,
+              project_name,
+              status
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('project_role', 'viewer')
+          .maybeSingle();
+
+        if (memberData?.aloa_projects) {
+          clientProject = memberData.aloa_projects;
+        }
+      } catch (projectError) {
+        console.warn('[Profile API] Unable to load client project', projectError.message);
+      }
+    }
+
     return NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
-        role: profile?.role || 'client',
+        role: userRole,
         profile: profile
-      }
+      },
+      clientProject
     }, { headers });
 
   } catch (error) {
