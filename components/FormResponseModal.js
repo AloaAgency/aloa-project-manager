@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, User, Calendar, FileText, CheckCircle, Download } from 'lucide-react';
 
-export default function FormResponseModal({ isOpen, onClose, formId, userId, userName, formName }) {
+export default function FormResponseModal({ isOpen, onClose, formId, userId, userName, formName, projectId }) {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(null);
   const [formFields, setFormFields] = useState([]);
@@ -13,14 +13,15 @@ export default function FormResponseModal({ isOpen, onClose, formId, userId, use
     if (isOpen && formId && userId) {
       fetchResponse();
     }
-  }, [isOpen, formId, userId]);
+  }, [isOpen, formId, userId, projectId]);
 
   const fetchResponse = async () => {
     setLoading(true);
     setError(null);
     try {
       // Fetch the form response for this specific user
-      const responseRes = await fetch(`/api/aloa-responses?form_id=${formId}&user_id=${userId}`);
+      const projectQuery = projectId ? `&project_id=${projectId}` : '';
+      const responseRes = await fetch(`/api/aloa-responses?form_id=${formId}&user_id=${userId}${projectQuery}`);
       if (!responseRes.ok) throw new Error('Failed to fetch response');
 
       const responseData = await responseRes.json();

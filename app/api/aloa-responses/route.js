@@ -3,6 +3,7 @@ import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
 import { createServiceClient } from '@/lib/supabase-service';
 import {
   handleSupabaseError,
+  hasProjectAccess,
   requireAuthenticatedSupabase,
 } from '@/app/api/_utils/admin';
 
@@ -15,28 +16,55 @@ export async function GET(request) {
     return authContext.error;
   }
 
-  const { user, isAdmin } = authContext;
+  const { user, isAdmin, role } = authContext;
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const serviceSupabase = createServiceClient();
+  const canImpersonate = isAdmin || role === 'client_admin';
 
   try {
     const { searchParams } = new URL(request.url);
     const formId = searchParams.get('formId') || searchParams.get('form_id');
     const requestedUserId = searchParams.get('userId') || searchParams.get('user_id');
+    const projectId = searchParams.get('projectId') || searchParams.get('project_id');
+    const projectIdValid = projectId && UUID_REGEX.test(projectId);
 
     if (!formId || !UUID_REGEX.test(formId)) {
       return NextResponse.json({ error: 'Invalid form ID format' }, { status: 400 });
     }
 
-    let resolvedUserId = requestedUserId;
+    let resolvedUserId = null;
 
-    if (resolvedUserId && !UUID_REGEX.test(resolvedUserId)) {
-      return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 });
-    }
-
-    if (!isAdmin) {
-      if (resolvedUserId && resolvedUserId !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (requestedUserId) {
+      if (!UUID_REGEX.test(requestedUserId)) {
+        return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 });
       }
+
+      if (requestedUserId === user.id) {
+        resolvedUserId = user.id;
+      } else {
+        if (!canImpersonate) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        if (!projectIdValid) {
+          return NextResponse.json({ error: 'Project ID required to view another user\'s response' }, { status: 400 });
+        }
+
+        const callerHasAccess = await hasProjectAccess(serviceSupabase, projectId, user.id);
+        if (!callerHasAccess) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        const targetHasAccess = await hasProjectAccess(serviceSupabase, projectId, requestedUserId);
+        if (!targetHasAccess) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        resolvedUserId = requestedUserId;
+      }
+    } else if (!isAdmin) {
       resolvedUserId = user.id;
     }
 
@@ -56,6 +84,10 @@ export async function GET(request) {
 
     if (resolvedUserId) {
       query = query.eq('user_id', resolvedUserId);
+    }
+
+    if (projectIdValid) {
+      query = query.eq('aloa_project_id', projectId);
     }
 
     const { data: responses, error } = await query.order('submitted_at', { ascending: false });

@@ -1,35 +1,52 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { createServiceClient } from '@/lib/supabase-service';
+import {
+  hasProjectAccess,
+  requireAuthenticatedSupabase,
+  UUID_REGEX,
+  validateUuid
+} from '@/app/api/_utils/admin';
 
 export async function GET(request, { params }) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      {
-        cookies: {
-          get(name) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name, value, options) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name, options) {
-            cookieStore.set({ name, value: '', ...options });
-          },
-        },
-      }
-    );
+    const projectValidation = validateUuid(params.projectId, 'project ID');
+    if (projectValidation) {
+      return projectValidation;
+    }
+
+    const authContext = await requireAuthenticatedSupabase();
+    if (authContext.error) {
+      return authContext.error;
+    }
+
+    const { user, role, isAdmin } = authContext;
+    const serviceSupabase = createServiceClient();
     const { projectId } = params;
     const { searchParams } = new URL(request.url);
     const appletId = searchParams.get('appletId');
 
+    if (appletId && !UUID_REGEX.test(appletId)) {
+      return NextResponse.json({ error: 'Invalid applet ID' }, { status: 400 });
+    }
+
+    const hasAccess = await hasProjectAccess(serviceSupabase, projectId, user.id);
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const canViewPeerProgress = isAdmin || role === 'client_admin';
+    if (!canViewPeerProgress) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const dataClient = serviceSupabase;
+
     if (appletId) {
       // Get completion data for a specific applet from aloa_applet_progress
-      // Include both completed AND in_progress to show dotted avatars
-      const { data: completions, error: completionsError } = await supabase
+      // Include ALL records regardless of status to show all team members
+      const { data: completions, error: completionsError } = await dataClient
         .from('aloa_applet_progress')
         .select(`
           id,
@@ -40,28 +57,29 @@ export async function GET(request, { params }) {
           started_at,
           form_progress
         `)
-        .eq('applet_id', appletId)
-        .in('status', ['completed', 'in_progress']);
+        .eq('applet_id', appletId);
+        // Removed status filter to get ALL records, even 'not_started'
 
       if (completionsError) {
 
         return NextResponse.json({ error: 'Failed to fetch completions' }, { status: 500 });
       }
 
+      const completionRows = Array.isArray(completions) ? completions : [];
+
       // Get user profiles for the completions
       // user_id can be either a UUID or an email, so we need to handle both
-      const userIds = completions.map(c => c.user_id);
+      const userIds = completionRows.map((c) => c.user_id).filter(Boolean);
 
       // Separate UUIDs and emails
-      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const uuids = userIds.filter(id => uuidPattern.test(id));
-      const emails = userIds.filter(id => !uuidPattern.test(id) && id.includes('@'));
+      const uuids = userIds.filter(id => UUID_REGEX.test(id));
+      const emails = userIds.filter(id => !UUID_REGEX.test(id) && typeof id === 'string' && id.includes('@'));
 
       // Fetch profiles by ID and by email
       let profiles = [];
 
       if (uuids.length > 0) {
-        const { data: profilesByIds, error: idError } = await supabase
+        const { data: profilesByIds, error: idError } = await dataClient
           .from('aloa_user_profiles')
           .select('id, full_name, email, avatar_url')
           .in('id', uuids);
@@ -72,7 +90,7 @@ export async function GET(request, { params }) {
       }
 
       if (emails.length > 0) {
-        const { data: profilesByEmails, error: emailError } = await supabase
+        const { data: profilesByEmails, error: emailError } = await dataClient
           .from('aloa_user_profiles')
           .select('id, full_name, email, avatar_url')
           .in('email', emails);
@@ -86,7 +104,7 @@ export async function GET(request, { params }) {
       let completionsWithProfiles = [];
 
       // Check if this is a palette cleanser applet
-      const { data: appletData, error: appletError } = await supabase
+      const { data: appletData, error: appletError } = await dataClient
         .from('aloa_applets')
         .select('type, name')
         .eq('id', appletId)
@@ -102,7 +120,7 @@ export async function GET(request, { params }) {
 
       if (isPaletteCleanser) {
         // Fetch palette interaction data for each completion
-        completionsWithProfiles = await Promise.all(completions.map(async (completion) => {
+        completionsWithProfiles = await Promise.all(completionRows.map(async (completion) => {
           // Find profile by ID or email
           const profile = profiles?.find(p =>
             p.id === completion.user_id || p.email === completion.user_id
@@ -111,8 +129,10 @@ export async function GET(request, { params }) {
           // Fetch the palette interaction data
           // Note: The table uses user_email, not user_id, so we need to match by email
           // If user_id is already an email, use that; otherwise use profile.email
-          const userEmail = completion.user_id.includes('@') ? completion.user_id : profile.email;
-          const { data: interactions, error: interactionError } = await supabase
+          const userEmail = typeof completion.user_id === 'string' && completion.user_id.includes('@')
+            ? completion.user_id
+            : profile.email;
+          const { data: interactions, error: interactionError } = await dataClient
             .from('aloa_applet_interactions')
             .select('*')
             .eq('user_email', userEmail)
@@ -140,7 +160,7 @@ export async function GET(request, { params }) {
         }));
       } else {
         // For other applet types, merge profile data normally
-        completionsWithProfiles = completions.map(completion => {
+        completionsWithProfiles = completionRows.map((completion) => {
           // Find profile by ID or email
           const profile = profiles?.find(p =>
             p.id === completion.user_id || p.email === completion.user_id
@@ -163,7 +183,7 @@ export async function GET(request, { params }) {
 
       // Get client stakeholders for completion tracking
       // For decision applets, only count Client Admin stakeholders
-      let stakeholdersQuery = supabase
+      let stakeholdersQuery = dataClient
         .from('aloa_client_stakeholders')
         .select('*')
         .eq('project_id', projectId);
@@ -174,10 +194,51 @@ export async function GET(request, { params }) {
 
       const { data: stakeholders, error: stakeholdersError } = await stakeholdersQuery;
 
+      if (!stakeholdersError && Array.isArray(stakeholders) && stakeholders.length > 0) {
+        const stakeholderByUserId = new Map();
+        const stakeholderByEmail = new Map();
+
+        stakeholders.forEach((stakeholder) => {
+          if (stakeholder?.user_id) {
+            stakeholderByUserId.set(stakeholder.user_id, stakeholder);
+          }
+
+          if (stakeholder?.email) {
+            stakeholderByEmail.set(stakeholder.email.toLowerCase(), stakeholder);
+          }
+        });
+
+        completionsWithProfiles = completionsWithProfiles.map((completion) => {
+          const completionEmail = completion?.user?.email || completion?.user_id;
+          const normalizedEmail = typeof completionEmail === 'string' ? completionEmail.toLowerCase() : null;
+          const stakeholderMatch = stakeholderByUserId.get(completion.user_id) ||
+            (normalizedEmail ? stakeholderByEmail.get(normalizedEmail) : null);
+
+          if (!stakeholderMatch) {
+            return completion;
+          }
+
+          const baseUser = completion.user || {};
+          const updatedUser = {
+            ...baseUser,
+            email: baseUser.email || stakeholderMatch.email || completionEmail || null,
+            full_name: baseUser.full_name && baseUser.full_name !== 'Unknown User'
+              ? baseUser.full_name
+              : stakeholderMatch.name || baseUser.full_name || null,
+            avatar_url: baseUser.avatar_url || stakeholderMatch.avatar_url || null,
+          };
+
+          return {
+            ...completion,
+            user: updatedUser,
+          };
+        });
+      }
+
       // Count unique stakeholders (filtered appropriately for applet type)
       const totalStakeholders = stakeholders?.length || 0;
       // Only count completed ones for the percentage, not in_progress
-      const completedCount = completions?.filter(c => c.status === 'completed').length || 0;
+      const completedCount = completionRows.filter((c) => c.status === 'completed').length || 0;
       const percentage = totalStakeholders > 0
         ? Math.round((completedCount / totalStakeholders) * 100)
         : 0;
@@ -190,7 +251,7 @@ export async function GET(request, { params }) {
       });
     } else {
       // Get all applet completions for the project
-      const { data: completions, error } = await supabase
+      const { data: completions, error } = await dataClient
         .from('aloa_applet_completions')
         .select(`
           id,

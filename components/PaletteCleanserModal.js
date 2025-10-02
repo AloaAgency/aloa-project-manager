@@ -981,7 +981,7 @@ export default function PaletteCleanserModal({
     } else if (showFinalSelection) {
       progress = ((1 + customSteps + 1) / totalVeryAttachedSteps) * 100;
     }
-  } else if (brandColorAttachment === 'somewhat' || brandColorAttachment === 'not') {
+  } else if (brandColorAttachment === 'somewhat' || brandColorAttachment === 'open') {
     // For other users: includes both custom and standard palettes
     const customSteps = Math.max(totalCustomPages, 1);
 
@@ -1113,7 +1113,49 @@ export default function PaletteCleanserModal({
           // Restore brand assessment data
           setHasBrandColors(savedData.hasBrandColors !== undefined ? savedData.hasBrandColors : null);
           setBrandColors(savedData.brandColors || []);
-          setBrandColorAttachment(savedData.brandColorAttachment || null);
+
+          // Handle missing brandColorAttachment for old submissions
+          let attachment = savedData.brandColorAttachment;
+
+          if (!attachment) {
+            // Try multiple inference strategies
+            if (savedData.hasBrandColors !== null && savedData.hasBrandColors !== undefined) {
+              // Strategy 1: Use hasBrandColors if available - this is the user's actual choice
+              if (savedData.hasBrandColors === 'yes_custom' && savedData.brandColors && savedData.brandColors.length > 0) {
+                attachment = 'very';
+              } else if (savedData.hasBrandColors === 'yes_provided') {
+                attachment = 'somewhat';
+              } else if (savedData.hasBrandColors === 'no') {
+                attachment = 'open';
+              } else if (savedData.hasBrandColors === false) {
+                // Boolean false means user said NO to having brand colors - they're open to change
+                // Even if brand colors were auto-populated from project knowledge, respect user's choice
+                attachment = 'open';
+              } else if (savedData.hasBrandColors === true && savedData.brandColors && savedData.brandColors.length > 0) {
+                // Boolean true with brand colors means they acknowledged having them
+                attachment = 'very';
+              }
+            }
+
+            // If still no attachment, try other strategies
+            if (!attachment) {
+              if (savedData.brandColors && savedData.brandColors.length > 0) {
+                // Strategy 2: If we have brand colors but no clear indication, check custom palettes
+                if (savedData.customPalettes && savedData.customPalettes.length > 0) {
+                  // Brand colors with custom palettes suggests somewhat attached
+                  attachment = 'somewhat';
+                } else {
+                  // Brand colors without custom palettes suggests very attached
+                  attachment = 'very';
+                }
+              } else if (savedData.finalSelections && savedData.finalSelections.length > 0) {
+                // Strategy 3: If they made selections but no brand colors, they're open to change
+                attachment = 'open';
+              }
+            }
+          }
+
+          setBrandColorAttachment(attachment || null);
           setBrandColorInput(savedData.brandColorInput || '');
           const normalizedInitial = normalizePalettesWithPages(savedData.customPalettes || []);
           setCustomPalettes(normalizedInitial.palettes);
@@ -1169,7 +1211,49 @@ export default function PaletteCleanserModal({
               setNoneSelected(savedData.noneSelected || false);
               setHasBrandColors(savedData.hasBrandColors || null);
               setBrandColors(savedData.brandColors || []);
-              setBrandColorAttachment(savedData.brandColorAttachment || null);
+
+              // Handle missing brandColorAttachment for old submissions
+              let attachment = savedData.brandColorAttachment;
+
+              if (!attachment) {
+                // Try multiple inference strategies
+                if (savedData.hasBrandColors !== null && savedData.hasBrandColors !== undefined) {
+                  // Strategy 1: Use hasBrandColors if available - this is the user's actual choice
+                  if (savedData.hasBrandColors === 'yes_custom' && savedData.brandColors && savedData.brandColors.length > 0) {
+                    attachment = 'very';
+                  } else if (savedData.hasBrandColors === 'yes_provided') {
+                    attachment = 'somewhat';
+                  } else if (savedData.hasBrandColors === 'no') {
+                    attachment = 'open';
+                  } else if (savedData.hasBrandColors === false) {
+                    // Boolean false means user said NO to having brand colors - they're open to change
+                    // Even if brand colors were auto-populated from project knowledge, respect user's choice
+                    attachment = 'open';
+                  } else if (savedData.hasBrandColors === true && savedData.brandColors && savedData.brandColors.length > 0) {
+                    // Boolean true with brand colors means they acknowledged having them
+                    attachment = 'very';
+                  }
+                }
+
+                // If still no attachment, try other strategies
+                if (!attachment) {
+                  if (savedData.brandColors && savedData.brandColors.length > 0) {
+                    // Strategy 2: If we have brand colors but no clear indication, check custom palettes
+                    if (savedData.customPalettes && savedData.customPalettes.length > 0) {
+                      // Brand colors with custom palettes suggests somewhat attached
+                      attachment = 'somewhat';
+                    } else {
+                      // Brand colors without custom palettes suggests very attached
+                      attachment = 'very';
+                    }
+                  } else if (savedData.finalSelections && savedData.finalSelections.length > 0) {
+                    // Strategy 3: If they made selections but no brand colors, they're open to change
+                    attachment = 'open';
+                  }
+                }
+              }
+
+              setBrandColorAttachment(attachment || null);
               setBrandColorInput(savedData.brandColorInput || '');
               const regenerated = savedData.brandColors && savedData.brandColors.length > 0 && savedData.backgroundPreference
                 ? generateAllCustomPalettes(savedData.brandColors, savedData.backgroundPreference === 'dark')
@@ -1246,7 +1330,21 @@ export default function PaletteCleanserModal({
             setShowSummary(isViewOnly ? true : savedData.showSummary || false);
             setHasBrandColors(savedData.hasBrandColors || null);
             setBrandColors(savedData.brandColors || []);
-            setBrandColorAttachment(savedData.brandColorAttachment || null);
+
+            // Handle missing brandColorAttachment for old in-progress data
+            let attachment = savedData.brandColorAttachment;
+            if (!attachment && savedData.hasBrandColors !== null) {
+              // Infer attachment from user's choices if missing
+              if (savedData.hasBrandColors === 'yes_custom' && savedData.brandColors && savedData.brandColors.length > 0) {
+                attachment = 'very';
+              } else if (savedData.hasBrandColors === 'yes_provided') {
+                attachment = 'somewhat';
+              } else if (savedData.hasBrandColors === 'no') {
+                attachment = 'open';
+              }
+            }
+
+            setBrandColorAttachment(attachment || null);
             setBrandColorInput(savedData.brandColorInput || '');
 
             const regenerated = savedData.brandColors && savedData.brandColors.length > 0 && savedData.backgroundPreference
@@ -2476,13 +2574,13 @@ export default function PaletteCleanserModal({
                         ? 'bg-green-100 text-green-800'
                         : brandColorAttachment === 'somewhat'
                           ? 'bg-yellow-100 text-yellow-800'
-                          : brandColorAttachment === 'not'
-                            ? 'bg-red-100 text-red-800'
+                          : brandColorAttachment === 'open'
+                            ? 'bg-blue-100 text-blue-800'
                             : 'bg-gray-100 text-gray-800'
                     }`}>
                       {brandColorAttachment === 'very' ? '💚 Very Attached' :
                        brandColorAttachment === 'somewhat' ? '💛 Somewhat Attached' :
-                       brandColorAttachment === 'not' ? '❌ Not Attached' :
+                       brandColorAttachment === 'open' ? '🔄 Open to Change' :
                        '❓ No Response'}
                     </span>
                   </div>
@@ -2513,7 +2611,7 @@ export default function PaletteCleanserModal({
                       ? "Client wants to stay close to their existing brand colors. All suggested palettes were based on these colors."
                       : brandColorAttachment === 'somewhat'
                         ? "Client is open to exploring beyond their current colors but wants some connection to their brand."
-                        : brandColorAttachment === 'not'
+                        : brandColorAttachment === 'open'
                           ? "Client is ready for a complete refresh and isn't attached to their current brand colors."
                           : "No brand color preference was indicated."}
                   </p>

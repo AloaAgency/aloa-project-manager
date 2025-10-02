@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
-import { 
-  Users, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Shield, 
-  Mail, 
+import LoadingSpinner from '@/components/LoadingSpinner';
+import {
+  Users,
+  Plus,
+  Edit2,
+  Trash2,
+  Shield,
+  Mail,
   Lock,
   Save,
   X,
@@ -278,11 +279,8 @@ export default function UsersManagementPage() {
 
   if (userLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading users...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8] flex items-center justify-center">
+        <LoadingSpinner message="Loading users" size="default" />
       </div>
     );
   }

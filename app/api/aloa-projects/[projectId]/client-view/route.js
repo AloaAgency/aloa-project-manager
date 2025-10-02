@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ADMIN_ROLES = ['super_admin', 'project_admin'];
@@ -437,23 +438,40 @@ export async function POST(request, { params }) {
       .maybeSingle();
 
     if (interactionRecord) {
-      if (
+      const shouldExtract =
         status === 'completed' ||
         interactionType === 'form_submit' ||
-        interactionType === 'phase_review_submission'
-      ) {
+        interactionType === 'phase_review_submission';
+
+      if (shouldExtract) {
+        let extractionTriggered = false;
+
         try {
-          await fetch(`${request.nextUrl.origin}/api/project-knowledge/${projectId}/extract`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sourceType: 'applet_interaction',
-              sourceId: interactionRecord.id,
-              triggerType: 'applet_completion'
-            })
-          });
+          const response = await fetch(
+            `${request.nextUrl.origin}/api/project-knowledge/${projectId}/extract`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sourceType: 'applet_interaction',
+                sourceId: interactionRecord.id,
+                triggerType: 'applet_completion'
+              })
+            }
+          );
+
+          extractionTriggered = response.ok;
         } catch (extractError) {
-          // Ignore extraction failures - not user-visible
+          extractionTriggered = false;
+        }
+
+        if (!extractionTriggered) {
+          try {
+            const extractor = new KnowledgeExtractor(projectId);
+            await extractor.extractFromAppletInteraction(interactionRecord.id);
+          } catch (fallbackError) {
+            // Fallback extraction failed; suppress to avoid surfacing to client
+          }
         }
       }
     }

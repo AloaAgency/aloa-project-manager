@@ -245,6 +245,12 @@ The application currently has critical security issues with 15 aloa_ tables miss
 - 3 SECURITY DEFINER views that bypass RLS
 - 1 table (aloa_projects) with policies created but RLS not enabled
 
+### When Shipping New Features
+- **Never trust client-supplied identifiers.** Derive user, project, or team membership from the authenticated session and re-check access with our Supabase helpers before touching the database.
+- **Service-role clients bypass RLS by design.** Gate every service-client query with explicit authorization logic so a malicious caller cannot escalate by swapping IDs in the payload.
+- **Keep runtime fallbacks in sync with migrations.** If you create tables or policies on the fly, mirror the exact schema, foreign keys, and RLS used in the migration files.
+- **Document security assumptions in the PR/summary.** Call out how access is enforced so reviewers can spot gaps quickly.
+
 ## Database Migrations
 
 **IMPORTANT**: All SQL migration files should be placed in the `/supabase` folder for organization and easy access. This allows users to quickly find and run SQL scripts in the Supabase SQL editor.
