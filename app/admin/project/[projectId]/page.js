@@ -54,6 +54,7 @@ import {
   File,
   Database,
   Eye,
+  EyeOff,
   ChevronDown,
   ChevronUp,
   Palette,
@@ -199,6 +200,8 @@ function AdminProjectPageContent() {
   const [knowledgeSaving, setKnowledgeSaving] = useState(false);
   const [selectedProjectlets, setSelectedProjectlets] = useState(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [projectletVisibilityLoading, setProjectletVisibilityLoading] = useState({});
+  const [appletVisibilityLoading, setAppletVisibilityLoading] = useState({});
   const [lastFileUpdate, setLastFileUpdate] = useState(null);
   const [showKnowledgeUpload, setShowKnowledgeUpload] = useState(false);
   const [uploadingKnowledge, setUploadingKnowledge] = useState(false);
@@ -1153,7 +1156,13 @@ function AdminProjectPageContent() {
       // Fetch projectlets
       const projectletsRes = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`);
       const projectletsData = await projectletsRes.json();
-      setProjectlets(dedupeById(projectletsData.projectlets || []));
+      const normalizedProjectlets = dedupeById(
+        (projectletsData.projectlets || []).map((projectlet) => ({
+          ...projectlet,
+          client_visible: projectlet.client_visible === false ? false : true
+        }))
+      );
+      setProjectlets(normalizedProjectlets);
       // Clear selection when refreshing
       setSelectedProjectlets(new Set());
       setShowBulkActions(false);
@@ -1269,6 +1278,15 @@ function AdminProjectPageContent() {
         }
         
         const sanitizedApplets = dedupeById(appletsWithCompletions);
+        sanitizedApplets.forEach((applet) => {
+          if (!applet) {
+            return;
+          }
+
+          if (applet.client_visible === undefined || applet.client_visible === null) {
+            applet.client_visible = true;
+          }
+        });
 
         setProjectletApplets(prev => ({
           ...prev,
@@ -1303,7 +1321,8 @@ function AdminProjectPageContent() {
           configuration: {
             form_id: null, // Will be configured inline
             required: true
-          }
+          },
+          client_visible: false
         })
       });
 
@@ -1353,6 +1372,96 @@ function AdminProjectPageContent() {
       }
     } catch (error) {
       toast.error('Error updating status');
+    }
+  };
+
+  const toggleProjectletVisibility = async (projectletId, nextVisible) => {
+    setProjectletVisibilityLoading((prev) => ({ ...prev, [projectletId]: true }));
+
+    try {
+      const response = await fetch(`/api/aloa-projects/${params.projectId}/projectlets`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectletId,
+          clientVisible: nextVisible
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Request failed');
+      }
+
+      let updatedProjectlet;
+      try {
+        const result = await response.json();
+        updatedProjectlet = result?.projectlet;
+      } catch (error) {
+        updatedProjectlet = null;
+      }
+
+      setProjectlets((prev) => prev.map((projectlet) => (
+        projectlet.id === projectletId
+          ? {
+              ...projectlet,
+              client_visible: updatedProjectlet?.client_visible ?? nextVisible
+            }
+          : projectlet
+      )));
+
+      toast.success(nextVisible ? 'Projectlet visible to clients' : 'Projectlet hidden from clients');
+    } catch (error) {
+      toast.error('Failed to update projectlet visibility');
+    } finally {
+      setProjectletVisibilityLoading((prev) => ({ ...prev, [projectletId]: false }));
+    }
+  };
+
+  const toggleAppletVisibility = async (projectletId, appletId, nextVisible) => {
+    setAppletVisibilityLoading((prev) => ({ ...prev, [appletId]: true }));
+
+    try {
+      const response = await fetch(
+        `/api/aloa-projects/${params.projectId}/projectlets/${projectletId}/applets`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appletId,
+            client_visible: nextVisible
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Request failed');
+      }
+
+      let updatedApplet;
+      try {
+        const result = await response.json();
+        updatedApplet = result?.applet;
+      } catch (error) {
+        updatedApplet = null;
+      }
+
+      setProjectletApplets((prev) => ({
+        ...prev,
+        [projectletId]: (prev[projectletId] || []).map((applet) => (
+          applet.id === appletId
+            ? {
+                ...applet,
+                client_visible: updatedApplet?.client_visible ?? nextVisible
+              }
+            : applet
+        ))
+      }));
+
+      toast.success(nextVisible ? 'Applet visible to clients' : 'Applet hidden from clients');
+    } catch (error) {
+      toast.error('Failed to update applet visibility');
+    } finally {
+      setAppletVisibilityLoading((prev) => ({ ...prev, [appletId]: false }));
     }
   };
 
@@ -1554,8 +1663,12 @@ function AdminProjectPageContent() {
 
       if (response.ok) {
         const { projectlet } = await response.json();
+        const sanitizedProjectlet = {
+          ...projectlet,
+          client_visible: projectlet.client_visible ?? false
+        };
         // Add the new projectlet to the list
-        setProjectlets(prevProjectlets => dedupeById([...prevProjectlets, projectlet]));
+        setProjectlets(prevProjectlets => dedupeById([...prevProjectlets, sanitizedProjectlet]));
         // Initialize empty applets for the new projectlet
         setProjectletApplets(prev => ({
           ...prev,
@@ -2514,6 +2627,8 @@ function AdminProjectPageContent() {
                         palette_cleanser: Palette,
                         link_submission: Link
                       };
+                      const isProjectletVisible = projectlet.client_visible !== false;
+                      const projectletVisibilityBusy = projectletVisibilityLoading[projectlet.id];
 
                       return (
                         <SortableProjectlet
@@ -2523,6 +2638,8 @@ function AdminProjectPageContent() {
                         >
                           <div className={`border-2 rounded-lg ${getStatusColor(projectlet.status)} transition-all ${
                             selectedProjectlets.has(projectlet.id) ? 'shadow-[0_0_0_2px_rgb(59,130,246)] bg-blue-50/30' : ''
+                          } ${
+                            isProjectletVisible ? '' : 'opacity-70 border-dashed border-gray-300'
                           }`}>
                             {/* Header */}
                             <div className="p-4 pb-0">
@@ -2581,6 +2698,12 @@ function AdminProjectPageContent() {
                                     >
                                       <Pencil className="w-4 h-4" />
                                     </button>
+                                    {!isProjectletVisible && (
+                                      <span className="ml-3 inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
+                                        <EyeOff className="w-3 h-3" />
+                                        Hidden from clients
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -2605,11 +2728,28 @@ function AdminProjectPageContent() {
                           </div>
 
                           {/* Status Toggle and Actions - Top Right */}
-                          <div className="flex items-start space-x-2">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleProjectletVisibility(projectlet.id, !isProjectletVisible);
+                              }}
+                              disabled={projectletVisibilityBusy}
+                              className={`h-9 w-9 flex items-center justify-center rounded-lg border transition-colors ${
+                                isProjectletVisible
+                                  ? 'text-green-600 border-green-200 hover:bg-green-50'
+                                  : 'text-gray-500 border-gray-200 hover:bg-gray-100'
+                              } ${projectletVisibilityBusy ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              title={isProjectletVisible ? 'Visible to clients' : 'Hidden from clients'}
+                              aria-label={isProjectletVisible ? 'Hide projectlet from clients' : 'Show projectlet to clients'}
+                            >
+                              {isProjectletVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                            </button>
                             <select
                               value={projectlet.status}
                               onChange={(e) => updateProjectletStatus(projectlet.id, e.target.value)}
-                              className={`px-3 py-1 border rounded-lg text-sm font-medium ${getStatusColor(projectlet.status)}`}
+                              className={`h-9 px-3 border rounded-lg text-sm font-medium ${getStatusColor(projectlet.status)}`}
                             >
                               <option value="locked">🔒 Locked</option>
                               <option value="available">✅ Available</option>
@@ -2618,12 +2758,12 @@ function AdminProjectPageContent() {
                               <option value="revision_requested">🔄 Revision</option>
                               <option value="completed">✓ Completed</option>
                             </select>
-                            
+
                             {/* Actions Dropdown */}
                             <div className="relative action-menu-container">
                               <button
                                 onClick={() => setShowActionMenu(showActionMenu === projectlet.id ? null : projectlet.id)}
-                                className="p-1 hover:bg-white/50 rounded"
+                                className="h-9 w-9 flex items-center justify-center hover:bg-gray-100 rounded-lg"
                                 title="More actions"
                               >
                                 <MoreVertical className="w-5 h-5" />
@@ -2709,9 +2849,11 @@ function AdminProjectPageContent() {
                               const form = formId ? availableForms.find(f => f.id === formId) : null;
                               const isFormLocked = form?.status === 'closed';
                               const hasRejection = applet.type === 'client_review' && applet.form_progress?.status === 'revision_requested';
+                              const isAppletVisible = applet.client_visible !== false;
+                              const appletVisibilityBusy = appletVisibilityLoading[applet.id];
 
                               return (
-                                <React.Fragment key={appletKey}>
+                                <div key={appletKey}>
                                   <SortableApplet
                                     id={applet.id}
                                     isDragging={activeId === applet.id}
@@ -2723,52 +2865,67 @@ function AdminProjectPageContent() {
                                           : isFormLocked && applet.type === 'form'
                                           ? 'bg-red-50 border-red-300 hover:bg-red-100'
                                           : 'bg-white/50 border-transparent hover:bg-white/70'
-                                      }`}
+                                      } ${isAppletVisible ? '' : 'opacity-70 border-gray-300 border-dashed'}`}
                                     >
                                       <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-2 flex-1">
+                                        <div className="flex items-center space-x-3 flex-1">
                                           <Icon className="w-4 h-4 text-gray-600" />
                                           <span className="text-sm font-medium">{applet.name}</span>
+                                          {/* Progress Summary - inline with name */}
+                                          <div className="flex items-center space-x-2">
+                                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                                              <div
+                                                className={`h-2 rounded-full transition-all duration-300 ${
+                                                  applet.completion_percentage === 100 && applet.totalStakeholders > 0
+                                                    ? 'bg-green-600'
+                                                    : applet.completion_percentage > 0
+                                                    ? 'bg-yellow-500'
+                                                    : 'bg-gray-300'
+                                                }`}
+                                                style={{ width: `${applet.completion_percentage || 0}%` }}
+                                              />
+                                            </div>
+                                            <span className={`text-xs font-medium ${
+                                              applet.completion_percentage === 100 && applet.totalStakeholders > 0
+                                                ? 'text-green-600'
+                                                : 'text-gray-600'
+                                            }`}>
+                                              {applet.completedCount || 0}/{applet.totalStakeholders || 0}
+                                            </span>
+                                          </div>
+                                        </div>
                                       {hasRejection && (
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-600 text-white text-xs font-bold rounded-full animate-pulse">
                                           <AlertCircle className="w-3 h-3" />
                                           ACTION NEEDED
                                         </span>
                                       )}
-                                      {/* Always show progress - even if 0 stakeholders to show 0/0 */}
-                                      {(
-                                        <div className="flex items-center space-x-2">
-                                          <div className="w-24 bg-gray-200 rounded-full h-2">
-                                            <div
-                                              className={`h-2 rounded-full transition-all duration-300 ${
-                                                applet.completion_percentage === 100 && applet.totalStakeholders > 0
-                                                  ? 'bg-green-600'
-                                                  : applet.completion_percentage > 0
-                                                  ? 'bg-yellow-500'
-                                                  : 'bg-gray-300'
-                                              }`}
-                                              style={{ width: `${applet.completion_percentage || 0}%` }}
-                                            />
-                                          </div>
-                                          <span className={`text-xs font-medium ${
-                                            applet.completion_percentage === 100 && applet.totalStakeholders > 0
-                                              ? 'text-green-600'
-                                              : 'text-gray-600'
-                                          }`}>
-                                            {applet.completedCount || 0}/{applet.totalStakeholders || 0}
-                                          </span>
-                                        </div>
-                                      )}
                                       {isFormLocked && applet.type === 'form' && (
-                                        <span className="text-xs px-2 py-0.5 bg-red-600 text-white rounded font-semibold uppercase">
+                                        <span className="ml-2 text-xs px-2 py-0.5 bg-red-600 text-white rounded font-semibold uppercase">
                                           🔒 LOCKED
                                         </span>
                                       )}
-                                    </div>
-                                    <div className="flex items-center space-x-3">
+                                      {/* Visibility toggle */}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleAppletVisibility(projectlet.id, applet.id, !isAppletVisible);
+                                        }}
+                                        disabled={appletVisibilityBusy}
+                                        className={`p-1.5 rounded-full border transition-colors ml-3 ${
+                                          isAppletVisible
+                                            ? 'text-green-600 border-green-200 hover:bg-green-50'
+                                            : 'text-gray-500 border-gray-200 hover:bg-gray-100'
+                                        } ${appletVisibilityBusy ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        title={isAppletVisible ? 'Visible to clients' : 'Hidden'}
+                                        aria-label={isAppletVisible ? 'Hide applet from clients' : 'Show applet to clients'}
+                                      >
+                                        {isAppletVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                      </button>
                                       {/* Show avatars of users who completed this applet */}
                                       {applet.completions && applet.completions.length > 0 && (
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center space-x-2 ml-3">
                                           <div className="flex -space-x-2">
                                             {/* AI amalgamated view avatar for palette cleanser */}
                                             {(applet.type === 'palette_cleanser' || applet.name?.toLowerCase().includes('palette')) && applet.completions.length > 1 && (
@@ -3016,7 +3173,7 @@ function AdminProjectPageContent() {
                                         </div>
                                       )}
                                       {/* Edit and Delete buttons */}
-                                      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity ml-3">
                                         <button
                                           onClick={async (e) => {
                                             e.stopPropagation();
@@ -3036,7 +3193,7 @@ function AdminProjectPageContent() {
                                           className="p-1 hover:bg-red-100 rounded"
                                           title="Delete applet"
                                         >
-                                          <Trash2 className="w-3 h-3 text-red-600" />
+                                          <Trash2 className="w-4 h-4 text-red-600" />
                                         </button>
                                       </div>
                                       {/* Expand/Collapse button */}
@@ -3058,13 +3215,12 @@ function AdminProjectPageContent() {
                                         )}
                                       </button>
                                     </div>
-                                  </div>
 
                                   {/* Applet Configuration Section */}
-                                  <div>
+                                  <div className="w-full">
                                   {/* Inline sitemap configuration for sitemap applets */}
                                   {expandedApplets[applet.id] && applet.type === 'sitemap' && (
-                                    <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-lg">
+                                    <div className="mt-3 w-full space-y-3 p-3 bg-gray-50 rounded-lg">
                                       <div className="text-sm font-medium text-gray-700">Sitemap Configuration</div>
 
                                       {/* Display project scope information */}
@@ -3160,7 +3316,7 @@ function AdminProjectPageContent() {
 
                                   {/* Inline form selector for form applets */}
                                   {expandedApplets[applet.id] && applet.type === 'form' && (
-                                    <div className="mt-2">
+                                    <div className="mt-2 w-full">
                                       {isFormLocked && (
                                         <div className="mb-2 p-2 bg-red-100 border border-red-300 rounded text-xs text-red-700 font-medium">
                                           ⚠️ This form is locked and not accepting new responses
@@ -3332,8 +3488,8 @@ function AdminProjectPageContent() {
 
                                   {/* Inline copy collection configuration */}
                                   {expandedApplets[applet.id] && applet.type === 'copy_collection' && (
-                                    <div className="mt-2">
-                                      <div className="space-y-3">
+                                    <div className="mt-2 w-full">
+                                      <div className="space-y-3 w-full">
 
                                         {/* Form selector for fallback option */}
                                         <div>
@@ -3438,7 +3594,7 @@ function AdminProjectPageContent() {
                                     applet.type === 'file_upload' ||
                                     applet.name?.includes('Upload') ||
                                     applet.description?.includes('upload')) && (
-                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                    <div className="mt-3 w-full p-3 bg-gray-50 rounded-lg">
                                       <FileUploadConfig
                                         applet={applet}
                                         projectId={params.projectId}
@@ -3450,7 +3606,7 @@ function AdminProjectPageContent() {
 
                                   {/* Inline palette cleanser configuration */}
                                   {expandedApplets[applet.id] && applet.type === 'palette_cleanser' && (
-                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                    <div className="mt-3 w-full p-3 bg-gray-50 rounded-lg space-y-3">
                                       {/* Lock/Unlock toggle */}
                                       <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-2">
@@ -3520,7 +3676,7 @@ function AdminProjectPageContent() {
 
                                   {/* Inline tone of voice configuration */}
                                   {expandedApplets[applet.id] && applet.type === 'tone_of_voice' && (
-                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                    <div className="mt-3 w-full p-3 bg-gray-50 rounded-lg space-y-3">
                                       {/* Lock/Unlock toggle */}
                                       <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-2">
@@ -3617,7 +3773,7 @@ function AdminProjectPageContent() {
 
                                   {/* Inline font picker configuration */}
                                   {expandedApplets[applet.id] && applet.type === 'font_picker' && (
-                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                    <div className="mt-3 w-full p-3 bg-gray-50 rounded-lg space-y-3">
                                       {/* Lock/Unlock toggle */}
                                       <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-2">
@@ -3710,7 +3866,7 @@ function AdminProjectPageContent() {
 
                                   {/* Inline AI Form Results configuration */}
                                   {expandedApplets[applet.id] && applet.type === 'ai_form_results' && (
-                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                                    <div className="mt-3 w-full p-3 bg-gray-50 rounded-lg space-y-3">
                                       {/* Form selector dropdown */}
                                       <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -4526,7 +4682,7 @@ function AdminProjectPageContent() {
 
                                   {/* Inline client review configuration */}
                                   {expandedApplets[applet.id] && applet.type === 'client_review' && (
-                                    <div className={`mt-3 p-3 rounded-lg space-y-3 ${
+                                    <div className={`mt-3 w-full p-3 rounded-lg space-y-3 ${
                                       applet.form_progress?.status === 'revision_requested'
                                         ? 'bg-orange-50 border-2 border-orange-300'
                                         : 'bg-gray-50'
@@ -4725,44 +4881,45 @@ function AdminProjectPageContent() {
                                       </div>
                                     </div>
                                   )}
-                                  </div> {/* End of Applet Configuration Section */}
-                                </div>
-                                </SortableApplet>
-                                {/* Spacer between applets */}
-                                {appletIndex < applets.length - 1 && (
-                                  <div className="h-2" />
-                                )}
-                                {/* Drop zone after this applet */}
-                                {isDraggingApplet && draggedAppletInfo?.id !== applet.id && (
-                                  <div
-                                    className={`transition-all ${
-                                      dropTargetProjectletId === projectlet.id && dropTargetIndex === appletIndex + 1
-                                        ? 'h-12 border-2 border-dashed border-blue-500 bg-blue-50 rounded mb-2'
-                                        : 'h-1'
-                                    }`}
-                                    onDragOver={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setDropTargetProjectletId(projectlet.id);
-                                      setDropTargetIndex(appletIndex + 1);
-                                    }}
-                                    onDragLeave={(e) => {
-                                      e.stopPropagation();
-                                      if (dropTargetIndex === appletIndex + 1) {
-                                        setDropTargetIndex(null);
-                                        setDropTargetProjectletId(null);
-                                      }
-                                    }}
-                                    onDrop={async (e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      await handleAppletDrop(draggedAppletInfo.id, draggedAppletInfo.projectletId, projectlet.id, appletIndex + 1);
+                                  {/* End of Applet Configuration Section */}
+                                      </div>
+                                    </div>
+                              </SortableApplet>
+                              {/* Spacer between applets */}
+                              {appletIndex < applets.length - 1 && (
+                                <div className="h-2" />
+                              )}
+                              {/* Drop zone after this applet */}
+                              {isDraggingApplet && draggedAppletInfo?.id !== applet.id && (
+                                <div
+                                  className={`transition-all ${
+                                    dropTargetProjectletId === projectlet.id && dropTargetIndex === appletIndex + 1
+                                      ? 'h-12 border-2 border-dashed border-blue-500 bg-blue-50 rounded mb-2'
+                                      : 'h-1'
+                                  }`}
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setDropTargetProjectletId(projectlet.id);
+                                    setDropTargetIndex(appletIndex + 1);
+                                  }}
+                                  onDragLeave={(e) => {
+                                    e.stopPropagation();
+                                    if (dropTargetIndex === appletIndex + 1) {
                                       setDropTargetIndex(null);
                                       setDropTargetProjectletId(null);
-                                    }}
-                                  />
-                                )}
-                              </React.Fragment>
+                                    }
+                                  }}
+                                  onDrop={async (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    await handleAppletDrop(draggedAppletInfo.id, draggedAppletInfo.projectletId, projectlet.id, appletIndex + 1);
+                                    setDropTargetIndex(null);
+                                    setDropTargetProjectletId(null);
+                                  }}
+                                />
+                              )}
+                              </div>
                             );
                           })}
                             </SortableContext>

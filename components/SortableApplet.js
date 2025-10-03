@@ -51,7 +51,7 @@ export default function SortableApplet({
         </div>
 
         {/* Content */}
-        <div className="pl-6">
+        <div className="pl-6 w-full">
           {children}
         </div>
       </div>

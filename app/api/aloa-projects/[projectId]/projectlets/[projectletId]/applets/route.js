@@ -123,7 +123,8 @@ export async function POST(request, { params }) {
       client_instructions: body.client_instructions,
       internal_notes: body.internal_notes,
       client_can_skip: body.client_can_skip || false,
-      library_applet_id: body.library_applet_id
+      library_applet_id: body.library_applet_id,
+      client_visible: false
     };
 
     // Create the applet
@@ -149,7 +150,20 @@ export async function POST(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const body = await request.json();
-    const { appletId, ...updateData } = body;
+    const {
+      appletId,
+      clientVisible: clientVisibleCamel,
+      client_visible: clientVisibleSnake,
+      ...rest
+    } = body;
+
+    const updateData = { ...rest };
+
+    if (typeof clientVisibleCamel === 'boolean') {
+      updateData.client_visible = clientVisibleCamel;
+    } else if (typeof clientVisibleSnake === 'boolean') {
+      updateData.client_visible = clientVisibleSnake;
+    }
 
     const cookieStore = await cookies();
     const supabase = createServerClient(

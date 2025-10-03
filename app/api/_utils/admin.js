@@ -80,6 +80,10 @@ export function handleSupabaseError(error, fallbackMessage = 'Supabase query fai
 }
 
 export async function hasProjectAccess(serviceSupabase, projectId, userId) {
+  if (!projectId || !userId) {
+    return false;
+  }
+
   const { data: member, error: memberError } = await serviceSupabase
     .from('aloa_project_members')
     .select('id')
@@ -92,6 +96,21 @@ export async function hasProjectAccess(serviceSupabase, projectId, userId) {
   }
 
   if (member) {
+    return true;
+  }
+
+  const { data: teamMember, error: teamError } = await serviceSupabase
+    .from('aloa_project_team')
+    .select('id')
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (teamError && teamError.code !== 'PGRST116') {
+    throw teamError;
+  }
+
+  if (teamMember) {
     return true;
   }
 

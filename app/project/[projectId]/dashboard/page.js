@@ -1197,9 +1197,19 @@ function ClientDashboard() {
             <h2 className="text-xl font-bold text-gray-900">Your Project Journey</h2>
 
           {projectlets.map((projectlet, index) => {
+            if (projectlet?.client_visible === false) {
+              return null;
+            }
+
+            const visibleApplets = (projectlet.applets || []).filter((applet) => applet?.client_visible !== false);
+
+            if (visibleApplets.length === 0) {
+              return null;
+            }
+
             const isLocked = projectlet.status === 'locked';
             const isCompleted = projectlet.status === 'completed';
-            const applets = projectlet.applets || [];
+            const applets = visibleApplets;
 
             // Check if projectlet is in progress (has started applets but not all complete)
             const hasStartedApplets = applets.some(applet => {
@@ -1260,6 +1270,9 @@ function ClientDashboard() {
                     <div className="space-y-3">
                       {applets
                         .filter(applet => {
+                          if (applet.client_visible === false) {
+                            return false;
+                          }
                           // First check if user has access based on role
                           if (!canUserAccessApplet(applet)) {
                             return false;
