@@ -79,7 +79,8 @@ export async function GET(request, { params }) {
           started_at,
           completed_at,
           created_at,
-          updated_at
+          updated_at,
+          client_visible
         )
       `)
       .eq('project_id', projectId)
@@ -90,9 +91,14 @@ export async function GET(request, { params }) {
     }
 
     // Sort applets within each projectlet by order_index
-    const sortedProjectlets = projectlets?.map(projectlet => ({
+    const visibleProjectlets = (projectlets || []).filter(projectlet => projectlet.client_visible !== false);
+
+    const sortedProjectlets = visibleProjectlets.map(projectlet => ({
       ...projectlet,
-      applets: projectlet.applets?.sort((a, b) => a.order_index - b.order_index).map(applet => {
+      applets: projectlet.applets?.
+        filter(applet => applet?.client_visible !== false).
+        sort((a, b) => a.order_index - b.order_index).
+        map(applet => {
         // Debug log for Pig applet
         if (applet.name?.toLowerCase().includes('pig')) {
           // Log Pig applet configuration for debugging
@@ -242,9 +248,11 @@ export async function GET(request, { params }) {
     }
 
 
-    return NextResponse.json({ 
+    const clientFacingProjectlets = sortedProjectlets.filter(projectlet => projectlet.applets.length > 0 || projectlet.client_visible);
+
+    return NextResponse.json({
       project,
-      projectlets: sortedProjectlets,
+      projectlets: clientFacingProjectlets,
       stats: {
         totalApplets: estimatedTotalApplets,  // Use estimated total that includes locked projectlets
         completedApplets,

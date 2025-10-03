@@ -31,7 +31,9 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Invalid applet ID' }, { status: 400 });
     }
 
-    const hasAccess = await hasProjectAccess(serviceSupabase, projectId, user.id);
+    const hasAccess = isAdmin
+      ? true
+      : await hasProjectAccess(serviceSupabase, projectId, user.id);
     if (!hasAccess) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

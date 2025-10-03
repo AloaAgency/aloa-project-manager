@@ -114,7 +114,8 @@ export async function POST(request, { params }) {
         status: 'available',
         order_index: newOrderIndex,  // Use order_index instead of sequence_order
         sequence_order: newOrderIndex,  // Keep this for backward compatibility
-        metadata: {}
+        metadata: {},
+        client_visible: false
       }])
       .select()
       .single();
@@ -157,12 +158,32 @@ export async function PATCH(request, { params }) {
   try {
     const { projectId } = params;
     const body = await request.json();
-    const { projectletId, status, metadata } = body;
+    const {
+      projectletId,
+      status,
+      metadata,
+      clientVisible: clientVisibleCamel,
+      client_visible: clientVisibleSnake
+    } = body;
 
-    if (!projectletId || !status) {
+    if (!projectletId) {
 
       return NextResponse.json(
-        { error: 'projectletId and status are required' },
+        { error: 'projectletId is required' },
+        { status: 400 }
+      );
+    }
+
+    const clientVisible = typeof clientVisibleCamel === 'boolean'
+      ? clientVisibleCamel
+      : typeof clientVisibleSnake === 'boolean'
+        ? clientVisibleSnake
+        : undefined;
+
+    if (status === undefined && clientVisible === undefined && metadata === undefined) {
+
+      return NextResponse.json(
+        { error: 'No update fields provided' },
         { status: 400 }
       );
     }
@@ -181,11 +202,22 @@ export async function PATCH(request, { params }) {
     }
 
     // Update the projectlet
-    const updateData = {
-      status,
-      ...(metadata && { metadata }),
-      ...(status === 'completed' && { completion_date: new Date().toISOString() })
-    };
+    const updateData = {};
+
+    if (status !== undefined) {
+      updateData.status = status;
+      if (status === 'completed') {
+        updateData.completion_date = new Date().toISOString();
+      }
+    }
+
+    if (metadata) {
+      updateData.metadata = metadata;
+    }
+
+    if (clientVisible !== undefined) {
+      updateData.client_visible = clientVisible;
+    }
 
     const { data: updatedProjectlet, error: updateError } = await supabase
       .from('aloa_projectlets')

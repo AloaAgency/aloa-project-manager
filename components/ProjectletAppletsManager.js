@@ -32,6 +32,7 @@ import {
   GripVertical,
   FileText,
   Eye,
+  EyeOff,
   Upload,
   CheckCircle,
   Palette,
@@ -117,6 +118,7 @@ function ProjectletAppletsManager({
   const [applets, setApplets] = useState([]);
   const [libraryApplets, setLibraryApplets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [appletVisibilityLoading, setAppletVisibilityLoading] = useState({});
   const [showAddApplet, setShowAddApplet] = useState(startWithLibraryOpen);
   const [selectedLibraryApplet, setSelectedLibraryApplet] = useState(null);
   const [expandedApplet, setExpandedApplet] = useState(null);
@@ -143,7 +145,23 @@ function ProjectletAppletsManager({
       );
       const data = await response.json();
 
-      setApplets(data.applets || []);
+      const normalizedApplets = (data.applets || []).map((applet) => {
+        if (!applet) {
+          return applet;
+        }
+
+        if (applet.client_visible === false || applet.client_visible === true) {
+          return applet;
+        }
+
+        return {
+          ...applet,
+          client_visible: true
+        };
+      });
+
+      setApplets(normalizedApplets);
+      setAppletVisibilityLoading({});
     } catch (error) {
 
     } finally {
@@ -173,7 +191,8 @@ function ProjectletAppletsManager({
         config: libraryApplet.default_config || {},
         requires_approval: libraryApplet.requires_approval,
         client_instructions: libraryApplet.client_instructions,
-        form_id: null // Always initialize form_id to null, not undefined
+        form_id: null, // Always initialize form_id to null, not undefined
+        client_visible: false
       };
 
       // For form applets, ensure form_id is null so it can be configured inline
@@ -337,7 +356,8 @@ function ProjectletAppletsManager({
           config: { form_id: formId, required: true },
           form_id: formId,
           requires_approval: applet.requires_approval,
-          client_instructions: applet.client_instructions
+          client_instructions: applet.client_instructions,
+          client_visible: false
         };
 
         const response = await fetch(
@@ -460,7 +480,8 @@ function ProjectletAppletsManager({
     }
   }, [projectId, projectletId, selectedFormId, selectedLibraryApplet, fetchApplets]);
 
-  const updateApplet = useCallback(async (appletId, updates) => {
+  const updateApplet = useCallback(async (appletId, updates, options = {}) => {
+    const { toastMessage = 'Applet updated', showToast = true } = options;
     try {
       const response = await fetch(
         `/api/aloa-projects/${projectId}/projectlets/${projectletId}/applets`,
@@ -475,7 +496,9 @@ function ProjectletAppletsManager({
       );
 
       if (response.ok) {
-        toast.success('Applet updated');
+        if (showToast) {
+          toast.success(toastMessage);
+        }
         fetchApplets();
         setEditingApplet(null);
       }
@@ -511,6 +534,21 @@ function ProjectletAppletsManager({
       toast.error('Failed to update status');
     }
   }, [projectId, projectletId, fetchApplets]);
+
+  const toggleAppletVisibility = useCallback(async (appletId, nextVisible) => {
+    setAppletVisibilityLoading((prev) => ({ ...prev, [appletId]: true }));
+    try {
+      await updateApplet(
+        appletId,
+        { client_visible: nextVisible },
+        {
+          toastMessage: nextVisible ? 'Applet visible to clients' : 'Applet hidden from clients'
+        }
+      );
+    } finally {
+      setAppletVisibilityLoading((prev) => ({ ...prev, [appletId]: false }));
+    }
+  }, [updateApplet]);
 
   const deleteApplet = useCallback(async (appletId) => {
     if (!confirm('Are you sure you want to delete this applet?')) return;
@@ -688,6 +726,8 @@ function ProjectletAppletsManager({
             const colorClass = APPLET_COLORS[applet.type] || 'bg-gray-100 text-gray-700';
             const isExpanded = expandedApplet === applet.id;
             const isEditing = editingApplet === applet.id;
+            const isVisibleToClient = applet.client_visible !== false;
+            const visibilityBusy = appletVisibilityLoading[applet.id];
 
             return (
               <div
@@ -696,6 +736,8 @@ function ProjectletAppletsManager({
                   dragOverIndex === index ? 'ring-2 ring-blue-500 ring-offset-2' : ''
                 } ${
                   draggedApplet?.index === index ? 'opacity-50' : ''
+                } ${
+                  isVisibleToClient ? '' : 'opacity-70 border-dashed border-gray-300'
                 } transition-all`}
                 draggable
                 onDragStart={(e) => handleDragStart(e, applet, index)}
@@ -736,6 +778,23 @@ function ProjectletAppletsManager({
 
                       {/* Status and Actions */}
                       <div className="flex items-center space-x-2 mt-3">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleAppletVisibility(applet.id, !isVisibleToClient);
+                          }}
+                          disabled={visibilityBusy}
+                          className={`p-1.5 rounded-full border transition-colors ${
+                            isVisibleToClient
+                              ? 'text-green-600 border-green-200 hover:bg-green-50'
+                              : 'text-gray-500 border-gray-200 hover:bg-gray-100'
+                          } ${visibilityBusy ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title={isVisibleToClient ? 'Visible to clients' : 'Hidden'}
+                          aria-label={isVisibleToClient ? 'Hide applet from clients' : 'Show applet to clients'}
+                        >
+                          {isVisibleToClient ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        </button>
                         <select
                           value={applet.status}
                           onChange={(e) => updateAppletStatus(applet.id, e.target.value)}
