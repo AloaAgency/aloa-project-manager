@@ -24,10 +24,11 @@ function UpdatePasswordContent() {
 
         const hashParams = new URLSearchParams((typeof window !== 'undefined' && window.location.hash?.substring(1)) || '');
         const queryCode = searchParams.get('code');
+        const queryToken = searchParams.get('token');
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
 
-        if (!(accessToken && refreshToken) && !queryCode) {
+        if (!(accessToken && refreshToken) && !queryCode && !queryToken) {
           const type = hashParams.get('type');
           if (type !== 'recovery') {
             router.replace('/auth/reset-password?error=Invalid or expired reset link');
@@ -39,7 +40,22 @@ function UpdatePasswordContent() {
 
         let sessionTokens = null;
 
-        if (queryCode) {
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          if (error) {
+            throw error;
+          }
+          sessionTokens = { access_token: accessToken, refresh_token: refreshToken };
+        } else if (queryToken) {
+          const { data, error } = await supabase.auth.verifyOtp({ type: 'recovery', token_hash: queryToken });
+          if (error) {
+            throw error;
+          }
+          sessionTokens = {
+            access_token: data?.session?.access_token,
+            refresh_token: data?.session?.refresh_token,
+          };
+        } else if (queryCode) {
           const { data, error } = await supabase.auth.exchangeCodeForSession(queryCode);
           if (error) {
             throw error;
@@ -48,12 +64,6 @@ function UpdatePasswordContent() {
             access_token: data?.session?.access_token,
             refresh_token: data?.session?.refresh_token,
           };
-        } else if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-          if (error) {
-            throw error;
-          }
-          sessionTokens = { access_token: accessToken, refresh_token: refreshToken };
         }
 
         if (!sessionTokens?.access_token || !sessionTokens?.refresh_token) {
