@@ -23,16 +23,12 @@ function UpdatePasswordRedirector() {
     if (typeof window === 'undefined') return;
 
     const redirectUrl = new URL(`${window.location.origin}/auth/callback`);
-    redirectUrl.searchParams.set('next', '/auth/update-password/form');
+    const nextParam = searchParams.get('next');
+    redirectUrl.searchParams.set('next', nextParam || '/auth/update-password/form');
 
     searchParams.forEach((value, key) => {
       redirectUrl.searchParams.set(key, value);
     });
-
-    const currentHash = window.location.hash;
-    if (currentHash) {
-      redirectUrl.hash = currentHash;
-    }
 
     window.location.replace(redirectUrl.toString());
   }, [queryKey]);
