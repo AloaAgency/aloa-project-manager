@@ -142,6 +142,7 @@ export async function GET(request) {
     }
 
     let clientProject = null;
+    let clientProjects = [];
     const userRole = profile?.role || 'client';
     const clientRoles = ['client', 'client_admin', 'client_participant'];
 
@@ -157,18 +158,25 @@ export async function GET(request) {
           .select(`
             project_id,
             project_role,
-            aloa_projects (
+            aloa_projects!inner (
               id,
               project_name,
               status
             )
           `)
-          .eq('user_id', user.id)
-          .eq('project_role', 'viewer')
-          .maybeSingle();
+          .eq('user_id', user.id);
 
-        if (memberData?.aloa_projects) {
-          clientProject = memberData.aloa_projects;
+        if (Array.isArray(memberData) && memberData.length > 0) {
+          clientProjects = memberData
+            .filter(record => record?.aloa_projects)
+            .map(record => ({
+              ...record.aloa_projects,
+              project_role: record.project_role,
+            }));
+
+          if (clientProjects.length > 0) {
+            clientProject = clientProjects[0];
+          }
         }
       } catch (projectError) {
         console.warn('[Profile API] Unable to load client project', projectError.message);
@@ -182,7 +190,8 @@ export async function GET(request) {
         role: userRole,
         profile: profile
       },
-      clientProject
+      clientProject,
+      clientProjects
     }, { headers });
 
   } catch (error) {

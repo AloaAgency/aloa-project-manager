@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'magic'
+  const [availableProjects, setAvailableProjects] = useState([]);
 
   // Add debug logging to see what's happening on mount
   useEffect(() => {
@@ -100,16 +101,24 @@ export default function LoginPage() {
         console.log('[LoginPage] Authenticated user profile:', data);
         if (data.user) {
           const role = data.user.role;
-          const projectId = data.clientProject?.id;
+          const projects = data.clientProjects || [];
+          const projectId = data.clientProject?.id || projects[0]?.id;
 
           if (role === 'super_admin' || role === 'project_admin' || role === 'team_member') {
             window.location.href = '/admin/projects';
             return;
           }
 
-          if (['client', 'client_admin', 'client_participant'].includes(role) && projectId) {
-            window.location.href = `/project/${projectId}/dashboard`;
-            return;
+          if (['client', 'client_admin', 'client_participant'].includes(role)) {
+            if (projects.length > 1) {
+              setAvailableProjects(projects);
+              return;
+            }
+
+            if (projectId) {
+              window.location.href = `/project/${projectId}/dashboard`;
+              return;
+            }
           }
         }
       }
@@ -163,32 +172,27 @@ export default function LoginPage() {
         
         // If we have a session, set it in the client and verify it
         if (result.session) {
-          const { createClient } = await import('@/lib/supabase-auth');
-          const supabase = createClient();
+          try {
+            const { createClient } = await import('@/lib/supabase-auth');
+            const supabase = createClient();
 
-          // Set the session
-          await supabase.auth.setSession(result.session);
-
-          // Wait a moment for session to propagate
-          await new Promise(resolve => setTimeout(resolve, 200));
-
-          // Verify session was actually set (important for private/incognito tabs)
-          const { data: { session: verifiedSession } } = await supabase.auth.getSession();
-
-          if (!verifiedSession) {
-            // Try setting session again
+            // Attempt to set client-side session (helps when making supabase calls from the browser)
             await supabase.auth.setSession(result.session);
-            await new Promise(resolve => setTimeout(resolve, 300));
 
-            // Check one more time
-            const { data: { session: retriedSession } } = await supabase.auth.getSession();
-            if (!retriedSession) {
-              setError('Session could not be established. Please try logging in again.');
-              setLoading(false);
-              return;
+            // Give the auth helpers a beat to persist tokens
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            const { data: { session: verifiedSession } } = await supabase.auth.getSession();
+
+            if (!verifiedSession) {
+              // Retry once before giving up
+              await supabase.auth.setSession(result.session);
+              await new Promise(resolve => setTimeout(resolve, 300));
             }
+          } catch (sessionError) {
+            console.warn('[LoginPage] Unable to persist client session', sessionError);
+            // Continue; server-side cookies should still keep the session valid
           }
-
         }
 
         // Additional delay for private/incognito tabs to ensure cookies are written
@@ -196,6 +200,7 @@ export default function LoginPage() {
 
         // Role-based redirection
         const userRole = result.user?.role;
+        const projects = result.clientProjects || [];
 
 
         // Use window.location.href for a full page refresh to ensure cookies are properly set
@@ -204,8 +209,16 @@ export default function LoginPage() {
           window.location.href = '/admin/projects';
         } else if (['client', 'client_admin', 'client_participant'].includes(userRole)) {
           // Client users - check for project
-          if (result.clientProject?.id) {
-            window.location.href = `/project/${result.clientProject.id}/dashboard`;
+          if (projects.length > 1) {
+            setAvailableProjects(projects);
+            setLoading(false);
+            return;
+          }
+
+          const projectId = result.clientProject?.id || projects[0]?.id;
+
+          if (projectId) {
+            window.location.href = `/project/${projectId}/dashboard`;
           } else {
             // Client without a project - should not have access to admin areas
             setError('No project assigned to your account. Please contact your administrator.');
@@ -268,6 +281,56 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-gray-500">Loading login page...</div>
+      </div>
+    );
+  }
+
+  if (availableProjects.length > 1) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl w-full space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-extrabold text-gray-900">Select a project</h2>
+            <p className="mt-2 text-sm text-gray-600">Choose which project you'd like to open</p>
+          </div>
+
+          <div className="bg-white shadow-lg rounded-xl divide-y">
+            {availableProjects.map((project) => (
+              <button
+                key={project.id}
+                onClick={() => {
+                  window.location.href = `/project/${project.id}/dashboard`;
+                }}
+                className="w-full text-left px-6 py-4 hover:bg-gray-50 transition flex items-center justify-between"
+              >
+                <div>
+                  <p className="text-lg font-semibold text-gray-900">{project.project_name}</p>
+                  <p className="text-sm text-gray-500 capitalize">{project.status?.replace(/_/g, ' ') || 'active'}</p>
+                </div>
+                <span className="text-sm text-gray-400">Open →</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <button
+              onClick={async () => {
+                try {
+                  const { createClient } = await import('@/lib/supabase-auth');
+                  const supabase = createClient();
+                  await supabase.auth.signOut();
+                  window.location.href = '/auth/login';
+                } catch (signOutError) {
+                  console.error('Failed to sign out', signOutError);
+                  window.location.href = '/auth/login?clear_auth=1';
+                }
+              }}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              Not your projects? Sign out
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
