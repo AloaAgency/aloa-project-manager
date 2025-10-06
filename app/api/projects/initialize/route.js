@@ -146,6 +146,7 @@ export async function POST(request) {
       name: item.name,
       type: item.type,
       sequence_order: item.sequence_order,
+      order_index: item.sequence_order,
       status: index === 0 ? 'available' : 'locked', // First projectlet is available
       unlock_condition: item.unlock_condition,
       metadata: item.form_type ? { form_type: item.form_type } : {}
