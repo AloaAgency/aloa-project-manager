@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
             Reset your password
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Enter your email address and we'll send you a link to reset your password.
+            Enter your email address and we'll send you a link to reset your password. Not receiving an email? Please check your spam/junk and whitelist the sender.
           </p>
         </div>
 
