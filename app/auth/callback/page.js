@@ -19,66 +19,65 @@ export default function AuthCallbackPage() {
 
       try {
         const url = new URL(window.location.href);
+        const hashParams = new URLSearchParams(url.hash ? url.hash.substring(1) : '');
         const tokenHash = url.searchParams.get('token_hash') || url.searchParams.get('token');
-        const codeParam = url.searchParams.get('code');
-        const recoveryType = url.searchParams.get('type');
-        let sessionResult = null;
+        const queryType = url.searchParams.get('type') || hashParams.get('type');
+        const emailParam = url.searchParams.get('email') || undefined;
+        const accessToken = hashParams.get('access_token') || url.searchParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token') || url.searchParams.get('refresh_token');
 
-        if (tokenHash) {
-          const tokenType = recoveryType === 'recovery' ? 'recovery' : 'magiclink';
+        let session = null;
+
+        if (accessToken && refreshToken) {
+          console.log('[AuthCallback] Restoring session from access/refresh tokens');
+          const { data, error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          if (error) {
+            console.error('[AuthCallback] setSession failed:', error);
+            throw error;
+          }
+          session = data?.session ?? null;
+        } else if (tokenHash) {
+          const tokenType = queryType === 'recovery' ? 'recovery' : 'magiclink';
           console.log('[AuthCallback] Verifying', tokenType, 'token');
-          const { data, error } = await supabase.auth.verifyOtp({ type: tokenType, token_hash: tokenHash });
-          if (!error) {
-            sessionResult = data;
-          } else {
+          const { data, error } = await supabase.auth.verifyOtp({
+            type: tokenType,
+            token_hash: tokenHash,
+            email: emailParam
+          });
+          if (error) {
             console.error('[AuthCallback] verifyOtp failed:', error);
+            throw error;
           }
+          session = data?.session ?? null;
         }
 
-        if (!sessionResult && codeParam) {
-          console.log('[AuthCallback] Exchanging code for session');
-          const { data, error } = await supabase.auth.exchangeCodeForSession(codeParam);
-          if (error) {
-            console.error('[AuthCallback] Code exchange failed:', error);
-          } else {
-            sessionResult = data;
-          }
+        if (!session) {
+          const { data: fallbackSession } = await supabase.auth.getSession();
+          session = fallbackSession?.session ?? null;
         }
 
-        if (!sessionResult) {
-          console.log('[AuthCallback] Retrieving session from URL via getSessionFromUrl');
-          const { data, error } = await supabase.auth.getSessionFromUrl({ storeSession: true });
-          if (error) {
-            console.error('[AuthCallback] Failed to establish session:', error);
-            setStatus('This link has expired or is invalid. Request a new login link.');
-            setTimeout(() => router.replace('/auth/login'), 3000);
-            return;
-          }
-          sessionResult = data;
+        if (!session) {
+          console.warn('[AuthCallback] No session found in URL');
+          setStatus('This link has expired or is invalid. Request a new login link.');
+          setTimeout(() => router.replace('/auth/login'), 3000);
+          return;
         }
 
-        if (sessionResult?.session) {
-          console.log('[AuthCallback] Client session retrieved');
-          const { access_token, refresh_token, expires_in } = sessionResult.session;
-          try {
-            console.log('[AuthCallback] Persisting server session');
-            const response = await fetch('/api/auth/session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ access_token, refresh_token })
-            });
-            if (!response.ok) {
-              const errorBody = await response.json().catch(() => ({}));
-              console.error('[AuthCallback] Failed to persist session on server', response.status, errorBody);
-            } else {
-              console.log('[AuthCallback] Server session persisted successfully', { expires_in });
-            }
-          } catch (persistError) {
-            console.error('[AuthCallback] Session persistence error:', persistError);
+        const { access_token, refresh_token } = session;
+        try {
+          console.log('[AuthCallback] Persisting server session');
+          const response = await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ access_token, refresh_token })
+          });
+          if (!response.ok) {
+            const errorBody = await response.json().catch(() => ({}));
+            console.error('[AuthCallback] Failed to persist session on server', response.status, errorBody);
           }
-        } else {
-          console.warn('[AuthCallback] No session returned from Supabase');
+        } catch (persistError) {
+          console.error('[AuthCallback] Session persistence error:', persistError);
         }
 
         // Clean up the URL by removing any auth query params / hashes
