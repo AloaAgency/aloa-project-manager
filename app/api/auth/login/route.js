@@ -194,6 +194,7 @@ export async function POST(request) {
 
     // If user is any type of client role, get their project
     let clientProject = null;
+    let clientProjects = [];
     const clientRoles = ['client', 'client_admin', 'client_participant'];
     if (clientRoles.includes(userRole)) {
 
@@ -206,23 +207,25 @@ export async function POST(request) {
           .select(`
             project_id,
             project_role,
-            aloa_projects (
+            aloa_projects!inner (
               id,
               project_name,
               status
             )
           `)
-          .eq('user_id', data.user.id)
-          .eq('project_role', 'viewer')
-          .single();
+          .eq('user_id', data.user.id);
 
-        if (memberError) {
+        if (!memberError && Array.isArray(memberData) && memberData.length > 0) {
+          clientProjects = memberData
+            .filter(record => record?.aloa_projects)
+            .map(record => ({
+              ...record.aloa_projects,
+              project_role: record.project_role,
+            }));
 
-        } else if (memberData?.aloa_projects) {
-          clientProject = memberData.aloa_projects;
-
-        } else {
-
+          if (clientProjects.length > 0) {
+            clientProject = clientProjects[0];
+          }
         }
       }
     }
@@ -240,7 +243,8 @@ export async function POST(request) {
         profile: profile
       },
       session: data.session, // Include session for client-side handling
-      clientProject: clientProject
+      clientProject,
+      clientProjects
     });
 
     // Set cache control headers to prevent caching of auth responses

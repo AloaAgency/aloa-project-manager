@@ -16,6 +16,27 @@ export async function POST(request) {
     const body = await request.json();
     const { email, full_name, role = 'client', project_id, custom_message } = body;
 
+    const allowedRoles = [
+      'super_admin',
+      'project_admin',
+      'team_member',
+      'client',
+      'client_admin',
+      'client_participant'
+    ];
+
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json({
+        error: 'Invalid role specified for invitation'
+      }, { status: 400 });
+    }
+
+    if (['client', 'client_admin', 'client_participant'].includes(role) && !project_id) {
+      return NextResponse.json({
+        error: 'Project selection is required for client roles'
+      }, { status: 400 });
+    }
+
     // Validate required fields
     if (!email || !full_name) {
       return NextResponse.json({ 
@@ -50,8 +71,9 @@ export async function POST(request) {
       .eq('id', user.id)
       .single();
 
-    const isAuthorized = profile?.role === 'super_admin' || 
-                        (profile?.role === 'project_admin' && role === 'client' && project_id);
+    const projectScopedRoles = ['client', 'client_admin', 'client_participant'];
+    const isAuthorized = profile?.role === 'super_admin' ||
+      (profile?.role === 'project_admin' && projectScopedRoles.includes(role) && project_id);
 
     if (!isAuthorized) {
       return NextResponse.json({ 

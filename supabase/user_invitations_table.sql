@@ -3,7 +3,16 @@ CREATE TABLE IF NOT EXISTS user_invitations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   email TEXT NOT NULL,
   full_name TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('super_admin', 'project_admin', 'team_member', 'client')),
+  role TEXT NOT NULL DEFAULT 'client' CHECK (
+    role IN (
+      'super_admin',
+      'project_admin',
+      'team_member',
+      'client',
+      'client_admin',
+      'client_participant'
+    )
+  ),
   project_id UUID REFERENCES aloa_projects(id) ON DELETE CASCADE,
   token TEXT UNIQUE NOT NULL,
   invited_by UUID NOT NULL REFERENCES aloa_user_profiles(id),
