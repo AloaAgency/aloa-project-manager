@@ -21,15 +21,17 @@ export default function AuthCallbackPage() {
         const url = new URL(window.location.href);
         const tokenHash = url.searchParams.get('token_hash') || url.searchParams.get('token');
         const codeParam = url.searchParams.get('code');
+        const recoveryType = url.searchParams.get('type');
         let sessionResult = null;
 
         if (tokenHash) {
-          console.log('[AuthCallback] Verifying magic link token');
-          const { data, error } = await supabase.auth.verifyOtp({ type: 'magiclink', token_hash: tokenHash });
-          if (error) {
-            console.error('[AuthCallback] verifyOtp failed:', error);
-          } else {
+          const tokenType = recoveryType === 'recovery' ? 'recovery' : 'magiclink';
+          console.log('[AuthCallback] Verifying', tokenType, 'token');
+          const { data, error } = await supabase.auth.verifyOtp({ type: tokenType, token_hash: tokenHash });
+          if (!error) {
             sessionResult = data;
+          } else {
+            console.error('[AuthCallback] verifyOtp failed:', error);
           }
         }
 
@@ -84,7 +86,13 @@ export default function AuthCallbackPage() {
 
         setStatus('Session established! Redirecting…');
         await new Promise(resolve => setTimeout(resolve, 300));
-        router.replace('/auth/login?authenticated=true');
+
+        const nextParam = url.searchParams.get('next');
+        const destination = nextParam && nextParam.startsWith('/')
+          ? nextParam
+          : '/auth/login?authenticated=true';
+
+        router.replace(destination);
       } catch (err) {
         console.error('[AuthCallback] Unexpected error:', err);
         setStatus('An unexpected error occurred. Please log in again.');
