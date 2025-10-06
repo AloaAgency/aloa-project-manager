@@ -40,12 +40,23 @@ export default function UsersManagementPage() {
   });
   const [inviteMode, setInviteMode] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  // ESC key handler for create modal
+  // ESC key handler for modals
   useEscapeKey(() => {
     setShowCreateModal(false);
     setInviteMode(false);
   }, showCreateModal);
+
+  useEscapeKey(() => {
+    setShowPasswordModal(false);
+    setResetPasswordUser(null);
+    setNewPassword('');
+    setConfirmPassword('');
+  }, showPasswordModal);
 
   useEffect(() => {
     if (!userLoading) {
@@ -180,6 +191,45 @@ export default function UsersManagementPage() {
       setSuccess('User updated successfully');
       setEditingUser(null);
       fetchUsers();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch('/api/auth/users/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: resetPasswordUser.id,
+          newPassword
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to reset password');
+      }
+
+      setSuccess(`Password reset successfully for ${resetPasswordUser.email}`);
+      setShowPasswordModal(false);
+      setResetPasswordUser(null);
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (err) {
       setError(err.message);
     }
@@ -451,6 +501,18 @@ export default function UsersManagementPage() {
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
+                      <button
+                        onClick={() => {
+                          setResetPasswordUser(userData);
+                          setShowPasswordModal(true);
+                          setNewPassword('');
+                          setConfirmPassword('');
+                        }}
+                        className="text-yellow-600 hover:text-yellow-900"
+                        title="Reset password"
+                      >
+                        <Lock className="h-4 w-4" />
+                      </button>
                       {userData.id !== user.id ? ( // Prevent deleting yourself
                         <button
                           onClick={() => handleDeleteUser(userData.id, userData.email)}
@@ -631,6 +693,109 @@ export default function UsersManagementPage() {
                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     {inviteMode ? 'Send Invitation' : 'Create User'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Password Reset Modal */}
+        {showPasswordModal && resetPasswordUser && (
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Reset Password
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setResetPasswordUser(null);
+                    setNewPassword('');
+                    setConfirmPassword('');
+                  }}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">
+                  Resetting password for: <span className="font-medium">{resetPasswordUser.email}</span>
+                </p>
+              </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); handleResetPassword(); }} className="space-y-4">
+                <div>
+                  <label htmlFor="new-password" className="block text-sm font-medium text-gray-700">
+                    New Password
+                  </label>
+                  <div className="mt-1 relative">
+                    <Lock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                    <input
+                      type="password"
+                      id="new-password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      className="pl-10 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="At least 8 characters"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
+                    Confirm Password
+                  </label>
+                  <div className="mt-1 relative">
+                    <Lock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                    <input
+                      type="password"
+                      id="confirm-password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      className="pl-10 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <div className="flex">
+                      <AlertCircle className="h-4 w-4 text-red-400 mt-0.5" />
+                      <div className="ml-2">
+                        <p className="text-sm text-red-800">{error}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordModal(false);
+                      setResetPasswordUser(null);
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!newPassword || !confirmPassword}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Reset Password
                   </button>
                 </div>
               </form>
