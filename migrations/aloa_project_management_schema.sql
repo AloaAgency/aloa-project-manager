@@ -102,7 +102,20 @@ CREATE TABLE aloa_project_team (
   project_id UUID REFERENCES aloa_projects(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   name TEXT,
-  role TEXT CHECK (role IN ('client', 'admin', 'designer', 'developer', 'copywriter', 'viewer')),
+  role TEXT CHECK (
+    role IN (
+      'client',
+      'client_admin',
+      'client_participant',
+      'project_admin',
+      'team_member',
+      'admin',
+      'designer',
+      'developer',
+      'copywriter',
+      'viewer'
+    )
+  ),
   permissions JSONB DEFAULT '{"can_fill_forms": true, "can_approve": false, "can_edit_project": false}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(project_id, email)

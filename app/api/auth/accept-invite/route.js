@@ -162,46 +162,76 @@ export async function POST(request) {
 
     // Add project associations based on role
     if (invitation.project_id) {
+      const clientRoles = ['client', 'client_admin', 'client_participant'];
 
-      if (invitation.role === 'client') {
-        // Check if association already exists
+      if (clientRoles.includes(invitation.role)) {
         const { data: existingMember } = await serviceSupabase
           .from('aloa_project_members')
           .select('id')
           .eq('project_id', invitation.project_id)
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
 
         if (!existingMember) {
-          // Add as project member for client
-          const { error: memberError } = await serviceSupabase
+          await serviceSupabase
             .from('aloa_project_members')
             .insert({
               project_id: invitation.project_id,
               user_id: userId,
-              project_role: 'client'
+              project_role: 'viewer',
+              joined_at: new Date().toISOString()
             });
-
-          if (memberError) {
-
-          } else {
-
-          }
-        } else {
-
         }
-      } else if (invitation.role === 'project_admin' || invitation.role === 'team_member') {
-        // Add to project team for admins and team members
-        const { error: teamError } = await serviceSupabase
-          .from('aloa_project_team')
-          .insert({
-            project_id: invitation.project_id,
-            user_id: userId,
-            role: invitation.role
-          });
+      }
 
-        if (teamError) {
+      if (['project_admin', 'team_member', 'client_admin'].includes(invitation.role)) {
+        let existingTeamMember = null;
 
+        if (userId) {
+          const { data: byUser } = await serviceSupabase
+            .from('aloa_project_team')
+            .select('id')
+            .eq('project_id', invitation.project_id)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          existingTeamMember = byUser;
+        }
+
+        if (!existingTeamMember) {
+          const { data: byEmail } = await serviceSupabase
+            .from('aloa_project_team')
+            .select('id')
+            .eq('project_id', invitation.project_id)
+            .eq('email', email)
+            .maybeSingle();
+
+          existingTeamMember = byEmail;
+        }
+
+        if (!existingTeamMember) {
+          const permissions = invitation.role === 'client_admin'
+            ? {
+                can_fill_forms: true,
+                can_approve: true,
+                can_edit_project: false
+              }
+            : {
+                can_fill_forms: true,
+                can_approve: invitation.role === 'project_admin',
+                can_edit_project: invitation.role === 'project_admin'
+              };
+
+          await serviceSupabase
+            .from('aloa_project_team')
+            .insert({
+              project_id: invitation.project_id,
+              email,
+              name: full_name,
+              user_id: userId,
+              role: invitation.role,
+              permissions
+            });
         }
       }
 
