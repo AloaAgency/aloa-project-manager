@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase-server';
+import { createClient } from '@/lib/supabase-server';
 
 export async function GET(request, { params }) {
   const { projectId, projectletId, appletId } = params;
 
   try {
-    const supabase = createServerClient();
+    const supabase = createClient();
 
     // Fetch all progress records for this applet with user info
     const { data: progressData, error } = await supabase

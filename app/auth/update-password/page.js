@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { createClient } from '@/lib/supabase-auth';
 
-export default function UpdatePasswordEntryPage() {
+function UpdatePasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState('Preparing password reset…');
@@ -91,5 +91,17 @@ export default function UpdatePasswordEntryPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8]">
       <LoadingSpinner message={status} size="default" />
     </div>
+  );
+}
+
+export default function UpdatePasswordEntryPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#faf8f3] to-[#f5f1e8]">
+        <LoadingSpinner message="Loading..." size="default" />
+      </div>
+    }>
+      <UpdatePasswordContent />
+    </Suspense>
   );
 }
