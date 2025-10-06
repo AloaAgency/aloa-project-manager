@@ -28,8 +28,11 @@ function UpdatePasswordContent() {
         const refreshToken = hashParams.get('refresh_token');
 
         if (!(accessToken && refreshToken) && !queryCode) {
-          router.replace('/auth/reset-password?error=Invalid or expired reset link');
-          return;
+          const type = hashParams.get('type');
+          if (type !== 'recovery') {
+            router.replace('/auth/reset-password?error=Invalid or expired reset link');
+            return;
+          }
         }
 
         setStatus('Verifying reset link…');
@@ -53,22 +56,20 @@ function UpdatePasswordContent() {
           sessionTokens = { access_token: accessToken, refresh_token: refreshToken };
         }
 
-        if (!sessionTokens) {
-          const { data: sessionData } = await supabase.auth.getSession();
-          sessionTokens = {
-            access_token: sessionData?.session?.access_token ?? undefined,
-            refresh_token: sessionData?.session?.refresh_token ?? undefined,
-          };
+        if (!sessionTokens?.access_token || !sessionTokens?.refresh_token) {
+          throw new Error('Missing session tokens from reset link');
         }
 
-        // Persist session on the server for SSR checks
-        if (sessionTokens?.access_token && sessionTokens?.refresh_token) {
-          await fetch('/api/auth/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(sessionTokens)
-          });
+        const persistResponse = await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(sessionTokens)
+        });
+
+        if (!persistResponse.ok) {
+          const persistError = await persistResponse.json().catch(() => ({}));
+          throw new Error(persistError?.error || 'Unable to store session');
         }
 
         if (typeof window !== 'undefined') {
