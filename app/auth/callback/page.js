@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase-auth';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const [status, setStatus] = useState('Processing magic link...');
+  const [status, setStatus] = useState('Processing authentication...');
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -19,72 +19,51 @@ export default function AuthCallbackPage() {
 
       try {
         const url = new URL(window.location.href);
-        const tokenHash = url.searchParams.get('token_hash') || url.searchParams.get('token');
-        const codeParam = url.searchParams.get('code');
-        let sessionResult = null;
+        const error = url.searchParams.get('error');
+        const errorDescription = url.searchParams.get('error_description');
 
-        if (tokenHash) {
-          console.log('[AuthCallback] Verifying magic link token');
-          const { data, error } = await supabase.auth.verifyOtp({ type: 'magiclink', token_hash: tokenHash });
-          if (error) {
-            console.error('[AuthCallback] verifyOtp failed:', error);
-          } else {
-            sessionResult = data;
-          }
+        // Handle errors from Supabase
+        if (error) {
+          console.error('[AuthCallback] Error from Supabase:', error, errorDescription);
+          setStatus(errorDescription || 'Authentication failed. Please try logging in again.');
+          setTimeout(() => router.replace('/auth/login'), 3000);
+          return;
         }
 
-        if (!sessionResult && codeParam) {
-          console.log('[AuthCallback] Exchanging code for session');
-          const { data, error } = await supabase.auth.exchangeCodeForSession(codeParam);
-          if (error) {
-            console.error('[AuthCallback] Code exchange failed:', error);
-          } else {
-            sessionResult = data;
-          }
+        // Let Supabase handle the callback automatically
+        // This properly handles PKCE and all auth flows
+        const { data, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error('[AuthCallback] Session error:', sessionError);
+          setStatus('Failed to establish session. Please try logging in again.');
+          setTimeout(() => router.replace('/auth/login'), 3000);
+          return;
         }
 
-        if (!sessionResult) {
-          console.log('[AuthCallback] Retrieving session from URL via getSessionFromUrl');
-          const { data, error } = await supabase.auth.getSessionFromUrl({ storeSession: true });
-          if (error) {
-            console.error('[AuthCallback] Failed to establish session:', error);
-            setStatus('This link has expired or is invalid. Request a new login link.');
-            setTimeout(() => router.replace('/auth/login'), 3000);
-            return;
-          }
-          sessionResult = data;
+        if (data?.session) {
+          console.log('[AuthCallback] Session established successfully');
+          // Session is already stored by Supabase, just redirect
+          setStatus('Session established! Redirecting…');
+          await new Promise(resolve => setTimeout(resolve, 300));
+          router.replace('/auth/login?authenticated=true');
+          return;
         }
 
-        if (sessionResult?.session) {
-          console.log('[AuthCallback] Client session retrieved');
-          const { access_token, refresh_token, expires_in } = sessionResult.session;
-          try {
-            console.log('[AuthCallback] Persisting server session');
-            const response = await fetch('/api/auth/session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ access_token, refresh_token })
-            });
-            if (!response.ok) {
-              const errorBody = await response.json().catch(() => ({}));
-              console.error('[AuthCallback] Failed to persist session on server', response.status, errorBody);
-            } else {
-              console.log('[AuthCallback] Server session persisted successfully', { expires_in });
-            }
-          } catch (persistError) {
-            console.error('[AuthCallback] Session persistence error:', persistError);
-          }
+        // If no session yet, it might still be processing
+        // Wait a moment and check again
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const { data: retryData } = await supabase.auth.getSession();
+        if (retryData?.session) {
+          console.log('[AuthCallback] Session established on retry');
+          setStatus('Session established! Redirecting…');
+          router.replace('/auth/login?authenticated=true');
         } else {
-          console.warn('[AuthCallback] No session returned from Supabase');
+          console.error('[AuthCallback] No session after retry');
+          setStatus('Authentication failed. Please try logging in again.');
+          setTimeout(() => router.replace('/auth/login'), 3000);
         }
-
-        // Clean up the URL by removing any auth query params / hashes
-        window.history.replaceState({}, '', window.location.pathname);
-
-        setStatus('Session established! Redirecting…');
-        await new Promise(resolve => setTimeout(resolve, 300));
-        router.replace('/auth/login?authenticated=true');
       } catch (err) {
         console.error('[AuthCallback] Unexpected error:', err);
         setStatus('An unexpected error occurred. Please log in again.');

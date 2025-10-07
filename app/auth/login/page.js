@@ -170,42 +170,109 @@ export default function LoginPage() {
         setLoading(false);
       } else if (result.success) {
         
-        // If we have a session, set it in the client and verify it
+        // If we have a session, ensure it's properly set on both client and server
         if (result.session) {
+          console.log('[LoginPage] Received session from server:', {
+            hasAccessToken: !!result.session.access_token,
+            hasRefreshToken: !!result.session.refresh_token,
+            expiresAt: result.session.expires_at
+          });
+
           try {
             const { createClient } = await import('@/lib/supabase-auth');
             const supabase = createClient();
 
-            // Attempt to set client-side session (helps when making supabase calls from the browser)
-            await supabase.auth.setSession(result.session);
+            // Clear any stale session first
+            console.log('[LoginPage] Clearing stale sessions...');
+            await supabase.auth.signOut({ scope: 'local' });
 
-            // Give the auth helpers a beat to persist tokens
-            await new Promise(resolve => setTimeout(resolve, 200));
+            // Small delay to ensure cleanup
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-            const { data: { session: verifiedSession } } = await supabase.auth.getSession();
+            // Set the new session on client side
+            console.log('[LoginPage] Setting new client session...');
+            const { error: setSessionError } = await supabase.auth.setSession({
+              access_token: result.session.access_token,
+              refresh_token: result.session.refresh_token
+            });
 
-            if (!verifiedSession) {
-              // Retry once before giving up
-              await supabase.auth.setSession(result.session);
-              await new Promise(resolve => setTimeout(resolve, 300));
+            if (setSessionError) {
+              console.error('[LoginPage] Failed to set client session:', setSessionError);
+            } else {
+              console.log('[LoginPage] Client session set successfully');
             }
+
+            // Also ensure server-side cookies are set
+            console.log('[LoginPage] Syncing server session...');
+            try {
+              const sessionResponse = await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                  access_token: result.session.access_token,
+                  refresh_token: result.session.refresh_token
+                })
+              });
+
+              if (sessionResponse.ok) {
+                console.log('[LoginPage] Server session synced successfully');
+              } else {
+                console.warn('[LoginPage] Server session sync failed:', sessionResponse.status);
+              }
+            } catch (e) {
+              console.warn('[LoginPage] Failed to sync server session:', e);
+            }
+
+            // Give both client and server time to persist the session
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Verify the session is accessible
+            console.log('[LoginPage] Verifying session...');
+            const { data: { session: verifiedSession } } = await supabase.auth.getSession();
+            if (verifiedSession) {
+              console.log('[LoginPage] Session verified successfully:', {
+                userId: verifiedSession.user?.id,
+                email: verifiedSession.user?.email
+              });
+            } else {
+              console.warn('[LoginPage] Session verification failed - no session found');
+            }
+
+            // Check cookies
+            console.log('[LoginPage] Current cookies:', document.cookie);
+
+            // Check localStorage
+            const storageKeys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && key.includes('supabase')) {
+                storageKeys.push(key);
+              }
+            }
+            console.log('[LoginPage] Supabase localStorage keys:', storageKeys);
+
           } catch (sessionError) {
-            console.warn('[LoginPage] Unable to persist client session', sessionError);
-            // Continue; server-side cookies should still keep the session valid
+            console.error('[LoginPage] Session setup error:', sessionError);
+            // Continue anyway - server-side auth might still work
           }
         }
 
-        // Additional delay for private/incognito tabs to ensure cookies are written
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Additional delay to ensure all cookies are properly written
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         // Role-based redirection
         const userRole = result.user?.role;
         const projects = result.clientProjects || [];
 
+        console.log('[LoginPage] Preparing redirect for user role:', userRole);
 
         // Use window.location.href for a full page refresh to ensure cookies are properly set
         if (userRole === 'super_admin' || userRole === 'project_admin' || userRole === 'team_member') {
           // Admin users go to admin projects page
+          console.log('[LoginPage] Redirecting admin user to /admin/projects');
           window.location.href = '/admin/projects';
         } else if (['client', 'client_admin', 'client_participant'].includes(userRole)) {
           // Client users - check for project
