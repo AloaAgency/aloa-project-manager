@@ -20,7 +20,7 @@
 ## Workstream 3 · Token Generation & UX
 - **Goal**: Ensure OTPs are unpredictable and user messaging does not leak account state.
   1. Replace `Math.random` with `crypto.randomInt` (or server-side equivalent) when generating OTPs. *(Owner: Backend · Status: Not started)*
-  2. Return generic responses (“If an account exists…”) from `/api/auth/send-otp` and update UI copy to match. *(Owner: Frontend · Status: Not started)*
+  2. Return generic responses (“If an account exists…”) from `/api/auth/send-otp` and update UI copy to match. *(Owner: Frontend/Backend · Status: Completed — user enumeration mitigated in API & UI)*
   3. Document Supabase template behavior so support can confirm the correct code format is being delivered. *(Owner: Support · Status: Not started)*
 
 ## Workstream 4 · Session & Cookie Hardening

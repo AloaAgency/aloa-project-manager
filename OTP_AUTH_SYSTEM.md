@@ -46,7 +46,7 @@ The OTP system delivers 6-digit verification codes via email. Users enter the co
 1. **Supabase Enforcement**: Codes expire quickly and are single-use because Supabase manages issuance/verification.
 2. **HTTP-Only Cookies**: Login establishes a session using secure, HTTP-only cookies.
 3. **Rate Limiting & Lockouts**: `/api/auth/send-otp` and verification endpoints enforce in-memory per-email/per-IP throttles (15-minute window) and a 30-minute lock after five failed attempts. Move these guards to a shared store for horizontal scaling.
-4. **User Enumeration Mitigation** (planned): API responses will be normalized so the presence of an account is not disclosed.
+4. **User Enumeration Mitigation**: `/api/auth/send-otp` always returns a generic success message (“If an account exists…”), and the UI mirrors that copy.
 5. **Cryptographic RNG** (planned): OTP generation remains fully within Supabase; if we self-generate codes in the future, we will use `crypto.randomInt`.
 
 ## Supabase Email Template Configuration

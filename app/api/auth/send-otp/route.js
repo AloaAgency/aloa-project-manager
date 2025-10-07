@@ -83,6 +83,13 @@ export async function POST(request) {
     // Apply rate limits before hitting Supabase to short-circuit abusive traffic
     const ipLimit = applySlidingWindowLimit(ipRequestState, clientIp, IP_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
     if (ipLimit.limited) {
+      console.warn('[otp:send] rate-limit-hit', {
+        scope: 'ip',
+        ip: clientIp,
+        email: normalizedEmail,
+        type,
+        retryAfter: ipLimit.retryAfter
+      });
       return NextResponse.json(
         {
           error: 'Too many OTP requests from this IP. Please wait before trying again.'
@@ -98,6 +105,13 @@ export async function POST(request) {
 
     const emailLimit = applySlidingWindowLimit(emailRequestState, normalizedEmail, EMAIL_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
     if (emailLimit.limited) {
+      console.warn('[otp:send] rate-limit-hit', {
+        scope: 'email',
+        ip: clientIp,
+        email: normalizedEmail,
+        type,
+        retryAfter: emailLimit.retryAfter
+      });
       return NextResponse.json(
         {
           error: 'Too many OTP requests for this email. Please wait before requesting another code.'
@@ -111,36 +125,24 @@ export async function POST(request) {
       );
     }
 
-    // For recovery type, check if user exists
-    if (type === 'recovery') {
-      const { data: user, error: userError } = await supabase
-        .from('aloa_user_profiles')
-        .select('id')
-        .eq('email', normalizedEmail)
-        .single();
+    const { data: user, error: userError } = await supabase
+      .from('aloa_user_profiles')
+      .select('id')
+      .eq('email', normalizedEmail)
+      .single();
 
-      if (userError || !user) {
-        return NextResponse.json(
-          { error: 'No account found with this email address' },
-          { status: 404 }
-        );
-      }
-    }
+    if (userError || !user) {
+      console.warn('[otp:send] unknown-email', {
+        email: normalizedEmail,
+        ip: clientIp,
+        type
+      });
 
-    // For magiclink type, check if user exists
-    if (type === 'magiclink') {
-      const { data: user, error: userError } = await supabase
-        .from('aloa_user_profiles')
-        .select('id')
-        .eq('email', normalizedEmail)
-        .single();
-
-      if (userError || !user) {
-        return NextResponse.json(
-          { error: 'No account found with this email address' },
-          { status: 404 }
-        );
-      }
+      return NextResponse.json({
+        success: true,
+        message: 'If an account exists for this email, a 6-digit code has been sent.',
+        expiresIn: 900
+      });
     }
 
     // Use Supabase's built-in OTP functionality
@@ -152,7 +154,12 @@ export async function POST(request) {
     });
 
     if (error) {
-      console.error('Supabase OTP error:', error);
+      console.error('[otp:send] supabase-error', {
+        email: normalizedEmail,
+        ip: clientIp,
+        type,
+        supabaseError: error
+      });
       return NextResponse.json(
         { error: error.message || 'Failed to send OTP' },
         { status: 500 }
@@ -161,7 +168,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: 'OTP sent successfully',
+      message: 'If an account exists for this email, a 6-digit code has been sent.',
       expiresIn: 900 // 15 minutes in seconds
     });
 

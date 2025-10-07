@@ -53,6 +53,13 @@ export async function POST(request) {
 
     const rateLimitResult = enforceVerificationRateLimits(normalizedEmail, clientIp);
     if (!rateLimitResult.allowed) {
+      console.warn('[otp:verify] rate-limit-hit', {
+        email: normalizedEmail,
+        ip: clientIp,
+        status: rateLimitResult.status,
+        retryAfter: rateLimitResult.retryAfter,
+        type
+      });
       return NextResponse.json(
         { error: rateLimitResult.message },
         {
@@ -64,6 +71,12 @@ export async function POST(request) {
 
     const lockState = getVerificationLockState(normalizedEmail);
     if (lockState.locked) {
+      console.warn('[otp:verify] lockout-active', {
+        email: normalizedEmail,
+        ip: clientIp,
+        retryAfter: lockState.retryAfter,
+        type
+      });
       return NextResponse.json(
         {
           error: 'Too many incorrect verification attempts. Please wait before trying again.'
@@ -87,6 +100,12 @@ export async function POST(request) {
       const failureState = registerVerificationFailure(normalizedEmail);
 
       if (failureState.locked) {
+        console.warn('[otp:verify] lockout-triggered', {
+          email: normalizedEmail,
+          ip: clientIp,
+          retryAfter: failureState.retryAfter,
+          type
+        });
         return NextResponse.json(
           {
             error: 'Too many incorrect verification attempts. Please wait before trying again.'
@@ -98,6 +117,11 @@ export async function POST(request) {
         );
       }
 
+      console.warn('[otp:verify] invalid-token', {
+        email: normalizedEmail,
+        ip: clientIp,
+        type
+      });
       return NextResponse.json(
         {
           error: 'Invalid or expired verification code'

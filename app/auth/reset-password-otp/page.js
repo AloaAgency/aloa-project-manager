@@ -34,7 +34,7 @@ export default function ResetPasswordOTPPage() {
         throw new Error(data.error || 'Failed to send OTP');
       }
 
-      setSuccess('A 6-digit code has been sent to your email. Please check your inbox.');
+      setSuccess(data.message || 'If an account exists for this email, a 6-digit code has been sent.');
       setStep('verify');
     } catch (err) {
       setError(err.message);
