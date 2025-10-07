@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 import {
   enforceVerificationRateLimits,
   getVerificationLockState,
@@ -34,7 +35,9 @@ export async function POST(request) {
   try {
     const { email, token, type = 'magiclink' } = await request.json();
 
-    if (!email || !token) {
+    const rawEmail = typeof email === 'string' ? email.trim() : '';
+
+    if (!rawEmail || !token) {
       return NextResponse.json(
         { error: 'Email and token are required' },
         { status: 400 }
@@ -48,7 +51,7 @@ export async function POST(request) {
       );
     }
 
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = rawEmail.toLowerCase();
     const clientIp = getClientIp(request);
 
     const rateLimitResult = enforceVerificationRateLimits(normalizedEmail, clientIp);
@@ -90,7 +93,7 @@ export async function POST(request) {
 
     // First, verify the OTP using Supabase's verifyOtp
     const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-      email: normalizedEmail,
+      email: rawEmail,
       token,
       type: 'magiclink'
     });
@@ -132,51 +135,78 @@ export async function POST(request) {
 
     clearVerificationFailures(normalizedEmail);
 
-    // Get user profile
-    const { data: userProfile, error: userError } = await supabase
-      .from('aloa_user_profiles')
-      .select('id, auth_user_id, email, role')
-      .eq('email', normalizedEmail)
-      .single();
+    let authUserId = verifyData?.user?.id || null;
 
-    if (userError || !userProfile) {
+    if (!authUserId) {
+      console.error('[otp:verify] No user ID from OTP verification', {
+        email: rawEmail
+      });
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
-    // Create a session using Supabase Auth
-    const { error: sessionError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email: normalizedEmail
-    });
+    const { data: userProfile, error: userError } = await supabase
+      .from('aloa_user_profiles')
+      .select('id, email, role')
+      .eq('id', authUserId)
+      .single();
 
-    if (sessionError) {
-      console.error('Error creating session:', sessionError);
-      // Continue anyway - we'll set cookies manually
+    if (userError || !userProfile) {
+      console.error('[otp:verify] User profile not found for auth user', {
+        email: rawEmail,
+        authUserId,
+        error: userError
+      });
+      return NextResponse.json(
+        { error: 'User profile not found. Please contact support.' },
+        { status: 404 }
+      );
     }
 
-    // Set session cookies
+    // Set the session cookies using SSR client
     const cookieStore = cookies();
 
     if (verifyData?.session) {
-      // Set access token
-      cookieStore.set('sb-access-token', verifyData.session.access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/'
-      });
+      // Create a server client that will set the cookies properly
+      const serverSupabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+        {
+          cookies: {
+            get(name) {
+              return cookieStore.get(name)?.value;
+            },
+            set(name, value, options) {
+              const isProduction = process.env.NODE_ENV === 'production';
+              cookieStore.set({
+                name,
+                value,
+                ...options,
+                sameSite: 'lax',
+                secure: isProduction,
+                httpOnly: true,
+                path: '/',
+              });
+            },
+            remove(name, options) {
+              cookieStore.set({
+                name,
+                value: '',
+                ...options,
+                maxAge: 0,
+                path: '/',
+              });
+            },
+          },
+        }
+      );
 
-      // Set refresh token
-      cookieStore.set('sb-refresh-token', verifyData.session.refresh_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30, // 30 days
-        path: '/'
+      // Set the session on the server client
+      await serverSupabase.auth.setSession({
+        access_token: verifyData.session.access_token,
+        refresh_token: verifyData.session.refresh_token
       });
     }
 
@@ -214,7 +244,8 @@ export async function POST(request) {
         id: userProfile.id,
         email: userProfile.email,
         role: userProfile.role
-      }
+      },
+      session: verifyData?.session || null
     });
 
   } catch (error) {

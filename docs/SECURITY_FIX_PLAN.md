@@ -37,6 +37,38 @@ This document provides step-by-step instructions to fix all Row Level Security (
 - **1 table** with policies created but RLS not enabled
 - **Risk Level: CRITICAL** - Any authenticated user can read/write/delete all data
 
+## Authentication & OTP Hardening (Updated May 16, 2024)
+
+### Status Snapshot
+- ✅ Legacy OTP fallback removed from API routes; Supabase is the single source of truth.
+- ✅ No `password_reset_tokens` table deployed in Supabase (confirmed).
+- ✅ In-memory per-IP/per-email throttling and 30-minute lockouts enforce abuse prevention on `/api/auth/send-otp`, `/api/auth/verify-otp`, and `/api/auth/verify-otp-reset`.
+- ✅ `/api/auth/send-otp` now returns generic responses (“If an account exists…”) and the UI echoes the same copy to prevent user enumeration.
+- ✅ Structured console logging added for rate-limit hits, lockouts, and invalid token attempts.
+- 🔒 Outstanding: move rate-limit/lockout state to a shared store, tighten cookie strategy, and improve OTP randomness/testing.
+
+### Active Workstreams
+1. **Abuse Prevention** *(In progress)*
+   - [x] Per-IP/per-email throttling on OTP send/verify endpoints (current implementation uses in-memory maps).
+   - [x] Lock the email after five failed verifications within 15 minutes (30-minute cooldown).
+   - [ ] Emit structured events to centralized monitoring (hook console warnings into logging pipeline).
+   - [ ] Persist rate-limit counters in Redis/Supabase so enforcement works across multiple instances.
+
+2. **Token Generation & UX Resilience** *(Planned)*
+   - [ ] Switch any self-generated OTPs to use `crypto.randomInt` (Supabase currently handles true generation).
+   - [x] Normalize API/UI messaging to avoid revealing account existence.
+   - [ ] Document Supabase email template expectations for support (Magic Link template with `{{ .Token }}`).
+
+3. **Session & Cookie Hardening** *(Planned)*
+   - [ ] Replace the client-accessible `user-id` cookie with server-derived data or scoped API endpoint.
+   - [ ] Rotate sessions after password resets and other high-risk flows.
+   - [ ] Add automated tests to validate cookie flags (HttpOnly, Secure, SameSite) in production builds.
+
+### Validation Checklist
+- [ ] Load-test OTP endpoints to confirm throttling/lockouts behave as expected.
+- [ ] Manual smoke test (login + password reset) after any configuration changes.
+- [ ] Security review ensures structured logs surface in monitoring dashboards.
+
 ### Tables Missing RLS (Must Fix):
 1. `aloa_projects` - Has policies but RLS NOT enabled!
 2. `aloa_projectlet_steps`

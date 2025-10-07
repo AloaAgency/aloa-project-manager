@@ -62,7 +62,19 @@ export async function middleware(request) {
   if (pathname.startsWith('/api/')) {
     return response;
   }
-  
+
+  // CRITICAL: Completely bypass auth logic for OTP login pages
+  // These pages must remain stable during the OTP flow
+  if (pathname === '/auth/login-otp' || pathname === '/auth/reset-password-otp') {
+    // Skip ALL auth processing for OTP pages
+    // Just set security headers and return
+    // DO NOT check sessions, DO NOT redirect, DO NOT clear cookies
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-XSS-Protection', '1; mode=block');
+    return response;
+  }
+
   // Skip Supabase client creation for auth callback routes to prevent token consumption
   // BUT allow it for verify-reset since that page doesn't consume tokens
   const isAuthCallbackRoute = (pathname.startsWith('/auth/callback') ||
@@ -124,9 +136,11 @@ export async function middleware(request) {
 
     // Skip expensive session check if we're already on auth pages
     // This prevents unnecessary Supabase calls during auth cleanup
-    if (pathname.startsWith('/auth/')) {
+    // IMPORTANT: OTP login pages must be completely excluded from session checks
+    if (pathname.startsWith('/auth/') || pathname === '/auth/login-otp') {
       // On auth page - skip session check to avoid delays
       // We'll let the page handle auth itself
+      // This is especially important for OTP pages which need to remain stable
     } else {
       try {
         // First try to get the session
@@ -170,11 +184,15 @@ export async function middleware(request) {
     const hasStaleSession = !session && authCookies.length > 0;
     const needsAuthCleanup = sessionError || hasStaleSession;
 
-    // IMPORTANT: If on auth pages already, skip all this logic
-    if (pathname.startsWith('/auth/') || pathname.startsWith('/forms/')) {
-      // Already on an auth/public page, just let it through
-      // This prevents redirect loops
-    } else if (needsAuthCleanup) {
+    // IMPORTANT: If on auth pages already, skip ALL auth cleanup logic
+    // This is critical for OTP flow to work properly
+    const isAuthPage = pathname.startsWith('/auth/') || pathname.startsWith('/forms/');
+
+    if (isAuthPage) {
+      // Already on an auth/public page, just let it through completely
+      // This prevents redirect loops and ensures OTP pages remain stable
+      // DO NOT perform any auth cleanup or redirects for auth pages
+    } else if (needsAuthCleanup && !isAuthPage) {
       // Not on auth page and have auth issues - redirect
       // Clear all auth-related cookies
       for (const cookie of authCookies) {

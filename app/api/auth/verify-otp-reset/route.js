@@ -33,7 +33,9 @@ export async function POST(request) {
   try {
     const { email, token, newPassword, type = 'recovery' } = await request.json();
 
-    if (!email || !token || !newPassword) {
+    const rawEmail = typeof email === 'string' ? email.trim() : '';
+
+    if (!rawEmail || !token || !newPassword) {
       return NextResponse.json(
         { error: 'Email, token, and new password are required' },
         { status: 400 }
@@ -54,7 +56,7 @@ export async function POST(request) {
       );
     }
 
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = rawEmail.toLowerCase();
     const clientIp = getClientIp(request);
 
     const rateLimitResult = enforceVerificationRateLimits(normalizedEmail, clientIp);
@@ -95,10 +97,18 @@ export async function POST(request) {
     }
 
     // First, verify the OTP using Supabase's verifyOtp
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: normalizedEmail,
+    console.log('[otp:verify-reset] Attempting to verify OTP for:', normalizedEmail);
+    const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+      email: rawEmail,
       token,
       type: type === 'recovery' ? 'email' : 'magiclink'
+    });
+
+    console.log('[otp:verify-reset] Verification result:', {
+      hasError: !!verifyError,
+      hasData: !!verifyData,
+      hasUser: !!verifyData?.user,
+      hasSession: !!verifyData?.session
     });
 
     if (verifyError) {
@@ -136,25 +146,40 @@ export async function POST(request) {
 
     clearVerificationFailures(normalizedEmail);
 
-    // Get user by email
-    const { data: userProfile, error: userError } = await supabase
-      .from('aloa_user_profiles')
-      .select('id, auth_user_id')
-      .eq('email', normalizedEmail)
-      .single();
+    let authUserId = verifyData?.user?.id || null;
 
-    if (userError || !userProfile) {
+    if (!authUserId) {
+      console.error('[otp:verify-reset] No user ID from OTP verification', {
+        email: rawEmail
+      });
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
-    // Update password using Supabase Admin API
-    const { data: updateData, error: updateError } = await supabase.auth.admin.updateUserById(
-      userProfile.auth_user_id,
-      { password: newPassword }
-    );
+    const { data: userProfile, error: userError } = await supabase
+      .from('aloa_user_profiles')
+      .select('id')
+      .eq('id', authUserId)
+      .single();
+
+    if (userError || !userProfile) {
+      console.error('[otp:verify-reset] User profile not found for auth user', {
+        email: rawEmail,
+        authUserId,
+        error: userError
+      });
+      return NextResponse.json(
+        { error: 'User profile not found. Please contact support.' },
+        { status: 404 }
+      );
+    }
+
+    // Update password using Supabase Auth (user must be authenticated via OTP)
+    const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+      password: newPassword
+    });
 
     if (updateError) {
       console.error('Error updating password:', updateError);
