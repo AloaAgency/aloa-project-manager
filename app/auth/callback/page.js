@@ -25,10 +25,6 @@ export default function AuthCallbackPage() {
         // Attempt to recover the session directly
         const { data, error } = await supabase.auth.getSession();
 
-        if (error) {
-          console.error('[AuthCallback] Session retrieval error:', error);
-        }
-
         if (!data?.session && retryRef.current < 3) {
           retryRef.current += 1;
           setStatus('Confirming your session...');
@@ -38,11 +34,6 @@ export default function AuthCallbackPage() {
         }
 
         if (data?.session) {
-          console.log('[AuthCallback] Session confirmed:', {
-            user: data.session.user?.id,
-            issuedAt: data.session.created_at,
-          });
-
           const url = new URL(window.location.href);
           const nextParam = url.searchParams.get('next') || url.searchParams.get('redirect');
           const destination = nextParam && nextParam.startsWith('/')
@@ -58,7 +49,6 @@ export default function AuthCallbackPage() {
 
         throw new Error('Unable to establish session from secure link.');
       } catch (err) {
-        console.error('[AuthCallback] Unexpected failure:', err);
         setErrorMessage(err.message || 'Verification failed. Please request a new link.');
         setStatus('Verification failed. Please request a new link.');
         setTimeout(() => router.replace('/auth/login'), 3500);

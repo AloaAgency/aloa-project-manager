@@ -7,13 +7,10 @@ import { createClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  console.log('Login API route called');
   try {
     const { email, password } = await request.json();
-    console.log('Login attempt for:', email);
 
     if (!email || !password) {
-      console.log('Missing email or password');
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
@@ -74,15 +71,12 @@ export async function POST(request) {
     );
 
     // Sign out any existing session first to ensure clean state
-    console.log('Signing out existing session...');
     await supabase.auth.signOut();
-    console.log('Signed out successfully');
 
     // Small delay to ensure cookies are cleared
     await new Promise(resolve => setTimeout(resolve, 200));
 
     // Attempt to sign in with fresh session
-    console.log('Attempting to sign in with password...');
 
     // Add timeout wrapper for the sign in attempt
     const signInPromise = supabase.auth.signInWithPassword({
@@ -100,14 +94,11 @@ export async function POST(request) {
       data = result.data;
       error = result.error;
     } catch (timeoutError) {
-      console.error('Sign in timeout:', timeoutError.message);
       return NextResponse.json(
         { error: timeoutError.message },
         { status: 408 }
       );
     }
-
-    console.log('Sign in response:', { error: error?.message, hasData: !!data, hasSession: !!data?.session });
 
     // If successful, verify the session was established
     if (!error && data?.session) {
@@ -125,7 +116,6 @@ export async function POST(request) {
     }
 
     if (error) {
-      console.log('Login error:', error.message);
       return NextResponse.json(
         { error: error.message },
         { status: 401 }
@@ -254,9 +244,6 @@ export async function POST(request) {
     return response;
 
   } catch (error) {
-    console.error('Login API error:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }

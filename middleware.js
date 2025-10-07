@@ -65,7 +65,6 @@ export async function middleware(request) {
                                !pathname.startsWith('/auth/verify-reset');
 
   if (isAuthCallbackRoute) {
-    console.log('[Middleware] Skipping Supabase client creation for auth route:', pathname);
     // Don't create Supabase client, but continue to set security headers below
   }
 
@@ -147,12 +146,11 @@ export async function middleware(request) {
                 user = session.user;
               }
             } catch (refreshErr) {
-              console.error('Session refresh failed:', refreshErr);
+              // Session refresh failed
             }
           }
         }
       } catch (e) {
-        console.error('Error getting session in middleware:', e);
         sessionError = e;
       }
     }
@@ -173,12 +171,6 @@ export async function middleware(request) {
       // This prevents redirect loops
     } else if (needsAuthCleanup) {
       // Not on auth page and have auth issues - redirect
-      console.log('[Middleware] Session issue detected, redirecting to login:', {
-        sessionError: !!sessionError,
-        hasStaleSession,
-        pathname
-      });
-
       // Clear all auth-related cookies
       for (const cookie of authCookies) {
         response.cookies.delete(cookie.name);
@@ -253,20 +245,9 @@ export async function middleware(request) {
       const hasForcedRedirect = request.nextUrl.searchParams.has('redirect');
       const hasAuthenticatedParam = request.nextUrl.searchParams.has('authenticated');
 
-      if (hasForcedRedirect || hasAuthenticatedParam) {
-        console.log('[Middleware] Auth page access with special param detected, skipping auto-redirect to avoid loops.');
-      }
-
       if (!hasForcedRedirect && !hasAuthenticatedParam) {
-        console.log('[Middleware] User authenticated on auth page:', {
-          pathname,
-          userId: user.id,
-          userRole,
-          hasSession: !!session
-        });
         // Only redirect if we have a valid role
         if (adminRoles.includes(userRole)) {
-          console.log('[Middleware] Redirecting admin user from auth page to /admin/projects');
           return NextResponse.redirect(new URL('/admin/projects', request.url));
         }
         // For client users, let them stay on auth pages
