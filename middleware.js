@@ -78,11 +78,11 @@ export async function middleware(request) {
               name,
               value,
               ...options,
-              sameSite: isProduction ? 'lax' : 'lax',
+              sameSite: 'lax', // Always use 'lax' for auth cookies
               secure: isProduction,
               httpOnly: true,
               path: '/',
-              domain: undefined
+              // Don't set domain to allow proper cookie handling
             };
             request.cookies.set(cookieOptions);
             response.cookies.set(cookieOptions);
@@ -114,11 +114,31 @@ export async function middleware(request) {
       // We'll let the page handle auth itself
     } else {
       try {
+        // First try to get the session
         const { data, error } = await supabase.auth.getSession();
         sessionError = error;
+
         if (!error && data?.session) {
           session = data.session;
           user = session.user;
+        } else if (!error && !data?.session) {
+          // No session but no error - might be a cookie sync issue
+          // Try to refresh the session if we have auth cookies
+          const authCookies = request.cookies.getAll().filter(cookie =>
+            cookie.name.includes('sb-') && cookie.name.includes('auth-token')
+          );
+
+          if (authCookies.length > 0) {
+            try {
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+              if (!refreshError && refreshData?.session) {
+                session = refreshData.session;
+                user = session.user;
+              }
+            } catch (refreshErr) {
+              console.error('Session refresh failed:', refreshErr);
+            }
+          }
         }
       } catch (e) {
         console.error('Error getting session in middleware:', e);
