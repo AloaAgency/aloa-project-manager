@@ -185,11 +185,30 @@ The system implements a hierarchical role-based access control with six user rol
 5. **client_admin** - Client decision-makers who can approve/reject/request revisions on deliverables. They have the final say on client-side decisions
 6. **client_participant** - Client team members who can provide opinions (like/dislike work) and fill out forms, but cannot make final decisions. They contribute feedback but don't have approval authority
 
-### Authentication Flow
+### Authentication Methods
+
+#### 1. Traditional Password Login
 - Login endpoint: `/api/auth/login`
+- Email + password authentication
+- Session managed via HTTP-only cookies
+
+#### 2. OTP (One-Time Password) System
+**Preferred method to avoid PKCE/magic link issues**
+
+- **OTP Login**: `/auth/login-otp` - Passwordless login via 6-digit code
+- **OTP Password Reset**: `/auth/reset-password-otp` - Reset password via 6-digit code
+- **Implementation**: See `/OTP_AUTH_SYSTEM.md` for full documentation
+- **Benefits**:
+  - Bypasses PKCE flow issues that cause "invalid request: both auth code and code verifier should be non-empty" errors
+  - Prevents email client prefetching problems
+  - More reliable than magic links
+  - 15-minute expiration for security
+
+### Authentication Flow
 - Protected routes use `AuthGuard` component to enforce role requirements
 - Client users are automatically redirected to their project dashboard upon login
 - Non-client users are redirected to the main dashboard
+- All authentication methods support role-based redirects
 
 ### Client Access
 - All client-type users (client, client_admin, client_participant) are assigned to projects via the `aloa_project_members` table with `project_role='viewer'`
