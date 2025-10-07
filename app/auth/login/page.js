@@ -428,17 +428,12 @@ export default function LoginPage() {
             >
               Password Login
             </button>
-            <button
-              type="button"
-              onClick={() => setLoginMethod('magic')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                loginMethod === 'magic'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
+            <a
+              href="/auth/login-otp"
+              className="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors text-gray-700 hover:bg-gray-100 text-center inline-flex items-center justify-center"
             >
-              Magic Link
-            </button>
+              Email Code
+            </a>
           </div>
 
           {error && (
@@ -515,7 +510,7 @@ export default function LoginPage() {
 
               <div className="flex items-center justify-between">
                 <div className="text-sm">
-                  <Link href="/auth/reset-password" className="font-medium text-blue-600 hover:text-blue-500">
+                  <Link href="/auth/reset-password-otp" className="font-medium text-blue-600 hover:text-blue-500">
                     Forgot your password?
                   </Link>
                 </div>

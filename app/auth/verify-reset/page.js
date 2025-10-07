@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase-auth';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { createClient } from '@/lib/supabase-auth';
 import { Shield, AlertCircle } from 'lucide-react';
 
 export default function VerifyResetPage() {
@@ -122,3 +122,4 @@ export default function VerifyResetPage() {
     </div>
   );
 }
+
