@@ -57,6 +57,11 @@ export async function middleware(request) {
     },
   });
   const { pathname } = request.nextUrl;
+
+  // Skip middleware processing for API routes to avoid interfering with responses
+  if (pathname.startsWith('/api/')) {
+    return response;
+  }
   
   // Skip Supabase client creation for auth callback routes to prevent token consumption
   // BUT allow it for verify-reset since that page doesn't consume tokens

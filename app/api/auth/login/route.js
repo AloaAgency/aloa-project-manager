@@ -8,6 +8,20 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
+    // Log request headers for debugging
+    const headers = {};
+    request.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+    console.log('[Login API] Request received:', {
+      method: request.method,
+      url: request.url,
+      userAgent: headers['user-agent'],
+      contentType: headers['content-type'],
+      origin: headers['origin'],
+      referer: headers['referer']
+    });
+
     const { email, password } = await request.json();
 
     if (!email || !password) {
@@ -223,8 +237,8 @@ export async function POST(request) {
     // Small delay to ensure session is fully established
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Create response with explicit headers
-    const response = NextResponse.json({ 
+    // Create response payload
+    const responsePayload = {
       success: true,
       user: {
         id: data.user.id,
@@ -235,7 +249,21 @@ export async function POST(request) {
       session: data.session, // Include session for client-side handling
       clientProject,
       clientProjects
+    };
+
+    // Log what we're about to send
+    console.log('[Login API] Sending response:', {
+      success: responsePayload.success,
+      hasUser: !!responsePayload.user,
+      userEmail: responsePayload.user?.email,
+      userRole: responsePayload.user?.role,
+      hasSession: !!responsePayload.session,
+      hasClientProject: !!responsePayload.clientProject,
+      projectCount: responsePayload.clientProjects?.length || 0
     });
+
+    // Create response with explicit headers
+    const response = NextResponse.json(responsePayload);
 
     // Set cache control headers to prevent caching of auth responses
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -244,6 +272,20 @@ export async function POST(request) {
     return response;
 
   } catch (error) {
+    console.error('[Login API] Error occurred:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+
+    // Check if it's a body parsing error
+    if (error.message?.includes('JSON') || error.message?.includes('body')) {
+      return NextResponse.json(
+        { error: 'Invalid request format', details: error.message },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
