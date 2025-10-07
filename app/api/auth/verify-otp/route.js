@@ -219,10 +219,26 @@ export async function POST(request) {
       path: '/'
     });
 
+    // Set a short-lived cookie to indicate fresh login
+    console.log('[verify-otp] Setting just-logged-in cookie');
+    cookieStore.set('just-logged-in', '1', {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 10, // Only valid for 10 seconds
+      path: '/'
+    });
+
     // Determine redirect based on role
     let redirectTo = '/dashboard';
 
-    if (['client', 'client_admin', 'client_participant'].includes(userProfile.role)) {
+    const adminRoles = ['super_admin', 'project_admin', 'team_member'];
+    const clientRoles = ['client', 'client_admin', 'client_participant'];
+
+    if (adminRoles.includes(userProfile.role)) {
+      // Admin users go directly to admin projects
+      redirectTo = '/admin/projects';
+    } else if (clientRoles.includes(userProfile.role)) {
       // Get user's project
       const { data: projectMember } = await supabase
         .from('aloa_project_members')
