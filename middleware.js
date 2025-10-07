@@ -209,6 +209,10 @@ export async function middleware(request) {
       // User just logged in - skip auth cleanup to allow session to establish
       // The cookie expires in 10 seconds, so this is temporary
       console.log('[Middleware] Skipping auth cleanup - just logged in');
+      // Add cache headers to prevent browser from caching redirects
+      response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      response.headers.set('Pragma', 'no-cache');
+      response.headers.set('Expires', '0');
     } else if (needsAuthCleanup && !isAuthPage) {
       // Not on auth page and have auth issues - redirect
       // Clear all auth-related cookies
