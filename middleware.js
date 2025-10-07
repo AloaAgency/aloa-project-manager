@@ -58,11 +58,22 @@ export async function middleware(request) {
   });
   const { pathname } = request.nextUrl;
   
-  // Authentication check for protected routes
+  // Skip Supabase client creation for auth callback routes to prevent token consumption
+  // BUT allow it for verify-reset since that page doesn't consume tokens
+  const isAuthCallbackRoute = (pathname.startsWith('/auth/callback') ||
+                               pathname.startsWith('/auth/update-password')) &&
+                               !pathname.startsWith('/auth/verify-reset');
+
+  if (isAuthCallbackRoute) {
+    console.log('[Middleware] Skipping Supabase client creation for auth route:', pathname);
+    // Don't create Supabase client, but continue to set security headers below
+  }
+
+  // Authentication check for protected routes (skip for auth callback routes)
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  
-  if (supabaseUrl && supabaseKey) {
+
+  if (!isAuthCallbackRoute && supabaseUrl && supabaseKey) {
     const supabase = createServerClient(
       supabaseUrl,
       supabaseKey,

@@ -38,11 +38,14 @@ export async function POST(request) {
 
     // Generate a magic link using Supabase Admin API
     // This bypasses rate limits by using the admin API
+    // Use the app URL from environment
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/auth/update-password`
+        redirectTo: `${appUrl}/auth/verify-reset`  // Changed to verify page
       }
     });
 

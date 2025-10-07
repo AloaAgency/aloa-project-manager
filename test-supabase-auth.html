@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Supabase Auth Directly</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>Test Supabase Password Reset</h1>
+  <p>This tests the password reset flow directly without any Next.js middleware or routing.</p>
+
+  <div id="status"></div>
+
+  <form id="resetForm">
+    <input type="email" id="email" placeholder="Enter email" required>
+    <button type="submit">Send Reset Email</button>
+  </form>
+
+  <hr>
+
+  <h2>Check Current Session</h2>
+  <button onclick="checkSession()">Check Session</button>
+  <div id="sessionInfo"></div>
+
+  <script>
+    // Replace with your actual Supabase URL and anon key
+    const SUPABASE_URL = 'https://eycgzjqwowrdmjlzqqyg.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5Y2d6anF3b3dyZG1qbHpxcXlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQ2ODI3OTYsImV4cCI6MjA0MDI1ODc5Nn0.V_82vJc1mJIWxHPaBWBg8AhaXHOYCfoRyt3LBG4F-I8';
+
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        detectSessionInUrl: false, // Don't auto-consume tokens
+        flowType: 'pkce'
+      }
+    });
+
+    function updateStatus(message) {
+      document.getElementById('status').innerHTML = `<p>${new Date().toISOString()}: ${message}</p>` +
+        document.getElementById('status').innerHTML;
+    }
+
+    async function checkSession() {
+      const { data, error } = await supabase.auth.getSession();
+      const info = document.getElementById('sessionInfo');
+      if (error) {
+        info.innerHTML = `<p style="color: red">Error: ${error.message}</p>`;
+      } else if (data.session) {
+        info.innerHTML = `<p style="color: green">Session exists for: ${data.session.user.email}</p>`;
+      } else {
+        info.innerHTML = `<p>No session</p>`;
+      }
+    }
+
+    document.getElementById('resetForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+
+      updateStatus(`Sending reset email to ${email}...`);
+
+      try {
+        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + '/auth/callback'
+        });
+
+        if (error) {
+          updateStatus(`Error: ${error.message}`);
+        } else {
+          updateStatus(`Success! Check email for ${email}`);
+        }
+      } catch (err) {
+        updateStatus(`Exception: ${err.message}`);
+      }
+    });
+
+    // Check if we're on the callback page
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const errorDescription = urlParams.get('error_description');
+    const code = urlParams.get('code');
+    const hash = window.location.hash;
+
+    if (error) {
+      updateStatus(`Callback error: ${error} - ${errorDescription}`);
+    } else if (code) {
+      updateStatus(`Got code: ${code.substring(0, 20)}...`);
+      updateStatus('Attempting to exchange code for session...');
+
+      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+        if (error) {
+          updateStatus(`Exchange failed: ${error.message}`);
+        } else if (data?.session) {
+          updateStatus(`Session established for: ${data.session.user.email}`);
+        }
+      });
+    } else if (hash) {
+      updateStatus(`Got hash: ${hash}`);
+    }
+  </script>
+</body>
+</html>
