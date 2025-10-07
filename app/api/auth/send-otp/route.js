@@ -61,7 +61,9 @@ export async function POST(request) {
   try {
     const { email, type = 'recovery' } = await request.json();
 
-    if (!email) {
+    const rawEmail = typeof email === 'string' ? email.trim() : '';
+
+    if (!rawEmail) {
       return NextResponse.json(
         { error: 'Email is required' },
         { status: 400 }
@@ -70,14 +72,14 @@ export async function POST(request) {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(rawEmail)) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
       );
     }
 
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = rawEmail.toLowerCase();
     const clientIp = getClientIp(request);
 
     // Apply rate limits before hitting Supabase to short-circuit abusive traffic
@@ -125,29 +127,22 @@ export async function POST(request) {
       );
     }
 
-    const { data: user, error: userError } = await supabase
+    // Check if user exists in our profiles table
+    const { data: profile, error: profileError } = await supabase
       .from('aloa_user_profiles')
-      .select('id')
-      .eq('email', normalizedEmail)
+      .select('id, email')
+      .ilike('email', rawEmail)
       .single();
 
-    if (userError || !user) {
-      console.warn('[otp:send] unknown-email', {
-        email: normalizedEmail,
-        ip: clientIp,
-        type
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'If an account exists for this email, a 6-digit code has been sent.',
-        expiresIn: 900
-      });
+    // If no user profile found, still try to send OTP (user might exist in auth but not profiles)
+    // Supabase will handle the validation internally
+    if (profileError && profileError.code === 'PGRST116') {
+      console.log('[otp:send] No profile found for email, but will attempt OTP send:', normalizedEmail);
     }
 
     // Use Supabase's built-in OTP functionality
     const { error } = await supabase.auth.signInWithOtp({
-      email: normalizedEmail,
+      email: rawEmail,
       options: {
         shouldCreateUser: false // Don't create new users via OTP
       }
@@ -158,10 +153,21 @@ export async function POST(request) {
         email: normalizedEmail,
         ip: clientIp,
         type,
-        supabaseError: error
+        message: error.message,
+        status: error.status
       });
+
+      // If Supabase says the user is missing, stay silent to avoid enumeration
+      if (error.message?.toLowerCase().includes('user not found')) {
+        return NextResponse.json({
+          success: true,
+          message: 'If an account exists for this email, a 6-digit code has been sent.',
+          expiresIn: 900
+        });
+      }
+
       return NextResponse.json(
-        { error: error.message || 'Failed to send OTP' },
+        { error: 'Failed to send OTP. Please try again shortly.' },
         { status: 500 }
       );
     }

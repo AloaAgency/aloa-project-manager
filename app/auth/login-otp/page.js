@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, CheckCircle, Mail, Key } from 'lucide-react';
 
@@ -13,6 +13,63 @@ function LoginOTPContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [step, setStep] = useState('email'); // 'email' or 'verify'
+  const [otpSentTime, setOtpSentTime] = useState(null);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const otpInputRef = useRef(null);
+
+  // Restore state from sessionStorage on mount
+  useEffect(() => {
+    const savedState = sessionStorage.getItem('otpLoginState');
+    if (savedState) {
+      try {
+        const state = JSON.parse(savedState);
+        const elapsed = Date.now() - state.otpSentTime;
+
+        // Only restore if less than 15 minutes have passed
+        if (state.otpSentTime && elapsed < 900000) {
+          setEmail(state.email);
+          setStep('verify');
+          setOtpSentTime(state.otpSentTime);
+          setSuccess('Please enter the 6-digit code sent to your email.');
+        } else {
+          // Clear expired state
+          sessionStorage.removeItem('otpLoginState');
+        }
+      } catch (e) {
+        sessionStorage.removeItem('otpLoginState');
+      }
+    }
+  }, []);
+
+  // Timer to show OTP expiration countdown
+  useEffect(() => {
+    if (otpSentTime && step === 'verify') {
+      const timer = setInterval(() => {
+        const elapsed = Date.now() - otpSentTime;
+        const remaining = Math.max(0, 900000 - elapsed); // 15 minutes in ms
+        setTimeRemaining(Math.floor(remaining / 1000));
+
+        if (remaining === 0) {
+          setError('Your code has expired. Please request a new one.');
+          setStep('email');
+          setOtp('');
+          setOtpSentTime(null);
+          sessionStorage.removeItem('otpLoginState');
+        }
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [otpSentTime, step]);
+
+  // Auto-focus OTP input when step changes to verify
+  useEffect(() => {
+    if (step === 'verify' && otpInputRef.current) {
+      setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 100);
+    }
+  }, [step]);
 
   const handleSendOTP = async (e) => {
     e.preventDefault();
@@ -35,6 +92,14 @@ function LoginOTPContent() {
 
       setSuccess(data.message || 'If an account exists for this email, a 6-digit code has been sent.');
       setStep('verify');
+      const sentTime = Date.now();
+      setOtpSentTime(sentTime);
+
+      // Save state to sessionStorage to persist across any page refreshes
+      sessionStorage.setItem('otpLoginState', JSON.stringify({
+        email,
+        otpSentTime: sentTime
+      }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -63,6 +128,7 @@ function LoginOTPContent() {
           token: otp,
           type: 'magiclink'
         }),
+        credentials: 'include',
       });
 
       const data = await response.json();
@@ -72,6 +138,34 @@ function LoginOTPContent() {
       }
 
       setSuccess('Login successful! Redirecting...');
+
+      // Sync Supabase client session so client-side checks succeed immediately
+      if (data.session) {
+        try {
+          const { createClient } = await import('@/lib/supabase-auth');
+          const supabase = createClient();
+
+          // Clear any stale local session first to avoid mismatched tokens
+          await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+
+          // Short delay gives the sign-out a moment to propagate
+          await new Promise(resolve => setTimeout(resolve, 50));
+
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          });
+
+          if (setSessionError) {
+            console.error('[LoginOTP] Failed to set client session:', setSessionError);
+          }
+        } catch (sessionError) {
+          console.error('[LoginOTP] Unable to sync client session:', sessionError);
+        }
+      }
+
+      // Clear the saved state
+      sessionStorage.removeItem('otpLoginState');
 
       // Redirect based on user role
       const redirectTo = searchParams.get('redirectTo') || data.redirectTo || '/dashboard';
@@ -156,6 +250,7 @@ function LoginOTPContent() {
               </label>
               <input
                 id="otp"
+                ref={otpInputRef}
                 type="text"
                 required
                 value={otp}
@@ -164,10 +259,16 @@ function LoginOTPContent() {
                 placeholder="000000"
                 maxLength="6"
                 pattern="[0-9]{6}"
+                autoFocus
               />
               <p className="mt-2 text-sm text-gray-500">
                 Enter the 6-digit code sent to {email}
               </p>
+              {timeRemaining > 0 && (
+                <p className="mt-2 text-sm text-gray-500">
+                  Code expires in: {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+                </p>
+              )}
             </div>
 
             <button
@@ -184,6 +285,8 @@ function LoginOTPContent() {
                 setStep('email');
                 setOtp('');
                 setError('');
+                setOtpSentTime(null);
+                sessionStorage.removeItem('otpLoginState');
               }}
               className="w-full text-sm text-purple-600 hover:text-purple-700"
             >
