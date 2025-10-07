@@ -97,7 +97,20 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        // Safely parse response
+        let data;
+        try {
+          const text = await response.text();
+          if (text) {
+            data = JSON.parse(text);
+          } else {
+            console.error('[LoginPage] Empty response from /api/auth/me');
+            return;
+          }
+        } catch (parseError) {
+          console.error('[LoginPage] Failed to parse /api/auth/me response:', parseError);
+          return;
+        }
         console.log('[LoginPage] Authenticated user profile:', data);
         if (data.user) {
           const role = data.user.role;
@@ -163,7 +176,37 @@ export default function LoginPage() {
       }
       clearTimeout(timeoutId);
 
-      const result = await response.json();
+      // Check if response has content before trying to parse JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error('[LoginPage] Non-JSON response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          contentType
+        });
+        setError('Server error: Invalid response format');
+        setLoading(false);
+        return;
+      }
+
+      // Check for empty response body
+      const responseText = await response.text();
+      if (!responseText) {
+        console.error('[LoginPage] Empty response body received');
+        setError('Server error: Empty response');
+        setLoading(false);
+        return;
+      }
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('[LoginPage] Failed to parse response:', parseError, 'Response text:', responseText);
+        setError('Server error: Invalid JSON response');
+        setLoading(false);
+        return;
+      }
       
       if (!response.ok || result.error) {
         setError(result.error || 'Login failed');

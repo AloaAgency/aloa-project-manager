@@ -141,6 +141,19 @@ curl -X POST http://localhost:3000/api/auth/verify-otp \
   }'
 ```
 
+## Supabase Email Template Configuration
+
+**IMPORTANT**: The OTP system uses Supabase's `signInWithOtp` method, which sends the **Magic Link** email template, not the Password Reset template. To ensure users receive the correct OTP codes:
+
+1. Go to Supabase Dashboard → Authentication → Email Templates
+2. Edit the **Magic Link** template (not Password Reset)
+3. Use the `{{ .Token }}` variable to display the 6-digit OTP code
+4. Example template:
+   ```html
+   <p>Your verification code is: <strong>{{ .Token }}</strong></p>
+   <p>This code will expire in 15 minutes.</p>
+   ```
+
 ## Database Setup
 
 Ensure the `password_reset_tokens` table exists:
