@@ -49,6 +49,11 @@ git checkout -b "2025_09_19_Implement_Search_Feature"
 
 This workflow ensures clean daily snapshots with full user control over merges and deployments.
 
+## Security Documentation Ground Rules
+- Always log security-related plans and fixes in `docs/SECURITY_FIX_PLAN.md`. Do **not** create new ad-hoc security docs.
+- If you draft supporting notes, keep them inside `docs/` and merge the important findings back into the master plan before handing off work.
+- Cross-reference the "Authentication & OTP Hardening" section of the master plan whenever you touch auth flows, cookies, or OTP endpoints.
+
 ## Development Commands
 
 ```bash
