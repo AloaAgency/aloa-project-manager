@@ -39,7 +39,17 @@ export default function AuthGuard({
   };
 
   useEffect(() => {
-    checkAuth();
+    // Check if we just logged in
+    const justLoggedIn = sessionStorage.getItem('justLoggedIn');
+    if (justLoggedIn) {
+      sessionStorage.removeItem('justLoggedIn');
+      // Add a small delay to ensure cookies are fully set
+      setTimeout(() => {
+        checkAuth();
+      }, 500);
+    } else {
+      checkAuth();
+    }
 
     // Progressive loading messages
     const timer = setTimeout(() => {
@@ -49,7 +59,7 @@ export default function AuthGuard({
     return () => clearTimeout(timer);
   }, []);
 
-  const checkAuth = async () => {
+  const checkAuth = async (retryCount = 0) => {
     try {
       // Get profile from API (server-side auth is more reliable)
 
@@ -63,6 +73,16 @@ export default function AuthGuard({
 
       // If API returns unauthorized, user is not authenticated
       if (!response.ok || data.error === 'Not authenticated') {
+        // If we just logged in and this is the first attempt, retry once
+        const justLoggedIn = sessionStorage.getItem('justLoggedIn');
+        if (justLoggedIn && retryCount === 0) {
+          // Wait a bit longer and retry
+          setTimeout(() => {
+            checkAuth(1);
+          }, 1000);
+          return;
+        }
+
         await clearSession();
 
         if (requireAuth) {
@@ -99,6 +119,9 @@ export default function AuthGuard({
         setLoading(false);
         return;
       }
+
+      // Clear the justLoggedIn flag if it exists
+      sessionStorage.removeItem('justLoggedIn');
 
       // Get the role - prioritize the direct user.role over profile.role
       const actualRole = data.user.role || data.user.profile?.role;

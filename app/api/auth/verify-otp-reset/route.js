@@ -8,10 +8,16 @@ import {
   buildRetryHeaders
 } from '../../_utils/otpGuards';
 
+const serviceRoleKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SECRET_KEY
+  serviceRoleKey
 );
+
+if (!serviceRoleKey) {
+  console.warn('[otp:verify-reset] Service role key missing – password reset will fail');
+}
 
 function getClientIp(request) {
   const forwarded = request.headers.get('x-forwarded-for');
@@ -32,6 +38,14 @@ function getClientIp(request) {
 export async function POST(request) {
   try {
     const { email, token, newPassword, type = 'recovery' } = await request.json();
+
+    if (!serviceRoleKey) {
+      console.error('[otp:verify-reset] Missing SUPABASE service role key');
+      return NextResponse.json(
+        { error: 'Password reset is temporarily unavailable. Please contact support.' },
+        { status: 500 }
+      );
+    }
 
     const rawEmail = typeof email === 'string' ? email.trim() : '';
 
@@ -101,7 +115,7 @@ export async function POST(request) {
     const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
       email: rawEmail,
       token,
-      type: type === 'recovery' ? 'email' : 'magiclink'
+      type: type === 'recovery' ? 'recovery' : 'magiclink'
     });
 
     console.log('[otp:verify-reset] Verification result:', {
@@ -177,7 +191,7 @@ export async function POST(request) {
     }
 
     // Update password using Supabase Auth (user must be authenticated via OTP)
-    const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+    const { data: updateData, error: updateError } = await supabase.auth.admin.updateUserById(authUserId, {
       password: newPassword
     });
 
@@ -190,17 +204,20 @@ export async function POST(request) {
     }
 
     // Log the password reset
-    await supabase
-      .from('aloa_project_timeline')
-      .insert({
-        project_id: null,
-        event_type: 'password_reset',
-        event_title: 'Password Reset',
-        description: `Password reset successfully for ${normalizedEmail}`,
-        triggered_by: userProfile.id,
-        created_at: new Date().toISOString()
-      })
-      .catch(err => console.error('Error logging password reset:', err));
+    try {
+      await supabase
+        .from('aloa_project_timeline')
+        .insert({
+          project_id: null,
+          event_type: 'password_reset',
+          event_title: 'Password Reset',
+          description: `Password reset successfully for ${normalizedEmail}`,
+          triggered_by: userProfile.id,
+          created_at: new Date().toISOString()
+        });
+    } catch (err) {
+      console.error('Error logging password reset:', err);
+    }
 
     return NextResponse.json({
       success: true,

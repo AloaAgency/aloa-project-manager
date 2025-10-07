@@ -188,10 +188,31 @@ export async function middleware(request) {
     // This is critical for OTP flow to work properly
     const isAuthPage = pathname.startsWith('/auth/') || pathname.startsWith('/forms/');
 
+    // Check if user just logged in (has the just-logged-in cookie)
+    const justLoggedIn = request.cookies.get('just-logged-in');
+
+    // Debug logging
+    if (pathname === '/admin/projects') {
+      console.log('[Middleware] /admin/projects check:', {
+        hasSession: !!session,
+        needsAuthCleanup,
+        justLoggedIn: !!justLoggedIn,
+        cookies: request.cookies.getAll().map(c => c.name)
+      });
+    }
+
     if (isAuthPage) {
       // Already on an auth/public page, just let it through completely
       // This prevents redirect loops and ensures OTP pages remain stable
       // DO NOT perform any auth cleanup or redirects for auth pages
+    } else if (justLoggedIn) {
+      // User just logged in - skip auth cleanup to allow session to establish
+      // The cookie expires in 10 seconds, so this is temporary
+      console.log('[Middleware] Skipping auth cleanup - just logged in');
+      // Add cache headers to prevent browser from caching redirects
+      response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      response.headers.set('Pragma', 'no-cache');
+      response.headers.set('Expires', '0');
     } else if (needsAuthCleanup && !isAuthPage) {
       // Not on auth page and have auth issues - redirect
       // Clear all auth-related cookies

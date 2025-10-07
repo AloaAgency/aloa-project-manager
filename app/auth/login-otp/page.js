@@ -140,10 +140,11 @@ function LoginOTPContent() {
       setSuccess('Login successful! Redirecting...');
 
       // Sync Supabase client session so client-side checks succeed immediately
+      let supabase = null;
       if (data.session) {
         try {
           const { createClient } = await import('@/lib/supabase-auth');
-          const supabase = createClient();
+          supabase = createClient();
 
           // Clear any stale local session first to avoid mismatched tokens
           await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
@@ -164,19 +165,45 @@ function LoginOTPContent() {
         }
       }
 
+      // Give the browser client a moment to observe the new session before navigating
+      if (supabase) {
+        const deadline = Date.now() + 1000;
+        let verified = false;
+        while (Date.now() < deadline && !verified) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              verified = true;
+              break;
+            }
+          } catch (userCheckError) {
+            console.warn('[LoginOTP] Waiting for user session...', userCheckError);
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        if (!verified) {
+          console.warn('[LoginOTP] Proceeding without confirmed client session');
+        }
+      }
+
       // Clear the saved state
       sessionStorage.removeItem('otpLoginState');
+
+      // Store a flag that we just logged in
+      sessionStorage.setItem('justLoggedIn', 'true');
 
       // Redirect based on user role
       const redirectTo = searchParams.get('redirectTo') || data.redirectTo || '/dashboard';
 
-      setTimeout(() => {
-        router.push(redirectTo);
-        router.refresh();
-      }, 1000);
+      // Small delay to ensure cookies are set and session is fully established
+      // Then use window.location.replace for a hard redirect that replaces history
+      await new Promise(resolve => setTimeout(resolve, 300));
+      window.location.replace(redirectTo);
+      // Keep loading state true - the page will reload anyway
+      return; // Exit early to skip error handling
     } catch (err) {
       setError(err.message);
-    } finally {
       setLoading(false);
     }
   };
