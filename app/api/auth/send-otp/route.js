@@ -6,11 +6,50 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY
 );
 
-/**
- * Generate a 6-digit OTP code
- */
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+// Basic in-memory rate limiting to slow abuse. For production hardening,
+// back this with Redis or another shared store so limits persist across instances.
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const EMAIL_RATE_LIMIT = 3; // max requests per email window
+const IP_RATE_LIMIT = 10; // max requests per IP window
+const emailRequestState = new Map();
+const ipRequestState = new Map();
+
+function getClientIp(request) {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const candidate = forwarded.split(',')[0]?.trim();
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return request.headers.get('x-real-ip') || request.ip || undefined;
+}
+
+function applySlidingWindowLimit(store, key, limit, windowMs) {
+  if (!key) {
+    return { limited: false, retryAfter: 0 };
+  }
+
+  const now = Date.now();
+  const existing = store.get(key);
+
+  if (!existing || now > existing.reset) {
+    store.set(key, { count: 1, reset: now + windowMs });
+    return { limited: false, retryAfter: 0 };
+  }
+
+  if (existing.count >= limit) {
+    return {
+      limited: true,
+      retryAfter: Math.ceil((existing.reset - now) / 1000)
+    };
+  }
+
+  existing.count += 1;
+  return {
+    limited: false,
+    retryAfter: Math.max(0, Math.ceil((existing.reset - now) / 1000))
+  };
 }
 
 /**
@@ -38,82 +77,98 @@ export async function POST(request) {
       );
     }
 
-    // For recovery type, check if user exists
-    if (type === 'recovery') {
-      const { data: user, error: userError } = await supabase
-        .from('aloa_user_profiles')
-        .select('id')
-        .eq('email', email)
-        .single();
+    const normalizedEmail = email.toLowerCase();
+    const clientIp = getClientIp(request);
 
-      if (userError || !user) {
-        return NextResponse.json(
-          { error: 'No account found with this email address' },
-          { status: 404 }
-        );
-      }
+    // Apply rate limits before hitting Supabase to short-circuit abusive traffic
+    const ipLimit = applySlidingWindowLimit(ipRequestState, clientIp, IP_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+    if (ipLimit.limited) {
+      console.warn('[otp:send] rate-limit-hit', {
+        scope: 'ip',
+        ip: clientIp,
+        email: normalizedEmail,
+        type,
+        retryAfter: ipLimit.retryAfter
+      });
+      return NextResponse.json(
+        {
+          error: 'Too many OTP requests from this IP. Please wait before trying again.'
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(ipLimit.retryAfter)
+          }
+        }
+      );
     }
 
-    // For magiclink type, check if user exists
-    if (type === 'magiclink') {
-      const { data: user, error: userError } = await supabase
-        .from('aloa_user_profiles')
-        .select('id')
-        .eq('email', email)
-        .single();
-
-      if (userError || !user) {
-        return NextResponse.json(
-          { error: 'No account found with this email address' },
-          { status: 404 }
-        );
-      }
+    const emailLimit = applySlidingWindowLimit(emailRequestState, normalizedEmail, EMAIL_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+    if (emailLimit.limited) {
+      console.warn('[otp:send] rate-limit-hit', {
+        scope: 'email',
+        ip: clientIp,
+        email: normalizedEmail,
+        type,
+        retryAfter: emailLimit.retryAfter
+      });
+      return NextResponse.json(
+        {
+          error: 'Too many OTP requests for this email. Please wait before requesting another code.'
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(emailLimit.retryAfter)
+          }
+        }
+      );
     }
 
-    // Generate OTP
-    const otp = generateOTP();
+    const { data: user, error: userError } = await supabase
+      .from('aloa_user_profiles')
+      .select('id')
+      .eq('email', normalizedEmail)
+      .single();
+
+    if (userError || !user) {
+      console.warn('[otp:send] unknown-email', {
+        email: normalizedEmail,
+        ip: clientIp,
+        type
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'If an account exists for this email, a 6-digit code has been sent.',
+        expiresIn: 900
+      });
+    }
 
     // Use Supabase's built-in OTP functionality
-    const { data, error } = await supabase.auth.signInWithOtp({
-      email: email,
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
       options: {
-        shouldCreateUser: false, // Don't create new users via OTP
-        data: {
-          otp_code: otp,
-          otp_type: type
-        }
+        shouldCreateUser: false // Don't create new users via OTP
       }
     });
 
     if (error) {
-      console.error('Supabase OTP error:', error);
+      console.error('[otp:send] supabase-error', {
+        email: normalizedEmail,
+        ip: clientIp,
+        type,
+        supabaseError: error
+      });
       return NextResponse.json(
         { error: error.message || 'Failed to send OTP' },
         { status: 500 }
       );
     }
 
-    // Store OTP in custom table for additional verification
-    // This provides backup verification if Supabase's OTP system has issues
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-
-    const { error: dbError } = await supabase
-      .from('password_reset_tokens')
-      .insert({
-        email: email,
-        token: otp,
-        expires_at: expiresAt.toISOString(),
-        created_at: new Date().toISOString()
-      });
-
-    if (dbError) {
-      console.error('Error storing OTP in database:', dbError);
-      // Continue anyway since Supabase OTP was sent
-    }
-
     return NextResponse.json({
       success: true,
-      message: 'OTP sent successfully',
+      message: 'If an account exists for this email, a 6-digit code has been sent.',
       expiresIn: 900 // 15 minutes in seconds
     });
 

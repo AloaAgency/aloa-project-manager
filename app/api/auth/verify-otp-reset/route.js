@@ -1,11 +1,28 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+import {
+  enforceVerificationRateLimits,
+  getVerificationLockState,
+  registerVerificationFailure,
+  clearVerificationFailures,
+  buildRetryHeaders
+} from '../../_utils/otpGuards';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SECRET_KEY
 );
+
+function getClientIp(request) {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const candidate = forwarded.split(',')[0]?.trim();
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return request.headers.get('x-real-ip') || request.ip || undefined;
+}
 
 /**
  * Verify OTP and reset password
@@ -37,51 +54,93 @@ export async function POST(request) {
       );
     }
 
+    const normalizedEmail = email.toLowerCase();
+    const clientIp = getClientIp(request);
+
+    const rateLimitResult = enforceVerificationRateLimits(normalizedEmail, clientIp);
+    if (!rateLimitResult.allowed) {
+      console.warn('[otp:verify-reset] rate-limit-hit', {
+        email: normalizedEmail,
+        ip: clientIp,
+        status: rateLimitResult.status,
+        retryAfter: rateLimitResult.retryAfter,
+        type
+      });
+      return NextResponse.json(
+        { error: rateLimitResult.message },
+        {
+          status: rateLimitResult.status,
+          headers: buildRetryHeaders(rateLimitResult.retryAfter)
+        }
+      );
+    }
+
+    const lockState = getVerificationLockState(normalizedEmail);
+    if (lockState.locked) {
+      console.warn('[otp:verify-reset] lockout-active', {
+        email: normalizedEmail,
+        ip: clientIp,
+        retryAfter: lockState.retryAfter,
+        type
+      });
+      return NextResponse.json(
+        {
+          error: 'Too many incorrect verification attempts. Please wait before trying again.'
+        },
+        {
+          status: 423,
+          headers: buildRetryHeaders(lockState.retryAfter)
+        }
+      );
+    }
+
     // First, verify the OTP using Supabase's verifyOtp
-    const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-      email,
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: normalizedEmail,
       token,
       type: type === 'recovery' ? 'email' : 'magiclink'
     });
 
     if (verifyError) {
-      // Fallback: Check our custom table
-      const { data: storedToken, error: tokenError } = await supabase
-        .from('password_reset_tokens')
-        .select('*')
-        .eq('email', email)
-        .eq('token', token)
-        .gte('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      console.error('Error verifying OTP for reset:', verifyError);
+      const failureState = registerVerificationFailure(normalizedEmail);
 
-      if (tokenError || !storedToken) {
+      if (failureState.locked) {
+        console.warn('[otp:verify-reset] lockout-triggered', {
+          email: normalizedEmail,
+          ip: clientIp,
+          retryAfter: failureState.retryAfter,
+          type
+        });
         return NextResponse.json(
-          { error: 'Invalid or expired verification code' },
-          { status: 400 }
+          {
+            error: 'Too many incorrect verification attempts. Please wait before trying again.'
+          },
+          {
+            status: 423,
+            headers: buildRetryHeaders(failureState.retryAfter)
+          }
         );
       }
 
-      // Delete used token
-      await supabase
-        .from('password_reset_tokens')
-        .delete()
-        .eq('id', storedToken.id);
-    } else {
-      // Supabase verification succeeded, clean up our backup token
-      await supabase
-        .from('password_reset_tokens')
-        .delete()
-        .eq('email', email)
-        .eq('token', token);
+      console.warn('[otp:verify-reset] invalid-token', {
+        email: normalizedEmail,
+        ip: clientIp,
+        type
+      });
+      return NextResponse.json(
+        { error: 'Invalid or expired verification code' },
+        { status: 400 }
+      );
     }
+
+    clearVerificationFailures(normalizedEmail);
 
     // Get user by email
     const { data: userProfile, error: userError } = await supabase
       .from('aloa_user_profiles')
       .select('id, auth_user_id')
-      .eq('email', email)
+      .eq('email', normalizedEmail)
       .single();
 
     if (userError || !userProfile) {
@@ -112,7 +171,7 @@ export async function POST(request) {
         project_id: null,
         event_type: 'password_reset',
         event_title: 'Password Reset',
-        description: `Password reset successfully for ${email}`,
+        description: `Password reset successfully for ${normalizedEmail}`,
         triggered_by: userProfile.id,
         created_at: new Date().toISOString()
       })
