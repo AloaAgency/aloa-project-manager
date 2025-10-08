@@ -230,6 +230,59 @@ function enforceRateLimits(email, ip) {
 - [ ] Test middleware bypass with "just-logged-in" cookie
 - [ ] Test session persistence after redirect
 
+## Supabase Email Template Configuration
+
+### Where to Configure
+1. Go to Supabase Dashboard → Authentication → Email Templates
+2. Configure both Magic Link and Password Reset templates
+
+### Magic Link Template (for OTP Login)
+
+**Subject**: `Your Login Code`
+
+**Body HTML**:
+```html
+<h2>Verification Code</h2>
+
+<p>Here is your 6-digit verification code:</p>
+
+<h1 style="font-size: 32px; letter-spacing: 8px; font-family: monospace; background: #f3f4f6; padding: 20px; text-align: center; border-radius: 8px;">
+  {{ .Token }}
+</h1>
+
+<p>Enter this code on the website to continue.</p>
+
+<p style="color: #666;">This code will expire in 60 minutes.</p>
+
+<p style="color: #999; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
+```
+
+### Password Reset Template
+
+**Subject**: `Reset Your Password`
+
+**Body HTML**:
+```html
+<h2>Password Reset Code</h2>
+
+<p>You requested to reset your password. Use this verification code:</p>
+
+<h1 style="font-size: 32px; letter-spacing: 8px; font-family: monospace; background: #f3f4f6; padding: 20px; text-align: center; border-radius: 8px;">
+  {{ .Token }}
+</h1>
+
+<p>This code will expire in 10 minutes.</p>
+
+<p>If you didn't request this, you can safely ignore this email.</p>
+```
+
+### Important Template Notes
+- Use `{{ .Token }}` to display the OTP code
+- Magic Link template is used for login OTPs
+- Password Reset template is used for password reset OTPs
+- Expiry times are controlled by Supabase settings, not the template
+- Keep styling simple and inline for email client compatibility
+
 ## Environment Variables Required
 
 ```env
