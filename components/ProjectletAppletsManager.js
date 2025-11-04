@@ -567,9 +567,13 @@ function ProjectletAppletsManager({
       if (response.ok) {
         toast.success('Applet deleted');
         fetchApplets();
+      } else {
+        const errorData = await response.json();
+        console.error('Delete failed:', errorData);
+        toast.error(errorData.error || 'Failed to delete applet');
       }
     } catch (error) {
-
+      console.error('Delete error:', error);
       toast.error('Failed to delete applet');
     }
   }, [projectId, projectletId, fetchApplets]);

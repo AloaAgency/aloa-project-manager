@@ -310,8 +310,12 @@ export async function DELETE(request, { params }) {
       .eq('id', appletId);
 
     if (error) {
-
-      return NextResponse.json({ error: 'Failed to delete applet' }, { status: 500 });
+      console.error('Delete applet error:', error);
+      return NextResponse.json({
+        error: 'Failed to delete applet',
+        details: error.message,
+        code: error.code
+      }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
