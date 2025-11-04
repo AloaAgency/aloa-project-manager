@@ -135,14 +135,14 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) {
-
+      console.error('Failed to create applet:', error);
       return NextResponse.json({ error: 'Failed to create applet', details: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ applet });
   } catch (error) {
-
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Internal server error creating applet:', error);
+    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }
 }
 

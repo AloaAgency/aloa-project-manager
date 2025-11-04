@@ -19,17 +19,19 @@
  */
 
 import { useState } from 'react';
-import { 
-  FileText, 
-  Upload, 
-  Eye, 
-  CheckCircle, 
-  Palette, 
+import {
+  FileText,
+  Upload,
+  Eye,
+  CheckCircle,
+  Palette,
   MessageSquare,
   Loader2,
   Check,
-  X
+  X,
+  Image
 } from 'lucide-react';
+import PrototypeReviewApplet from './PrototypeReviewApplet';
 
 const APPLET_ICONS = {
   form: FileText,
@@ -37,7 +39,8 @@ const APPLET_ICONS = {
   upload: Upload,
   signoff: CheckCircle,
   moodboard: Palette,
-  content_gather: MessageSquare
+  content_gather: MessageSquare,
+  prototype_review: Image
 };
 
 export default function ClientAppletRenderer({ 
@@ -227,6 +230,19 @@ export default function ClientAppletRenderer({
               </div>
             </div>
           </div>
+        );
+
+      case 'prototype_review':
+        return (
+          <PrototypeReviewApplet
+            applet={applet}
+            isViewOnly={isReadOnly}
+            onClose={() => {}}
+            onComplete={handleComplete}
+            projectId={projectId}
+            userId={null}
+            isAdmin={false}
+          />
         );
 
       default:
