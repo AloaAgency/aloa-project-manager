@@ -96,6 +96,7 @@ export async function POST(request, { params }) {
       if (templateData && templateApplets.length > 0) {
 
         const appletsToCreate = templateApplets.map(templateApplet => ({
+          project_id: projectId,
           projectlet_id: newProjectlet.id,
           type: templateApplet.type,
           name: templateApplet.name,
@@ -146,6 +147,7 @@ export async function POST(request, { params }) {
             if (templateData && templateApplets.length > 0) {
 
               const subAppletsToCreate = templateApplets.map(templateApplet => ({
+                project_id: projectId,
                 projectlet_id: newSubProjectlet.id,
                 type: templateApplet.type,
                 name: templateApplet.name,

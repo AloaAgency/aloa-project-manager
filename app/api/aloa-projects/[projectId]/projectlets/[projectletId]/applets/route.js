@@ -5,7 +5,7 @@ import { createServerClient } from '@supabase/ssr';
 // GET all applets for a projectlet
 export async function GET(request, { params }) {
   try {
-    const { projectletId } = params;
+    const { projectId, projectletId } = params;
 
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -31,6 +31,7 @@ export async function GET(request, { params }) {
       .from('aloa_applets')
       .select('*')
       .eq('projectlet_id', projectletId)
+      .eq('project_id', projectId)
       .order('order_index', { ascending: true });
 
     if (error) {
@@ -77,7 +78,7 @@ export async function GET(request, { params }) {
 // POST create new applet
 export async function POST(request, { params }) {
   try {
-    const { projectletId } = params;
+    const { projectId, projectletId } = params;
     const body = await request.json();
 
     const cookieStore = await cookies();
@@ -112,6 +113,7 @@ export async function POST(request, { params }) {
     const newOrderIndex = maxOrder ? maxOrder.order_index + 1 : 0;
 
     const appletData = {
+      project_id: projectId,
       projectlet_id: projectletId,
       name: body.name,
       description: body.description,
@@ -189,6 +191,8 @@ export async function PUT(request, { params }) {
       .from('aloa_applets')
       .update(updateData)
       .eq('id', appletId)
+      .eq('projectlet_id', params.projectletId)
+      .eq('project_id', params.projectId)
       .select()
       .single();
 
@@ -248,6 +252,8 @@ export async function PATCH(request, { params }) {
       .from('aloa_applets')
       .update(updateData)
       .eq('id', appletId)
+      .eq('projectlet_id', params.projectletId)
+      .eq('project_id', params.projectId)
       .select()
       .single();
 
@@ -307,7 +313,9 @@ export async function DELETE(request, { params }) {
     const { error } = await supabase
       .from('aloa_applets')
       .delete()
-      .eq('id', appletId);
+      .eq('id', appletId)
+      .eq('projectlet_id', params.projectletId)
+      .eq('project_id', params.projectId);
 
     if (error) {
       console.error('Delete applet error:', error);
@@ -320,7 +328,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-
+    console.error('Delete applet catch error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -143,6 +143,7 @@ export async function POST(request, { params }) {
             config.locked = applet.is_locked;
           }
           return {
+            project_id: projectId,
             projectlet_id: targetProjectletId,
             type: applet.type,
             name: applet.name,
@@ -243,6 +244,7 @@ export async function POST(request, { params }) {
             config.locked = applet.is_locked;
           }
           return {
+            project_id: projectId,
             projectlet_id: newProjectlet.id,
             type: applet.type,
             name: applet.name,
@@ -320,6 +322,7 @@ export async function POST(request, { params }) {
               config.locked = applet.is_locked;
             }
             return {
+              project_id: projectId,
               projectlet_id: newProjectlet.id,
               type: applet.type,
               name: applet.name,

@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS aloa_applet_library (
 CREATE TABLE IF NOT EXISTS aloa_applets (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   projectlet_id UUID NOT NULL REFERENCES aloa_projectlets(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES aloa_projects(id) ON DELETE CASCADE,
   library_applet_id UUID REFERENCES aloa_applet_library(id), -- Optional reference to library item
   
   -- Basic Info
@@ -168,6 +169,7 @@ CREATE TABLE IF NOT EXISTS aloa_project_templates (
 
 -- Create indexes for performance
 CREATE INDEX idx_applets_projectlet ON aloa_applets(projectlet_id);
+CREATE INDEX idx_aloa_applets_project ON aloa_applets(project_id);
 CREATE INDEX idx_applets_status ON aloa_applets(status);
 CREATE INDEX idx_applets_type ON aloa_applets(type);
 CREATE INDEX idx_applet_interactions_applet ON aloa_applet_interactions(applet_id);
@@ -230,17 +232,27 @@ RETURNS VOID AS $$
 DECLARE
   v_applet_config JSONB;
   v_applet JSONB;
+  v_project_id UUID;
 BEGIN
   -- Get the template configuration
   SELECT applet_sequence INTO v_applet_config
   FROM aloa_projectlet_templates
   WHERE id = p_template_id;
   
+  SELECT project_id INTO v_project_id
+  FROM aloa_projectlets
+  WHERE id = p_projectlet_id;
+
+  IF v_project_id IS NULL THEN
+    RAISE EXCEPTION 'Unable to determine project for projectlet %', p_projectlet_id;
+  END IF;
+  
   -- Create applets from the template
   FOR v_applet IN SELECT * FROM jsonb_array_elements(v_applet_config)
   LOOP
     INSERT INTO aloa_applets (
       projectlet_id,
+      project_id,
       name,
       description,
       type,
@@ -250,6 +262,7 @@ BEGIN
       client_instructions
     ) VALUES (
       p_projectlet_id,
+      v_project_id,
       v_applet->>'name',
       v_applet->>'description',
       (v_applet->>'type')::applet_type,
