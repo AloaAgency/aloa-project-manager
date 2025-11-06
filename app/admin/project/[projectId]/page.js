@@ -4881,6 +4881,94 @@ function AdminProjectPageContent() {
                                       </div>
                                     </div>
                                   )}
+
+                                  {/* Inline prototype review configuration */}
+                                  {expandedApplets[applet.id] && applet.type === 'prototype_review' && (
+                                    <div className="mt-3 w-full p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <div>
+                                          <h4 className="text-sm font-semibold text-gray-900">Prototype Review System</h4>
+                                          <p className="text-xs text-gray-600 mt-0.5">Visual commenting on prototypes and mockups</p>
+                                        </div>
+                                      </div>
+
+                                      {/* Prototype URL Input */}
+                                      <div className="mb-3">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                          Prototype URL
+                                        </label>
+                                        <div className="flex gap-2">
+                                          <div className="flex-1 relative">
+                                            <input
+                                              type="url"
+                                              id={`prototype-url-${applet.id}`}
+                                              defaultValue={applet.config?.prototypeUrl || ''}
+                                              placeholder="https://example.vercel.app or https://figma.com/proto/..."
+                                              className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
+                                            />
+                                            <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                          </div>
+                                          <button
+                                            onClick={async () => {
+                                              const input = document.getElementById(`prototype-url-${applet.id}`);
+                                              const newUrl = input.value.trim();
+
+                                              try {
+                                                const response = await fetch(
+                                                  `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                  {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                      config: {
+                                                        ...applet.config,
+                                                        prototypeUrl: newUrl
+                                                      }
+                                                    })
+                                                  }
+                                                );
+                                                if (response.ok) {
+                                                  fetchProjectletApplets(projectlet.id);
+                                                  toast.success('Prototype URL saved');
+                                                } else {
+                                                  toast.error('Failed to save URL');
+                                                }
+                                              } catch (error) {
+                                                console.error('Error updating prototype URL:', error);
+                                                toast.error('Failed to save URL');
+                                              }
+                                            }}
+                                            className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium whitespace-nowrap"
+                                          >
+                                            Save URL
+                                          </button>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          Enter the URL of your prototype, mockup, or live website to review
+                                        </p>
+                                      </div>
+
+                                      {/* Action Buttons */}
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => {
+                                            const prototypeUrl = applet.config?.prototypeUrl || 'https://example.vercel.app/';
+                                            const viewerUrl = `/prototype-review/${applet.id}?url=${encodeURIComponent(prototypeUrl)}`;
+                                            window.open(viewerUrl, '_blank');
+                                          }}
+                                          disabled={!applet.config?.prototypeUrl}
+                                          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                                            applet.config?.prototypeUrl
+                                              ? 'bg-cyan-600 text-white hover:bg-cyan-700'
+                                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                          }`}
+                                        >
+                                          <ExternalLink className="w-4 h-4" />
+                                          Open Prototype Viewer
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
                                   {/* End of Applet Configuration Section */}
                                       </div>
                                     </div>
