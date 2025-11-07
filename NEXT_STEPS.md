@@ -42,9 +42,11 @@ Notes
 - Deletion uses stored storage key, not URL
 - Comments migration is idempotent (adds missing `comment_number` if absent)
 
+Housekeeping
+- When all tasks in this file are complete, delete `NEXT_STEPS.md` (it’s temporary).
+
 Quick verify commands (optional)
 - List policies for storage objects:
   `select policyname, cmd from pg_policies where schemaname='storage' and tablename='objects';`
 - Check timeline policies:
   `select policyname, cmd from pg_policies where tablename='aloa_project_timeline';`
-
