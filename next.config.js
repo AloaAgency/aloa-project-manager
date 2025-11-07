@@ -83,12 +83,6 @@ const nextConfig = {
     }
     return config
   },
-  // WebPack HMR configuration
-  webSocketServer: 'ws',
-  experimental: {
-    // Enable WebSocket keep-alive
-    webSocketKeepAlive: true,
-  },
 }
 
 module.exports = nextConfig

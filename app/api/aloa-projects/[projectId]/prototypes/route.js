@@ -24,6 +24,7 @@ export async function GET(request, { params }) {
     const { projectId } = params;
     const { searchParams } = new URL(request.url);
     const appletId = searchParams.get('appletId');
+    const serviceClient = getServiceClient();
 
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -65,7 +66,32 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Failed to fetch prototypes' }, { status: 500 });
     }
 
-    return NextResponse.json({ prototypes: prototypes || [] });
+    // For private buckets: convert storage paths to signed URLs for client consumption
+    const enriched = await Promise.all(
+      (prototypes || []).map(async (p) => {
+        const copy = { ...p };
+        const needsSigning = (v) => typeof v === 'string' && v.length > 0 && !/^https?:\/\//i.test(v);
+        try {
+          if (needsSigning(copy.file_url)) {
+            const { data: sig, error: sigErr } = await serviceClient.storage
+              .from('prototype-files')
+              .createSignedUrl(copy.file_url, 60 * 60 * 6); // 6 hours
+            if (!sigErr) copy.file_url = sig?.signedUrl || null;
+          }
+          if (needsSigning(copy.screenshot_url)) {
+            const { data: sig2, error: sigErr2 } = await serviceClient.storage
+              .from('prototype-files')
+              .createSignedUrl(copy.screenshot_url, 60 * 60 * 6);
+            if (!sigErr2) copy.screenshot_url = sig2?.signedUrl || null;
+          }
+        } catch (e) {
+          // If signing fails, leave as-is
+        }
+        return copy;
+      })
+    );
+
+    return NextResponse.json({ prototypes: enriched });
   } catch (error) {
     console.error('Internal server error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -214,12 +240,12 @@ export async function DELETE(request, { params }) {
     // Delete file from storage if exists
     if (prototype.file_url) {
       const serviceClient = getServiceClient();
-      const storagePath = prototype.file_url.split('/').pop();
+      const storageKey = prototype.file_url; // We store storage path in DB
 
       try {
         await serviceClient.storage
           .from('prototype-files')
-          .remove([`${projectId}/${storagePath}`]);
+          .remove([storageKey]);
       } catch (err) {
         console.error('Error deleting file from storage:', err);
         // Continue with deletion even if storage cleanup fails

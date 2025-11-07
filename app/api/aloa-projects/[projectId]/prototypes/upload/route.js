@@ -131,10 +131,19 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Get public URL for the file
-    const { data: { publicUrl } } = serviceClient.storage
+    // For private bucket: store storage path and generate a signed URL for immediate viewing
+    const storageKey = uploadData.path; // e.g., `${projectId}/timestamp_filename.png`
+    const { data: signedData, error: signError } = await serviceClient.storage
       .from('prototype-files')
-      .getPublicUrl(storagePath);
+      .createSignedUrl(storageKey, 60 * 60 * 6); // 6 hours
+
+    if (signError) {
+      console.error('Error creating signed URL:', signError);
+      return NextResponse.json(
+        { error: 'Failed to create signed URL', details: signError.message },
+        { status: 500 }
+      );
+    }
 
     // Create prototype record in database
     const prototypeData = {
@@ -145,7 +154,8 @@ export async function POST(request, { params }) {
       version: '1.0',
       status: 'active',
       source_type: 'upload',
-      file_url: publicUrl,
+      // Store the storage path (not a public URL). API will return signed URLs when needed.
+      file_url: storageKey,
       viewport_width: 1920,
       viewport_height: 1080,
       device_type: 'desktop',
@@ -209,8 +219,8 @@ export async function POST(request, { params }) {
     }
 
     return NextResponse.json({
-      prototype,
-      file_url: publicUrl,
+      prototype: { ...prototype, file_url: signedData?.signedUrl || null },
+      file_url: signedData?.signedUrl || null,
       message: 'Prototype uploaded successfully'
     });
   } catch (error) {

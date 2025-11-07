@@ -55,11 +55,16 @@ export default function PrototypeReviewLauncher({
 
     const windowFeatures = `width=${width},height=${height},left=0,top=0,toolbar=no,menubar=no,location=no`;
 
-    window.open(
-      `/prototype-review/${prototype.id}`,
-      '_blank',
-      windowFeatures
-    );
+    // Pass projectId and optional URL/name to the review page
+    const urlParams = new URLSearchParams();
+    if (projectId) urlParams.set('projectId', projectId);
+    if (prototype?.name) urlParams.set('name', prototype.name);
+    const candidateUrl = prototype?.source_url || prototype?.file_url || '';
+    if (candidateUrl) urlParams.set('url', candidateUrl);
+
+    const href = `/prototype-review/${prototype.id}?${urlParams.toString()}`;
+
+    window.open(href, '_blank', windowFeatures);
   };
 
   if (isLoading) {

@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -8,17 +8,29 @@ import { NextResponse } from 'next/server';
  */
 export async function GET(request, { params }) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
     const { projectId } = params;
     const { searchParams } = new URL(request.url);
     const prototypeId = searchParams.get('prototypeId');
 
-    // Authenticate
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set() {},
+          remove() {}
+        }
+      }
+    );
 
-    if (!session) {
+    // Authenticate
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -29,11 +41,13 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Fetch all comments for this prototype (not deleted)
+    // Fetch all comments for this prototype (not deleted) and scoped to project
+    // Include author role via FK join when allowed
     const { data: comments, error } = await supabase
       .from('aloa_prototype_comments')
-      .select('*')
+      .select('*, author:aloa_user_profiles(role)')
       .eq('prototype_id', prototypeId)
+      .eq('aloa_project_id', projectId)
       .eq('is_deleted', false)
       .order('created_at', { ascending: true });
 
@@ -43,6 +57,15 @@ export async function GET(request, { params }) {
         { error: 'Failed to fetch comments', details: error.message },
         { status: 500 }
       );
+    }
+
+    // Normalize shape: flatten author role
+    if (Array.isArray(comments)) {
+      comments.forEach((c) => {
+        const role = c?.author?.role || c?.author_role || null;
+        c.author_role = role;
+        delete c.author; // drop nested object to keep payload lean
+      });
     }
 
     // Organize into threads (top-level comments + replies)
@@ -86,15 +109,27 @@ export async function GET(request, { params }) {
  */
 export async function POST(request, { params }) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
     const { projectId } = params;
 
-    // Authenticate
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set() {},
+          remove() {}
+        }
+      }
+    );
 
-    if (!session) {
+    // Authenticate
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -108,25 +143,32 @@ export async function POST(request, { params }) {
     } = body;
 
     // Validation
-    if (!prototypeId || !commentText?.trim()) {
+    const trimmed = (commentText || '').trim();
+    if (!prototypeId || !trimmed) {
       return NextResponse.json(
         { error: 'prototypeId and commentText are required' },
         { status: 400 }
       );
     }
+    if (trimmed.length > 5000) {
+      return NextResponse.json(
+        { error: 'commentText exceeds maximum length (5000)' },
+        { status: 400 }
+      );
+    }
 
-    // Get user info from session
-    const authorName = session.user.user_metadata?.full_name ||
-                       session.user.email ||
+    // Get user info
+    const authorName = user.user_metadata?.full_name ||
+                       user.email ||
                        'Unknown User';
-    const authorEmail = session.user.email;
+    const authorEmail = user.email;
 
     // Create comment
     const commentData = {
       prototype_id: prototypeId,
       aloa_project_id: projectId,
-      comment_text: commentText.trim(),
-      author_id: session.user.id,
+      comment_text: trimmed,
+      author_id: user.id,
       author_name: authorName,
       author_email: authorEmail,
       status: 'open',
@@ -140,8 +182,9 @@ export async function POST(request, { params }) {
           { status: 400 }
         );
       }
-      commentData.x_percent = xPercent;
-      commentData.y_percent = yPercent;
+      const clamp = (n) => Math.max(0, Math.min(100, Number(n)));
+      commentData.x_percent = clamp(xPercent);
+      commentData.y_percent = clamp(yPercent);
     } else {
       // This is a reply - link to parent
       commentData.parent_comment_id = parentCommentId;
@@ -163,16 +206,19 @@ export async function POST(request, { params }) {
 
     // Log to timeline
     try {
+      const eventType = parentCommentId
+        ? 'prototype_comment_replied'
+        : 'prototype_comment_added';
+      const description = `${authorName} ${parentCommentId ? 'replied to' : 'added'} a prototype comment`;
+
       await supabase.from('aloa_project_timeline').insert([
         {
-          aloa_project_id: projectId,
-          user_id: session.user.id,
-          user_name: authorName,
-          action: parentCommentId ? 'comment_replied' : 'comment_added',
-          entity_type: 'prototype_comment',
-          entity_id: newComment.id,
-          entity_name: `Comment on prototype`,
+          project_id: projectId,
+          event_type: eventType,
+          description,
+          user_id: user.id,
           metadata: {
+            comment_id: newComment.id,
             prototype_id: prototypeId,
             parent_comment_id: parentCommentId,
             comment_preview: commentText.substring(0, 100),
@@ -203,15 +249,27 @@ export async function POST(request, { params }) {
  */
 export async function PATCH(request, { params }) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
     const { projectId } = params;
 
-    // Authenticate
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set() {},
+          remove() {}
+        }
+      }
+    );
 
-    if (!session) {
+    // Authenticate
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -228,7 +286,21 @@ export async function PATCH(request, { params }) {
     const updates = {};
 
     if (commentText !== undefined) {
-      updates.comment_text = commentText.trim();
+      const trimmed = commentText.trim();
+      if (trimmed.length === 0) {
+        return NextResponse.json(
+          { error: 'commentText cannot be empty' },
+          { status: 400 }
+        );
+      }
+      if (trimmed.length > 5000) {
+        return NextResponse.json(
+          { error: 'commentText exceeds maximum length (5000)' },
+          { status: 400 }
+        );
+      }
+      updates.comment_text = trimmed;
+      updates.edited_by = user.id;
     }
 
     if (status !== undefined) {
@@ -241,7 +313,7 @@ export async function PATCH(request, { params }) {
       updates.status = status;
       if (status === 'resolved') {
         updates.resolved_at = new Date().toISOString();
-        updates.resolved_by = session.user.id;
+        updates.resolved_by = user.id;
       } else {
         updates.resolved_at = null;
         updates.resolved_by = null;
@@ -260,6 +332,7 @@ export async function PATCH(request, { params }) {
       .from('aloa_prototype_comments')
       .update(updates)
       .eq('id', commentId)
+      .eq('aloa_project_id', projectId)
       .select()
       .single();
 
@@ -273,21 +346,23 @@ export async function PATCH(request, { params }) {
 
     // Log to timeline
     try {
-      const userName = session.user.user_metadata?.full_name ||
-                       session.user.email ||
+      const userName = user.user_metadata?.full_name ||
+                       user.email ||
                        'Unknown User';
+      const eventType = status === 'resolved'
+        ? 'prototype_comment_resolved'
+        : 'prototype_comment_updated';
+      const description = `${userName} ${status === 'resolved' ? 'resolved' : 'updated'} a prototype comment`;
 
       await supabase.from('aloa_project_timeline').insert([
         {
-          aloa_project_id: projectId,
-          user_id: session.user.id,
-          user_name: userName,
-          action: status === 'resolved' ? 'comment_resolved' : 'comment_updated',
-          entity_type: 'prototype_comment',
-          entity_id: commentId,
-          entity_name: `Comment updated`,
+          project_id: projectId,
+          event_type: eventType,
+          description,
+          user_id: user.id,
           metadata: {
-            updates: Object.keys(updates),
+            comment_id: commentId,
+            updated_fields: Object.keys(updates),
           },
         },
       ]);
@@ -314,17 +389,29 @@ export async function PATCH(request, { params }) {
  */
 export async function DELETE(request, { params }) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
     const { projectId } = params;
     const { searchParams } = new URL(request.url);
     const commentId = searchParams.get('commentId');
 
-    // Authenticate
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set() {},
+          remove() {}
+        }
+      }
+    );
 
-    if (!session) {
+    // Authenticate
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -341,8 +428,10 @@ export async function DELETE(request, { params }) {
       .update({
         is_deleted: true,
         deleted_at: new Date().toISOString(),
+        deleted_by: user.id,
       })
       .eq('id', commentId)
+      .eq('aloa_project_id', projectId)
       .select()
       .single();
 
@@ -356,19 +445,19 @@ export async function DELETE(request, { params }) {
 
     // Log to timeline
     try {
-      const userName = session.user.user_metadata?.full_name ||
-                       session.user.email ||
+      const userName = user.user_metadata?.full_name ||
+                       user.email ||
                        'Unknown User';
 
       await supabase.from('aloa_project_timeline').insert([
         {
-          aloa_project_id: projectId,
-          user_id: session.user.id,
-          user_name: userName,
-          action: 'comment_deleted',
-          entity_type: 'prototype_comment',
-          entity_id: commentId,
-          entity_name: `Comment deleted`,
+          project_id: projectId,
+          event_type: 'prototype_comment_deleted',
+          description: `${userName} deleted a prototype comment`,
+          user_id: user.id,
+          metadata: {
+            comment_id: commentId,
+          },
         },
       ]);
     } catch (timelineError) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { X, MessageSquare, Eye, MousePointer2, Loader2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,72 +20,34 @@ import CommentsPanel from '@/components/prototype-review/CommentsPanel';
  * - Professional clean UI matching Aloa aesthetic
  */
 
-// Dummy data for development
-const DUMMY_PROTOTYPE = {
-  id: 'proto-1',
-  name: 'Homepage Redesign v2',
-  url: 'https://example.vercel.app/',
-  description: 'New homepage mockup with updated hero section and improved navigation',
-  created_at: '2025-01-05T10:00:00Z'
-};
-
-const DUMMY_COMMENTS = [
-  {
-    id: 'comment-1',
-    number: 1,
-    x_percent: 25,
-    y_percent: 40,
-    author: 'Sarah Johnson',
-    author_role: 'client_admin',
-    text: 'Love the new hero section! The typography is much better than the previous version.',
-    status: 'open',
-    created_at: '2025-01-05T10:30:00Z',
-    replies: [
-      {
-        id: 'reply-1',
-        author: 'Mike Chen',
-        author_role: 'team_member',
-        text: 'Thank you! We spent extra time on the font pairing.',
-        created_at: '2025-01-05T11:00:00Z'
-      }
-    ]
-  },
-  {
-    id: 'comment-2',
-    number: 2,
-    x_percent: 60,
-    y_percent: 25,
-    author: 'John Davis',
-    author_role: 'client_participant',
-    text: 'The navigation menu feels a bit cramped on my screen. Could we add more spacing?',
-    status: 'open',
-    created_at: '2025-01-05T11:30:00Z',
-    replies: []
-  },
-  {
-    id: 'comment-3',
-    number: 3,
-    x_percent: 45,
-    y_percent: 70,
-    author: 'Emma Wilson',
-    author_role: 'client_admin',
-    text: 'This section looks perfect. Approved!',
-    status: 'resolved',
-    created_at: '2025-01-05T12:00:00Z',
-    replies: []
-  }
-];
+// Map API comment shape to UI shape
+function mapApiComment(c) {
+  return {
+    id: c.id,
+    number: c.comment_number ?? c.number ?? null,
+    x_percent: c.x_percent ?? null,
+    y_percent: c.y_percent ?? null,
+    author: c.author_name || c.author_email || 'Unknown User',
+    author_role: c.author_role || null,
+    text: c.comment_text || c.text || '',
+    status: c.status || 'open',
+    created_at: c.created_at,
+    replies: Array.isArray(c.replies) ? c.replies.map(mapApiComment) : [],
+  };
+}
 
 export default function PrototypeReviewPage({ params }) {
   // Get URL from query params
   const searchParams = useSearchParams();
   const urlFromQuery = searchParams.get('url');
+  const projectIdFromQuery = searchParams.get('projectId');
+  const nameFromQuery = searchParams.get('name');
 
   // Mode state: 'browsing' or 'commenting'
   const [mode, setMode] = useState('browsing');
 
   // Comments state
-  const [comments, setComments] = useState(DUMMY_COMMENTS);
+  const [comments, setComments] = useState([]);
   const [activeCommentId, setActiveCommentId] = useState(null);
   const [showCommentsPanel, setShowCommentsPanel] = useState(false);
 
@@ -93,28 +55,78 @@ export default function PrototypeReviewPage({ params }) {
   const [pendingComment, setPendingComment] = useState(null);
 
   // Prototype data
-  const [prototype, setPrototype] = useState(DUMMY_PROTOTYPE);
+  const [prototype, setPrototype] = useState({ id: params.prototypeId, name: 'Prototype Review', url: '', description: '', created_at: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
 
   // Iframe error handling
   const [iframeError, setIframeError] = useState(false);
   const [iframeErrorMessage, setIframeErrorMessage] = useState('');
+  const [attemptedRefresh, setAttemptedRefresh] = useState(false);
 
   // Refs
   const iframeContainerRef = useRef(null);
   const iframeRef = useRef(null);
 
-  // Update prototype URL from query params
+  // Update prototype state from query params
   useEffect(() => {
+    const updates = {};
     if (urlFromQuery) {
-      setPrototype(prev => ({
-        ...prev,
-        url: urlFromQuery,
-        name: 'Prototype Review',
-        description: `Reviewing: ${urlFromQuery}`
-      }));
+      updates.url = urlFromQuery;
+      updates.description = `Reviewing: ${urlFromQuery}`;
     }
-  }, [urlFromQuery]);
+    if (nameFromQuery) {
+      updates.name = nameFromQuery;
+    }
+    if (Object.keys(updates).length) {
+      setPrototype(prev => ({ ...prev, ...updates }));
+    }
+  }, [urlFromQuery, nameFromQuery]);
+
+  // Load comments from API
+  const loadComments = useCallback(async () => {
+    if (!projectIdFromQuery || !params.prototypeId) return;
+    try {
+      setIsLoading(true);
+      setError('');
+      const res = await fetch(`/api/aloa-projects/${projectIdFromQuery}/prototypes/comments?prototypeId=${encodeURIComponent(params.prototypeId)}`);
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'Failed to load comments');
+      }
+      const data = await res.json();
+      const mapped = Array.isArray(data?.comments) ? data.comments.map(mapApiComment) : [];
+      setComments(mapped);
+    } catch (e) {
+      console.error('Failed to load comments', e);
+      setError('Failed to load comments');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectIdFromQuery, params.prototypeId]);
+
+  useEffect(() => {
+    loadComments();
+  }, [loadComments]);
+
+  // Try to refresh signed URL if it may have expired
+  const refreshPrototypeUrl = useCallback(async () => {
+    if (!projectIdFromQuery || !params.prototypeId) return false;
+    try {
+      const res = await fetch(`/api/aloa-projects/${projectIdFromQuery}/prototypes/${params.prototypeId}/signed-url`);
+      if (!res.ok) return false;
+      const data = await res.json();
+      const nextUrl = data?.file_url || data?.screenshot_url || null;
+      if (nextUrl) {
+        setPrototype(prev => ({ ...prev, url: nextUrl }));
+        return true;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return false;
+  }, [projectIdFromQuery, params.prototypeId]);
 
   // Handle ESC key to close or toggle modes
   useEffect(() => {
@@ -176,70 +188,114 @@ export default function PrototypeReviewPage({ params }) {
   };
 
   // Handle new comment submission
-  const handleCommentSubmit = (text) => {
-    if (!pendingComment || !text.trim()) return;
-
-    const newComment = {
-      id: `comment-${Date.now()}`,
-      number: pendingComment.number,
-      x_percent: pendingComment.x_percent,
-      y_percent: pendingComment.y_percent,
-      author: 'Current User', // Would come from auth
-      author_role: 'client_admin',
-      text: text.trim(),
-      status: 'open',
-      created_at: new Date().toISOString(),
-      replies: []
-    };
-
-    setComments([...comments, newComment]);
-    setPendingComment(null);
-    setActiveCommentId(newComment.id);
+  const handleCommentSubmit = async (text) => {
+    if (!pendingComment || !text.trim() || !projectIdFromQuery) return;
+    try {
+      setIsSaving(true);
+      const res = await fetch(`/api/aloa-projects/${projectIdFromQuery}/prototypes/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prototypeId: params.prototypeId,
+          commentText: text.trim(),
+          xPercent: pendingComment.x_percent,
+          yPercent: pendingComment.y_percent,
+        })
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'Failed to add comment');
+      }
+      const data = await res.json();
+      const saved = mapApiComment(data?.comment || {});
+      setComments(prev => [...prev, saved]);
+      setPendingComment(null);
+      setActiveCommentId(saved.id);
+    } catch (e) {
+      console.error('Add comment failed', e);
+      setError('Failed to add comment');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Handle reply submission
-  const handleReplySubmit = (commentId, text) => {
-    if (!text.trim()) return;
-
-    const newReply = {
-      id: `reply-${Date.now()}`,
-      author: 'Current User',
-      author_role: 'team_member',
-      text: text.trim(),
-      created_at: new Date().toISOString()
-    };
-
-    setComments(comments.map(comment => {
-      if (comment.id === commentId) {
-        return {
-          ...comment,
-          replies: [...comment.replies, newReply]
-        };
+  const handleReplySubmit = async (commentId, text) => {
+    if (!text.trim() || !projectIdFromQuery) return;
+    try {
+      setIsSaving(true);
+      const res = await fetch(`/api/aloa-projects/${projectIdFromQuery}/prototypes/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prototypeId: params.prototypeId,
+          commentText: text.trim(),
+          parentCommentId: commentId,
+        })
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'Failed to add reply');
       }
-      return comment;
-    }));
+      const data = await res.json();
+      const saved = mapApiComment(data?.comment || {});
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, replies: [...(c.replies || []), saved] } : c));
+    } catch (e) {
+      console.error('Add reply failed', e);
+      setError('Failed to add reply');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Handle comment resolve
-  const handleCommentResolve = (commentId) => {
-    setComments(comments.map(comment => {
-      if (comment.id === commentId) {
-        return {
-          ...comment,
-          status: comment.status === 'open' ? 'resolved' : 'open'
-        };
+  const handleCommentResolve = async (commentId) => {
+    if (!projectIdFromQuery) return;
+    const target = comments.find(c => c.id === commentId);
+    if (!target) return;
+    const nextStatus = target.status === 'open' ? 'resolved' : 'open';
+    try {
+      setIsSaving(true);
+      const res = await fetch(`/api/aloa-projects/${projectIdFromQuery}/prototypes/comments`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commentId, status: nextStatus })
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'Failed to update');
       }
-      return comment;
-    }));
+      const data = await res.json();
+      const updated = mapApiComment(data?.comment || {});
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, status: updated.status, created_at: updated.created_at } : c));
+    } catch (e) {
+      console.error('Resolve toggle failed', e);
+      setError('Failed to update comment');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Handle comment delete
-  const handleCommentDelete = (commentId) => {
-    if (confirm('Delete this comment?')) {
-      setComments(comments.filter(c => c.id !== commentId));
-      if (activeCommentId === commentId) {
-        setActiveCommentId(null);
+  const handleCommentDelete = async (commentId) => {
+    if (!projectIdFromQuery) return;
+    if (!confirm('Delete this comment?')) return;
+    try {
+      setIsSaving(true);
+      const res = await fetch(`/api/aloa-projects/${projectIdFromQuery}/prototypes/comments?commentId=${encodeURIComponent(commentId)}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'Failed to delete');
       }
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      if (activeCommentId === commentId) setActiveCommentId(null);
+    } catch (e) {
+      console.error('Delete failed', e);
+      setError('Failed to delete comment');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -299,6 +355,13 @@ export default function PrototypeReviewPage({ params }) {
             )}
           </AnimatePresence>
 
+          {/* Error banner */}
+          {error && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded">
+              {error}
+            </div>
+          )}
+
           {/* Iframe Error Message */}
           {iframeError && (
             <div className="absolute inset-0 bg-white z-30 flex items-center justify-center p-8">
@@ -342,10 +405,22 @@ export default function PrototypeReviewPage({ params }) {
             title={prototype.name}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
             allow="fullscreen"
-            onError={() => {
+            onError={async () => {
               console.error('Iframe onError triggered');
+              if (!attemptedRefresh) {
+                setAttemptedRefresh(true);
+                const ok = await refreshPrototypeUrl();
+                if (ok) {
+                  // Give the iframe a moment to update src via state change
+                  setTimeout(() => {
+                    setIframeError(false);
+                    setIframeErrorMessage('');
+                  }, 50);
+                  return;
+                }
+              }
               setIframeError(true);
-              setIframeErrorMessage('Failed to load the prototype. The site may block iframe embedding.');
+              setIframeErrorMessage('Failed to load the prototype. The site may block iframe embedding or the link may have expired.');
             }}
             onLoad={() => {
               console.log('Iframe onLoad triggered');
@@ -359,19 +434,14 @@ export default function PrototypeReviewPage({ params }) {
                     if (!iframeDoc) {
                       // Can't access document - likely blocked
                       console.warn('Cannot access iframe document - CSP/CORS blocked');
-                      setIframeError(true);
-                      setIframeErrorMessage('This website blocks iframe embedding (X-Frame-Options or CSP headers).');
+                      // Do not immediately error; access is often blocked cross-origin.
+                      // We'll rely on onError for hard failures.
                       return;
                     }
 
                     // Check if iframe body is empty (CSP blocked but page loaded)
                     const bodyContent = iframeDoc.body?.innerHTML || '';
-                    if (bodyContent.trim().length === 0) {
-                      console.warn('Iframe loaded but body is empty - likely CSP blocked');
-                      setIframeError(true);
-                      setIframeErrorMessage('This website blocks iframe embedding (Content Security Policy).');
-                      return;
-                    }
+                    // If empty, may still be rendering or blocked; onError handler will handle hard failures.
 
                     // Success - iframe loaded properly
                     console.log('Iframe loaded successfully');
@@ -379,9 +449,7 @@ export default function PrototypeReviewPage({ params }) {
                   }
                 } catch (e) {
                   // CORS/CSP error when trying to access iframe
-                  console.error('Iframe access error (CSP/CORS):', e);
-                  setIframeError(true);
-                  setIframeErrorMessage('This website blocks iframe embedding due to security policies (CSP/CORS).');
+                  console.warn('Iframe access not permitted (CORS/CSP) – this can be normal for external sites.');
                 }
               }, 1500); // Wait a bit for page to render
             }}
@@ -443,6 +511,8 @@ export default function PrototypeReviewPage({ params }) {
           onCommentResolve={handleCommentResolve}
           onCommentDelete={handleCommentDelete}
           onCancelPending={() => setPendingComment(null)}
+          isSaving={isSaving}
+          errorMessage={error}
         />
       </div>
 
@@ -464,6 +534,20 @@ export default function PrototypeReviewPage({ params }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Global loading/saving indicators */}
+      {isLoading && (
+        <div className="absolute top-4 left-4 z-40 bg-white/80 backdrop-blur px-3 py-1.5 rounded shadow border text-sm text-gray-700 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading comments…
+        </div>
+      )}
+      {isSaving && (
+        <div className="absolute top-4 right-4 z-40 bg-white/80 backdrop-blur px-3 py-1.5 rounded shadow border text-sm text-gray-700 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Saving…
+        </div>
+      )}
     </div>
   );
 }
