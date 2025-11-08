@@ -168,6 +168,29 @@ export async function POST(request, { params }) {
       parentCommentId,
     } = body;
 
+    // Verify prototype exists and belongs to this project
+    const { data: protoCheck, error: protoErr } = await supabase
+      .from('aloa_prototypes')
+      .select('id')
+      .eq('id', prototypeId)
+      .eq('aloa_project_id', projectId)
+      .maybeSingle();
+
+    if (protoErr) {
+      console.error('Prototype check failed:', protoErr);
+      return NextResponse.json(
+        { error: 'Failed to validate prototype', details: protoErr.message },
+        { status: 500 }
+      );
+    }
+
+    if (!protoCheck) {
+      return NextResponse.json(
+        { error: 'Prototype not found for this project' },
+        { status: 400 }
+      );
+    }
+
     // Validation
     const trimmed = (commentText || '').trim();
     if (!prototypeId || !trimmed) {
