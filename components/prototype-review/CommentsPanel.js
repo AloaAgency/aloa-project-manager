@@ -49,9 +49,13 @@ export default function CommentsPanel({
 
   // Handle new comment submit
   const handleNewCommentSubmit = () => {
+    console.log('[CommentsPanel] Button clicked! commentText:', commentText);
     if (commentText.trim()) {
+      console.log('[CommentsPanel] Calling onCommentSubmit');
       onCommentSubmit(commentText);
       setCommentText('');
+    } else {
+      console.warn('[CommentsPanel] No text entered');
     }
   };
 

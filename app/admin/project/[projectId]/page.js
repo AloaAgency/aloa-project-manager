@@ -4953,7 +4953,7 @@ function AdminProjectPageContent() {
                                         <button
                                           onClick={() => {
                                             const prototypeUrl = applet.config?.prototypeUrl || 'https://example.vercel.app/';
-                                            const viewerUrl = `/prototype-review/${applet.id}?url=${encodeURIComponent(prototypeUrl)}`;
+                                            const viewerUrl = `/prototype-review/${applet.id}?url=${encodeURIComponent(prototypeUrl)}&projectId=${params.projectId}`;
                                             window.open(viewerUrl, '_blank');
                                           }}
                                           disabled={!applet.config?.prototypeUrl}

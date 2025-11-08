@@ -189,9 +189,20 @@ export default function PrototypeReviewPage({ params }) {
 
   // Handle new comment submission
   const handleCommentSubmit = async (text) => {
-    if (!pendingComment || !text.trim() || !projectIdFromQuery) return;
+    console.log('[Page] handleCommentSubmit called', {
+      text,
+      hasPendingComment: !!pendingComment,
+      hasProjectId: !!projectIdFromQuery,
+      projectId: projectIdFromQuery,
+      prototypeId: params.prototypeId
+    });
+    if (!pendingComment || !text.trim() || !projectIdFromQuery) {
+      console.warn('[Page] Cannot submit - missing required data');
+      return;
+    }
     try {
       setIsSaving(true);
+      console.log('[Page] Making POST request...');
       const res = await fetch(`/api/aloa-projects/${projectIdFromQuery}/prototypes/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -202,11 +213,14 @@ export default function PrototypeReviewPage({ params }) {
           yPercent: pendingComment.y_percent,
         })
       });
+      console.log('[Page] Response status:', res.status);
       if (!res.ok) {
         const t = await res.text();
+        console.error('[Page] Error response:', t);
         throw new Error(t || 'Failed to add comment');
       }
       const data = await res.json();
+      console.log('[Page] Success! Comment created:', data);
       const saved = mapApiComment(data?.comment || {});
       setComments(prev => [...prev, saved]);
       setPendingComment(null);

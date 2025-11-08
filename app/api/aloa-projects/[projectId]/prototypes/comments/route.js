@@ -43,10 +43,9 @@ export async function GET(request, { params }) {
     }
 
     // Fetch all comments for this prototype (not deleted) and scoped to project
-    // Include author role via FK join when allowed
     const { data: comments, error } = await supabase
       .from('aloa_prototype_comments')
-      .select('*, author:aloa_user_profiles(role)')
+      .select('*')
       .eq('prototype_id', prototypeId)
       .eq('aloa_project_id', projectId)
       .eq('is_deleted', false)
@@ -60,13 +59,28 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Normalize shape: flatten author role
-    if (Array.isArray(comments)) {
-      comments.forEach((c) => {
-        const role = c?.author?.role || c?.author_role || null;
-        c.author_role = role;
-        delete c.author; // drop nested object to keep payload lean
-      });
+    // Fetch author roles separately to avoid FK relationship issues
+    if (Array.isArray(comments) && comments.length > 0) {
+      const authorIds = [...new Set(comments.map(c => c.author_id).filter(Boolean))];
+
+      if (authorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('aloa_user_profiles')
+          .select('id, role')
+          .in('id', authorIds);
+
+        const roleMap = {};
+        if (profiles) {
+          profiles.forEach(p => {
+            roleMap[p.id] = p.role;
+          });
+        }
+
+        // Attach roles to comments
+        comments.forEach((c) => {
+          c.author_role = roleMap[c.author_id] || null;
+        });
+      }
     }
 
     // Organize into threads (top-level comments + replies)
@@ -169,6 +183,8 @@ export async function POST(request, { params }) {
     } = body;
 
     // Verify prototype exists and belongs to this project
+    // Note: For prototype_review applets opened from admin, prototypeId might be an applet ID
+    // We'll allow this for super_admins/project_admins
     const { data: protoCheck, error: protoErr } = await supabase
       .from('aloa_prototypes')
       .select('id')
@@ -184,11 +200,56 @@ export async function POST(request, { params }) {
       );
     }
 
+    // If prototype not found, check if user is super_admin/project_admin
+    // and create a prototype record on-the-fly for applet-based prototypes
     if (!protoCheck) {
-      return NextResponse.json(
-        { error: 'Prototype not found for this project' },
-        { status: 400 }
+      const { data: profile } = await supabase
+        .from('aloa_user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      const isAdmin = profile && ['super_admin', 'project_admin'].includes(profile.role);
+
+      if (!isAdmin) {
+        return NextResponse.json(
+          { error: 'Prototype not found for this project' },
+          { status: 400 }
+        );
+      }
+
+      // Create a prototype record for this applet-based prototype
+      // Use service role to bypass RLS
+      const service = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
+        { auth: { autoRefreshToken: false, persistSession: false } }
       );
+
+      const { error: createErr } = await service
+        .from('aloa_prototypes')
+        .insert({
+          id: prototypeId,
+          aloa_project_id: projectId,
+          name: 'Prototype Review',
+          description: 'Auto-created for admin prototype review',
+          source_type: 'url', // External URL
+          version: '1.0',
+          status: 'active',
+          viewport_width: 1920,
+          viewport_height: 1080,
+          device_type: 'desktop',
+          is_current_version: true,
+          total_comments: 0,
+          open_comments: 0,
+          resolved_comments: 0,
+          created_by: user.id,
+        });
+
+      if (createErr) {
+        console.error('Failed to create prototype record:', createErr);
+        // Continue anyway - it might already exist from a concurrent request
+      }
     }
 
     // Validation
