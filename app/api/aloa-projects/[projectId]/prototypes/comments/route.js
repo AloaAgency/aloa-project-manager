@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -131,6 +132,31 @@ export async function POST(request, { params }) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Ensure a profile row exists for this user (for FK author_id)
+    try {
+      const service = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+      const { data: existingProfile } = await service
+        .from('aloa_user_profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (!existingProfile) {
+        await service.from('aloa_user_profiles').insert([{
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.email,
+          // role uses table default
+        }]);
+      }
+    } catch (e) {
+      // Non-fatal: if insert fails due to RLS or constraints, the FK may still pass
+      // and RLS on comments will govern access.
     }
 
     const body = await request.json();

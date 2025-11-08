@@ -70,6 +70,12 @@ CREATE TABLE IF NOT EXISTS aloa_prototype_comments (
 ALTER TABLE aloa_prototype_comments
   ADD COLUMN IF NOT EXISTS comment_number INTEGER;
 
+-- Ensure prototype counters exist for stats trigger compatibility
+ALTER TABLE aloa_prototypes
+  ADD COLUMN IF NOT EXISTS total_comments INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS resolved_comments INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS unresolved_comments INTEGER DEFAULT 0;
+
 -- -----------------------------------------------------------------------------
 -- Indexes for Performance
 -- -----------------------------------------------------------------------------
