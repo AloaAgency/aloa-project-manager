@@ -57,11 +57,10 @@ export async function middleware(request) {
     },
   });
   const { pathname } = request.nextUrl;
+  const isApiRoute = pathname.startsWith('/api/');
 
-  // Skip middleware processing for API routes to avoid interfering with responses
-  if (pathname.startsWith('/api/')) {
-    return response;
-  }
+  // Note: Do not return early for API routes so that
+  // CORS, rate limiting, and security headers still apply below.
 
   // CRITICAL: Completely bypass auth logic for OTP login pages
   // These pages must remain stable during the OTP flow
@@ -89,7 +88,7 @@ export async function middleware(request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!isAuthCallbackRoute && supabaseUrl && supabaseKey) {
+  if (!isApiRoute && !isAuthCallbackRoute && supabaseUrl && supabaseKey) {
     const supabase = createServerClient(
       supabaseUrl,
       supabaseKey,
@@ -355,6 +354,24 @@ export async function middleware(request) {
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   
   // Content Security Policy
+  // Extend allowed frame sources to support common prototype hosts.
+  const defaultAllowedFrameSrc = [
+    "'self'",
+    'https://vercel.live',
+    'https://player.vimeo.com',
+    'https://www.youtube-nocookie.com',
+    'https://www.youtube.com',
+    'https://*.vercel.app',
+    'https://*.figma.com',
+    'https://www.figma.com',
+    'https://*.netlify.app',
+  ];
+  const extraFrameSrc = (process.env.NEXT_PUBLIC_ALLOWED_FRAME_SRC || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  const frameSrcDirective = `frame-src ${[...defaultAllowedFrameSrc, ...extraFrameSrc].join(' ')}`;
+
   const cspDirectives = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
@@ -362,7 +379,7 @@ export async function middleware(request) {
     "img-src 'self' data: https: blob:",
     "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' https://*.supabase.co https://vercel.live wss://ws-us3.pusher.com",
-    "frame-src 'self' https://vercel.live https://player.vimeo.com https://www.youtube-nocookie.com https://www.youtube.com",
+    frameSrcDirective,
     "form-action 'self'",
     "base-uri 'self'",
     "object-src 'none'",

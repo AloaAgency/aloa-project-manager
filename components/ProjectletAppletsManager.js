@@ -52,7 +52,8 @@ import {
   FileUp,
   Brain,
   Video,
-  Shield
+  Shield,
+  Image
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -83,7 +84,8 @@ const APPLET_ICONS = {
   ai_narrative_generator: Edit2,
   video: Video,
   phase_review: Shield,
-  font_picker: Type
+  font_picker: Type,
+  prototype_review: Image
 };
 
 const APPLET_COLORS = {
@@ -103,7 +105,8 @@ const APPLET_COLORS = {
   ai_narrative_generator: 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 border-indigo-300',
   video: 'bg-gradient-to-r from-rose-100 to-pink-100 text-rose-700 border-rose-300',
   phase_review: 'bg-gradient-to-r from-slate-100 to-blue-100 text-slate-700 border-slate-400',
-  font_picker: 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-700 border-gray-300'
+  font_picker: 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-700 border-gray-300',
+  prototype_review: 'bg-gradient-to-r from-cyan-100 to-blue-100 text-cyan-700 border-cyan-300'
 };
 
 function ProjectletAppletsManager({ 
@@ -564,9 +567,13 @@ function ProjectletAppletsManager({
       if (response.ok) {
         toast.success('Applet deleted');
         fetchApplets();
+      } else {
+        const errorData = await response.json();
+        console.error('Delete failed:', errorData);
+        toast.error(errorData.error || 'Failed to delete applet');
       }
     } catch (error) {
-
+      console.error('Delete error:', error);
       toast.error('Failed to delete applet');
     }
   }, [projectId, projectletId, fetchApplets]);

@@ -84,25 +84,41 @@ export default function AdminNotifications({ projectId }) {
   }, [projectId]); // Removed lastCheck from dependencies to prevent re-running effect
 
   const showToast = (notification) => {
-    // Create toast element
+    // Create toast element without injecting untrusted HTML
     const toast = document.createElement('div');
     toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 animate-slide-up z-50';
-    toast.innerHTML = `
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+    // Static icon markup (safe)
+    const iconWrapper = document.createElement('div');
+    iconWrapper.innerHTML = `
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
       </svg>
-      <div>
-        <p class="font-medium">${notification.title}</p>
-        <p class="text-sm opacity-90">${notification.message}</p>
-      </div>
     `;
+
+    // Text content nodes
+    const textWrapper = document.createElement('div');
+    const titleEl = document.createElement('p');
+    titleEl.className = 'font-medium';
+    titleEl.textContent = notification?.title ?? '';
+    const msgEl = document.createElement('p');
+    msgEl.className = 'text-sm opacity-90';
+    msgEl.textContent = notification?.message ?? '';
+
+    textWrapper.appendChild(titleEl);
+    textWrapper.appendChild(msgEl);
+
+    toast.appendChild(iconWrapper.firstElementChild);
+    toast.appendChild(textWrapper);
 
     document.body.appendChild(toast);
 
     // Remove after 5 seconds
     setTimeout(() => {
       toast.classList.add('animate-slide-down');
-      setTimeout(() => document.body.removeChild(toast), 300);
+      setTimeout(() => {
+        if (document.body.contains(toast)) document.body.removeChild(toast);
+      }, 300);
     }, 5000);
   };
 
