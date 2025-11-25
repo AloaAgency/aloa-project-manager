@@ -318,13 +318,19 @@ export function UserProvider({ children }) {
       } else {
         setUser(null);
         setProfile(null);
-        router.push('/auth/login');
+        // Don't redirect if on public form pages or auth pages
+        if (!window.location.pathname.startsWith('/auth/') && !window.location.pathname.startsWith('/forms/')) {
+          router.push('/auth/login');
+        }
       }
     } catch (error) {
 
       setUser(null);
       setProfile(null);
-      router.push('/auth/login');
+      // Don't redirect if on public form pages or auth pages
+      if (!window.location.pathname.startsWith('/auth/') && !window.location.pathname.startsWith('/forms/')) {
+        router.push('/auth/login');
+      }
     } finally {
       setLoading(false);
     }
