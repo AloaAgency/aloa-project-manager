@@ -126,7 +126,10 @@ export function UserProvider({ children }) {
           // If signed out OR token refresh failed (no session), clear everything
           setUser(null);
           setProfile(null);
-          router.push('/auth/login');
+          // Don't redirect if on public form pages or auth pages
+          if (!window.location.pathname.startsWith('/auth/') && !window.location.pathname.startsWith('/forms/')) {
+            router.push('/auth/login');
+          }
         } else if (event === 'USER_UPDATED' && session?.user) {
           setUser(session.user);
 
@@ -145,10 +148,13 @@ export function UserProvider({ children }) {
         }
 
         // Handle session expiration - if no session and we have a user, clear and redirect
+        // But not on public form pages or auth pages
         if (!session && user) {
           setUser(null);
           setProfile(null);
-          router.push('/auth/login');
+          if (!window.location.pathname.startsWith('/auth/') && !window.location.pathname.startsWith('/forms/')) {
+            router.push('/auth/login');
+          }
         }
       }
     );
@@ -160,7 +166,10 @@ export function UserProvider({ children }) {
       if (error || !session) {
         setUser(null);
         setProfile(null);
-        router.push('/auth/login');
+        // Don't redirect if on public form pages or auth pages
+        if (!window.location.pathname.startsWith('/auth/') && !window.location.pathname.startsWith('/forms/')) {
+          router.push('/auth/login');
+        }
       } else {
       }
     }, 30 * 60 * 1000); // 30 minutes
@@ -182,8 +191,8 @@ export function UserProvider({ children }) {
         }
 
         if (!session) {
-          // Only redirect to login if we're not on an auth page
-          if (!window.location.pathname.startsWith('/auth/')) {
+          // Only redirect to login if we're not on an auth page or public form page
+          if (!window.location.pathname.startsWith('/auth/') && !window.location.pathname.startsWith('/forms/')) {
             console.log('[UserContext] Session refresh failed, clearing state');
             setUser(null);
             setProfile(null);
