@@ -26,7 +26,7 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { fields = [], title, description } = await request.json();
+    const { fields = [], title, description, is_public } = await request.json();
 
     if (!Array.isArray(fields)) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
@@ -57,14 +57,21 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: 'Failed to load existing fields' }, { status: 500 });
     }
 
-    // Update form title and description
+    // Update form title, description, and visibility
+    const updateData = {
+      title,
+      description,
+      updated_at: new Date().toISOString()
+    };
+
+    // Only update is_public if it was explicitly provided
+    if (typeof is_public === 'boolean') {
+      updateData.is_public = is_public;
+    }
+
     const { error: formError } = await supabase
       .from('aloa_forms')
-      .update({ 
-        title, 
-        description,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', formId);
 
     if (formError) {
