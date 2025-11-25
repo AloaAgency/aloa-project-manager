@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import dynamic from 'next/dynamic';
-import { Upload, FileText, Check, AlertCircle, Bot, Wand2, Folder, Brain } from 'lucide-react';
+import { Upload, FileText, Check, AlertCircle, Bot, Wand2, Folder, Brain, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AuthGuard from '@/components/AuthGuard';
 
@@ -390,24 +390,46 @@ function CreateFormPageContent() {
                 <div className="flex items-start">
                   <AlertCircle className="w-5 h-5 text-purple-600 mr-3 mt-1 flex-shrink-0" />
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-2">
-                      Markdown Format Example
-                    </h3>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-gray-900">
+                        Markdown Format Example
+                      </h3>
+                      <a
+                        href="/form-markdown-reference.md"
+                        download="form-markdown-reference.md"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download Full Reference
+                      </a>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">
+                      Use the pipe-delimited format for best results with LLMs:
+                    </p>
                     <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs overflow-x-auto font-mono">
 {`# Contact Form
+Help us get in touch with you
 
-## Personal Information
-What is your name? (text) *
-What is your email? (email) *
-What is your phone? (phone)
+## Section: Personal Information
+- text* | full_name | What is your full name? | Enter your full name...
+- email* | email_address | What is your email address? | you@example.com
+- phone | phone_number | What is your phone number? | (555) 123-4567
 
-## Message
-Your message (textarea) *
+## Section: Your Message
+- textarea* | message | Please describe your inquiry | Share your thoughts...
 
-## Preferences
-How did you hear about us? (select: Google, Social Media, Friend, Other) *
-Subscribe to newsletter? (checkbox: Yes, subscribe me)`}
+## Section: Preferences
+- select* | referral | How did you hear about us?
+  - Google Search
+  - Social Media
+  - Friend or Colleague
+  - Other
+- checkbox | newsletter | Would you like updates?
+  - Yes, subscribe me to the newsletter`}
                     </pre>
+                    <p className="text-xs text-gray-500 mt-3">
+                      Supported types: text, email, phone, url, number, date, textarea, select, radio, checkbox, multiselect, rating, file
+                    </p>
                   </div>
                 </div>
               </div>

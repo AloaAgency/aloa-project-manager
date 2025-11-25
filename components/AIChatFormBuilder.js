@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
-import { Send, Bot, User, Loader2, Wand2, RefreshCw, Copy, CheckCircle } from 'lucide-react';
+import { Send, Bot, User, Loader2, Wand2, RefreshCw, Copy, CheckCircle, Download } from 'lucide-react';
 
 function AIChatFormBuilder({ onMarkdownGenerated, projectContext, projectName }) {
   const getInitialMessage = () => {
@@ -145,13 +145,24 @@ function AIChatFormBuilder({ onMarkdownGenerated, projectContext, projectName })
               <p className="text-sm text-gray-600">Chat to create your perfect form</p>
             </div>
           </div>
-          <button
-            onClick={resetChat}
-            className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Reset
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href="/form-markdown-reference.md"
+              download="form-markdown-reference.md"
+              className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1 px-2 py-1 rounded hover:bg-purple-50 transition-colors"
+              title="Download markdown format reference for LLMs"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Reference</span>
+            </a>
+            <button
+              onClick={resetChat}
+              className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Reset
+            </button>
+          </div>
         </div>
 
         {/* Messages */}

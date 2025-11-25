@@ -274,7 +274,8 @@ export async function middleware(request) {
     );
 
     // If accessing protected route without authentication, redirect to login
-    if (isProtectedPath && !user) {
+    // IMPORTANT: Skip this check if user just logged in - session may not be fully established yet
+    if (isProtectedPath && !user && !justLoggedIn) {
       // Skip redirect if already going to login to avoid loops
       if (!pathname.startsWith('/auth/')) {
         const redirectUrl = new URL('/auth/login', request.url);
