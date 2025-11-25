@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, AlertCircle, Edit2, Trash2, GripVertical } from 'lucide-react';
+import { ArrowLeft, Save, AlertCircle, Edit2, Trash2, GripVertical, Globe, Lock, Copy, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import AuthGuard from '@/components/AuthGuard';
@@ -14,10 +14,12 @@ function EditFormPageContent() {
   const [fields, setFields] = useState([]);
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [draggedItem, setDraggedItem] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchFormData();
@@ -35,6 +37,7 @@ function EditFormPageContent() {
       setFields(data.aloa_form_fields || []);
       setFormTitle(data.title || '');
       setFormDescription(data.description || '');
+      setIsPublic(data.is_public || false);
     } catch (error) {
 
       toast.error('Failed to load form');
@@ -112,6 +115,20 @@ function EditFormPageContent() {
     setHasChanges(true);
   };
 
+  const handleVisibilityChange = (value) => {
+    setIsPublic(value);
+    setHasChanges(true);
+  };
+
+  const copyFormLink = () => {
+    const baseUrl = window.location.origin;
+    const formUrl = `${baseUrl}/forms/${form?.url_id}`;
+    navigator.clipboard.writeText(formUrl);
+    setCopied(true);
+    toast.success('Form link copied to clipboard!');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -121,7 +138,7 @@ function EditFormPageContent() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fields, title: formTitle, description: formDescription }),
+        body: JSON.stringify({ fields, title: formTitle, description: formDescription, is_public: isPublic }),
       });
 
       if (!response.ok) throw new Error('Failed to update form');
@@ -229,6 +246,87 @@ function EditFormPageContent() {
                   rows={3}
                   placeholder="Enter the description that appears below the form title..."
                 />
+              </div>
+            </div>
+
+            {/* Visibility Settings */}
+            <div className="border-t border-aloa-sand pt-6">
+              <div className="flex items-start gap-3">
+                {isPublic ? (
+                  <Globe className="w-5 h-5 text-green-600 mt-1" />
+                ) : (
+                  <Lock className="w-5 h-5 text-aloa-gray mt-1" />
+                )}
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-aloa-gray mb-2">
+                    Form Visibility
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => handleVisibilityChange(false)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all ${
+                        !isPublic
+                          ? 'border-aloa-black bg-aloa-black text-white'
+                          : 'border-aloa-sand text-aloa-gray hover:border-aloa-gray'
+                      }`}
+                    >
+                      <Lock className="w-4 h-4" />
+                      Private
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleVisibilityChange(true)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all ${
+                        isPublic
+                          ? 'border-green-600 bg-green-600 text-white'
+                          : 'border-aloa-sand text-aloa-gray hover:border-aloa-gray'
+                      }`}
+                    >
+                      <Globe className="w-4 h-4" />
+                      Public
+                    </button>
+                  </div>
+                  <p className="mt-2 text-sm text-aloa-gray">
+                    {isPublic ? (
+                      <span className="text-green-700">
+                        Anyone with the link can view and submit this form without logging in.
+                      </span>
+                    ) : (
+                      <span>
+                        Only authenticated users with project access can view this form.
+                      </span>
+                    )}
+                  </p>
+
+                  {/* Share Link Section */}
+                  {isPublic && form?.url_id && (
+                    <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <label className="block text-sm font-medium text-green-800 mb-2">
+                        Shareable Link
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={`${typeof window !== 'undefined' ? window.location.origin : ''}/forms/${form.url_id}`}
+                          className="flex-1 px-3 py-2 bg-white border border-green-300 rounded-lg text-sm text-gray-700"
+                        />
+                        <button
+                          type="button"
+                          onClick={copyFormLink}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          {copied ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                      <p className="mt-2 text-xs text-green-700">
+                        Share this link with anyone to let them fill out the form.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

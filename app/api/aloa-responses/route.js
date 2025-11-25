@@ -126,14 +126,6 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const authContext = await requireAuthenticatedSupabase();
-  if (authContext.error) {
-    return authContext.error;
-  }
-
-  const { supabase, user, profile } = authContext;
-  const role = profile?.role;
-  const isAdmin = ADMIN_ROLES.includes(role);
   const serviceSupabase = createServiceClient();
 
   try {
@@ -143,8 +135,38 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid form ID format' }, { status: 400 });
     }
 
+    // Check if the form is public
+    const { data: formRecord, error: formError } = await serviceSupabase
+      .from('aloa_forms')
+      .select('id, is_public, status, aloa_project_id')
+      .eq('id', body.formId)
+      .single();
+
+    if (formError || !formRecord) {
+      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+    }
+
+    const isPublicForm = formRecord.is_public === true && formRecord.status === 'active';
+
+    // Try to get authenticated user (may be null for public form submissions)
+    let user = null;
+    let profile = null;
+    let isAdmin = false;
+    let supabase = serviceSupabase;
+
+    const authContext = await requireAuthenticatedSupabase();
+    if (!authContext.error) {
+      user = authContext.user;
+      profile = authContext.profile;
+      supabase = authContext.supabase;
+      isAdmin = ADMIN_ROLES.includes(profile?.role);
+    } else if (!isPublicForm) {
+      // Form is not public and user is not authenticated
+      return authContext.error;
+    }
+
     const requestUserId = body.userId || body.user_id;
-    let resolvedUserId = user.id;
+    let resolvedUserId = user?.id || null;
 
     if (requestUserId) {
       if (!UUID_REGEX.test(requestUserId)) {
@@ -154,19 +176,22 @@ export async function POST(request) {
       // Only admins can submit on behalf of other users
       if (isAdmin) {
         resolvedUserId = requestUserId;
-      } else if (requestUserId !== user.id) {
+      } else if (user && requestUserId !== user.id) {
         return NextResponse.json({ error: 'Cannot submit responses for another user' }, { status: 403 });
       }
     }
 
-    const projectId = body.projectId || body.project_id || null;
+    // For public forms without a user, use null user_id
+    // For authenticated submissions, use the resolved user ID
+    const projectId = body.projectId || body.project_id || formRecord.aloa_project_id || null;
 
-    // Verify CSRF token for browser-based submissions
+    // Verify CSRF token for browser-based submissions (skip for public forms without auth)
     const csrfToken = request.headers.get('X-CSRF-Token');
     const cookieToken = request.cookies.get('csrf-token')?.value;
     const isUpdateAttempt = Boolean(body.responseId || body.response_id);
 
-    if (!isUpdateAttempt && (!csrfToken || !cookieToken || csrfToken !== cookieToken)) {
+    // Only require CSRF for authenticated submissions that aren't updates
+    if (!isPublicForm && !isUpdateAttempt && (!csrfToken || !cookieToken || csrfToken !== cookieToken)) {
       return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
     }
 
@@ -193,16 +218,21 @@ export async function POST(request) {
 
     let responseRecord = null;
     let isUpdate = false;
+    let existingResponse = null;
 
-    const { data: existingResponse, error: existingResponseError } = await supabase
-      .from('aloa_form_responses')
-      .select('id')
-      .eq('aloa_form_id', body.formId)
-      .eq('user_id', resolvedUserId)
-      .maybeSingle();
+    // Only check for existing response if we have a user ID (skip for anonymous submissions)
+    if (resolvedUserId) {
+      const { data: existing, error: existingResponseError } = await serviceSupabase
+        .from('aloa_form_responses')
+        .select('id')
+        .eq('aloa_form_id', body.formId)
+        .eq('user_id', resolvedUserId)
+        .maybeSingle();
 
-    if (existingResponseError && existingResponseError.code !== 'PGRST116') {
-      return handleSupabaseError(existingResponseError, 'Failed to verify existing response');
+      if (existingResponseError && existingResponseError.code !== 'PGRST116') {
+        return handleSupabaseError(existingResponseError, 'Failed to verify existing response');
+      }
+      existingResponse = existing;
     }
 
     const responsePayload = {
@@ -219,7 +249,7 @@ export async function POST(request) {
 
     if (existingResponse) {
       isUpdate = true;
-      const { data: updatedResponse, error: updateError } = await supabase
+      const { data: updatedResponse, error: updateError } = await serviceSupabase
         .from('aloa_form_responses')
         .update(responsePayload)
         .eq('id', existingResponse.id)
@@ -241,7 +271,7 @@ export async function POST(request) {
         return handleSupabaseError(deleteAnswersError, 'Failed to replace existing answers');
       }
     } else {
-      const { data: newResponse, error: responseError } = await supabase
+      const { data: newResponse, error: responseError } = await serviceSupabase
         .from('aloa_form_responses')
         .insert([responsePayload])
         .select()
@@ -277,15 +307,16 @@ export async function POST(request) {
       }
     }
 
-    if (!isUpdate && isAdmin) {
-      const { data: formRecord, error: formFetchError } = await serviceSupabase
+    // Update submission count for new submissions (not updates)
+    if (!isUpdate) {
+      const { data: currentFormRecord, error: formFetchError } = await serviceSupabase
         .from('aloa_forms')
         .select('submission_count')
         .eq('id', body.formId)
         .maybeSingle();
 
-      if (!formFetchError && formRecord) {
-        const submissionCount = Number(formRecord.submission_count) || 0;
+      if (!formFetchError && currentFormRecord) {
+        const submissionCount = Number(currentFormRecord.submission_count) || 0;
         const { error: submissionUpdateError } = await serviceSupabase
           .from('aloa_forms')
           .update({

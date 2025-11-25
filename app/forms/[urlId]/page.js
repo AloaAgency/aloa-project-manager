@@ -1,30 +1,56 @@
 import { notFound } from 'next/navigation';
 import FormClient from './FormClient';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
 async function getForm(urlId) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
+    // First, try with service client to check if form exists and is public
+    // This bypasses RLS to check if the form is public
+    const serviceSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      {
-        cookies: {
-          get(name) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name, value, options) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name, options) {
-            cookieStore.set({ name, value: '', ...options });
-          }
-        }
-      }
+      process.env.SUPABASE_SECRET_KEY
     );
 
-    // ONLY use aloa_forms - no legacy fallback
+    const { data: formCheck, error: checkError } = await serviceSupabase
+      .from('aloa_forms')
+      .select('id, is_public, status')
+      .eq('url_id', urlId)
+      .single();
+
+    if (checkError || !formCheck) {
+      return null;
+    }
+
+    // If form is public, use service client to fetch full form data
+    // If not public, try with authenticated client (user must be logged in)
+    let supabase;
+    if (formCheck.is_public) {
+      supabase = serviceSupabase;
+    } else {
+      // Use authenticated client for non-public forms
+      const cookieStore = cookies();
+      supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+        {
+          cookies: {
+            get(name) {
+              return cookieStore.get(name)?.value;
+            },
+            set(name, value, options) {
+              cookieStore.set({ name, value, ...options });
+            },
+            remove(name, options) {
+              cookieStore.set({ name, value: '', ...options });
+            }
+          }
+        }
+      );
+    }
+
+    // Fetch full form data
     const { data: form, error } = await supabase
       .from('aloa_forms')
       .select(`
@@ -55,6 +81,7 @@ async function getForm(urlId) {
       ...form,
       _id: form.id,
       urlId: form.url_id,
+      isPublic: form.is_public || false,
       fields: sortedFields.map(field => ({
         _id: field.id,
         label: field.field_label,
@@ -70,7 +97,7 @@ async function getForm(urlId) {
       responseCount: 0
     };
   } catch (error) {
-
+    console.error('Error fetching form:', error);
     return null;
   }
 }
@@ -81,7 +108,11 @@ export async function generateMetadata({ params }) {
   if (!form) {
     return {
       title: 'Form Not Found - Aloa Custom Forms',
-      description: 'The requested form could not be found.'
+      description: 'The requested form could not be found.',
+      robots: {
+        index: false,
+        follow: false,
+      }
     };
   }
 
@@ -89,6 +120,10 @@ export async function generateMetadata({ params }) {
   const description = form.description || 'Please take a moment to complete this brief survey.';
   const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://custom-forms.vercel.app';
   const formUrl = `${siteUrl}/forms/${params.urlId}`;
+
+  // Public forms should NOT be indexed by search engines
+  // They contain potentially sensitive client data collection
+  const shouldIndex = false; // Never index forms - they're private by nature
 
   return {
     title: `${title} - Aloa® Agency`,
@@ -120,8 +155,15 @@ export async function generateMetadata({ params }) {
       canonical: formUrl,
     },
     robots: {
-      index: true,
-      follow: true,
+      index: shouldIndex,
+      follow: shouldIndex,
+      googleBot: {
+        index: shouldIndex,
+        follow: shouldIndex,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     }
   };
 }
