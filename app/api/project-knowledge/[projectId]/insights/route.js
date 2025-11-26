@@ -117,6 +117,13 @@ export async function POST(request, { params }) {
       `)
       .eq('project_id', projectId);
 
+    // Get writing style for this project
+    const { data: writingStyle } = await supabase
+      .from('aloa_project_writing_style')
+      .select('style_summary, style_attributes, tone_keywords, voice_perspective, formality_level, do_not_use, always_use, admin_notes')
+      .eq('project_id', projectId)
+      .maybeSingle();
+
     // Build project metadata as additional context
     const projectMetadata = [];
 
@@ -299,6 +306,17 @@ ${projectContext}` : 'PROJECT KNOWLEDGE:\nNo client interactions collected yet.'
 
 ${Object.keys(detailedData).length > 0 ? `DETAILED DATA:
 ${JSON.stringify(detailedData, null, 2)}` : ''}
+
+${writingStyle ? `WRITING STYLE GUIDE:
+When generating ANY written content for this project, you MUST adhere to this style:
+${writingStyle.style_summary ? `Style Overview: ${writingStyle.style_summary}` : ''}
+${writingStyle.formality_level ? `Formality: ${writingStyle.formality_level.replace(/_/g, ' ')}` : ''}
+${writingStyle.voice_perspective ? `Voice: ${writingStyle.voice_perspective.replace(/_/g, ' ')}` : ''}
+${writingStyle.tone_keywords?.length > 0 ? `Tone: ${writingStyle.tone_keywords.join(', ')}` : ''}
+${writingStyle.always_use?.length > 0 ? `Preferred Phrases: ${writingStyle.always_use.join(', ')}` : ''}
+${writingStyle.do_not_use?.length > 0 ? `Avoid These: ${writingStyle.do_not_use.join(', ')}` : ''}
+${writingStyle.admin_notes ? `Additional Notes: ${writingStyle.admin_notes}` : ''}
+` : ''}
 
 CRITICAL INSTRUCTIONS - YOU MUST FOLLOW THESE:
 1. ALWAYS START by acknowledging the project context: mention the project name, client name, and any other known details
