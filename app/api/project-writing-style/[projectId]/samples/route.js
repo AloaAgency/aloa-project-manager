@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
@@ -139,7 +141,10 @@ export async function POST(request, { params }) {
 
     if (insertError) {
       console.error('Error inserting writing sample:', insertError);
-      return NextResponse.json({ error: 'Failed to save writing sample' }, { status: 500 });
+      return NextResponse.json(
+        { error: insertError.message || 'Failed to save writing sample' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -158,7 +163,10 @@ export async function POST(request, { params }) {
 
   } catch (error) {
     console.error('Error in POST /api/project-writing-style/samples:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
