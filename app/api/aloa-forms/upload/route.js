@@ -62,18 +62,27 @@ function parseMarkdown(markdown) {
           validation: { section: currentSection }
         };
 
-        // Collect options for select/radio/checkbox fields
-        const options = [];
-        for (let j = i + 1; j < lines.length; j++) {
-          const optLine = lines[j].trim();
-          if (optLine.startsWith('  - ')) {
-            options.push(optLine.substring(4).trim());
-          } else if (optLine && !optLine.startsWith('  ')) {
-            break;
+        // Collect options for select/radio/checkbox/multiselect fields
+        if (['select', 'radio', 'checkbox', 'multiselect'].includes(fieldType)) {
+          const options = [];
+          let j = i + 1;
+          while (j < lines.length) {
+            const optLine = lines[j];
+            // Check for options that start with "  - " (2 spaces + dash)
+            if (optLine.startsWith('  - ')) {
+              options.push(optLine.substring(4).trim());
+              j++;
+            } else if (optLine.trim() === '') {
+              // Skip empty lines between options
+              j++;
+            } else {
+              // Stop when we hit a non-option, non-empty line
+              break;
+            }
           }
-        }
-        if (options.length > 0) {
           field.options = options;
+          // Advance the main loop index past the options we collected
+          i = j - 1;
         }
 
         form.fields.push(field);
@@ -117,7 +126,8 @@ function parseMarkdown(markdown) {
           validation: { section: currentSection }
         };
 
-        if (options.length > 0) {
+        // For selection types, always set options (even if empty from inline format)
+        if (['select', 'radio', 'checkbox', 'multiselect'].includes(fieldType)) {
           field.options = options;
         }
 

@@ -175,6 +175,11 @@ const ProjectInsightsChat = dynamic(() => import('@/components/ProjectInsightsCh
   ssr: false
 });
 
+// Dynamically import Writing Style Manager
+const WritingStyleManager = dynamic(() => import('@/components/WritingStyleManager'), {
+  ssr: false
+});
+
 // Dynamically import Chat Interface
 const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
   ssr: false
@@ -2292,6 +2297,9 @@ function AdminProjectPageContent() {
             </div>
           )}
         </div>
+
+        {/* Writing Style Section */}
+        <WritingStyleManager projectId={params.projectId} />
 
         {/* Client Stakeholders Section */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">

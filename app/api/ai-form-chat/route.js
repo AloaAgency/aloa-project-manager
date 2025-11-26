@@ -31,6 +31,13 @@ async function getProjectContext(projectId) {
       .order('created_at', { ascending: false })
       .limit(50);
 
+    // Fetch writing style for this project
+    const { data: writingStyle } = await supabase
+      .from('aloa_project_writing_style')
+      .select('style_summary, style_attributes, tone_keywords, voice_perspective, formality_level, do_not_use, always_use, admin_notes')
+      .eq('project_id', projectId)
+      .maybeSingle();
+
     let formatted = '\n\n=== PROJECT CONTEXT ===\n';
     formatted += `Project: ${project.project_name}\n`;
     formatted += `Description: ${project.description || 'N/A'}\n\n`;
@@ -53,6 +60,50 @@ async function getProjectContext(projectId) {
     }
 
     formatted += '=== END PROJECT CONTEXT ===\n\n';
+
+    // Add writing style if available
+    if (writingStyle) {
+      formatted += '=== WRITING STYLE GUIDE ===\n';
+      formatted += 'CRITICAL: You MUST write all form questions and descriptions in this exact style.\n\n';
+
+      if (writingStyle.style_summary) {
+        formatted += `STYLE OVERVIEW: ${writingStyle.style_summary}\n\n`;
+      }
+
+      if (writingStyle.formality_level) {
+        formatted += `FORMALITY: ${writingStyle.formality_level.replace(/_/g, ' ')}\n`;
+      }
+
+      if (writingStyle.voice_perspective) {
+        formatted += `VOICE: ${writingStyle.voice_perspective.replace(/_/g, ' ')}\n`;
+      }
+
+      if (writingStyle.tone_keywords && writingStyle.tone_keywords.length > 0) {
+        formatted += `TONE: ${writingStyle.tone_keywords.join(', ')}\n`;
+      }
+
+      if (writingStyle.always_use && writingStyle.always_use.length > 0) {
+        formatted += `\nPREFERRED PHRASES (use these): ${writingStyle.always_use.join(', ')}\n`;
+      }
+
+      if (writingStyle.do_not_use && writingStyle.do_not_use.length > 0) {
+        formatted += `\nAVOID THESE (never use): ${writingStyle.do_not_use.join(', ')}\n`;
+      }
+
+      if (writingStyle.style_attributes) {
+        const attrs = writingStyle.style_attributes;
+        if (attrs.sentence_structure) formatted += `\nSENTENCE STYLE: ${attrs.sentence_structure}\n`;
+        if (attrs.vocabulary_level) formatted += `VOCABULARY: ${attrs.vocabulary_level}\n`;
+        if (attrs.punctuation_style) formatted += `PUNCTUATION: ${attrs.punctuation_style}\n`;
+      }
+
+      if (writingStyle.admin_notes) {
+        formatted += `\nADDITIONAL NOTES: ${writingStyle.admin_notes}\n`;
+      }
+
+      formatted += '=== END WRITING STYLE GUIDE ===\n\n';
+    }
+
     return formatted;
   } catch (error) {
 
