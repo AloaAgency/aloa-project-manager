@@ -108,7 +108,13 @@ export default function WritingStyleManager({ projectId }) {
         body: formData
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        const fallbackText = await response.text().catch(() => '');
+        throw new Error(fallbackText || parseError.message || 'Upload failed');
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Upload failed');
