@@ -1,11 +1,34 @@
 import { NextResponse } from 'next/server';
 import { KnowledgeExtractor } from '@/lib/knowledgeExtractor';
 import { createServiceClient } from '@/lib/supabase-service';
+import { sendFormResponseEmail } from '@/lib/email';
 import {
   handleSupabaseError,
   hasProjectAccess,
   requireAuthenticatedSupabase,
 } from '@/app/api/_utils/admin';
+
+const FALLBACK_NOTIFICATION_EMAIL = 'info@aloa.agency';
+
+// Helper function to get the default notification email from app settings
+async function getDefaultNotificationEmail(serviceSupabase) {
+  try {
+    const { data, error } = await serviceSupabase
+      .from('aloa_app_settings')
+      .select('value')
+      .eq('key', 'default_notification_email')
+      .single();
+
+    if (!error && data?.value) {
+      // Parse the JSON value
+      const email = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      return email || FALLBACK_NOTIFICATION_EMAIL;
+    }
+  } catch (err) {
+    console.error('Failed to fetch default notification email from settings:', err);
+  }
+  return FALLBACK_NOTIFICATION_EMAIL;
+}
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ADMIN_ROLES = ['super_admin', 'project_admin'];
@@ -338,6 +361,70 @@ export async function POST(request) {
         await extractor.extractFromFormResponse(responseRecord.id);
       } catch (extractError) {
         console.error('Error extracting knowledge from form response:', extractError);
+      }
+    }
+
+    // Send email notifications for new submissions (not updates)
+    if (!isUpdate) {
+      try {
+        // Fetch form details including fields for email
+        const { data: formDetails, error: formDetailsError } = await serviceSupabase
+          .from('aloa_forms')
+          .select('id, title, aloa_project_id')
+          .eq('id', body.formId)
+          .single();
+
+        // Fetch form fields separately
+        const { data: formFields, error: fieldsError } = await serviceSupabase
+          .from('aloa_form_fields')
+          .select('field_name, field_label, field_type, validation')
+          .eq('aloa_form_id', body.formId)
+          .order('field_order', { ascending: true });
+
+        if (!formDetailsError && formDetails) {
+          const formWithFields = {
+            ...formDetails,
+            fields: formFields || [],
+          };
+
+          let recipientEmails = [];
+
+          // Check if form is attached to a project
+          if (formDetails.aloa_project_id) {
+            // Get project admin/team emails from aloa_project_team
+            const { data: teamMembers, error: teamError } = await serviceSupabase
+              .from('aloa_project_team')
+              .select('email, role')
+              .eq('project_id', formDetails.aloa_project_id)
+              .in('role', ['admin', 'designer', 'developer', 'project_admin']);
+
+            if (!teamError && teamMembers && teamMembers.length > 0) {
+              recipientEmails = teamMembers.map((member) => member.email).filter(Boolean);
+            }
+          }
+
+          // Default to configured notification email if no project or no team members found
+          if (recipientEmails.length === 0) {
+            const defaultEmail = await getDefaultNotificationEmail(serviceSupabase);
+            recipientEmails = [defaultEmail];
+          }
+
+          // Send email to each recipient
+          for (const email of recipientEmails) {
+            try {
+              await sendFormResponseEmail({
+                form: formWithFields,
+                responses: body.data || {},
+                recipientEmail: email,
+              });
+            } catch (emailError) {
+              console.error(`Failed to send notification email to ${email}:`, emailError);
+            }
+          }
+        }
+      } catch (emailError) {
+        // Don't fail the submission if email fails
+        console.error('Error sending form response notification email:', emailError);
       }
     }
 

@@ -250,14 +250,16 @@ export default function Navigation() {
                       <User className="w-4 h-4 mr-2" />
                       Profile
                     </Link>
-                    <Link
-                      href="/settings"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Settings
-                    </Link>
+                    {isSuperAdmin && (
+                      <Link
+                        href="/admin/settings"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        App Settings
+                      </Link>
+                    )}
                     <hr className="my-1" />
                     <button
                       onClick={() => {
