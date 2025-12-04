@@ -4892,16 +4892,77 @@ function AdminProjectPageContent() {
 
                                   {/* Inline prototype review configuration */}
                                   {expandedApplets[applet.id] && applet.type === 'prototype_review' && (
-                                    <div className="mt-3 w-full p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200">
-                                      <div className="flex items-center justify-between mb-3">
+                                    <div className="mt-3 w-full p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200 space-y-3">
+                                      <div className="flex items-center justify-between">
                                         <div>
                                           <h4 className="text-sm font-semibold text-gray-900">Prototype Review System</h4>
                                           <p className="text-xs text-gray-600 mt-0.5">Visual commenting on prototypes and mockups</p>
                                         </div>
                                       </div>
 
+                                      {/* Lock/Unlock toggle */}
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                          {applet.config?.locked ? (
+                                            <Lock className="w-4 h-4 text-red-600" />
+                                          ) : (
+                                            <Unlock className="w-4 h-4 text-green-600" />
+                                          )}
+                                          <span className="text-sm font-medium">
+                                            {applet.config?.locked ? 'Reviews Locked' : 'Reviews Unlocked'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const newLockedState = !applet.config?.locked;
+                                              const response = await fetch(
+                                                `/api/aloa-projects/${params.projectId}/projectlets/${projectlet.id}/applets/${applet.id}`,
+                                                {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    config: {
+                                                      ...applet.config,
+                                                      locked: newLockedState
+                                                    }
+                                                  })
+                                                }
+                                              );
+                                              if (response.ok) {
+                                                fetchProjectletApplets(projectlet.id);
+                                                toast.success(newLockedState ? 'Prototype reviews locked' : 'Prototype reviews unlocked');
+                                              }
+                                            } catch (error) {
+                                              console.error('Error toggling lock:', error);
+                                              toast.error('Failed to update lock status');
+                                            }
+                                          }}
+                                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                            applet.config?.locked
+                                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                              : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                          }`}
+                                        >
+                                          {applet.config?.locked ? 'Unlock Reviews' : 'Lock Reviews'}
+                                        </button>
+                                      </div>
+
+                                      {/* Lock status explanation */}
+                                      <div className="text-xs text-gray-600 p-2 bg-white rounded border">
+                                        {applet.config?.locked ? (
+                                          <>
+                                            <strong>Locked:</strong> Clients can view the prototype and existing comments but cannot add new comments or make changes.
+                                          </>
+                                        ) : (
+                                          <>
+                                            <strong>Unlocked:</strong> Clients can view the prototype and add comments for review feedback.
+                                          </>
+                                        )}
+                                      </div>
+
                                       {/* Prototype URL Input */}
-                                      <div className="mb-3">
+                                      <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
                                           Prototype URL
                                         </label>
@@ -4978,8 +5039,8 @@ function AdminProjectPageContent() {
                                     </div>
                                   )}
                                   {/* End of Applet Configuration Section */}
-                                      </div>
-                                    </div>
+                                </div>
+                              </div>
                               </SortableApplet>
                               {/* Spacer between applets */}
                               {appletIndex < applets.length - 1 && (
