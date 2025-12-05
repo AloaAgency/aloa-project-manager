@@ -167,8 +167,6 @@ export default function Navigation() {
   // Different nav items for admins vs clients
   const isAdmin = profile?.role === 'super_admin' || profile?.role === 'project_admin' || profile?.role === 'team_member';
 
-  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'project_admin' || profile?.role === 'team_member';
-
   const navItems = (() => {
     if (isAdmin) {
       const items = [
