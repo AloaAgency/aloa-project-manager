@@ -345,6 +345,7 @@ function AdminProjectPageContent() {
     fileRepository: false,
     clientReferences: false
   });
+  const [commStats, setCommStats] = useState({ unread: 0, open: 0, overdue: 0 });
   const [clientReferences, setClientReferences] = useState([]);
   const [editingReferences, setEditingReferences] = useState(false);
   const [tempReferences, setTempReferences] = useState([]);
@@ -1839,6 +1840,26 @@ function AdminProjectPageContent() {
     return colors[status] || 'bg-gray-100 text-gray-600';
   };
 
+  useEffect(() => {
+    const fetchCommStats = async () => {
+      try {
+        const res = await fetch(`/api/aloa-projects/${params.projectId}/communications/stats`, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        setCommStats({
+          unread: data?.unread || 0,
+          open: data?.statusCounts?.open || 0,
+          overdue: data?.overdue || 0
+        });
+      } catch (error) {
+        // ignore stats errors
+      }
+    };
+    fetchCommStats();
+    const interval = setInterval(fetchCommStats, 45000);
+    return () => clearInterval(interval);
+  }, [params.projectId]);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case 'locked': return <Lock className="w-4 h-4" />;
@@ -1888,6 +1909,34 @@ function AdminProjectPageContent() {
               <button className="bg-white text-black px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
                 Edit Project
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Communications quick stats */}
+      <div className="max-w-7xl mx-auto px-4 mt-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Communications</div>
+            <div className="mt-2 flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-slate-900">{commStats.unread}</div>
+                <div className="text-xs text-slate-500">Unread</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-semibold text-slate-900">{commStats.open}</div>
+                <div className="text-xs text-slate-500">Open</div>
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-rose-600">{commStats.overdue} overdue</div>
+            <div className="mt-3">
+              <a
+                href={`/admin/project/${params.projectId}/communications`}
+                className="inline-flex items-center rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white shadow hover:bg-slate-800"
+              >
+                View communications
+              </a>
             </div>
           </div>
         </div>

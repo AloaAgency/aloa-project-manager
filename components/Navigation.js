@@ -15,6 +15,8 @@ export default function Navigation() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [hasAttemptedRefresh, setHasAttemptedRefresh] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [commUnread, setCommUnread] = useState(0);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
   const refreshAttemptsRef = useRef(0);
   const lastVisibilityCheckRef = useRef(Date.now());
 
@@ -165,14 +167,57 @@ export default function Navigation() {
   // Different nav items for admins vs clients
   const isAdmin = profile?.role === 'super_admin' || profile?.role === 'project_admin' || profile?.role === 'team_member';
 
-  const navItems = isAdmin ? [
-    { href: '/admin/projects', label: 'Projects', icon: BarChart3 },
-    { href: '/admin/forms', label: 'Forms', icon: FileText },
-    { href: '/admin/users', label: 'Users', icon: Users, show: isSuperAdmin },
-    { href: '/create', label: 'Create Form', icon: Plus },
-  ].filter(item => item.show !== false) : [
-    { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-  ];
+  const navItems = (() => {
+    if (isAdmin) {
+      const items = [
+        { href: '/admin/projects', label: 'Projects', icon: BarChart3 },
+        { href: '/admin/forms', label: 'Forms', icon: FileText },
+        { href: '/admin/users', label: 'Users', icon: Users, show: isSuperAdmin },
+        { href: '/create', label: 'Create Form', icon: Plus }
+      ].filter(item => item.show !== false);
+
+      if (currentProjectId) {
+        items.push({
+          href: `/admin/project/${currentProjectId}/communications`,
+          label: 'Communications',
+          icon: Sparkles,
+          showBadge: commUnread > 0,
+          badge: commUnread
+        });
+      }
+
+      return items;
+    }
+
+    return [
+      { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
+      { href: '/project', label: 'Communications', icon: Sparkles, showBadge: commUnread > 0, badge: commUnread }
+    ];
+  })();
+
+  // Fetch communications unread when on a project route
+  useEffect(() => {
+    const match = pathname.match(/^\/(?:admin\/)?project\/([^/]+)/);
+    const projectId = match?.[1] || null;
+    setCurrentProjectId(projectId);
+    if (!projectId) return;
+
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch(`/api/aloa-projects/${projectId}/communications/unread`, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const unreadCount = data?.communications?.length || 0;
+        setCommUnread(unreadCount);
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
+  }, [pathname]);
 
   return (
     <nav className="bg-aloa-black border-b-2 border-aloa-black">
@@ -189,25 +234,35 @@ export default function Navigation() {
             </Link>
 
             <div className="hidden sm:ml-6 sm:flex sm:space-x-4">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href || 
-                  (item.href === '/admin/projects' && pathname === '/dashboard');
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`inline-flex items-center px-3 py-2 text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'text-aloa-cream border-b-2 border-aloa-cream'
-                        : 'text-gray-300 hover:text-aloa-cream'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4 mr-2" />
-                    {item.label}
-                  </Link>
-                );
-              })}
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              let resolvedHref = item.href;
+              if (item.href === '/project' && pathname.startsWith('/project/')) {
+                resolvedHref = `${pathname.split('/').slice(0,3).join('/')}/communications`;
+              }
+              const isActive = pathname === resolvedHref ||
+                (item.href === '/admin/projects' && pathname === '/dashboard') ||
+                (resolvedHref && pathname.startsWith(resolvedHref));
+              return (
+                <Link
+                  key={item.href}
+                  href={resolvedHref}
+                  className={`inline-flex items-center px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'text-aloa-cream border-b-2 border-aloa-cream'
+                      : 'text-gray-300 hover:text-aloa-cream'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 mr-2" />
+                  {item.label}
+                  {item.showBadge && (
+                    <span className="ml-2 inline-flex items-center rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
             </div>
           </div>
 
@@ -284,11 +339,15 @@ export default function Navigation() {
         <div className="px-2 pt-2 pb-3 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            let resolvedHref = item.href;
+            if (item.href === '/project' && pathname.startsWith('/project/')) {
+              resolvedHref = `${pathname.split('/').slice(0,3).join('/')}/communications`;
+            }
+            const isActive = pathname === resolvedHref || (resolvedHref && pathname.startsWith(resolvedHref));
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={resolvedHref}
                 className={`flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors ${
                   isActive
                     ? 'bg-gray-900 text-aloa-cream'
@@ -297,6 +356,11 @@ export default function Navigation() {
               >
                 <Icon className="w-5 h-5 mr-3" />
                 {item.label}
+                {item.showBadge && (
+                  <span className="ml-2 inline-flex items-center rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
