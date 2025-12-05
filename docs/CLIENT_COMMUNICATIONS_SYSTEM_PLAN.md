@@ -837,43 +837,43 @@ Configurable email triggers:
 ## Implementation Phases
 
 ### Phase 1: Database Foundation (Day 1)
-- [ ] Create SQL migration file with all tables
-- [ ] Add RLS policies
-- [ ] Create database triggers for auto-timestamps (`updated_at` on UPDATE; `acknowledged_at` when status becomes acknowledged; `completed_at` when status becomes completed)
+- [x] Create SQL migration file with all tables
+- [x] Add RLS policies
+- [x] Create database triggers for auto-timestamps (`updated_at` on UPDATE; `acknowledged_at` when status becomes acknowledged; `completed_at` when status becomes completed)
 - [ ] Create notification trigger functions
-- [ ] Test migrations in development
+- [x] Test migrations in development
 
 ### Phase 2: Core API (Day 1-2)
-- [ ] Create communications CRUD endpoints
-- [ ] Create messages endpoints
-- [ ] Create read status endpoints
-- [ ] Create stats/aggregation endpoints
-- [ ] Add authentication checks
-- [ ] Add knowledge extraction integration
+- [x] Create communications CRUD endpoints
+- [x] Create messages endpoints
+- [x] Create read status endpoints
+- [x] Create stats/aggregation endpoints
+- [x] Add authentication checks
+- [x] Add knowledge extraction integration
 
 ### Phase 3: Client UI (Day 2-3)
-- [ ] Create CommunicationsPage component
+- [x] Create CommunicationsPage component
 - [ ] Create CommunicationsList with filters
-- [ ] Create CommunicationCard component
-- [ ] Create CommunicationDetail with thread
-- [ ] Create CreateRequestModal (client)
-- [ ] Create MessageInput component
-- [ ] Add to client navigation
+- [x] Create CommunicationCard component
+- [x] Create CommunicationDetail with thread
+- [x] Create CreateRequestModal (client)
+- [x] Create MessageInput component
+- [x] Add to client navigation
 
 ### Phase 4: Admin UI (Day 3-4)
-- [ ] Create admin communications page
-- [ ] Create CreateAdminRequestModal
-- [ ] Add template system
+- [x] Create admin communications page
+- [x] Create CreateAdminRequestModal
+- [x] Add template system
 - [ ] Add bulk actions
-- [ ] Add assignee management
-- [ ] Add to admin navigation
+- [x] Add assignee management
+- [x] Add to admin navigation
 
 ### Phase 5: Integration (Day 4-5)
-- [ ] Connect to notification system
-- [ ] Add knowledge extraction hooks
-- [ ] Set up email notifications
-- [ ] Add dashboard widgets
-- [ ] Add unread badges to navigation
+- [x] Connect to notification system
+- [x] Add knowledge extraction hooks
+- [x] Set up email notifications
+- [x] Add dashboard widgets
+- [x] Add unread badges to navigation
 
 ### Phase 6: Polish (Day 5)
 - [ ] Optional: add confetti on completion (feature-flagged)

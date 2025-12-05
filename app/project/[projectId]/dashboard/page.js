@@ -112,6 +112,7 @@ function ClientDashboard() {
   const [peerViewInfo, setPeerViewInfo] = useState(null);
   const [showFormResponseModal, setShowFormResponseModal] = useState(false);
   const [selectedResponseData, setSelectedResponseData] = useState(null);
+  const [commStats, setCommStats] = useState({ unread: 0, open: 0, overdue: 0 });
 
   useEffect(() => {
     setAppletCompletions({});
@@ -365,14 +366,36 @@ function ClientDashboard() {
     }
   };
 
+  const fetchCommStats = async () => {
+    try {
+      const res = await fetch(`/api/aloa-projects/${params.projectId}/communications/stats`, {
+        credentials: 'include'
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setCommStats({
+        unread: data?.unread || 0,
+        open: data?.statusCounts?.open || 0,
+        overdue: data?.overdue || 0
+      });
+    } catch (error) {
+      // ignore stats errors
+    }
+  };
+
   useEffect(() => {
     if (userId) {
       fetchProjectData();
       fetchUnreadCount();
+      fetchCommStats();
 
       // Poll for unread count every 30 seconds
       const interval = setInterval(fetchUnreadCount, 30000);
-      return () => clearInterval(interval);
+      const commInterval = setInterval(fetchCommStats, 45000);
+      return () => {
+        clearInterval(interval);
+        clearInterval(commInterval);
+      };
     }
   }, [params.projectId, userId]);
 
@@ -1098,9 +1121,37 @@ function ClientDashboard() {
                 <span className="text-xl font-bold">{progress}%</span>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick stats */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Communications</div>
+            <div className="mt-2 flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-slate-900">{commStats.unread}</div>
+                <div className="text-xs text-slate-500">Unread</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-semibold text-slate-900">{commStats.open}</div>
+                <div className="text-xs text-slate-500">Open</div>
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-rose-600">{commStats.overdue} overdue</div>
+            <div className="mt-3">
+              <a
+                href={`/project/${params.projectId}/communications`}
+                className="inline-flex items-center rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white shadow hover:bg-slate-800"
+              >
+                View communications
+              </a>
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Main Content */}
