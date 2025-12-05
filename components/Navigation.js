@@ -117,6 +117,30 @@ export default function Navigation() {
     }
   }, [loading, user, isProtectedPage, pathname, signOut, router]);
 
+  // Fetch communications unread when on a project route
+  useEffect(() => {
+    const match = pathname.match(/^\/(?:admin\/)?project\/([^/]+)/);
+    const projectId = match?.[1] || null;
+    setCurrentProjectId(projectId);
+    if (!projectId) return;
+
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch(`/api/aloa-projects/${projectId}/communications/unread`, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const unreadCount = data?.communications?.length || 0;
+        setCommUnread(unreadCount);
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
+  }, [pathname]);
+
   // Don't show navigation on auth pages
   if (pathname.startsWith('/auth/')) {
     return null;
@@ -194,30 +218,6 @@ export default function Navigation() {
       { href: '/project', label: 'Communications', icon: Sparkles, showBadge: commUnread > 0, badge: commUnread }
     ];
   })();
-
-  // Fetch communications unread when on a project route
-  useEffect(() => {
-    const match = pathname.match(/^\/(?:admin\/)?project\/([^/]+)/);
-    const projectId = match?.[1] || null;
-    setCurrentProjectId(projectId);
-    if (!projectId) return;
-
-    const fetchUnread = async () => {
-      try {
-        const res = await fetch(`/api/aloa-projects/${projectId}/communications/unread`, { credentials: 'include' });
-        if (!res.ok) return;
-        const data = await res.json();
-        const unreadCount = data?.communications?.length || 0;
-        setCommUnread(unreadCount);
-      } catch {
-        // ignore
-      }
-    };
-
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 60000);
-    return () => clearInterval(interval);
-  }, [pathname]);
 
   return (
     <nav className="bg-aloa-black border-b-2 border-aloa-black">
