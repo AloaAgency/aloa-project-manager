@@ -3,7 +3,6 @@ const isProduction = process.env.NODE_ENV === 'production';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   compress: true,
   poweredByHeader: false,
   images: {
@@ -61,28 +60,7 @@ const nextConfig = {
   compiler: {
     removeConsole: isProduction ? { exclude: ['error', 'warn'] } : false,
   },
-  // Configure webpack for development
-  webpack: (config, { dev, isServer }) => {
-    if (dev && !isServer) {
-      // Enable CORS for webpack dev server
-      config.devServer = {
-        ...config.devServer,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-          'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization',
-        },
-      }
-      // Configure WebSocket for HMR
-      config.watchOptions = {
-        ...config.watchOptions,
-        poll: 1000, // Check for changes every second
-        aggregateTimeout: 300, // Delay rebuild after changes
-        ignored: /node_modules/,
-      }
-    }
-    return config
-  },
+  turbopack: {},
 }
 
 module.exports = nextConfig
